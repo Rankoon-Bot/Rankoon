@@ -45,6 +45,13 @@ Accept: application/json
 
 ###
 
+### Get User Guilds (requires Authorization header with JWT token)
+GET {{Rankoon_HostAddress}}/api/auth/guilds
+Authorization: Bearer your_jwt_token_here
+Accept: application/json
+
+###
+
 ### Test Authentication (requires Authorization header with JWT token)
 GET {{Rankoon_HostAddress}}/api/auth/test
 Authorization: Bearer your_jwt_token_here

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Rankoon.Data.Auth;
+using Rankoon.Data.Utils;
 
 namespace Rankoon.Controllers;
 
@@ -62,22 +63,43 @@ public class AuthController : ControllerBase
                 return BadRequest(new { error = "Authorization code is required" });
             }
 
-            var tokenResponse = await _authService.HandleCallbackAsync(code, state);
-            if (tokenResponse == null)
+            string? cached_state = null;
+            string? returnUrl = null;
+            if (state?.Contains('|') ?? false)
             {
-                return BadRequest(new { error = "Authentication failed" });
+                var parts = state?.Split('|');
+                state = parts?[0]; // The actual state
+                returnUrl = parts?.Length > 1 ? parts[1] : null;
             }
 
-            // Extract return URL from state if present
-            string? returnUrl = null;
-            if (!string.IsNullOrEmpty(state) && state.Contains('|'))
+            cached_state = await CacheManager.GetOrSetAsync<string>(
+                $"auth_state_{state}",
+                static () => Task.FromResult(string.Empty),
+                DateTimeOffset.UtcNow.AddMinutes(1)
+            );
+
+            if (string.IsNullOrEmpty(cached_state))
             {
-                var parts = state.Split('|', 2);
-                if (parts.Length == 2)
-                {
-                    returnUrl = parts[1];
-                }
+                _logger.LogWarning("Invalid or expired state parameter for Discord OAuth callback");
+                throw new InvalidOperationException("Invalid or expired state parameter");
             }
+
+            CacheManager.Remove($"auth_state_{state}");
+
+
+            if (cached_state != state)
+            {
+                _logger.LogWarning("State parameter mismatch: expected {ExpectedState}, got {ActualState}", cached_state, state);
+                throw new InvalidOperationException("State parameter mismatch");
+            }
+
+
+            var tokenResponse = await _authService.HandleCallbackAsync(code);
+            if (tokenResponse == null)
+            {
+                throw new InvalidOperationException("Failed to handle OAuth callback");
+            }
+
 
             // Build frontend callback URL with our token
             var frontendCallbackUrl = $"{_frontendSettings.BaseUrl}{_frontendSettings.CallbackPath}";
@@ -96,13 +118,13 @@ public class AuthController : ControllerBase
             var finalUrl = $"{frontendCallbackUrl}?{string.Join("&", parameters)}";
 
             _logger.LogInformation("User {UserId} authenticated successfully", tokenResponse.User.Id);
-            
+
             return Redirect(finalUrl);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling OAuth callback");
-            
+
             // Redirect to frontend with error
             var errorUrl = $"{_frontendSettings.BaseUrl}{_frontendSettings.CallbackPath}?error=authentication_failed";
             return Redirect(errorUrl);
@@ -126,7 +148,7 @@ public class AuthController : ControllerBase
 
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
             var tokenResponse = await _authService.RefreshTokenAsync(request.RefreshToken, ipAddress);
-            
+
             if (tokenResponse == null)
             {
                 return Unauthorized(new { error = "Invalid or expired refresh token" });
@@ -157,7 +179,7 @@ public class AuthController : ControllerBase
             }
 
             var success = await _authService.RevokeTokenAsync(request.RefreshToken);
-            
+
             if (success)
             {
                 return Ok(new { message = "Logged out successfully" });
@@ -241,7 +263,7 @@ public class AuthController : ControllerBase
             // Get the current token from Authorization header
             var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
             var token = authHeader?.Substring("Bearer ".Length).Trim();
-            
+
             if (string.IsNullOrEmpty(token))
             {
                 return Unauthorized(new { error = "No token provided" });
@@ -250,7 +272,7 @@ public class AuthController : ControllerBase
             // Get token expiration from claims
             var expClaim = User.FindFirst("exp")?.Value;
             DateTime expiresAt = DateTime.UtcNow.AddHours(1); // Default fallback
-            
+
             if (!string.IsNullOrEmpty(expClaim) && long.TryParse(expClaim, out var exp))
             {
                 expiresAt = DateTimeOffset.FromUnixTimeSeconds(exp).DateTime;
@@ -279,6 +301,37 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error verifying token");
+            return StatusCode(500, new { error = "Internal server error" });
+        }
+    }
+
+    /// <summary>
+    /// Get user's Discord guilds (requires authentication)
+    /// </summary>
+    /// <returns>List of user's Discord guilds</returns>
+    [HttpGet("guilds")]
+    [Authorize]
+    public async Task<IActionResult> GetUserGuilds()
+    {
+        try
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { error = "Invalid token" });
+            }
+
+            var guilds = await _authService.GetUserGuildsAsync(userId);
+            if (guilds == null)
+            {
+                return StatusCode(500, new { error = "Failed to fetch guilds" });
+            }
+
+            return Ok(guilds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting user guilds");
             return StatusCode(500, new { error = "Internal server error" });
         }
     }

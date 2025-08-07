@@ -30,6 +30,14 @@ public class RankoonDbContext
     /// </summary>
     public IMongoCollection<RefreshToken> RefreshTokens =>
         _database.GetCollection<RefreshToken>("refresh_tokens");
+
+    public IMongoCollection<GuildXpSettings> GuildXpSettings => _database.GetCollection<GuildXpSettings>("guild_xp_settings");
+    public IMongoCollection<MemberXp> MemberXp => _database.GetCollection<MemberXp>("member_xp");
+    public IMongoCollection<XpLedgerEntry> XpLedger => _database.GetCollection<XpLedgerEntry>("xp_ledger");
+    public IMongoCollection<VoiceSession> VoiceSessions => _database.GetCollection<VoiceSession>("voice_sessions");
+    public IMongoCollection<VcHub> VcHubs => _database.GetCollection<VcHub>("vc_hubs");
+    public IMongoCollection<TemporaryVoiceChannel> TemporaryVoiceChannels => _database.GetCollection<TemporaryVoiceChannel>("temporary_voice_channels");
+    public IMongoCollection<GuildStats> GuildStats => _database.GetCollection<GuildStats>("guild_stats");
 }
 
 /// <summary>

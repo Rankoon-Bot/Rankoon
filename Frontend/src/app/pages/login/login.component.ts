@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { AuthStore } from '../../store/auth.store';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-login',
@@ -74,8 +75,10 @@ import { AuthStore } from '../../store/auth.store';
 export class LoginComponent {
   private readonly authService = inject(AuthService);
   public readonly authStore = inject(AuthStore);
+  private readonly route = inject(ActivatedRoute);
 
   login(): void {
-    this.authService.login();
+    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+    this.authService.login(returnUrl);
   }
 }

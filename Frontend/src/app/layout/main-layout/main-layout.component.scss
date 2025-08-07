@@ -1,8 +1,8 @@
 .layout-container {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #f5f6fa;
+  background: radial-gradient(circle at 82% -12%, var(--rk-info-subtle), transparent 30%), var(--rk-canvas);
 }
 
 .layout-content {
@@ -13,9 +13,9 @@
 
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: var(--rk-space-6);
   overflow-y: auto;
-  transition: margin-left 0.3s ease;
+  transition: margin-left var(--rk-motion-base);
   
   &.with-sidebar {
     margin-left: 250px;
@@ -23,6 +23,10 @@
 }
 
 @media (max-width: 768px) {
+  .main-content {
+    padding: var(--rk-space-4);
+  }
+
   .main-content.with-sidebar {
     margin-left: 0;
   }

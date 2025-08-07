@@ -1,0 +1,43 @@
+.server-selection { min-height: 100%; padding: var(--rk-space-8) var(--rk-space-6); background: radial-gradient(circle at 86% 4%, var(--rk-brand-subtle), transparent 26%); }
+.server-selection-header { margin-bottom: var(--rk-space-8); text-align: center; }
+.header-content { max-width: 600px; margin: 0 auto; }
+.header-content h1 { margin-bottom: var(--rk-space-3); }
+.header-content p { color: var(--rk-text-muted); }
+.server-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--rk-space-4); max-width: 1120px; margin: 0 auto; }
+.server-card { display: flex; align-items: center; gap: var(--rk-space-4); min-height: 100px; padding: var(--rk-space-5); cursor: pointer; background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); transition: transform var(--rk-motion-fast), border-color var(--rk-motion-base), background-color var(--rk-motion-base); }
+.server-card:hover { background: var(--rk-surface-2); border-color: var(--rk-info); transform: translateY(-2px); }
+.server-card.owner { border-color: color-mix(in srgb, var(--rk-warning) 60%, var(--rk-border-subtle)); }
+.server-card.missing { cursor: default; }
+.server-card.missing:hover { background: var(--rk-surface-1); border-color: var(--rk-border-subtle); transform: none; }
+.server-card[role="button"]:focus-visible, .invite-btn:focus-visible, .retry-btn:focus-visible { outline: none; box-shadow: var(--rk-focus-ring); }
+.server-icon { display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; overflow: hidden; background: var(--rk-surface-3); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-md); }
+.guild-icon { width: 100%; height: 100%; object-fit: cover; }
+.guild-initials { color: var(--rk-text-strong); font-weight: 700; }
+.server-info { flex: 1; min-width: 0; }
+.server-name { margin-bottom: var(--rk-space-2); overflow: hidden; color: var(--rk-text-strong); font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; }
+.server-badges { display: flex; flex-wrap: wrap; gap: var(--rk-space-2); }
+.badge { display: inline-flex; align-items: center; gap: var(--rk-space-1); padding: 3px 6px; border-radius: var(--rk-radius-sm); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.owner-badge { color: var(--rk-warning); background: var(--rk-warning-subtle); }
+.admin-badge { color: var(--rk-info); background: var(--rk-info-subtle); }
+.bot-badge { color: var(--rk-success); background: var(--rk-success-subtle); }
+.missing-badge { color: var(--rk-warning); background: var(--rk-warning-subtle); }
+.server-arrow { color: var(--rk-text-muted); }
+.server-card:hover .server-arrow { color: var(--rk-brand); }
+.invite-btn { display: inline-flex; align-items: center; min-height: 44px; padding: var(--rk-space-2) var(--rk-space-3); color: var(--rk-text-strong); background: var(--rk-discord); border: 1px solid var(--rk-discord); border-radius: var(--rk-radius-md); font-weight: 700; text-decoration: none; white-space: nowrap; }
+.invite-btn:hover { box-shadow: var(--rk-shadow-discord); }
+.invite-btn:active { background: var(--rk-surface-3); }
+.center-content, .error-state { display: grid; place-items: center; min-height: 360px; text-align: center; }
+.loading-state, .empty-state { max-width: 420px; }
+.loading-state h3, .empty-state h3 { margin: var(--rk-space-4) 0 var(--rk-space-2); }
+.loading-state p, .empty-state p { color: var(--rk-text-muted); }
+.loading-spinner { width: 42px; height: 42px; margin: 0 auto; border: 3px solid var(--rk-border-strong); border-top-color: var(--rk-brand); border-radius: 50%; animation: spin 800ms linear infinite; }
+.empty-icon { color: var(--rk-text-muted); }
+.empty-icon svg { width: 48px; height: 48px; }
+.error-state { min-height: 200px; max-width: 500px; padding: var(--rk-space-6); margin: var(--rk-space-6) auto; background: var(--rk-danger-subtle); border: 1px solid var(--rk-danger); border-radius: var(--rk-radius-lg); }
+.error-icon { color: var(--rk-danger); }
+.error-message { margin: var(--rk-space-3) 0 var(--rk-space-4); color: var(--rk-text); }
+.retry-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; gap: var(--rk-space-2); padding: 10px var(--rk-space-4); color: var(--rk-text-strong); background: var(--rk-brand); border: 1px solid var(--rk-brand); border-radius: var(--rk-radius-md); font-weight: 700; }
+.retry-btn:hover { background: var(--rk-brand-hover); }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .server-card, .loading-spinner { animation: none; transition: none; } }
+@media (max-width: 768px) { .server-selection { padding: var(--rk-space-6) var(--rk-space-4); } .server-grid { grid-template-columns: 1fr; } }

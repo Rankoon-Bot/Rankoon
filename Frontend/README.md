@@ -112,12 +112,15 @@ Das Dashboard nutzt lazy loading für optimale Performance. Alle Routen sind dur
 
 ## 🎨 Design System
 
-Das Dashboard verwendet ein modernes Design mit:
+Das Dashboard verwendet das Dark-First Rankoon Control Deck Design.
 
-- **Farbschema**: Gradient von Violett zu Blau
-- **Typography**: Inter Font Family
-- **Responsive Design**: Mobile-first Approach
-- **Icons**: SVG-basierte Icons für bessere Performance
+- **Verbindliche Regeln**: [`THEMING.md`](THEMING.md)
+- **Tokens**: `src/styles/_tokens.scss`
+- **Typography**: Inter mit System-Fallback
+- **Responsive Design**: Mobile-first, mit Tastatur- und Kontrastanforderungen
+- **Icons**: SVG-basierte Outline-Icons mit `currentColor`
+
+Alle neuen oder geaenderten UI-Bausteine muessen die Token und Regeln aus `THEMING.md` verwenden. Die Anweisungen in [`AGENTS.md`](AGENTS.md) gelten ebenfalls fuer AI-gestuetzte Entwicklung.
 
 ## 🔧 Entwicklung
 

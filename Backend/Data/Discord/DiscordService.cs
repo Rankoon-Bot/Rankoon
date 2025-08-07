@@ -29,6 +29,11 @@ public interface IDiscordService
     Task<DiscordUserInfo?> GetUserInfoAsync(string accessToken);
 
     /// <summary>
+    /// Get user's Discord guilds
+    /// </summary>
+    Task<DiscordGuildInfo[]?> GetUserGuildsAsync(string accessToken);
+
+    /// <summary>
     /// Refresh Discord access token
     /// </summary>
     Task<DiscordTokenResponse?> RefreshTokenAsync(string refreshToken);
@@ -48,6 +53,7 @@ public class DiscordService : IDiscordService
 
     private const string TokenEndpoint = "https://discord.com/api/oauth2/token";
     private const string UserEndpoint = "https://discord.com/api/users/@me";
+    private const string GuildsEndpoint = "https://discord.com/api/users/@me/guilds";
     private const string AuthEndpoint = "https://discord.com/api/oauth2/authorize";
 
     public DiscordService(
@@ -138,6 +144,38 @@ public class DiscordService : IDiscordService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting Discord user info");
+            return null;
+        }
+        finally
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = null;
+        }
+    }
+
+    public async Task<DiscordGuildInfo[]?> GetUserGuildsAsync(string accessToken)
+    {
+        try
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            
+            var response = await _httpClient.GetAsync(GuildsEndpoint);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Discord guilds request failed: {StatusCode} - {Content}", response.StatusCode, errorContent);
+                return null;
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<DiscordGuildInfo[]>(jsonResponse, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting Discord user guilds");
             return null;
         }
         finally

@@ -7,6 +7,8 @@ export interface Guild {
   owner: boolean;
   permissions: string;
   features: string[];
+  botInstalled: boolean;
+  inviteUrl: string;
 }
 
 export interface BotConfig {
@@ -66,14 +68,24 @@ export class AppStore {
   readonly hasGuilds = computed(() => this._guilds().length > 0);
   readonly hasError = computed(() => this._error() !== null);
 
+  constructor() {
+    this.loadSelectedGuildFromStorage();
+  }
+
   // Actions
   setSelectedGuild(guild: Guild | null): void {
     this._selectedGuild.set(guild);
     this._error.set(null);
+    this.saveSelectedGuildToStorage(guild);
   }
 
   setGuilds(guilds: Guild[]): void {
     this._guilds.set(guilds);
+    const selectedGuild = this._selectedGuild();
+    if (!selectedGuild) return;
+
+    const currentGuild = guilds.find(guild => guild.id === selectedGuild.id && guild.botInstalled);
+    this.setSelectedGuild(currentGuild ?? null);
   }
 
   addGuild(guild: Guild): void {
@@ -105,6 +117,39 @@ export class AppStore {
     this._guilds.set([]);
     this._botConfig.set(null);
     this._error.set(null);
+    this.clearSelectedGuildFromStorage();
+  }
+
+  // Storage management for selected guild
+  private loadSelectedGuildFromStorage(): void {
+    if (typeof window !== 'undefined') {
+      const storedGuild = sessionStorage.getItem('rankoon_selected_guild');
+      if (storedGuild) {
+        try {
+          const guild = JSON.parse(storedGuild) as Guild;
+          this._selectedGuild.set(guild);
+        } catch (error) {
+          console.error('Error parsing stored guild:', error);
+          this.clearSelectedGuildFromStorage();
+        }
+      }
+    }
+  }
+
+  private saveSelectedGuildToStorage(guild: Guild | null): void {
+    if (typeof window !== 'undefined') {
+      if (guild) {
+        sessionStorage.setItem('rankoon_selected_guild', JSON.stringify(guild));
+      } else {
+        sessionStorage.removeItem('rankoon_selected_guild');
+      }
+    }
+  }
+
+  private clearSelectedGuildFromStorage(): void {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('rankoon_selected_guild');
+    }
   }
 
   // State getter for debugging or serialization

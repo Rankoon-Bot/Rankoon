@@ -1,24 +1,324 @@
 .header {
-  height: 60px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  min-height: 64px;
+  background: var(--rk-header-bg);
+  backdrop-filter: blur(18px);
+  color: var(--rk-text-strong);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0 var(--rk-space-6);
+  border-bottom: 1px solid var(--rk-border-subtle);
   z-index: 1000;
 }
 
 .header-left {
   display: flex;
   align-items: center;
+  gap: var(--rk-space-4);
 }
 
 .logo {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   margin: 0;
+}
+
+.guild-info {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--rk-space-2);
+  padding: 6px var(--rk-space-3);
+  background: var(--rk-surface-2);
+  border: 1px solid var(--rk-border-subtle);
+  border-radius: var(--rk-radius-md);
+  cursor: pointer;
+  transition: border-color var(--rk-motion-fast), background-color var(--rk-motion-fast);
+
+  &:hover {
+    background: var(--rk-surface-3);
+    border-color: var(--rk-border-strong);
+  }
+
+  .guild-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--rk-radius-sm);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--rk-canvas);
+
+    .guild-avatar {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .guild-initials {
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: var(--rk-text-strong);
+    }
+  }
+
+  .guild-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    font-size: 0.9rem;
+
+    span {
+      max-width: 150px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    svg {
+      opacity: 0.7;
+      transition: transform 0.2s ease;
+    }
+  }
+}
+
+.guild-dropdown {
+  position: absolute;
+  top: calc(100% + var(--rk-space-2));
+  left: 0;
+  min-width: 320px;
+  max-width: 400px;
+  background: var(--rk-surface-1);
+  border-radius: var(--rk-radius-lg);
+  box-shadow: var(--rk-shadow-float);
+  z-index: 1001;
+  overflow: hidden;
+  border: 1px solid var(--rk-border-strong);
+
+  .dropdown-header {
+    padding: var(--rk-space-4) var(--rk-space-5) var(--rk-space-3);
+    border-bottom: 1px solid var(--rk-border-subtle);
+    background: var(--rk-surface-2);
+
+    span {
+      font-weight: 600;
+      color: var(--rk-text-strong);
+      font-size: 0.9rem;
+    }
+  }
+
+  .dropdown-content {
+    max-height: 350px;
+    overflow-y: auto;
+  }
+
+  .dropdown-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    color: var(--rk-text-muted);
+
+    .loading-spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--rk-border-strong);
+      border-left-color: var(--rk-brand);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+  }
+
+  .guild-list {
+    padding: 8px 0;
+  }
+
+  .guild-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    color: var(--rk-text);
+
+    &:hover {
+      background: var(--rk-surface-2);
+    }
+
+    &.selected {
+      background: var(--rk-brand-subtle);
+      border-left: 3px solid var(--rk-brand);
+      padding-left: 17px;
+    }
+
+    &.missing {
+      cursor: default;
+    }
+
+    .guild-item-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--rk-surface-3);
+      flex-shrink: 0;
+
+      .guild-item-avatar {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .guild-item-initials {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--rk-text);
+      }
+    }
+
+    .guild-item-info {
+      flex: 1;
+      min-width: 0;
+
+      .guild-item-name {
+        display: block;
+        font-weight: 500;
+        font-size: 0.95rem;
+        color: var(--rk-text-strong);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+      }
+
+      .guild-item-badges {
+        display: flex;
+        gap: 6px;
+
+        .badge {
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 0.7rem;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+
+          &.owner-badge {
+            background: var(--rk-warning-subtle);
+            color: var(--rk-warning);
+            border: 1px solid var(--rk-warning);
+          }
+
+          &.manager-badge {
+            background: var(--rk-success-subtle);
+            color: var(--rk-success);
+            border: 1px solid var(--rk-success);
+          }
+
+          &.missing-badge {
+            background: var(--rk-warning-subtle);
+            color: var(--rk-warning);
+            border: 1px solid var(--rk-warning);
+          }
+        }
+      }
+    }
+
+    .invite-btn {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: var(--rk-space-2) var(--rk-space-3);
+      color: var(--rk-text-strong);
+      background: var(--rk-discord);
+      border: 1px solid var(--rk-discord);
+      border-radius: var(--rk-radius-md);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .invite-btn:hover {
+      box-shadow: var(--rk-shadow-discord);
+    }
+
+    .invite-btn:focus-visible {
+      outline: none;
+      box-shadow: var(--rk-focus-ring);
+    }
+
+    .selected-indicator {
+      color: var(--rk-brand);
+      flex-shrink: 0;
+    }
+  }
+
+  .dropdown-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--rk-text-muted);
+    font-style: italic;
+  }
+
+  .dropdown-error {
+    padding: 20px;
+    text-align: center;
+    color: var(--rk-danger);
+
+    .retry-btn {
+      margin-top: 8px;
+      padding: 6px 12px;
+      background: var(--rk-danger);
+      color: var(--rk-text-strong);
+      border: none;
+      border-radius: var(--rk-radius-sm);
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background-color var(--rk-motion-fast);
+
+      &:hover {
+        background: var(--rk-brand-pressed);
+      }
+    }
+  }
+
+  .dropdown-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--rk-border-subtle);
+    background: var(--rk-surface-2);
+
+    .view-all-btn {
+      width: 100%;
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--rk-border-strong);
+      border-radius: var(--rk-radius-sm);
+      color: var(--rk-text);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: border-color var(--rk-motion-fast), background-color var(--rk-motion-fast), color var(--rk-motion-fast);
+
+      &:hover {
+        background: var(--rk-surface-3);
+        border-color: var(--rk-info);
+        color: var(--rk-text-strong);
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .header-right {
@@ -36,7 +336,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid var(--rk-border-strong);
 }
 
 .username {
@@ -44,17 +344,56 @@
 }
 
 .logout-btn {
-  background: rgba(255, 255, 255, 0.1);
+  min-width: 44px;
+  min-height: 44px;
+  background: transparent;
   border: none;
   color: white;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--rk-radius-md);
   cursor: pointer;
   display: flex;
   align-items: center;
-  transition: background-color 0.2s ease;
+  transition: background-color var(--rk-motion-fast);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--rk-surface-2);
+  }
+}
+
+.menu-btn { display: none; }
+
+@media (max-width: 768px) {
+  .header {
+    padding: 0 var(--rk-space-3);
+  }
+
+  .header-left {
+    gap: 12px;
+  }
+
+  .logo {
+    font-size: 0.85rem;
+  }
+
+  .guild-info {
+    .guild-name span {
+      max-width: 100px;
+    }
+  }
+
+  .username {
+    display: none;
+  }
+
+  .menu-btn {
+    display: grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    color: var(--rk-text-strong);
+    background: transparent;
+    border: 1px solid var(--rk-border-subtle);
+    border-radius: var(--rk-radius-md);
   }
 }

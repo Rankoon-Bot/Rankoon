@@ -1,0 +1,22 @@
+.page { max-width: 1100px; margin: 0 auto; }
+header { display: flex; align-items: end; justify-content: space-between; gap: var(--rk-space-5); margin-bottom: var(--rk-space-6); }
+h1, h2, p { margin-top: 0; }
+h1 { margin-bottom: var(--rk-space-2); }
+h2 { font-size: 1rem; }
+header > div > p:last-child, footer span { color: var(--rk-text-muted); }
+.eyebrow { margin-bottom: var(--rk-space-2); color: var(--rk-info); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; }
+button { min-height: 40px; padding: 10px var(--rk-space-4); color: var(--rk-text-strong); background: var(--rk-brand); border: 1px solid var(--rk-brand); border-radius: var(--rk-radius-md); font-weight: 700; }
+button:hover { background: var(--rk-brand-hover); }
+.danger { color: var(--rk-danger); background: var(--rk-danger-subtle); border-color: transparent; }
+.danger:hover { background: var(--rk-danger-subtle); border-color: var(--rk-danger); }
+.notice { padding: var(--rk-space-3); margin-bottom: var(--rk-space-5); color: var(--rk-success); background: var(--rk-success-subtle); border: 1px solid color-mix(in srgb, var(--rk-success) 50%, transparent); border-radius: var(--rk-radius-md); }
+.grid { display: grid; gap: var(--rk-space-4); }
+.hub { padding: var(--rk-space-6); background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); }
+.hub-title { display: flex; align-items: center; justify-content: space-between; gap: var(--rk-space-4); margin-bottom: var(--rk-space-4); }
+.hub-title label { display: flex; gap: var(--rk-space-2); color: var(--rk-text); }
+.hub-title input { width: auto; accent-color: var(--rk-brand); }
+.fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--rk-space-3); }
+label { display: grid; gap: var(--rk-space-2); color: var(--rk-text-muted); font-size: 0.84rem; }
+footer { display: flex; align-items: center; gap: var(--rk-space-2); margin-top: var(--rk-space-5); padding-top: var(--rk-space-4); border-top: 1px solid var(--rk-border-subtle); }
+footer span { flex: 1; font-size: 0.8rem; }
+@media (max-width: 700px) { header, footer { display: block; } header button, footer button { margin-top: var(--rk-space-3); } .fields { grid-template-columns: 1fr; } }

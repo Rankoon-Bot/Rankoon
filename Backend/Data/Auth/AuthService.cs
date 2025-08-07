@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Rankoon.Data.Auth;
@@ -21,7 +22,7 @@ public interface IAuthService
     /// <summary>
     /// Handle Discord OAuth callback
     /// </summary>
-    Task<TokenResponse?> HandleCallbackAsync(string code, string? state);
+    Task<TokenResponse?> HandleCallbackAsync(string code);
 
     /// <summary>
     /// Refresh JWT tokens using refresh token
@@ -37,28 +38,39 @@ public interface IAuthService
     /// Get user by ID
     /// </summary>
     Task<DiscordUser?> GetUserAsync(string userId);
+
+    /// <summary>
+    /// Get user's Discord guilds
+    /// </summary>
+    Task<GuildDto[]?> GetUserGuildsAsync(string userId);
 }
 
 public class AuthService : IAuthService
 {
+    private readonly DiscordShardedClient discord;
     private readonly IDiscordService _discordService;
     private readonly IJwtService _jwtService;
     private readonly RankoonDbContext _dbContext;
+    private readonly DiscordSettings _discordSettings;
     private readonly JwtSettings _jwtSettings;
     private readonly FrontendSettings _frontendSettings;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
+        DiscordShardedClient discord,
         IDiscordService discordService,
         IJwtService jwtService,
         RankoonDbContext dbContext,
+        IOptions<DiscordSettings> discordSettings,
         IOptions<JwtSettings> jwtSettings,
         IOptions<FrontendSettings> frontendSettings,
         ILogger<AuthService> logger)
     {
+        this.discord = discord;
         _discordService = discordService;
         _jwtService = jwtService;
         _dbContext = dbContext;
+        _discordSettings = discordSettings.Value;
         _jwtSettings = jwtSettings.Value;
         _frontendSettings = frontendSettings.Value;
         _logger = logger;
@@ -68,7 +80,12 @@ public class AuthService : IAuthService
     {
         // Generate a random state parameter for CSRF protection
         var state = Guid.NewGuid().ToString();
-        
+        CacheManager.GetOrSetAsync<string>(
+            $"auth_state_{state}",
+            () => Task.FromResult(state),
+            DateTimeOffset.UtcNow.AddMinutes(5) // Store state for 5 minutes
+        ).Wait();
+
         // Optionally encode the return URL in the state
         if (!string.IsNullOrEmpty(returnUrl))
         {
@@ -78,10 +95,12 @@ public class AuthService : IAuthService
         return _discordService.GetAuthorizationUrl(state);
     }
 
-    public async Task<TokenResponse?> HandleCallbackAsync(string code, string? state)
+    public async Task<TokenResponse?> HandleCallbackAsync(string code)
     {
         try
         {
+
+
             // Exchange authorization code for Discord access token
             var tokenResponse = await _discordService.ExchangeCodeForTokenAsync(code);
             if (tokenResponse == null)
@@ -100,7 +119,7 @@ public class AuthService : IAuthService
 
             // Create or update user in our database
             var user = await _discordService.CreateOrUpdateUserAsync(userInfo, tokenResponse);
-
+            
             // Generate our own JWT tokens
             var accessToken = _jwtService.GenerateAccessToken(user);
             var refreshToken = _jwtService.GenerateRefreshToken();
@@ -246,5 +265,126 @@ public class AuthService : IAuthService
             _logger.LogError(ex, "Error getting user by ID: {UserId}", userId);
             return null;
         }
+    }
+
+    public async Task<GuildDto[]?> GetUserGuildsAsync(string userId)
+    {
+        try
+        {
+            // Get user from database
+            var user = await GetUserAsync(userId);
+            if (user == null)
+            {
+                _logger.LogError("User not found: {UserId}", userId);
+                return null;
+            }
+
+            // Check if Discord token is still valid
+            if (user.TokenExpiresAt <= DateTime.UtcNow)
+            {
+                _logger.LogWarning("Discord token expired for user: {UserId}", userId);
+                
+                // Try to refresh the Discord token
+                if (!string.IsNullOrEmpty(user.RefreshToken))
+                {
+                    var refreshedToken = await _discordService.RefreshTokenAsync(user.RefreshToken);
+                    if (refreshedToken != null)
+                    {
+                        // Update user with new token
+                        var filter = Builders<DiscordUser>.Filter.Eq(u => u.Id, userId);
+                        var update = Builders<DiscordUser>.Update
+                            .Set(u => u.AccessToken, refreshedToken.access_token)
+                            .Set(u => u.RefreshToken, refreshedToken.refresh_token)
+                            .Set(u => u.TokenExpiresAt, DateTime.UtcNow.AddSeconds(refreshedToken.expires_in))
+                            .Set(u => u.UpdatedAt, DateTime.UtcNow);
+
+                        await _dbContext.DiscordUsers.UpdateOneAsync(filter, update);
+                        user.AccessToken = refreshedToken.access_token;
+                    }
+                    else
+                    {
+                        _logger.LogError("Failed to refresh Discord token for user: {UserId}", userId);
+                        return null;
+                    }
+                }
+                else
+                {
+                    _logger.LogError("No refresh token available for user: {UserId}", userId);
+                    return null;
+                }
+            }
+
+            // Get guilds from Discord API
+            if (string.IsNullOrEmpty(user.AccessToken))
+            {
+                _logger.LogError("No access token available for user: {UserId}", userId);
+                return null;
+            }
+
+            var discordGuilds = await _discordService.GetUserGuildsAsync(user.AccessToken);
+            if (discordGuilds == null)
+            {
+                _logger.LogError("Failed to fetch guilds from Discord for user: {UserId}", userId);
+                return null;
+            }
+
+            var guildDtos = discordGuilds
+                .Where(g => g.owner || HasManageGuildOrAdminPermissions(g.permissions))
+                .Select(g =>
+                {
+                    var botInstalled = ulong.TryParse(g.id, out var guildId) && discord.GetGuild(guildId) != null;
+                    return new GuildDto
+                    {
+                        Id = g.id,
+                        Name = g.name,
+                        Icon = g.icon,
+                        Owner = g.owner,
+                        Permissions = g.permissions.ToString(),
+                        Features = g.features,
+                        BotInstalled = botInstalled,
+                        InviteUrl = GetBotInviteUrl(g.id)
+                    };
+                }).ToArray();
+
+            return guildDtos;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting user guilds for user: {UserId}", userId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Checks if the given permissions include Administrator or Manage Guild permissions
+    /// which are required to invite bots to a server
+    /// </summary>
+    /// <param name="permissions">Discord permissions as a long value</param>
+    /// <returns>True if user has permission to invite bots</returns>
+    private static bool HasManageGuildOrAdminPermissions(long permissions)
+    {
+        // Discord permission constants:
+        // Administrator = 8 (0x8)
+        // Manage Guild = 32 (0x20)
+        const long Administrator = 8;
+        const long ManageGuild = 32;
+        
+        return (permissions & Administrator) == Administrator || 
+                (permissions & ManageGuild) == ManageGuild;
+    }
+
+    private string GetBotInviteUrl(string guildId)
+    {
+        var parameters = new Dictionary<string, string>
+        {
+            ["client_id"] = _discordSettings.ClientId,
+            ["scope"] = "bot applications.commands",
+            ["permissions"] = _discordSettings.BotInvitePermissions,
+            ["guild_id"] = guildId,
+            ["disable_guild_select"] = "true",
+            ["integration_type"] = "0"
+        };
+        var queryString = string.Join("&", parameters.Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value)}"));
+        return $"https://discord.com/oauth2/authorize?{queryString}";
     }
 }

@@ -9,6 +9,8 @@ public class DiscordSettings
 
     public string ClientId { get; set; } = string.Empty;
     public string ClientSecret { get; set; } = string.Empty;
+    public string BotToken { get; set; } = string.Empty;
+    public string BotInvitePermissions { get; set; } = "285215760";
     public string RedirectUri { get; set; } = string.Empty;
     public string[] Scopes { get; set; } = Array.Empty<string>();
 }

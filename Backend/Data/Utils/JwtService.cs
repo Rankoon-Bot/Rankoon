@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Rankoon.Data.Auth;
@@ -44,11 +45,13 @@ public class JwtService : IJwtService
 {
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<JwtService> _logger;
+    private readonly DiscordShardedClient discord;
 
-    public JwtService(IOptions<JwtSettings> jwtSettings, ILogger<JwtService> logger)
+    public JwtService(IOptions<JwtSettings> jwtSettings, ILogger<JwtService> logger, DiscordShardedClient discord)
     {
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
+        this.discord = discord;
     }
 
     public string GenerateAccessToken(DiscordUser user)

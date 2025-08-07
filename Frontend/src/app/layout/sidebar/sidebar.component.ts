@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { LayoutStateService } from '../layout-state.service';
 
 interface MenuItem {
   label: string;
@@ -14,12 +15,12 @@ interface MenuItem {
   standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
-    <aside class="sidebar">
+    <aside class="sidebar" [class.mobile-open]="layoutState.mobileNavigationOpen()">
       <nav class="sidebar-nav">
         <ul class="nav-list">
           <li *ngFor="let item of menuItems" class="nav-item">
             <a 
-              [routerLink]="item.route" 
+                [routerLink]="item.route" (click)="layoutState.closeMobileNavigation()"
               routerLinkActive="active"
               class="nav-link"
             >
@@ -45,6 +46,8 @@ interface MenuItem {
   styleUrls: ['./sidebar.component.scss']
 })
 export class SidebarComponent {
+  constructor(public readonly layoutState: LayoutStateService) {}
+
   menuItems: MenuItem[] = [
     {
       label: 'Dashboard',
@@ -55,6 +58,16 @@ export class SidebarComponent {
         <rect x="14" y="12" width="7" height="9"/>
         <rect x="3" y="16" width="7" height="5"/>
       </svg>`
+    },
+    {
+      label: 'XP & Level',
+      route: '/xp',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3.1 6.3L22 9.3l-5 4.9 1.2 6.8-6.2-3.3-6.2 3.3L7 14.2 2 9.3l6.9-1z"/></svg>`
+    },
+    {
+      label: 'VC-Hubs',
+      route: '/vc-hubs',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a9 9 0 0 0-9 9v4a3 3 0 0 0 3 3h2v-7H5.1A7 7 0 0 1 19 10h-3v7h2a3 3 0 0 0 3-3v-4a9 9 0 0 0-9-9Z"/><path d="M12 19v4"/></svg>`
     },
     {
       label: 'Server Konfiguration',
@@ -71,50 +84,6 @@ export class SidebarComponent {
         { label: 'Allgemeine Einstellungen', route: '/server-config/general', icon: '' },
         { label: 'Rollen & Berechtigungen', route: '/server-config/roles', icon: '' },
         { label: 'Kanäle', route: '/server-config/channels', icon: '' }
-      ]
-    },
-    {
-      label: 'Moderation',
-      route: '/moderation',
-      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-        <path d="m2 17 10 5 10-5"/>
-        <path d="m2 12 10 5 10-5"/>
-      </svg>`,
-      children: [
-        { label: 'Automod', route: '/moderation/automod', icon: '' },
-        { label: 'Warn System', route: '/moderation/warnings', icon: '' },
-        { label: 'Banns & Timeouts', route: '/moderation/bans', icon: '' }
-      ]
-    },
-    {
-      label: 'Economy',
-      route: '/economy',
-      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23"/>
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-      </svg>`,
-      children: [
-        { label: 'Currency Einstellungen', route: '/economy/currency', icon: '' },
-        { label: 'Shop System', route: '/economy/shop', icon: '' },
-        { label: 'Rewards', route: '/economy/rewards', icon: '' }
-      ]
-    },
-    {
-      label: 'Fun & Games',
-      route: '/fun',
-      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M8 21h8"/>
-        <path d="M12 17v4"/>
-        <path d="m5 7 1-1h12l1 1"/>
-        <path d="M12 11v5"/>
-        <path d="M8 7v4"/>
-        <path d="M16 7v4"/>
-      </svg>`,
-      children: [
-        { label: 'Mini Games', route: '/fun/games', icon: '' },
-        { label: 'Custom Commands', route: '/fun/commands', icon: '' },
-        { label: 'Reaktionen', route: '/fun/reactions', icon: '' }
       ]
     },
     {

@@ -54,6 +54,9 @@ export class AuthCallbackComponent implements OnInit {
     const token = this.route.snapshot.queryParams['token'];
     const error = this.route.snapshot.queryParams['error'];
 
+    const return_url = this.route.snapshot.queryParams['return_url'] || '/dashboard';
+    console.log('Return URL:', return_url, this.route.snapshot.queryParams['return_url']);
+
     if (error) {
       this.authStore.setError('Discord Authentifizierung wurde abgebrochen.');
       return;
@@ -67,7 +70,7 @@ export class AuthCallbackComponent implements OnInit {
     this.authService.handleTokenCallback(token).subscribe({
       next: (success) => {
         if (success) {
-          // Navigation handled by AuthService
+          this.router.navigate([return_url]);
         }
       },
       error: (error) => {

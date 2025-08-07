@@ -1,29 +1,31 @@
-# Unter https://aka.ms/customizecontainer erfahren Sie, wie Sie Ihren Debugcontainer anpassen und wie Visual Studio dieses Dockerfile verwendet, um Ihre Images für ein schnelleres Debuggen zu erstellen.
-
-# Diese Stufe wird verwendet, wenn sie von VS im Schnellmodus ausgeführt wird (Standardeinstellung für Debugkonfiguration).
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
 
+# Build the Angular application from the repository root Docker context.
+FROM node:22-alpine AS frontend-build
+WORKDIR /src/Frontend
+COPY Frontend/package*.json ./
+RUN npm ci
+COPY Frontend/ ./
+RUN npm run build
 
-# Diese Stufe wird zum Erstellen des Dienstprojekts verwendet.
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Rankoon.csproj", "."]
-RUN dotnet restore "./Rankoon.csproj"
-COPY . .
-WORKDIR "/src/."
+COPY Backend/Rankoon.csproj Backend/
+RUN dotnet restore "Backend/Rankoon.csproj"
+COPY Backend/ Backend/
+WORKDIR "/src/Backend"
 RUN dotnet build "./Rankoon.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# Diese Stufe wird verwendet, um das Dienstprojekt zu veröffentlichen, das in die letzte Phase kopiert werden soll.
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "./Rankoon.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-# Diese Stufe wird in der Produktion oder bei Ausführung von VS im regulären Modus verwendet (Standard, wenn die Debugkonfiguration nicht verwendet wird).
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY --from=frontend-build /src/Frontend/dist/Rankoon_Frontend/browser ./wwwroot
 ENTRYPOINT ["dotnet", "Rankoon.dll"]

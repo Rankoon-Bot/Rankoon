@@ -1,0 +1,6 @@
+.git
+**/.angular
+**/bin
+**/node_modules
+**/obj
+**/.env

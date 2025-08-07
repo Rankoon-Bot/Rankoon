@@ -61,6 +61,34 @@ public record DiscordUserDto
 }
 
 /// <summary>
+/// Discord guild information from the API
+/// </summary>
+public record DiscordGuildInfo
+{
+    public string id { get; init; } = string.Empty;
+    public string name { get; init; } = string.Empty;
+    public string? icon { get; init; }
+    public bool owner { get; init; }
+    public long permissions { get; init; } = 0;
+    public string[] features { get; init; } = Array.Empty<string>();
+}
+
+/// <summary>
+/// Simplified guild DTO for responses
+/// </summary>
+public record GuildDto
+{
+    public string Id { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public string? Icon { get; init; }
+    public bool Owner { get; init; }
+    public string Permissions { get; init; } = string.Empty;
+    public string[] Features { get; init; } = Array.Empty<string>();
+    public bool BotInstalled { get; init; }
+    public string InviteUrl { get; init; } = string.Empty;
+}
+
+/// <summary>
 /// Request for refreshing tokens
 /// </summary>
 public record RefreshTokenRequest

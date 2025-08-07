@@ -4,12 +4,24 @@ import { Router } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { catchError, tap, map } from 'rxjs/operators';
 import { AuthStore, User } from '../store/auth.store';
+import { AppStore } from '../store/app.store';
 import { environment } from '../../environments/environment';
 
 export interface BackendTokenResponse {
     token: string;
     user: User;
     expiresAt: string;
+}
+
+export interface Guild {
+    id: string;
+    name: string;
+    icon: string | null;
+    owner: boolean;
+    permissions: string;
+    features: string[];
+    botInstalled: boolean;
+    inviteUrl: string;
 }
 
 @Injectable({
@@ -19,6 +31,7 @@ export class AuthService {
     private readonly http = inject(HttpClient);
     private readonly router = inject(Router);
     private readonly authStore = inject(AuthStore);
+    private readonly appStore = inject(AppStore);
 
     private readonly DISCORD_CLIENT_ID = environment.discordClientId;
     private readonly DISCORD_REDIRECT_URI = environment.discordRedirectUri; // Backend URL
@@ -31,8 +44,12 @@ export class AuthService {
     /**
      * Initiates Discord OAuth2 login flow - gets login URL from backend
      */
-    login(): void {
-        this.http.get<{ loginUrl: string }>(`${this.API_BASE_URL}/auth/login`).subscribe({
+    login(returnUrl?: string): void {
+        const url = new URL(`${this.API_BASE_URL}/auth/login`, window.location.origin);
+        if (returnUrl) {
+            url.searchParams.set('returnUrl', returnUrl);
+        }
+        this.http.get<{ loginUrl: string }>(url.toString()).subscribe({
             next: (res) => {
                 if (res?.loginUrl) {
                     console.log(res.loginUrl)
@@ -60,7 +77,6 @@ export class AuthService {
                 this.authStore.setToken(response.token);
                 this.authStore.setUser(response.user);
                 this.authStore.setLoading(false);
-                this.router.navigate(['/dashboard']);
             }),
             map(() => true),
             catchError(error => {
@@ -121,6 +137,7 @@ export class AuthService {
 
         this.clearTokenFromStorage();
         this.authStore.clearAuth();
+        this.appStore.clearState();
         this.router.navigate(['/login']);
     }
 
@@ -152,6 +169,30 @@ export class AuthService {
                     this.logout();
                 }
                 return of(null);
+            })
+        );
+    }
+
+    /**
+     * Gets user's Discord guilds from backend
+     */
+    getUserGuilds(): Observable<Guild[]> {
+        const token = this.authStore.token();
+        if (!token) {
+            return of([]);
+        }
+
+        return this.http.get<Guild[]>(`${this.API_BASE_URL}/auth/guilds`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        }).pipe(
+            catchError(error => {
+                console.error('Failed to fetch user guilds:', error);
+                if (error.status === 401) {
+                    this.logout();
+                }
+                return of([]);
             })
         );
     }

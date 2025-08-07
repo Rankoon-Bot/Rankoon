@@ -4,5 +4,5 @@ export const environment = {
   // NIEMALS das Client Secret hier einfügen - das gehört nur ins Backend!
   discordRedirectUri: 'http://localhost:5020/api/auth/callback', // Backend callback URL
   frontendCallbackUri: 'http://localhost:4200/auth/callback', // Frontend callback URL
-  apiBaseUrl: 'http://localhost:5020/api'
+  apiBaseUrl: '/api'
 };

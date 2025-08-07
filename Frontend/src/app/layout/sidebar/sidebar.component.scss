@@ -4,15 +4,16 @@
   top: 60px;
   width: 250px;
   height: calc(100vh - 60px);
-  background: #2c3e50;
-  color: #ecf0f1;
+  background: var(--rk-surface-1);
+  color: var(--rk-text);
   overflow-y: auto;
   z-index: 999;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+  border-right: 1px solid var(--rk-border-subtle);
+  box-shadow: var(--rk-shadow-panel);
 }
 
 .sidebar-nav {
-  padding: 20px 0;
+  padding: var(--rk-space-4) 0;
 }
 
 .nav-list {
@@ -22,33 +23,33 @@
 }
 
 .nav-item {
-  margin-bottom: 4px;
+  margin-bottom: var(--rk-space-1);
 }
 
 .nav-link {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
-  color: #bdc3c7;
+  min-height: 44px;
+  padding: 10px var(--rk-space-5);
+  color: var(--rk-text-muted);
   text-decoration: none;
-  transition: all 0.3s ease;
-  border-left: 3px solid transparent;
+  transition: background-color var(--rk-motion-base), color var(--rk-motion-base);
+  border-left: 2px solid transparent;
 
   &:hover {
-    background: rgba(52, 73, 94, 0.8);
-    color: #ecf0f1;
-    border-left-color: #3498db;
+    background: var(--rk-surface-2);
+    color: var(--rk-text-strong);
   }
 
   &.active {
-    background: rgba(52, 73, 94, 1);
-    color: #3498db;
-    border-left-color: #3498db;
+    background: linear-gradient(90deg, var(--rk-brand-subtle), transparent);
+    color: var(--rk-text-strong);
+    border-left-color: var(--rk-brand);
   }
 }
 
 .nav-icon {
-  margin-right: 12px;
+  margin-right: var(--rk-space-3);
   display: flex;
   align-items: center;
   
@@ -58,14 +59,14 @@
 }
 
 .nav-label {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .sub-nav {
   list-style: none;
   margin: 0;
   padding: 0;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--rk-canvas-deep);
 }
 
 .sub-nav-item {
@@ -74,30 +75,28 @@
 
 .sub-nav-link {
   display: block;
-  padding: 10px 20px 10px 52px;
-  color: #95a5a6;
+  padding: 10px var(--rk-space-5) 10px 52px;
+  color: var(--rk-text-muted);
   text-decoration: none;
   font-size: 0.9rem;
-  transition: all 0.3s ease;
-  border-left: 3px solid transparent;
+  transition: background-color var(--rk-motion-base), color var(--rk-motion-base);
+  border-left: 2px solid transparent;
 
   &:hover {
-    background: rgba(52, 73, 94, 0.6);
-    color: #ecf0f1;
-    border-left-color: #3498db;
+    background: var(--rk-surface-2);
+    color: var(--rk-text-strong);
   }
 
   &.active {
-    background: rgba(52, 73, 94, 0.8);
-    color: #3498db;
-    border-left-color: #3498db;
+    color: var(--rk-text-strong);
+    border-left-color: var(--rk-brand);
   }
 }
 
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
-    transition: transform 0.3s ease;
+    transition: transform var(--rk-motion-base);
     
     &.mobile-open {
       transform: translateX(0);
