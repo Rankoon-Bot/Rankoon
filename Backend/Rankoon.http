@@ -1,0 +1,53 @@
+@Rankoon_HostAddress = http://localhost:5020
+
+### Get Weather Forecast
+GET {{Rankoon_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+### Get Discord Login URL
+GET {{Rankoon_HostAddress}}/api/auth/login
+Accept: application/json
+
+###
+
+### Get Discord Login URL with Return URL
+GET {{Rankoon_HostAddress}}/api/auth/login?returnUrl=/dashboard
+Accept: application/json
+
+###
+
+### Refresh Token (replace with actual refresh token)
+POST {{Rankoon_HostAddress}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "your_refresh_token_here"
+}
+
+###
+
+### Logout (replace with actual refresh token)
+POST {{Rankoon_HostAddress}}/api/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "your_refresh_token_here"
+}
+
+###
+
+### Get Current User (requires Authorization header with JWT token)
+GET {{Rankoon_HostAddress}}/api/auth/me
+Authorization: Bearer your_jwt_token_here
+Accept: application/json
+
+###
+
+### Test Authentication (requires Authorization header with JWT token)
+GET {{Rankoon_HostAddress}}/api/auth/test
+Authorization: Bearer your_jwt_token_here
+Accept: application/json
+
+###
