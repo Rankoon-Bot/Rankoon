@@ -1,0 +1,33 @@
+{
+  "leaderboardSettings": {
+    "subtitle": "Steuere den Zugriff und die eindeutige Adresse deiner Guild-Rangliste.",
+    "open": "Rangliste öffnen",
+    "loading": "Konfiguration wird geladen",
+    "visibility": "Sichtbarkeit",
+    "visibilityHint": "Lege fest, wer die Rangliste aufrufen darf.",
+    "public": "Öffentlich",
+    "publicHint": "Jeder kann die Rangliste sehen. Mitglieder können sich für externe Besucher ausblenden.",
+    "membersOnly": "Nur Servermitglieder",
+    "membersHint": "Discord-Login und eine aktuelle Mitgliedschaft sind erforderlich.",
+    "address": "Öffentliche Adresse",
+    "addressHint": "Der Alias muss global eindeutig sein und besteht aus Buchstaben, Zahlen und Bindestrichen.",
+    "alias": "Alias",
+    "aliasPlaceholder": "dein-alias",
+    "save": "Einstellungen speichern",
+    "saved": "Ranglisten-Einstellungen gespeichert."
+  },
+  "errors": {
+    "settingsLoad": "Die Ranglisten-Einstellungen konnten nicht geladen werden.",
+    "aliasTaken": "Dieser Alias ist bereits vergeben."
+  },
+  "apiErrors": {
+    "leaderboard": {
+      "invalidCursor": "Die Ranglistenposition ist ungültig.",
+      "invalidAlias": "Der Ranglisten-Alias ist ungültig.",
+      "aliasConflict": "Der Ranglisten-Alias wird bereits verwendet."
+    },
+    "alias": {
+      "taken": "Dieser Alias ist bereits vergeben."
+    }
+  }
+}

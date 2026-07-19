@@ -1,0 +1,38 @@
+{
+  "leaderboard": {
+    "title": "Leaderboard",
+    "eyebrow": "GUILD RANKING",
+    "subtitle": "XP, activity and levels at a glance.",
+    "findingRank": "Finding your rank...",
+    "jumpToMe": "Jump to me",
+    "privacyTitle": "Your public visibility",
+    "privacyHint": "Server members can still see you. This setting only applies to external visitors.",
+    "privacyAria": "Public leaderboard visibility",
+    "loading": "Building leaderboard",
+    "loadingHint": "Loading the top ranks.",
+    "rank": "Rank",
+    "member": "Member",
+    "messages": "{{count}} messages",
+    "messageOne": "{{count}} message",
+    "messageOther": "{{count}} messages",
+    "loadingMore": "Loading more ranks",
+    "end": "End of leaderboard",
+    "emptyTitle": "No ranks yet",
+    "emptyHint": "Members will appear here once they earn XP."
+  },
+  "errors": {
+    "leaderboardLogin": "This leaderboard is only visible to server members. Please sign in.",
+    "notMember": "You are not a member of this server.",
+    "leaderboardLoad": "Could not load the leaderboard.",
+    "noXpEntry": "You do not have an XP entry in this leaderboard yet.",
+    "rankLoad": "Could not load your rank.",
+    "privacySave": "Could not save your visibility."
+  },
+  "apiErrors": {
+    "leaderboard": {
+      "invalidCursor": "The leaderboard position is invalid.",
+      "invalidAlias": "The leaderboard alias is invalid.",
+      "aliasConflict": "The leaderboard alias is already in use."
+    }
+  }
+}

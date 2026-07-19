@@ -5,17 +5,19 @@ import { AuthStore } from '../../store/auth.store';
 import { AppStore, Guild } from '../../store/app.store';
 import { GuildAccessService } from '../../services/guild-access.service';
 import { ActivatedRoute } from '@angular/router';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { ApiErrorService } from '../../services/api-error.service';
 
 @Component({
   selector: 'app-server-selection',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslocoPipe],
   template: `
     <div class="server-selection">
       <div class="server-selection-header">
         <div class="header-content">
-          <h1>Server auswählen</h1>
-          <p>Wähle einen Discord Server aus, um das Dashboard zu nutzen.</p>
+          <h1>{{ 'serverSelection.title' | transloco }}</h1>
+          <p>{{ 'serverSelection.subtitle' | transloco }}</p>
         </div>
       </div>
 
@@ -30,7 +32,7 @@ import { ActivatedRoute } from '@angular/router';
           [class.missing]="guild.botInstalled !== true"
           [attr.role]="guild.botInstalled === true ? 'button' : null"
           [attr.tabindex]="guild.botInstalled === true ? 0 : null"
-          [attr.aria-label]="guild.botInstalled === true ? guild.name + ' auswählen' : guild.name + ': Bot nicht installiert'"
+          [attr.aria-label]="(guild.botInstalled === true ? 'serverSelection.selectAria' : 'serverSelection.missingAria') | transloco: { name: guild.name }"
           (keydown.enter)="selectServer(guild)"
           (keydown.space)="selectServer(guild); $event.preventDefault()"
         >
@@ -54,7 +56,7 @@ import { ActivatedRoute } from '@angular/router';
                   <path d="m2 17 10 5 10-5"/>
                   <path d="m2 12 10 5 10-5"/>
                 </svg>
-                Owner
+                {{ 'common.owner' | transloco }}
               </span>
               <span class="badge admin-badge" *ngIf="!guild.owner && hasAdminPermissions(guild)">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -62,13 +64,13 @@ import { ActivatedRoute } from '@angular/router';
                   <rect x="2" y="9" width="20" height="4" rx="1"/>
                   <rect x="2" y="15" width="20" height="4" rx="1"/>
                 </svg>
-                Manager
+                {{ 'common.manager' | transloco }}
               </span>
               <span class="badge bot-badge" *ngIf="guild.botInstalled">
-                Bot aktiv
+                {{ 'serverSelection.botActive' | transloco }}
               </span>
               <span class="badge missing-badge" *ngIf="guild.botInstalled !== true">
-                {{ canInviteBot(guild) ? 'Bot fehlt' : 'Nicht verfügbar' }}
+                {{ (canInviteBot(guild) ? 'common.botMissing' : 'common.unavailable') | transloco }}
               </span>
             </div>
           </div>
@@ -80,9 +82,9 @@ import { ActivatedRoute } from '@angular/router';
             rel="noopener noreferrer"
             (click)="inviteBot($event)"
           >
-            Bot einladen
+            {{ 'serverSelection.inviteBot' | transloco }}
           </a>
-          <span class="unavailable-copy" *ngIf="guild.botInstalled !== true && !canInviteBot(guild)">Ein Server-Manager muss Rankoon einladen.</span>
+          <span class="unavailable-copy" *ngIf="guild.botInstalled !== true && !canInviteBot(guild)">{{ 'serverSelection.managerInvite' | transloco }}</span>
           <div class="server-arrow" *ngIf="guild.botInstalled">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="9,18 15,12 9,6"/>
@@ -95,8 +97,8 @@ import { ActivatedRoute } from '@angular/router';
         <div class="center-content">
           <div *ngIf="appStore.isLoading()" class="loading-state">
             <div class="loading-spinner"></div>
-            <h3>Server werden geladen...</h3>
-            <p>Einen Moment bitte, während wir deine Discord Server abrufen.</p>
+            <h3>{{ 'common.loadingServers' | transloco }}</h3>
+            <p>{{ 'serverSelection.loadingHint' | transloco }}</p>
           </div>
           
           <div *ngIf="!appStore.isLoading() && !appStore.hasGuilds()" class="empty-state">
@@ -107,14 +109,14 @@ import { ActivatedRoute } from '@angular/router';
                 <rect x="2" y="15" width="20" height="4" rx="1"/>
               </svg>
             </div>
-            <h3>Keine Server gefunden</h3>
-            <p>Es wurden keine gemeinsamen Discord Server gefunden.</p>
+            <h3>{{ 'common.noServers' | transloco }}</h3>
+            <p>{{ 'serverSelection.empty' | transloco }}</p>
             <button class="retry-btn" (click)="loadGuilds()">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="23,4 23,10 17,10"/>
                 <path d="M20.49,15A9,9,0,1,1,5.64,5.64L23,10"/>
               </svg>
-              Erneut versuchen
+              {{ 'common.retry' | transloco }}
             </button>
           </div>
         </div>
@@ -129,7 +131,7 @@ import { ActivatedRoute } from '@angular/router';
           </svg>
         </div>
         <p class="error-message">{{ appStore.error() }}</p>
-        <button class="retry-btn" (click)="loadGuilds()">Erneut versuchen</button>
+        <button class="retry-btn" (click)="loadGuilds()">{{ 'common.retry' | transloco }}</button>
       </div>
     </div>
   `,
@@ -140,14 +142,16 @@ export class ServerSelectionComponent implements OnInit {
   private readonly authStore = inject(AuthStore);
   private readonly guildAccess = inject(GuildAccessService);
   private readonly route = inject(ActivatedRoute);
+  private readonly i18n = inject(TranslocoService);
+  private readonly apiErrors = inject(ApiErrorService);
   readonly appStore = inject(AppStore);
   readonly accessNotice = signal('');
   private refreshAfterInvite = false;
 
   ngOnInit(): void {
     const access = this.route.snapshot.queryParamMap.get('access');
-    if (access === 'forbidden') this.accessNotice.set('Dein Zugriff auf die Server-Einstellungen wurde abgelehnt.');
-    if (access === 'unavailable') this.accessNotice.set('Die Server-Berechtigungen konnten nicht geprüft werden. Bitte versuche es erneut.');
+    if (access === 'forbidden') this.accessNotice.set(this.i18n.translate('errors.settingsForbidden'));
+    if (access === 'unavailable') this.accessNotice.set(this.i18n.translate('errors.capabilitiesCheck'));
     this.loadGuilds();
   }
 
@@ -162,7 +166,7 @@ export class ServerSelectionComponent implements OnInit {
       },
       error: (error) => {
         console.error('Error loading guilds:', error);
-        this.appStore.setError('Fehler beim Laden der Server. Bitte versuchen Sie es erneut.');
+        this.appStore.setError(this.apiErrors.resolve(error, 'errors.guildsLoad').message);
         this.appStore.setLoading(false);
       }
     });
@@ -179,8 +183,8 @@ export class ServerSelectionComponent implements OnInit {
         this.appStore.setLoading(false);
         this.appStore.setSelectedGuild(null);
         this.appStore.setError(error?.status === 403
-          ? 'Du hast keinen Zugriff auf diesen Server.'
-          : 'Die Server-Berechtigungen konnten nicht geladen werden.');
+          ? this.i18n.translate('errors.guildForbidden')
+          : this.apiErrors.resolve(error, 'errors.capabilitiesLoad').message);
       }
     });
   }

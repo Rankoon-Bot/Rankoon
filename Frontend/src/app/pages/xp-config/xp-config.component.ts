@@ -10,17 +10,23 @@ import {
   XpConfig,
 } from '../../services/guild.service';
 import { AppStore } from '../../store/app.store';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { LocaleService } from '../../i18n/locale.service';
+import { ApiErrorService } from '../../services/api-error.service';
 
 @Component({
   selector: 'app-xp-config',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslocoPipe],
   templateUrl: './xp-config.component.html',
   styleUrls: ['./xp-config.component.scss'],
 })
 export class XpConfigComponent implements OnInit {
   private readonly appStore = inject(AppStore);
   private readonly api = inject(GuildService);
+  private readonly i18n = inject(TranslocoService);
+  private readonly locale = inject(LocaleService);
+  private readonly apiErrors = inject(ApiErrorService);
 
   readonly config = signal<XpConfig | null>(null);
   readonly resources = signal<GuildResources>({ roles: [], channels: [] });
@@ -45,7 +51,7 @@ export class XpConfigComponent implements OnInit {
     const id = this.appStore.selectedGuild()?.id;
     if (!id) {
       this.loading.set(false);
-      this.loadError.set('Es ist kein Server ausgewaehlt.');
+      this.loadError.set(this.i18n.translate('errors.noServer'));
       return;
     }
 
@@ -65,7 +71,7 @@ export class XpConfigComponent implements OnInit {
           this.watchdog.set(result.watchdog);
           this.leaderboard.set(result.leaderboard);
         },
-        error: () => this.loadError.set('Die XP-Einstellungen konnten nicht geladen werden.'),
+        error: error => this.loadError.set(this.apiErrors.resolve(error, 'errors.xpLoad').message),
       });
   }
 
@@ -81,10 +87,10 @@ export class XpConfigComponent implements OnInit {
       .subscribe({
         next: saved => {
           this.config.set(saved);
-          this.showMessage('XP-Konfiguration gespeichert.', 'success');
+          this.showMessage(this.i18n.translate('xp.saved'), 'success');
           this.refreshWatchdog();
         },
-        error: () => this.showMessage('Speichern fehlgeschlagen. Bitte pruefe deine Eingaben.', 'error'),
+        error: error => this.showMessage(this.apiErrors.resolve(error, 'errors.save').message, 'error'),
       });
   }
 
@@ -107,14 +113,14 @@ export class XpConfigComponent implements OnInit {
           this.watchdog.set(result.status);
           const running = this.watchdogIsRunning();
           this.showMessage(
-            enabled && !running ? 'VCWatchdog aktiviert, der aktuelle Lauf ist jedoch beeintraechtigt.' : enabled ? 'VCWatchdog gestartet.' : 'VCWatchdog deaktiviert.',
+             this.i18n.translate(enabled && !running ? 'xp.watchdogDegraded' : enabled ? 'xp.watchdogStarted' : 'xp.watchdogStopped'),
             enabled && !running ? 'error' : 'success',
           );
         },
-        error: () => {
+         error: error => {
           config.enabled = previousEnabled;
           config.voice.enabled = previousVoiceEnabled;
-          this.showMessage('Der VCWatchdog konnte nicht umgeschaltet werden.', 'error');
+           this.showMessage(this.apiErrors.resolve(error, 'errors.watchdogToggle').message, 'error');
           this.refreshWatchdog();
         },
       });
@@ -173,13 +179,12 @@ export class XpConfigComponent implements OnInit {
   }
 
   watchdogState(status: VoiceWatchdogStatus | null): string {
-    if (!status) return 'Unbekannt';
-    const states = ['Startet', 'Aktiv', 'Beeintraechtigt', 'Veraltet', 'Startet neu', 'Fehler', 'Deaktiviert'];
-    if (typeof status.state === 'number') return states[status.state] ?? 'Unbekannt';
+    if (!status) return this.i18n.translate('common.unknown');
+    const states = ['starting', 'healthy', 'degraded', 'stale', 'restarting', 'faulted', 'stopped'];
+    if (typeof status.state === 'number') return this.i18n.translate(`xp.watchdogStates.${states[status.state] ?? 'unknown'}`);
     const numericState = Number(status.state);
-    if (!Number.isNaN(numericState)) return states[numericState] ?? 'Unbekannt';
-    const labels: Record<string, string> = { Starting: 'Startet', Healthy: 'Aktiv', Degraded: 'Beeintraechtigt', Stale: 'Veraltet', Restarting: 'Startet neu', Faulted: 'Fehler', Stopped: 'Deaktiviert' };
-    return labels[status.state] ?? status.state;
+    if (!Number.isNaN(numericState)) return this.i18n.translate(`xp.watchdogStates.${states[numericState] ?? 'unknown'}`);
+    return states.includes(status.state.toLowerCase()) ? this.i18n.translate(`xp.watchdogStates.${status.state.toLowerCase()}`) : status.state;
   }
 
   watchdogIsRunning(): boolean {
@@ -219,17 +224,23 @@ export class XpConfigComponent implements OnInit {
       .then(text => JSON.parse(text) as unknown)
       .then(payload => this.api.importMee6(id, payload).subscribe({
         next: result => {
-          this.showMessage(`${result.imported} MEE6-Mitglieder importiert.`, 'success');
+           this.showMessage(this.locale.plural(result.imported, 'xp.importedOne', 'xp.importedOther'), 'success');
           this.api.leaderboard(id).subscribe(entries => this.leaderboard.set(entries));
           input.value = '';
         },
-        error: () => this.showMessage('Der MEE6-Import ist fehlgeschlagen.', 'error'),
+         error: error => this.showMessage(this.apiErrors.resolve(error, 'errors.importFailed').message, 'error'),
       }))
-      .catch(() => this.showMessage('Die ausgewaehlte Datei enthaelt kein gueltiges JSON.', 'error'));
+       .catch(() => this.showMessage(this.i18n.translate('errors.invalidJson'), 'error'));
   }
 
   private showMessage(message: string, type: 'success' | 'error'): void {
     this.messageType.set(type);
     this.message.set(message);
+  }
+
+  formatDate(value: string): string { return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'medium' }); }
+  formatNumber(value: string | number): string { return this.locale.number(value); }
+  lastCheck(value: string, connectedUsers: string | number): string {
+    return this.locale.plural(connectedUsers, 'xp.lastCheckOne', 'xp.lastCheckOther', { date: this.formatDate(value) });
   }
 }

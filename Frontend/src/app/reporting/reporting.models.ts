@@ -67,6 +67,7 @@ export interface ActivityEventDto {
   channelId: string | null;
   channelName: string | null;
   status: ReportStatus;
+  outcome: string;
   metadata: Record<string, string | number | boolean | null> | null;
   correlationId: string | null;
 }
@@ -109,6 +110,8 @@ export interface CommandInvocationDto {
   channelName: string | null;
   durationMs: number;
   succeeded: boolean;
+  status: ReportStatus;
+  outcome: string;
   correlationId: string | null;
 }
 

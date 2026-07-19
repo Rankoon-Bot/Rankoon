@@ -1,14 +1,16 @@
 import { Component, input, output } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 @Component({
   selector: 'app-report-state',
   standalone: true,
+  imports: [TranslocoPipe],
   template: `
     <section class="state" role="status">
       <div class="mascot-slot" aria-hidden="true"></div>
-      @if (loading()) { <span class="spinner" aria-hidden="true"></span><h2>Daten werden geladen</h2><p>Der Bericht wird für den ausgewählten Server erstellt.</p> }
-      @else if (error()) { <h2>Bericht nicht verfügbar</h2><p>{{ error() }}</p><button type="button" (click)="retry.emit()">Erneut versuchen</button> }
-      @else { <h2>Keine Einträge</h2><p>{{ emptyMessage() }}</p> }
+      @if (loading()) { <span class="spinner" aria-hidden="true"></span><h2>{{ 'reports.loading' | transloco }}</h2><p>{{ 'reports.loadingHint' | transloco }}</p> }
+      @else if (error()) { <h2>{{ 'reports.unavailable' | transloco }}</h2><p>{{ error() }}</p><button type="button" (click)="retry.emit()">{{ 'common.retry' | transloco }}</button> }
+      @else { <h2>{{ 'reports.empty' | transloco }}</h2><p>{{ emptyMessage() || ('reports.emptyDefault' | transloco) }}</p> }
     </section>
   `,
   styles: [`
@@ -24,6 +26,6 @@ import { Component, input, output } from '@angular/core';
 export class ReportStateComponent {
   readonly loading = input(false);
   readonly error = input<string | null>(null);
-  readonly emptyMessage = input('Im gewählten Zeitraum wurden keine Daten erfasst.');
+  readonly emptyMessage = input('');
   readonly retry = output<void>();
 }

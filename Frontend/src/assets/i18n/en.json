@@ -1,0 +1,106 @@
+{
+  "app": {
+    "title": "Rankoon Control Deck",
+    "dashboard": "Rankoon Dashboard"
+  },
+  "language": {
+    "label": "Language"
+  },
+  "common": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "paused": "Paused",
+    "on": "On",
+    "off": "Off",
+    "all": "All",
+    "add": "Add",
+    "remove": "Remove",
+    "removeNamed": "Remove {{name}}",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "saveChanges": "Save changes",
+    "delete": "Delete",
+    "retry": "Try again",
+    "loading": "Loading...",
+    "loadMore": "Load more",
+    "viewAll": "View all",
+    "owner": "Owner",
+    "manager": "Manager",
+    "botMissing": "Bot missing",
+    "unavailable": "Unavailable",
+    "invite": "Invite",
+    "noServers": "No servers found",
+    "loadingServers": "Loading servers...",
+    "unknown": "Unknown",
+    "visible": "Visible",
+    "hidden": "Hidden",
+    "you": "You",
+    "level": "Level",
+    "levelValue": "Level {{value}}",
+    "name": "Name",
+    "system": "System",
+    "successful": "Successful",
+    "failed": "Failed",
+    "error": "Error",
+    "errors": "Errors",
+    "warning": "Warning",
+    "critical": "Critical",
+    "closeDetails": "Close details",
+    "serverConfiguration": "SERVER CONFIGURATION"
+  },
+  "header": {
+    "toggleNavigation": "Toggle navigation",
+    "switchServer": "Switch server",
+    "allServers": "View all servers",
+    "logout": "Log out"
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "save": "Could not save the changes.",
+    "guildForbidden": "You do not have access to this server.",
+    "guildsLoad": "Could not load servers. Please try again.",
+    "capabilitiesLoad": "Could not load server permissions.",
+    "settingsForbidden": "Access to the server settings was denied.",
+    "capabilitiesCheck": "Could not verify server permissions. Please try again.",
+    "noServer": "No server is selected."
+  },
+  "apiErrors": {
+    "request": {
+      "badRequest": "The request is invalid.",
+      "validationFailed": "Please check your input.",
+      "malformedJson": "The request contains malformed JSON.",
+      "unsupportedMediaType": "This media type is not supported.",
+      "methodNotAllowed": "This action is not allowed.",
+      "rejected": "The request could not be completed."
+    },
+    "resource": {
+      "notFound": "The requested resource was not found."
+    },
+    "auth": {
+      "unauthorized": "Please sign in to continue.",
+      "forbidden": "You are not allowed to access this resource.",
+      "refreshTokenRequired": "A refresh token is required.",
+      "refreshTokenInvalid": "The refresh token is invalid or expired.",
+      "logoutFailed": "The logout request could not be completed.",
+      "tokenInvalid": "The access token is invalid.",
+      "tokenMissing": "An access token is required.",
+      "guildsUnavailable": "The server list could not be retrieved.",
+      "oauthFailed": "Authentication could not be completed. Please try again."
+    },
+    "rateLimit": {
+      "exceeded": "Too many requests. Please try again later."
+    },
+    "server": {
+      "internal": "An unexpected server error occurred."
+    },
+    "guild": {
+      "invalidId": "The server ID is invalid.",
+      "forbidden": "You do not have access to this server."
+    },
+    "user": {
+      "invalidId": "The user ID is invalid.",
+      "notFound": "The user was not found."
+    }
+  }
+}

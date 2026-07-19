@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { LocaleService } from './i18n/locale.service';
 
 @Component({
   selector: 'app-root',
@@ -7,4 +8,6 @@ import { RouterOutlet } from '@angular/router';
   template: '<router-outlet></router-outlet>',
   styleUrl: './app.scss'
 })
-export class App {}
+export class App {
+  private readonly locale = inject(LocaleService);
+}

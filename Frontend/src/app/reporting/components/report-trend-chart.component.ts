@@ -1,9 +1,12 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { TrendPointDto } from '../reporting.models';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { LocaleService } from '../../i18n/locale.service';
 
 @Component({
   selector: 'app-report-trend-chart',
   standalone: true,
+  imports: [TranslocoPipe],
   template: `
     <div class="chart" role="img" [attr.aria-label]="accessibleLabel()">
       @if (points().length > 1) {
@@ -12,7 +15,7 @@ import { TrendPointDto } from '../reporting.models';
           <polyline [attr.points]="polyline()" />
         </svg>
         <div class="axis"><span>{{ firstLabel() }}</span><span>{{ lastLabel() }}</span></div>
-      } @else { <p>Noch nicht genug Daten für einen Trend.</p> }
+      } @else { <p>{{ 'reports.notEnoughTrend' | transloco }}</p> }
     </div>
   `,
   styles: [`
@@ -25,17 +28,19 @@ import { TrendPointDto } from '../reporting.models';
   `]
 })
 export class ReportTrendChartComponent {
+  private readonly locale = inject(LocaleService);
+  private readonly i18n = inject(TranslocoService);
   readonly points = input<TrendPointDto[]>([]);
   readonly polyline = computed(() => {
     const data = this.points();
     const max = Math.max(...data.map(point => point.value), 1);
     return data.map((point, index) => `${index * (600 / Math.max(data.length - 1, 1))},${170 - (point.value / max) * 155}`).join(' ');
   });
-  readonly accessibleLabel = computed(() => `Trend mit ${this.points().length} Datenpunkten. ${this.points().map(point => point.value).join(', ')}.`);
+  readonly accessibleLabel = computed(() => this.i18n.translate('reports.trendAria', { count: this.points().length, values: this.points().map(point => point.value).join(', ') }));
   readonly firstLabel = computed(() => this.formatDate(this.points()[0]?.timestamp));
   readonly lastLabel = computed(() => this.formatDate(this.points().at(-1)?.timestamp));
 
   private formatDate(value?: string): string {
-    return value ? new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: 'short' }).format(new Date(value)) : '';
+    return value ? this.locale.date(value, { day: '2-digit', month: 'short' }) : '';
   }
 }

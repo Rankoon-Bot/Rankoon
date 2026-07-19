@@ -1,5 +1,6 @@
 import { Component, effect, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 export interface ReportFilterValue {
   from: string;
@@ -10,23 +11,23 @@ export interface ReportFilterValue {
 @Component({
   selector: 'app-report-filter-bar',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, TranslocoPipe],
   template: `
     <form class="filter-bar" (ngSubmit)="submit()">
       <label class="search-field">
-        <span>Suche</span>
+        <span>{{ 'reports.search' | transloco }}</span>
         <input type="search" name="search" [ngModel]="draftSearch()" (ngModelChange)="draftSearch.set($event)" [placeholder]="searchPlaceholder()" />
       </label>
       <label>
-        <span>Von</span>
+        <span>{{ 'reports.from' | transloco }}</span>
         <input type="datetime-local" name="from" [ngModel]="draftFrom()" (ngModelChange)="draftFrom.set($event)" />
       </label>
       <label>
-        <span>Bis</span>
+        <span>{{ 'reports.to' | transloco }}</span>
         <input type="datetime-local" name="to" [ngModel]="draftTo()" (ngModelChange)="draftTo.set($event)" />
       </label>
-      <button class="apply" type="submit">Anwenden</button>
-      <button class="reset" type="button" (click)="reset.emit()">Zurücksetzen</button>
+      <button class="apply" type="submit">{{ 'reports.apply' | transloco }}</button>
+      <button class="reset" type="button" (click)="reset.emit()">{{ 'reports.reset' | transloco }}</button>
     </form>
   `,
   styles: [`
@@ -47,7 +48,7 @@ export class ReportFilterBarComponent {
   readonly from = input('');
   readonly to = input('');
   readonly search = input('');
-  readonly searchPlaceholder = input('Einträge durchsuchen');
+  readonly searchPlaceholder = input('');
   readonly apply = output<ReportFilterValue>();
   readonly reset = output<void>();
   readonly draftFrom = signal('');

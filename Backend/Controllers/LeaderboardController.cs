@@ -7,6 +7,7 @@ using Rankoon.Data.Auth;
 using Rankoon.Data.Model;
 using Rankoon.Data.Xp;
 using Rankoon.Data.Reporting;
+using Rankoon.Api;
 
 namespace Rankoon.Controllers;
 
@@ -34,7 +35,7 @@ public sealed class LeaderboardController(LeaderboardService leaderboard, IGuild
         }
         catch (FormatException)
         {
-            return BadRequest(new { error = "Invalid leaderboard cursor." });
+            return this.ApiError("leaderboard.invalidCursor");
         }
     }
 
@@ -60,7 +61,7 @@ public sealed class LeaderboardSettingsController(LeaderboardService leaderboard
     [HttpGet]
     public async Task<IActionResult> Get(string guildId)
     {
-        if (!ulong.TryParse(guildId, out var id)) return BadRequest();
+        if (!ulong.TryParse(guildId, out var id)) return this.ApiError("guild.invalidId");
         if (!await authorization.CanAccessModuleAsync(User, id, GuildModuleIds.Leaderboard, HttpContext.RequestAborted)) return Forbid();
         var guild = discord.GetGuild(id);
         if (guild == null) return NotFound();
@@ -70,7 +71,7 @@ public sealed class LeaderboardSettingsController(LeaderboardService leaderboard
     [HttpPut]
     public async Task<IActionResult> Save(string guildId, [FromBody] LeaderboardSettingsRequest request)
     {
-        if (!ulong.TryParse(guildId, out var id)) return BadRequest();
+        if (!ulong.TryParse(guildId, out var id)) return this.ApiError("guild.invalidId");
         if (!await authorization.CanAccessModuleAsync(User, id, GuildModuleIds.Leaderboard, HttpContext.RequestAborted)) return Forbid();
         var guild = discord.GetGuild(id);
         if (guild == null) return NotFound();
@@ -83,13 +84,13 @@ public sealed class LeaderboardSettingsController(LeaderboardService leaderboard
             await reports.WriteAsync(new(id, ReportCategories.Activity, ReportNames.LeaderboardSettingsChanged, ReportOutcomes.Succeeded, ActorId: authorization.GetDiscordUserId(User), Metadata: new Dictionary<string, object?> { ["state"] = request.Visibility }), HttpContext.RequestAborted);
             return Ok(saved);
         }
-        catch (ArgumentException exception)
+        catch (ArgumentException)
         {
-            return BadRequest(new { error = exception.Message });
+            return this.ApiError("leaderboard.invalidAlias");
         }
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey)
         {
-            return Conflict(new { error = "Dieser Alias wird bereits verwendet." });
+            return this.ApiError("leaderboard.aliasConflict");
         }
     }
 }

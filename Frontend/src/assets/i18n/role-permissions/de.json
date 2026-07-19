@@ -1,0 +1,63 @@
+{
+  "rolePermissions": {
+    "title": "Rollen & Berechtigungen",
+    "subtitle": "Lege fest, welche Discord-Rollen einzelne Rankoon-Module verwalten dürfen.",
+    "saved": "Rollenberechtigungen wurden gespeichert.",
+    "loading": "Berechtigungen werden geladen",
+    "loadingHint": "Discord-Rollen und Module werden abgerufen.",
+    "ownerRequired": "Owner-Zugriff erforderlich",
+    "ownerHint": "Nur der Discord-Server-Owner darf Rollenberechtigungen ansehen und ändern.",
+    "serverOwner": "Server-Owner",
+    "fullAccess": "Vollzugriff",
+    "ownerDescription": "Der Server-Owner behält immer Zugriff auf alle Module und die Rollenverwaltung. Diese Berechtigung kann nicht eingeschränkt werden.",
+    "discordRoles": "Discord-Rollen",
+    "roleCount": "{{count}} Rollen, nach Discord-Hierarchie sortiert",
+    "roleCountOne": "{{count}} Rolle, nach Discord-Hierarchie sortiert",
+    "roleCountOther": "{{count}} Rollen, nach Discord-Hierarchie sortiert",
+    "search": "Rollen durchsuchen",
+    "searchPlaceholder": "Rollenname",
+    "availableModules": "Verfügbare Module",
+    "administrator": "Administrator",
+    "position": "Position {{position}}",
+    "allModules": "Alle Module",
+    "empty": "Keine Rollen gefunden",
+    "emptyHint": "Ändere den Suchbegriff, um weitere Rollen anzuzeigen."
+  },
+  "modules": {
+    "xp": {
+      "name": "XP & Level",
+      "description": "XP-Quellen, Level und Belohnungen verwalten"
+    },
+    "leaderboard": {
+      "name": "Rangliste",
+      "description": "Zugriff und Einstellungen der Rangliste verwalten"
+    },
+    "voice-hubs": {
+      "name": "VC-Hubs",
+      "description": "Join-to-create-Voice-Kanäle verwalten"
+    },
+    "reporting": {
+      "name": "Berichte",
+      "description": "Aktivitäts-, Command- und Fehlerberichte ansehen"
+    }
+  },
+  "errors": {
+    "ownerOnly": "Nur der Server-Owner kann Rollenberechtigungen verwalten.",
+    "permissionsLoad": "Die Rollenberechtigungen konnten nicht geladen werden.",
+    "permissionDenied": "Dein Zugriff wurde abgelehnt. Lade die Seite neu oder prüfe den Server-Owner.",
+    "permissionConflict": "Die Berechtigungen wurden zwischenzeitlich geändert. Lade die Seite neu und prüfe deine Änderungen."
+  },
+  "apiErrors": {
+    "permissions": {
+      "rolesRequired": "Rollen sind erforderlich.",
+      "nullRole": "Rollen dürfen keine leeren Einträge enthalten.",
+      "duplicateRole": "Doppelte Rollen sind nicht erlaubt.",
+      "roleNotInGuild": "Die Rolle gehört nicht zu diesem Server.",
+      "modulesRequired": "Modul-IDs sind für die Rolle erforderlich.",
+      "duplicateModule": "Doppelte Module sind für eine Rolle nicht erlaubt.",
+      "unknownModule": "Das Modul ist unbekannt.",
+      "revisionConflict": "Die Rollenberechtigungen wurden seit dem Laden geändert. Lade neu und versuche es erneut."
+    },
+    "conflict": "Die Daten wurden geändert. Lade neu und versuche es erneut."
+  }
+}

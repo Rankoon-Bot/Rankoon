@@ -1,0 +1,208 @@
+{
+  "reports": {
+    "eyebrow": "REPORTING",
+    "aria": "Reports",
+    "search": "Search",
+    "from": "From",
+    "to": "To",
+    "apply": "Apply",
+    "reset": "Reset",
+    "loading": "Loading data",
+    "loadingHint": "The report is being created for the selected server.",
+    "unavailable": "Report unavailable",
+    "empty": "No entries",
+    "emptyDefault": "No data was recorded in the selected period.",
+    "notEnoughTrend": "Not enough data for a trend yet.",
+    "trendAria": "Trend with {{count}} data points. {{values}}.",
+    "errorIn": "Error in {{source}}",
+    "time": "Time",
+    "status": "Status",
+    "correlation": "Correlation",
+    "periodHint": "In the selected period",
+    "statuses": {
+      "success": "Success",
+      "warning": "Warning",
+      "error": "Error",
+      "info": "Info",
+      "neutral": "Neutral"
+    }
+  },
+  "activity": {
+    "title": "Activity logs",
+    "subtitle": "Chronological server events, actors and technical context.",
+    "searchPlaceholder": "Title, user or channel",
+    "eventType": "Event type",
+    "allTypes": "All types",
+    "empty": "No activity was found for these filters.",
+    "timeline": "Event timeline",
+    "loaded": "{{count}} entries loaded",
+    "loadedOne": "{{count}} entry loaded",
+    "loadedOther": "{{count}} entries loaded",
+    "event": "Event",
+    "actor": "Actor",
+    "channel": "Channel",
+    "serverWide": "Server-wide",
+    "details": "Event details",
+    "type": "Type"
+  },
+  "commands": {
+    "title": "Command usage",
+    "subtitle": "Usage, reliability and runtime of bot commands at a glance.",
+    "searchPlaceholder": "Command or user",
+    "command": "Command",
+    "allCommands": "All commands",
+    "result": "Result",
+    "kpiAria": "Command metrics",
+    "invocations": "Invocations",
+    "successRate": "Success rate",
+    "successHint": "Successful executions",
+    "activeUsers": "Active users",
+    "uniqueUsers": "Unique users",
+    "averageDuration": "Average runtime",
+    "allCommandsHint": "Across all commands",
+    "overTime": "Invocations over time",
+    "volume": "Command volume per interval",
+    "byCommand": "By command",
+    "ranking": "Ranked by usage",
+    "emptyData": "No command data for these filters.",
+    "recent": "Recent invocations",
+    "diagnosis": "Individual executions for diagnostics",
+    "user": "User",
+    "duration": "Runtime",
+    "emptyInvocations": "No invocations found."
+  },
+  "errorLogs": {
+    "title": "Error logs",
+    "subtitle": "Group, correlate and inspect errors down to individual events.",
+    "searchPlaceholder": "Error message, user or ID",
+    "severity": "Severity",
+    "source": "Source",
+    "allSources": "All sources",
+    "kpiAria": "Error metrics",
+    "affectedUsers": "Affected users",
+    "affectedCommands": "Affected commands",
+    "commandsWithErrors": "Commands with errors",
+    "failedEvents": "Failed events",
+    "groups": "Error groups",
+    "groupsHint": "Similar events grouped by fingerprint",
+    "lastSeen": "{{source}} · last seen {{date}}",
+    "emptyGroups": "No error groups found.",
+    "events": "Error events",
+    "eventsHint": "Individual events and correlation IDs",
+    "context": "Command / user",
+    "emptyEvents": "No error events for these filters.",
+    "details": "Error details",
+    "showCorrelated": "Show correlated events"
+  },
+  "domain": {
+    "reports": {
+      "names": {
+        "xp": {
+          "granted": "XP awarded",
+          "settings": {
+            "changed": "XP settings changed"
+          },
+          "mee6": {
+            "imported": "MEE6 data imported"
+          }
+        },
+        "voice": {
+          "watchdog": {
+            "changed": "Voice watchdog changed"
+          },
+          "hub": {
+            "created": "Voice hub created",
+            "updated": "Voice hub updated",
+            "deleted": "Voice hub deleted"
+          },
+          "channel": {
+            "created": "Voice channel created",
+            "deleted": "Voice channel deleted"
+          },
+          "ownership": {
+            "transferred": "Voice ownership transferred"
+          }
+        },
+        "leaderboard": {
+          "settings": {
+            "changed": "Leaderboard settings changed"
+          },
+          "privacy": {
+            "changed": "Leaderboard privacy changed"
+          }
+        },
+        "permissions": {
+          "roles": {
+            "changed": "Role permissions changed"
+          }
+        }
+      },
+      "actions": {
+        "message": "Message activity",
+        "thread_message": "Thread message activity",
+        "thread_create": "Thread creation",
+        "reaction": "Reaction activity",
+        "event_interest": "Event interest",
+        "event_interest_reversal": "Event interest removed",
+        "voice": "Voice activity"
+      },
+      "outcomes": {
+        "succeeded": "Succeeded",
+        "failed": "Failed",
+        "rejected": "Rejected"
+      },
+      "severities": {
+        "info": "Info",
+        "warning": "Warning",
+        "error": "Error",
+        "critical": "Critical"
+      },
+      "errorSources": {
+        "xp": {
+          "message": "Message XP",
+          "reaction": "Reaction XP",
+          "thread": "Thread XP",
+          "event_interest": {
+            "label": "Event interest XP",
+            "remove": "Event-interest removal"
+          }
+        },
+        "voice": {
+          "xp": {
+            "lifecycle": "Voice XP lifecycle"
+          },
+          "watchdog": "Voice watchdog",
+          "channel": {
+            "lifecycle": "Voice channel lifecycle",
+            "create": "Voice channel creation"
+          }
+        },
+        "discord": {
+          "command": "Discord command"
+        }
+      }
+    },
+    "watchdog": {
+      "starting": "Starting",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "stale": "Stale",
+      "restarting": "Restarting",
+      "faulted": "Faulted",
+      "stopped": "Stopped"
+    }
+  },
+  "errors": {
+    "activityLoad": "Could not load activity data.",
+    "activityMore": "Could not load more activities.",
+    "commandsLoad": "Could not load command statistics.",
+    "commandsMore": "Could not load more invocations.",
+    "errorReportsLoad": "Could not load error data.",
+    "errorsMore": "Could not load more errors."
+  },
+  "apiErrors": {
+    "reports": {
+      "invalidQuery": "The report query is invalid."
+    }
+  }
+}

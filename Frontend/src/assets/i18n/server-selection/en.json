@@ -1,0 +1,13 @@
+{
+  "serverSelection": {
+    "title": "Select a server",
+    "subtitle": "Choose a Discord server to use the dashboard.",
+    "selectAria": "Select {{name}}",
+    "missingAria": "{{name}}: bot not installed",
+    "botActive": "Bot active",
+    "inviteBot": "Invite bot",
+    "managerInvite": "A server manager must invite Rankoon.",
+    "loadingHint": "One moment while we retrieve your Discord servers.",
+    "empty": "No shared Discord servers were found."
+  }
+}

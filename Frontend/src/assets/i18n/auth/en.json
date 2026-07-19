@@ -1,0 +1,25 @@
+{
+  "login": {
+    "logoAlt": "Rankoon logo",
+    "subtitle": "Manage your Discord bot with ease",
+    "signIn": "Sign in with Discord",
+    "signingIn": "Signing in...",
+    "secure": "Secure authentication",
+    "control": "Complete bot control",
+    "analytics": "Detailed logs & analytics",
+    "copyright": "© 2025 Rankoon Dashboard. All rights reserved."
+  },
+  "authCallback": {
+    "processing": "Processing sign-in...",
+    "wait": "Please wait while we complete your Discord authentication.",
+    "failed": "Sign-in failed"
+  },
+  "errors": {
+    "authCancelled": "Discord authentication was cancelled.",
+    "authTokenMissing": "No authentication token was received.",
+    "authRefreshTokenMissing": "No refresh token was received.",
+    "authFailed": "Authentication failed.",
+    "loginStart": "Could not start sign-in.",
+    "signIn": "Sign-in failed. Please try again."
+  }
+}

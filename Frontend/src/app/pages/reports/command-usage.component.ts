@@ -11,10 +11,13 @@ import { ReportTrendChartComponent } from '../../reporting/components/report-tre
 import { CommandQuery, CommandReportDto } from '../../reporting/reporting.models';
 import { ReportingService } from '../../reporting/reporting.service';
 import { AppStore } from '../../store/app.store';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { LocaleService } from '../../i18n/locale.service';
+import { ApiErrorService } from '../../services/api-error.service';
 
 @Component({
   selector: 'app-command-usage', standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, ReportFilterBarComponent, ReportKpiComponent, ReportStateComponent, ReportStatusComponent, ReportTrendChartComponent],
+  imports: [CommonModule, RouterLink, RouterLinkActive, ReportFilterBarComponent, ReportKpiComponent, ReportStateComponent, ReportStatusComponent, ReportTrendChartComponent, TranslocoPipe],
   templateUrl: './command-usage.component.html', styleUrl: './command-usage.component.scss'
 })
 export class CommandUsageComponent {
@@ -23,6 +26,8 @@ export class CommandUsageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly locale = inject(LocaleService);
+  private readonly apiErrors = inject(ApiErrorService);
   private readonly reloadTick = signal(0);
   private requestGeneration = 0;
   readonly report = signal<CommandReportDto | null>(null);
@@ -39,7 +44,7 @@ export class CommandUsageComponent {
         const generation = this.requestGeneration;
         if (!guild) { this.loading.set(false); return EMPTY; }
         return this.reporting.commands(guild.id, this.query()).pipe(
-          catchError(() => { if (generation === this.requestGeneration) this.error.set('Die Command-Statistiken konnten nicht geladen werden.'); return EMPTY; }),
+           catchError(error => { if (generation === this.requestGeneration) this.error.set(this.apiErrors.resolve(error, 'errors.commandsLoad').message); return EMPTY; }),
           finalize(() => { if (generation === this.requestGeneration) this.loading.set(false); })
         );
       }), takeUntilDestroyed(this.destroyRef)
@@ -64,13 +69,13 @@ export class CommandUsageComponent {
     ).subscribe({ next: page => {
       if (guildId !== this.appStore.selectedGuild()?.id || generation !== this.requestGeneration) return;
       this.report.set({ ...page, recent: { ...page.recent, items: [...current.recent.items, ...page.recent.items] } });
-    }, error: () => { if (guildId === this.appStore.selectedGuild()?.id && generation === this.requestGeneration) this.loadMoreError.set('Weitere Aufrufe konnten nicht geladen werden.'); } });
+     }, error: error => { if (guildId === this.appStore.selectedGuild()?.id && generation === this.requestGeneration) this.loadMoreError.set(this.apiErrors.resolve(error, 'errors.commandsMore').message); } });
   }
 
-  percent(value: number): string { return new Intl.NumberFormat('de-DE', { style: 'percent', maximumFractionDigits: 1 }).format(value > 1 ? value / 100 : value); }
-  number(value: number): string { return new Intl.NumberFormat('de-DE').format(value); }
-  duration(value: number): string { return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(value)} ms`; }
-  formatDate(value: string): string { return new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)); }
+  percent(value: number): string { return this.locale.number(value > 1 ? value / 100 : value, { style: 'percent', maximumFractionDigits: 1 }); }
+  number(value: number): string { return this.locale.number(value); }
+  duration(value: number): string { return `${this.locale.number(value, { maximumFractionDigits: 0 })} ms`; }
+  formatDate(value: string): string { return this.locale.date(value, { dateStyle: 'short', timeStyle: 'short' }); }
 
   private navigate(queryParams: Record<string, string | null>): void { this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: 'merge' }); }
   private readQuery(params: ParamMap): CommandQuery { return { from: params.get('from') || undefined, to: params.get('to') || undefined, search: params.get('search') || undefined, command: params.get('command') || undefined, status: (params.get('status') as CommandQuery['status']) || undefined, take: 25 }; }

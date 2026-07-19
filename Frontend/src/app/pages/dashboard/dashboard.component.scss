@@ -3,6 +3,9 @@
 .dashboard-header { padding: var(--rk-space-8); margin-bottom: var(--rk-space-6); border-radius: var(--rk-radius-xl); background: linear-gradient(115deg, var(--rk-surface-1), var(--rk-surface-2)); }
 .welcome-section h1 { margin-bottom: var(--rk-space-2); }
 .welcome-section p, .stat-label, .activity-time { color: var(--rk-text-muted); }
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: var(--rk-space-3); padding: var(--rk-space-3) var(--rk-space-4); margin-bottom: var(--rk-space-5); color: var(--rk-danger); background: var(--rk-danger-subtle); border: 1px solid var(--rk-danger); border-radius: var(--rk-radius-md); }
+.load-error button { min-height: 44px; padding: 0 var(--rk-space-4); color: var(--rk-text-strong); background: var(--rk-surface-2); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-md); font-weight: 700; }
+.load-error button:hover { background: var(--rk-surface-3); border-color: var(--rk-info); }
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--rk-space-4); margin-bottom: var(--rk-space-6); }
 .stat-card { min-height: 132px; padding: var(--rk-space-5); display: flex; align-items: center; gap: var(--rk-space-4); border-radius: var(--rk-radius-lg); transition: border-color var(--rk-motion-base), transform var(--rk-motion-fast); }
 .stat-card:hover { border-color: var(--rk-border-strong); transform: translateY(-2px); }

@@ -1,0 +1,38 @@
+{
+  "leaderboard": {
+    "title": "Rangliste",
+    "eyebrow": "GUILD RANKING",
+    "subtitle": "XP, Aktivität und Level auf einen Blick.",
+    "findingRank": "Rang wird gesucht...",
+    "jumpToMe": "Springe zu mir",
+    "privacyTitle": "Deine öffentliche Sichtbarkeit",
+    "privacyHint": "Servermitglieder sehen dich weiterhin. Diese Einstellung gilt nur für externe Besucher.",
+    "privacyAria": "Öffentliche Sichtbarkeit in der Rangliste",
+    "loading": "Rangliste wird aufgebaut",
+    "loadingHint": "Die besten Plätze werden geladen.",
+    "rank": "Rang",
+    "member": "Mitglied",
+    "messages": "{{count}} Nachrichten",
+    "messageOne": "{{count}} Nachricht",
+    "messageOther": "{{count}} Nachrichten",
+    "loadingMore": "Weitere Plätze werden geladen",
+    "end": "Ende der Rangliste",
+    "emptyTitle": "Noch keine Rangplätze",
+    "emptyHint": "Sobald Mitglieder XP sammeln, erscheinen sie hier."
+  },
+  "errors": {
+    "leaderboardLogin": "Diese Rangliste ist nur für Servermitglieder sichtbar. Bitte melde dich an.",
+    "notMember": "Du bist kein Mitglied dieses Servers.",
+    "leaderboardLoad": "Die Rangliste konnte nicht geladen werden.",
+    "noXpEntry": "Du hast in dieser Rangliste noch keinen XP-Eintrag.",
+    "rankLoad": "Dein Rang konnte nicht geladen werden.",
+    "privacySave": "Deine Sichtbarkeit konnte nicht gespeichert werden."
+  },
+  "apiErrors": {
+    "leaderboard": {
+      "invalidCursor": "Die Ranglistenposition ist ungültig.",
+      "invalidAlias": "Der Ranglisten-Alias ist ungültig.",
+      "aliasConflict": "Der Ranglisten-Alias wird bereits verwendet."
+    }
+  }
+}

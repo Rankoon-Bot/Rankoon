@@ -5,11 +5,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PermissionModule, RolePermission, RolePermissions, GuildModuleId } from '../../models/guild-permissions.models';
 import { GuildService } from '../../services/guild.service';
 import { AppStore } from '../../store/app.store';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { ApiErrorService } from '../../services/api-error.service';
+import { LocaleService } from '../../i18n/locale.service';
 
 @Component({
   selector: 'app-role-permissions',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslocoPipe],
   templateUrl: './role-permissions.component.html',
   styleUrls: ['./role-permissions.component.scss']
 })
@@ -17,6 +20,9 @@ export class RolePermissionsComponent implements OnInit {
   private readonly api = inject(GuildService);
   private readonly appStore = inject(AppStore);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly i18n = inject(TranslocoService);
+  private readonly apiErrors = inject(ApiErrorService);
+  private readonly locale = inject(LocaleService);
   private readonly baseline = signal('');
 
   readonly loading = signal(true);
@@ -58,9 +64,9 @@ export class RolePermissionsComponent implements OnInit {
       },
       error: error => {
         this.forbidden.set(error?.status === 403);
-        this.error.set(error?.status === 403
-          ? 'Nur der Server-Owner kann Rollenberechtigungen verwalten.'
-          : 'Die Rollenberechtigungen konnten nicht geladen werden.');
+         this.error.set(error?.status === 403
+           ? this.i18n.translate('errors.ownerOnly')
+           : this.apiErrors.resolve(error, 'errors.permissionsLoad').message);
         this.loading.set(false);
       }
     });
@@ -113,16 +119,16 @@ export class RolePermissionsComponent implements OnInit {
       next: response => {
         if (this.appStore.selectedGuild()?.id !== guildId) return;
         this.applyResponse(response);
-        this.success.set('Rollenberechtigungen wurden gespeichert.');
+         this.success.set(this.i18n.translate('rolePermissions.saved'));
         this.saving.set(false);
       },
       error: error => {
         this.forbidden.set(error?.status === 403);
-        this.error.set(error?.status === 403
-          ? 'Dein Zugriff wurde abgelehnt. Lade die Seite neu oder prüfe den Server-Owner.'
-          : error?.status === 409
-            ? 'Die Berechtigungen wurden zwischenzeitlich geändert. Lade die Seite neu und prüfe deine Änderungen.'
-            : 'Die Änderungen konnten nicht gespeichert werden.');
+         this.error.set(error?.status === 403
+           ? this.i18n.translate('errors.permissionDenied')
+           : error?.status === 409
+             ? this.i18n.translate('errors.permissionConflict')
+             : this.apiErrors.resolve(error, 'errors.save').message);
         this.saving.set(false);
       }
     });
@@ -130,6 +136,10 @@ export class RolePermissionsComponent implements OnInit {
 
   trackModule(_: number, module: PermissionModule): string { return module.id; }
   trackRole(_: number, role: RolePermission): string { return role.id; }
+  moduleName(moduleId: GuildModuleId): string { return this.i18n.translate(`modules.${moduleId}.name`); }
+  moduleDescription(moduleId: GuildModuleId): string { return this.i18n.translate(`modules.${moduleId}.description`); }
+  roleCount(count: number): string { return this.locale.plural(count, 'rolePermissions.roleCountOne', 'rolePermissions.roleCountOther'); }
+  formatNumber(value: number): string { return this.locale.number(value); }
 
   private applyResponse(data: RolePermissions): void {
     const assignments = Object.fromEntries(data.roles.map(role => [role.id, [...role.moduleIds]]));

@@ -121,7 +121,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             firstRank + index,
             member.UserId.ToString(),
             member.DisplayName,
-            member.TotalXp,
+            decimal.Truncate(member.TotalXp),
             Mee6LevelCurve.GetLevel(member.TotalXp),
             member.MessageCount,
             member.VoiceSeconds,

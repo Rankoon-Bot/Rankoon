@@ -1,0 +1,122 @@
+{
+  "dashboard": {
+    "welcome": "Welcome back, {{name}}!",
+    "subtitle": "{{guild}}: live activity and module status",
+    "members": "Members",
+    "memberStats": "{{members}} server members · {{bots}} bots",
+    "voiceActive": "Active in voice",
+    "inVoice": "Members in voice",
+    "xpAwarded": "XP awarded",
+    "accumulatedXp": "Accumulated XP",
+    "temporaryVcs": "Temporary voice channels",
+    "currentlyActive": "Currently active",
+    "xpLeaderboard": "XP leaderboard",
+    "memberXpVoice": "{{xp}} XP · {{seconds}} voice seconds",
+    "quickActions": "Quick actions",
+    "configureXp": "Configure XP & levels",
+    "setupHub": "Set up a voice hub",
+    "watchdog": "Watchdog: {{state}}",
+    "messagesReactions": "{{messages}} messages · {{reactions}} reactions"
+  },
+  "domain": {
+    "reports": {
+      "names": {
+        "xp": {
+          "granted": "XP awarded",
+          "settings": {
+            "changed": "XP settings changed"
+          },
+          "mee6": {
+            "imported": "MEE6 data imported"
+          }
+        },
+        "voice": {
+          "watchdog": {
+            "changed": "Voice watchdog changed"
+          },
+          "hub": {
+            "created": "Voice hub created",
+            "updated": "Voice hub updated",
+            "deleted": "Voice hub deleted"
+          },
+          "channel": {
+            "created": "Voice channel created",
+            "deleted": "Voice channel deleted"
+          },
+          "ownership": {
+            "transferred": "Voice ownership transferred"
+          }
+        },
+        "leaderboard": {
+          "settings": {
+            "changed": "Leaderboard settings changed"
+          },
+          "privacy": {
+            "changed": "Leaderboard privacy changed"
+          }
+        },
+        "permissions": {
+          "roles": {
+            "changed": "Role permissions changed"
+          }
+        }
+      },
+      "actions": {
+        "message": "Message activity",
+        "thread_message": "Thread message activity",
+        "thread_create": "Thread creation",
+        "reaction": "Reaction activity",
+        "event_interest": "Event interest",
+        "event_interest_reversal": "Event interest removed",
+        "voice": "Voice activity"
+      },
+      "outcomes": {
+        "succeeded": "Succeeded",
+        "failed": "Failed",
+        "rejected": "Rejected"
+      },
+      "severities": {
+        "info": "Info",
+        "warning": "Warning",
+        "error": "Error",
+        "critical": "Critical"
+      },
+      "errorSources": {
+        "xp": {
+          "message": "Message XP",
+          "reaction": "Reaction XP",
+          "thread": "Thread XP",
+          "event_interest": {
+            "label": "Event interest XP",
+            "remove": "Event-interest removal"
+          }
+        },
+        "voice": {
+          "xp": {
+            "lifecycle": "Voice XP lifecycle"
+          },
+          "watchdog": "Voice watchdog",
+          "channel": {
+            "lifecycle": "Voice channel lifecycle",
+            "create": "Voice channel creation"
+          }
+        },
+        "discord": {
+          "command": "Discord command"
+        }
+      }
+    },
+    "watchdog": {
+      "starting": "Starting",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "stale": "Stale",
+      "restarting": "Restarting",
+      "faulted": "Faulted",
+      "stopped": "Stopped"
+    }
+  },
+  "errors": {
+    "dashboardLoad": "Could not load dashboard data."
+  }
+}

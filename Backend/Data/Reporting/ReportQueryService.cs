@@ -208,8 +208,20 @@ public sealed class ReportQueryService(RankoonDbContext database, IOptions<JwtSe
     }
 
     private static ReportItem ToItem(ReportEvent item) => new(item.Id!, item.Category, item.Name, item.Action, item.Outcome, item.Severity,
-        item.ActorId?.ToString(), item.SubjectId?.ToString(), item.ChannelId?.ToString(), item.CorrelationId, item.DurationMs, item.Metadata,
+        item.ActorId?.ToString(), item.SubjectId?.ToString(), item.ChannelId?.ToString(), item.CorrelationId, item.DurationMs, ToDtoMetadata(item),
         new DateTimeOffset(DateTime.SpecifyKind(item.OccurredAt, DateTimeKind.Utc)));
+    private static IReadOnlyDictionary<string, string> ToDtoMetadata(ReportEvent item)
+    {
+        if (item.Name != ReportNames.XpGranted || !item.Metadata.TryGetValue("amount", out var amount) ||
+            !decimal.TryParse(amount, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var xp))
+            return item.Metadata;
+
+        var metadata = new Dictionary<string, string>(item.Metadata, StringComparer.Ordinal)
+        {
+            ["amount"] = decimal.Truncate(xp).ToString(System.Globalization.CultureInfo.InvariantCulture)
+        };
+        return metadata;
+    }
     private sealed record NormalizedQuery(ulong GuildId, string Category, DateTime From, DateTime To, int Take, string? Name, string? Action,
         string? Outcome, string? Severity, ulong? ActorId, ulong? SubjectId, ulong? ChannelId, string? CorrelationId, string? Search, string Fingerprint);
 }

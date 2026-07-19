@@ -1,0 +1,63 @@
+{
+  "rolePermissions": {
+    "title": "Roles & permissions",
+    "subtitle": "Choose which Discord roles may manage individual Rankoon modules.",
+    "saved": "Role permissions saved.",
+    "loading": "Loading permissions",
+    "loadingHint": "Retrieving Discord roles and modules.",
+    "ownerRequired": "Owner access required",
+    "ownerHint": "Only the Discord server owner may view and change role permissions.",
+    "serverOwner": "Server owner",
+    "fullAccess": "Full access",
+    "ownerDescription": "The server owner always retains access to every module and role management. This permission cannot be restricted.",
+    "discordRoles": "Discord roles",
+    "roleCount": "{{count}} roles, ordered by Discord hierarchy",
+    "roleCountOne": "{{count}} role, ordered by Discord hierarchy",
+    "roleCountOther": "{{count}} roles, ordered by Discord hierarchy",
+    "search": "Search roles",
+    "searchPlaceholder": "Role name",
+    "availableModules": "Available modules",
+    "administrator": "Administrator",
+    "position": "Position {{position}}",
+    "allModules": "All modules",
+    "empty": "No roles found",
+    "emptyHint": "Change the search term to display more roles."
+  },
+  "modules": {
+    "xp": {
+      "name": "XP & Levels",
+      "description": "Manage XP sources, levels and rewards"
+    },
+    "leaderboard": {
+      "name": "Leaderboard",
+      "description": "Manage leaderboard access and settings"
+    },
+    "voice-hubs": {
+      "name": "Voice hubs",
+      "description": "Manage join-to-create voice channels"
+    },
+    "reporting": {
+      "name": "Reports",
+      "description": "View activity, command and error reports"
+    }
+  },
+  "errors": {
+    "ownerOnly": "Only the server owner can manage role permissions.",
+    "permissionsLoad": "Could not load role permissions.",
+    "permissionDenied": "Access denied. Reload the page or check the server owner.",
+    "permissionConflict": "Permissions changed in the meantime. Reload and review your changes."
+  },
+  "apiErrors": {
+    "permissions": {
+      "rolesRequired": "Roles are required.",
+      "nullRole": "Roles must not contain empty entries.",
+      "duplicateRole": "Duplicate roles are not allowed.",
+      "roleNotInGuild": "The role does not belong to this server.",
+      "modulesRequired": "Module IDs are required for the role.",
+      "duplicateModule": "Duplicate modules are not allowed for a role.",
+      "unknownModule": "The module is unknown.",
+      "revisionConflict": "Role permissions changed since they were loaded. Reload and try again."
+    },
+    "conflict": "The data changed. Reload and try again."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "voiceHubs": {
+    "eyebrow": "JOIN TO CREATE",
+    "title": "VC-Hubs",
+    "subtitle": "Beim Betreten eines Hub-Kanals erzeugt Rankoon einen privaten, aufräumbaren Voice-Kanal.",
+    "add": "+ Hub anlegen",
+    "loading": "VC-Hubs werden geladen...",
+    "existingChannel": "Vorhandener Hub-Kanal",
+    "createByBot": "Vom Bot erstellen",
+    "newName": "Neuer Hub-Name",
+    "createPlaceholder": "VC erstellen",
+    "category": "Zielkategorie",
+    "noCategory": "Keine Kategorie",
+    "nameTemplateSuffix": "s Kanal",
+    "limit": "Limit",
+    "bitrate": "Bitrate",
+    "maxChannels": "Max. Kanäle / Owner",
+    "commands": "Owner nutzt: /voice name, /voice limit, /voice lock, /voice unlock, /voice kick und /voice transfer",
+    "saved": "VC-Hub gespeichert."
+  },
+  "errors": {
+    "voiceHubsLoad": "Die VC-Hubs konnten nicht geladen werden.",
+    "voiceHubDelete": "Der VC-Hub konnte nicht gelöscht werden."
+  }
+}

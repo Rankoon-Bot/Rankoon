@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "leaderboard": "Rangliste",
+    "dashboard": "Dashboard",
+    "xp": "XP & Level",
+    "voiceHubs": "VC-Hubs",
+    "leaderboardSettings": "Ranglisten-Einstellungen",
+    "roles": "Rollen & Berechtigungen",
+    "reports": "Logs & Analytics",
+    "activity": "Aktivitätslogs",
+    "commands": "Command-Nutzung",
+    "errors": "Fehlerlogs"
+  }
+}

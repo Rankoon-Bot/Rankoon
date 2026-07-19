@@ -1,0 +1,122 @@
+{
+  "dashboard": {
+    "welcome": "Willkommen zurück, {{name}}!",
+    "subtitle": "{{guild}}: echte Aktivitäten und Modulstatus",
+    "members": "Mitglieder",
+    "memberStats": "{{members}} Servermitglieder · {{bots}} Bots",
+    "voiceActive": "Voice aktiv",
+    "inVoice": "Mitglieder im Voice",
+    "xpAwarded": "XP vergeben",
+    "accumulatedXp": "Akkumulierte XP",
+    "temporaryVcs": "Temporäre VCs",
+    "currentlyActive": "Aktuell aktiv",
+    "xpLeaderboard": "XP-Rangliste",
+    "memberXpVoice": "{{xp}} XP · {{seconds}} Voice-Sekunden",
+    "quickActions": "Schnellaktionen",
+    "configureXp": "XP & Level konfigurieren",
+    "setupHub": "VC-Hub einrichten",
+    "watchdog": "Watchdog: {{state}}",
+    "messagesReactions": "{{messages}} Nachrichten · {{reactions}} Reaktionen"
+  },
+  "domain": {
+    "reports": {
+      "names": {
+        "xp": {
+          "granted": "XP vergeben",
+          "settings": {
+            "changed": "XP-Einstellungen geändert"
+          },
+          "mee6": {
+            "imported": "MEE6-Daten importiert"
+          }
+        },
+        "voice": {
+          "watchdog": {
+            "changed": "Voice-Watchdog geändert"
+          },
+          "hub": {
+            "created": "VC-Hub erstellt",
+            "updated": "VC-Hub aktualisiert",
+            "deleted": "VC-Hub gelöscht"
+          },
+          "channel": {
+            "created": "Voice-Kanal erstellt",
+            "deleted": "Voice-Kanal gelöscht"
+          },
+          "ownership": {
+            "transferred": "Voice-Eigentümerschaft übertragen"
+          }
+        },
+        "leaderboard": {
+          "settings": {
+            "changed": "Ranglisten-Einstellungen geändert"
+          },
+          "privacy": {
+            "changed": "Ranglisten-Sichtbarkeit geändert"
+          }
+        },
+        "permissions": {
+          "roles": {
+            "changed": "Rollenberechtigungen geändert"
+          }
+        }
+      },
+      "actions": {
+        "message": "Nachrichtenaktivität",
+        "thread_message": "Thread-Beitrag",
+        "thread_create": "Thread-Erstellung",
+        "reaction": "Reaktionsaktivität",
+        "event_interest": "Event-Interesse",
+        "event_interest_reversal": "Event-Interesse entfernt",
+        "voice": "Voice-Aktivität"
+      },
+      "outcomes": {
+        "succeeded": "Erfolgreich",
+        "failed": "Fehlgeschlagen",
+        "rejected": "Abgelehnt"
+      },
+      "severities": {
+        "info": "Info",
+        "warning": "Warnung",
+        "error": "Fehler",
+        "critical": "Kritisch"
+      },
+      "errorSources": {
+        "xp": {
+          "message": "Nachrichten-XP",
+          "reaction": "Reaktions-XP",
+          "thread": "Thread-XP",
+          "event_interest": {
+            "label": "Event-Interesse-XP",
+            "remove": "Entfernen von Event-Interesse"
+          }
+        },
+        "voice": {
+          "xp": {
+            "lifecycle": "Voice-XP-Lebenszyklus"
+          },
+          "watchdog": "Voice-Watchdog",
+          "channel": {
+            "lifecycle": "Voice-Kanal-Lebenszyklus",
+            "create": "Voice-Kanal-Erstellung"
+          }
+        },
+        "discord": {
+          "command": "Discord-Command"
+        }
+      }
+    },
+    "watchdog": {
+      "starting": "Startet",
+      "healthy": "Aktiv",
+      "degraded": "Beeinträchtigt",
+      "stale": "Veraltet",
+      "restarting": "Startet neu",
+      "faulted": "Fehler",
+      "stopped": "Deaktiviert"
+    }
+  },
+  "errors": {
+    "dashboardLoad": "Die Dashboard-Daten konnten nicht geladen werden."
+  }
+}

@@ -63,6 +63,7 @@ export class AuthStore {
   clearAuth(): void {
     this._user.set(null);
     this._token.set(null);
+    this._isLoading.set(false);
     this._error.set(null);
   }
 

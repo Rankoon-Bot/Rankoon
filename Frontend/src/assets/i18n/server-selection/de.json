@@ -1,0 +1,13 @@
+{
+  "serverSelection": {
+    "title": "Server auswählen",
+    "subtitle": "Wähle einen Discord-Server aus, um das Dashboard zu nutzen.",
+    "selectAria": "{{name}} auswählen",
+    "missingAria": "{{name}}: Bot nicht installiert",
+    "botActive": "Bot aktiv",
+    "inviteBot": "Bot einladen",
+    "managerInvite": "Ein Server-Manager muss Rankoon einladen.",
+    "loadingHint": "Einen Moment bitte, während wir deine Discord-Server abrufen.",
+    "empty": "Es wurden keine gemeinsamen Discord-Server gefunden."
+  }
+}

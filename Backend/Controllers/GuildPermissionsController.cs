@@ -5,6 +5,7 @@ using Rankoon.Data.Auth;
 using Rankoon.Data.Model;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Xp;
+using Rankoon.Api;
 
 namespace Rankoon.Controllers;
 
@@ -25,7 +26,7 @@ public sealed class GuildPermissionsController(
     [HttpGet("capabilities")]
     public async Task<IActionResult> Capabilities(string guildId)
     {
-        if (!ulong.TryParse(guildId, out var id)) return BadRequest(new { error = "Invalid guild ID" });
+        if (!ulong.TryParse(guildId, out var id)) return this.ApiError("guild.invalidId");
         if (!await authorization.IsMemberAsync(User, id, HttpContext.RequestAborted)) return Forbid();
         var guild = discord.GetGuild(id);
         if (guild == null) return NotFound();
@@ -50,25 +51,27 @@ public sealed class GuildPermissionsController(
     {
         var (guild, error) = await AuthorizeOwnerAsync(guildId);
         if (error != null) return error;
-        if (request.Roles == null) return BadRequest(new { error = "Roles are required." });
-        if (request.Roles.Any(grant => grant == null)) return BadRequest(new { error = "Roles must not contain null entries." });
+        if (request.Roles == null) return this.ApiError("permissions.rolesRequired");
+        if (request.Roles.Any(grant => grant == null)) return this.ApiError("permissions.nullRole");
 
-        var selectableRoles = guild!.Roles.ToDictionary(role => role.Id);
+        var selectableRoles = guild!.Roles
+            .Where(IsManuallyCreatedRole)
+            .ToDictionary(role => role.Id);
         var requestedRoles = request.Roles.Select(grant => grant!).ToArray();
         if (requestedRoles.Select(grant => grant.RoleId).Distinct().Count() != requestedRoles.Length)
-            return BadRequest(new { error = "Duplicate role IDs are not allowed." });
+            return this.ApiError("permissions.duplicateRole");
 
         foreach (var grant in requestedRoles)
         {
             if (!selectableRoles.ContainsKey(grant.RoleId))
-                return BadRequest(new { error = $"Role {grant.RoleId} does not belong to this server." });
+                return this.ApiError("permissions.roleNotInGuild", new Dictionary<string, object?> { ["roleId"] = grant.RoleId });
             if (grant.ModuleIds == null)
-                return BadRequest(new { error = $"Module IDs are required for role {grant.RoleId}." });
+                return this.ApiError("permissions.modulesRequired", new Dictionary<string, object?> { ["roleId"] = grant.RoleId });
             if (grant.ModuleIds.Distinct(StringComparer.Ordinal).Count() != grant.ModuleIds.Count)
-                return BadRequest(new { error = $"Duplicate module IDs are not allowed for role {grant.RoleId}." });
+                return this.ApiError("permissions.duplicateModule", new Dictionary<string, object?> { ["roleId"] = grant.RoleId });
             var invalidModuleId = grant.ModuleIds.FirstOrDefault(moduleId => !modules.Contains(moduleId));
             if (invalidModuleId != null)
-                return BadRequest(new { error = $"Unknown module ID: {invalidModuleId}" });
+                return this.ApiError("permissions.unknownModule", new Dictionary<string, object?> { ["moduleId"] = invalidModuleId });
         }
 
         var saved = await permissions.ReplaceAsync(guild, requestedRoles.Select(grant => new GuildRoleModuleGrant
@@ -76,7 +79,7 @@ public sealed class GuildPermissionsController(
             RoleId = grant.RoleId,
             ModuleIds = [.. grant.ModuleIds!]
         }).ToArray(), request.Revision, HttpContext.RequestAborted);
-        if (saved == null) return Conflict(new { error = "Die Rollenberechtigungen wurden zwischenzeitlich geändert. Bitte lade die Seite neu." });
+        if (saved == null) return this.ApiError("permissions.revisionConflict");
         await reports.WriteAsync(new(
             guild.Id,
             ReportCategories.Activity,
@@ -95,6 +98,7 @@ public sealed class GuildPermissionsController(
     {
         var grants = policy.RoleGrants.ToDictionary(grant => grant.RoleId, grant => grant.ModuleIds);
         var roles = guild.Roles
+            .Where(IsManuallyCreatedRole)
             .OrderByDescending(role => role.Position)
             .Select(role => new
             {
@@ -108,9 +112,11 @@ public sealed class GuildPermissionsController(
         return new { guildId = guild.Id, isOwner = true, modules = modules.Modules, roles, policy.Revision, policy.UpdatedAt };
     }
 
+    private static bool IsManuallyCreatedRole(SocketRole role) => !role.IsManaged && !role.IsEveryone;
+
     private async Task<(SocketGuild? Guild, IActionResult? Error)> AuthorizeOwnerAsync(string guildId)
     {
-        if (!ulong.TryParse(guildId, out var id)) return (null, BadRequest(new { error = "Invalid guild ID" }));
+        if (!ulong.TryParse(guildId, out var id)) return (null, this.ApiError("guild.invalidId"));
         if (!await authorization.IsOwnerAsync(User, id, HttpContext.RequestAborted)) return (null, Forbid());
         var guild = discord.GetGuild(id);
         return guild == null ? (null, NotFound()) : (guild, null);

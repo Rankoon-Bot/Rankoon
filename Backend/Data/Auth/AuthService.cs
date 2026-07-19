@@ -332,7 +332,9 @@ public class AuthService : IAuthService
             }
 
             var guildDtos = discordGuilds
-                .Where(g => g.owner || (g.permissions & (AdministratorPermission | ManageGuildPermission)) != 0)
+                .Where(g => g.owner
+                    || (g.permissions & (AdministratorPermission | ManageGuildPermission)) != 0
+                    || (ulong.TryParse(g.id, out var guildId) && discord.GetGuild(guildId) != null))
                 .Select(g =>
                 {
                     var botInstalled = ulong.TryParse(g.id, out var guildId) && discord.GetGuild(guildId) != null;

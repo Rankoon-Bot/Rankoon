@@ -1,9 +1,12 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TranslocoService } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { AppStore, Guild } from '../../store/app.store';
 import { RolePermissionsComponent } from './role-permissions.component';
+import { testI18n } from '../../testing/i18n-testing';
+import { LOCALE_STORAGE_KEY } from '../../i18n/locale.service';
 
 describe('RolePermissionsComponent', () => {
   const guild: Guild = {
@@ -28,10 +31,12 @@ describe('RolePermissionsComponent', () => {
 
   beforeEach(() => {
     sessionStorage.clear();
+    localStorage.setItem(LOCALE_STORAGE_KEY, 'en');
     TestBed.configureTestingModule({
-      imports: [RolePermissionsComponent],
+      imports: [RolePermissionsComponent, testI18n],
       providers: [provideHttpClient(), provideHttpClientTesting()]
     });
+    TestBed.inject(TranslocoService).setActiveLang('en');
     TestBed.inject(AppStore).setSelectedGuild(guild);
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(RolePermissionsComponent);
@@ -41,7 +46,10 @@ describe('RolePermissionsComponent', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem(LOCALE_STORAGE_KEY);
+  });
 
   it('loads clean and allows the owner to remove Discord administrator access', () => {
     expect(component.dirty()).toBeFalse();
@@ -65,6 +73,6 @@ describe('RolePermissionsComponent', () => {
     request.flush(response);
 
     expect(component.dirty()).toBeFalse();
-    expect(component.success()).toContain('gespeichert');
+    expect(component.success()).toBe('Role permissions saved.');
   });
 });

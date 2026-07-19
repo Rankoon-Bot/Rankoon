@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Reporting;
 using Microsoft.AspNetCore.RateLimiting;
+using Rankoon.Api;
 
 namespace Rankoon.Controllers;
 
@@ -35,7 +36,7 @@ public sealed class ReportsController(IGuildAuthorizationService authorization, 
         var id = await AuthorizeAsync(guildId);
         if (id.Error != null) return id.Error;
         try { return Ok(await reports.ListAsync(id.GuildId, category, query, HttpContext.RequestAborted)); }
-        catch (ArgumentException exception) { return BadRequest(new { error = exception.Message }); }
+        catch (ArgumentException) { return this.ApiError("reports.invalidQuery"); }
     }
 
     private async Task<IActionResult> SummaryAsync(string guildId, string category, ReportQuery query)
@@ -43,12 +44,12 @@ public sealed class ReportsController(IGuildAuthorizationService authorization, 
         var id = await AuthorizeAsync(guildId);
         if (id.Error != null) return id.Error;
         try { return Ok(await reports.SummarizeAsync(id.GuildId, category, query, HttpContext.RequestAborted)); }
-        catch (ArgumentException exception) { return BadRequest(new { error = exception.Message }); }
+        catch (ArgumentException) { return this.ApiError("reports.invalidQuery"); }
     }
 
     private async Task<(ulong GuildId, IActionResult? Error)> AuthorizeAsync(string guildId)
     {
-        if (!ulong.TryParse(guildId, out var id)) return (0, BadRequest(new { error = "Invalid guild ID" }));
+        if (!ulong.TryParse(guildId, out var id)) return (0, this.ApiError("guild.invalidId"));
         if (!await authorization.CanAccessModuleAsync(User, id, GuildModuleIds.Reporting, HttpContext.RequestAborted)) return (0, Forbid());
         return (id, null);
     }

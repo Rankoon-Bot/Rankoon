@@ -1,0 +1,25 @@
+{
+  "voiceHubs": {
+    "eyebrow": "JOIN TO CREATE",
+    "title": "Voice hubs",
+    "subtitle": "When someone joins a hub channel, Rankoon creates a private, disposable voice channel.",
+    "add": "+ Add hub",
+    "loading": "Loading voice hubs...",
+    "existingChannel": "Existing hub channel",
+    "createByBot": "Create with bot",
+    "newName": "New hub name",
+    "createPlaceholder": "Create voice channel",
+    "category": "Target category",
+    "noCategory": "No category",
+    "nameTemplateSuffix": "'s channel",
+    "limit": "Limit",
+    "bitrate": "Bitrate",
+    "maxChannels": "Max. channels / owner",
+    "commands": "Owners can use: /voice name, /voice limit, /voice lock, /voice unlock, /voice kick and /voice transfer",
+    "saved": "Voice hub saved."
+  },
+  "errors": {
+    "voiceHubsLoad": "Could not load voice hubs.",
+    "voiceHubDelete": "Could not delete the voice hub."
+  }
+}

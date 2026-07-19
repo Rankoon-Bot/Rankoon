@@ -5,11 +5,14 @@ import { finalize } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { GuildService, LeaderboardEntry, LeaderboardPage } from '../../services/guild.service';
 import { AuthStore } from '../../store/auth.store';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { LocaleService } from '../../i18n/locale.service';
+import { ApiErrorService } from '../../services/api-error.service';
 
 @Component({
   selector: 'app-leaderboard',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, TranslocoPipe],
   templateUrl: './leaderboard.component.html',
   styleUrls: ['./leaderboard.component.scss'],
 })
@@ -18,6 +21,9 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
   private readonly api = inject(GuildService);
   private readonly destroyRef = inject(DestroyRef);
   readonly auth = inject(AuthStore);
+  private readonly i18n = inject(TranslocoService);
+  private readonly locale = inject(LocaleService);
+  private readonly apiErrors = inject(ApiErrorService);
 
   private observedSentinel?: HTMLElement;
   @ViewChild('sentinel') set sentinel(value: ElementRef<HTMLElement> | undefined) {
@@ -76,7 +82,7 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
         },
         error: response => {
           if (requestedAlias !== this.alias || requestId !== this.requestSequence) return;
-          this.error.set(response.status === 401 ? 'Diese Rangliste ist nur fuer Servermitglieder sichtbar. Bitte melde dich an.' : response.status === 403 ? 'Du bist kein Mitglied dieses Servers.' : 'Die Rangliste konnte nicht geladen werden.');
+           this.error.set(response.status === 401 ? this.i18n.translate('errors.leaderboardLogin') : response.status === 403 ? this.i18n.translate('errors.notMember') : this.apiErrors.resolve(response, 'errors.leaderboardLoad').message);
         },
       });
   }
@@ -97,12 +103,12 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
         this.page.set(response);
         this.entries.set(response.items);
         if (!response.items.some(entry => entry.isCurrentUser)) {
-          this.error.set('Du hast in dieser Rangliste noch keinen XP-Eintrag.');
+          this.error.set(this.i18n.translate('errors.noXpEntry'));
           return;
         }
         setTimeout(() => document.querySelector<HTMLElement>('[data-current-user="true"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       },
-      error: () => { if (requestedAlias === this.alias && requestId === this.requestSequence) this.error.set('Dein Rang konnte nicht geladen werden.'); },
+       error: error => { if (requestedAlias === this.alias && requestId === this.requestSequence) this.error.set(this.apiErrors.resolve(error, 'errors.rankLoad').message); },
     });
   }
 
@@ -112,10 +118,11 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
     const requestedAlias = this.alias;
     this.api.setLeaderboardPrivacy(this.alias, publicVisible).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => { if (requestedAlias === this.alias) this.privacyBusy.set(false); })).subscribe({
       next: () => { if (requestedAlias === this.alias) this.page.update(page => page ? { ...page, publicVisible } : page); },
-      error: () => { if (requestedAlias === this.alias) this.error.set('Deine Sichtbarkeit konnte nicht gespeichert werden.'); },
+       error: error => { if (requestedAlias === this.alias) this.error.set(this.apiErrors.resolve(error, 'errors.privacySave').message); },
     });
   }
 
-  formatNumber(value: string | number): string { return Number(value).toLocaleString('de-DE'); }
+  formatNumber(value: string | number): string { return this.locale.number(value); }
+  messageCount(value: string | number): string { return this.locale.plural(value, 'leaderboard.messageOne', 'leaderboard.messageOther'); }
   trackEntry(_: number, entry: LeaderboardEntry): string { return entry.userId; }
 }

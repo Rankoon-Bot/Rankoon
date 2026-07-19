@@ -1,12 +1,12 @@
 <section class="page">
   <header class="page-header">
     <div>
-      <p class="eyebrow">SERVER KONFIGURATION</p>
-      <h1>Rollen & Berechtigungen</h1>
-      <p>Lege fest, welche Discord-Rollen einzelne Rankoon-Module verwalten dürfen.</p>
+      <p class="eyebrow">{{ 'common.serverConfiguration' | transloco }}</p>
+      <h1>{{ 'rolePermissions.title' | transloco }}</h1>
+      <p>{{ 'rolePermissions.subtitle' | transloco }}</p>
     </div>
     <button class="primary" type="button" (click)="save()" [disabled]="loading() || saving() || !dirty() || forbidden()">
-      {{ saving() ? 'Wird gespeichert...' : dirty() ? 'Änderungen speichern' : 'Gespeichert' }}
+      {{ (saving() ? 'common.saving' : dirty() ? 'common.saveChanges' : 'common.saved') | transloco }}
     </button>
   </header>
 
@@ -14,47 +14,47 @@
   @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
 
   @if (loading()) {
-    <div class="state-card" role="status"><span class="loader" aria-hidden="true"></span><div><h2>Berechtigungen werden geladen</h2><p>Discord-Rollen und Module werden abgerufen.</p></div></div>
+    <div class="state-card" role="status"><span class="loader" aria-hidden="true"></span><div><h2>{{ 'rolePermissions.loading' | transloco }}</h2><p>{{ 'rolePermissions.loadingHint' | transloco }}</p></div></div>
   } @else if (forbidden()) {
-    <div class="state-card denied" role="alert"><div><h2>Owner-Zugriff erforderlich</h2><p>Nur der Discord Server-Owner darf Rollenberechtigungen ansehen und ändern.</p></div></div>
+    <div class="state-card denied" role="alert"><div><h2>{{ 'rolePermissions.ownerRequired' | transloco }}</h2><p>{{ 'rolePermissions.ownerHint' | transloco }}</p></div></div>
   } @else {
   @if (data(); as permissions) {
     <article class="owner-card">
       <div class="owner-mark" aria-hidden="true">O</div>
-      <div><div class="title-line"><h2>Server-Owner</h2><span class="badge owner">Vollzugriff</span></div><p>Der Server-Owner behält immer Zugriff auf alle Module und die Rollenverwaltung. Diese Berechtigung kann nicht eingeschränkt werden.</p></div>
+      <div><div class="title-line"><h2>{{ 'rolePermissions.serverOwner' | transloco }}</h2><span class="badge owner">{{ 'rolePermissions.fullAccess' | transloco }}</span></div><p>{{ 'rolePermissions.ownerDescription' | transloco }}</p></div>
     </article>
 
     <section class="permissions-panel" aria-labelledby="roles-heading">
       <div class="panel-heading">
-        <div><h2 id="roles-heading">Discord-Rollen</h2><p>{{ permissions.roles.length }} Rollen, nach Discord-Hierarchie sortiert</p></div>
-        <label class="search"><span>Rollen durchsuchen</span><input type="search" [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="Rollenname" autocomplete="off"></label>
+        <div><h2 id="roles-heading">{{ 'rolePermissions.discordRoles' | transloco }}</h2><p>{{ roleCount(permissions.roles.length) }}</p></div>
+        <label class="search"><span>{{ 'rolePermissions.search' | transloco }}</span><input type="search" [ngModel]="search()" (ngModelChange)="search.set($event)" [placeholder]="'rolePermissions.searchPlaceholder' | transloco" autocomplete="off"></label>
       </div>
 
-      <div class="module-key" aria-label="Verfügbare Module">
-        @for (module of permissions.modules; track module.id) { <div><strong>{{ module.name }}</strong><span>{{ module.description }}</span></div> }
+      <div class="module-key" [attr.aria-label]="'rolePermissions.availableModules' | transloco">
+        @for (module of permissions.modules; track module.id) { <div><strong>{{ moduleName(module.id) }}</strong><span>{{ moduleDescription(module.id) }}</span></div> }
       </div>
 
       <div class="role-list">
         @for (role of filteredRoles(); track role.id) {
           <article class="role-card" [class.administrator]="role.isAdministrator">
             <div class="role-heading">
-              <div><div class="title-line"><h3>{{ role.name }}</h3>@if (role.isAdministrator) { <span class="badge admin">Administrator</span> }</div><p>Position {{ role.position }}</p></div>
+              <div><div class="title-line"><h3>{{ role.name }}</h3>@if (role.isAdministrator) { <span class="badge admin">{{ 'rolePermissions.administrator' | transloco }}</span> }</div><p>{{ 'rolePermissions.position' | transloco: { position: formatNumber(role.position) } }}</p></div>
               <label class="all-toggle">
                 <input type="checkbox" [checked]="hasAllModules(role)" [indeterminate]="hasSomeModules(role)" (change)="toggleAll(role, $any($event.target).checked)">
-                <span>Alle Module</span>
+                <span>{{ 'rolePermissions.allModules' | transloco }}</span>
               </label>
             </div>
             <div class="module-grid">
               @for (module of permissions.modules; track module.id) {
                 <label class="module-option" [class.selected]="hasModule(role, module.id)">
                   <input type="checkbox" [checked]="hasModule(role, module.id)" (change)="toggleModule(role, module.id, $any($event.target).checked)">
-                  <span><strong>{{ module.name }}</strong><small>{{ module.description }}</small></span>
+                  <span><strong>{{ moduleName(module.id) }}</strong><small>{{ moduleDescription(module.id) }}</small></span>
                 </label>
               }
             </div>
           </article>
         } @empty {
-          <div class="empty-state"><h3>Keine Rollen gefunden</h3><p>Ändere den Suchbegriff, um weitere Rollen anzuzeigen.</p></div>
+          <div class="empty-state"><h3>{{ 'rolePermissions.empty' | transloco }}</h3><p>{{ 'rolePermissions.emptyHint' | transloco }}</p></div>
         }
       </div>
     </section>

@@ -13,7 +13,7 @@ public static class GuildModuleIds
     public const string Reporting = "reporting";
 }
 
-public sealed record GuildModuleDescriptor(string Id, string Name, string Description);
+public sealed record GuildModuleDescriptor(string Id);
 
 public interface IGuildModuleRegistry
 {
@@ -25,10 +25,10 @@ public sealed class GuildModuleRegistry : IGuildModuleRegistry
 {
     public IReadOnlyList<GuildModuleDescriptor> Modules { get; } =
     [
-        new(GuildModuleIds.Xp, "Erfahrungspunkte", "XP-Einstellungen, Fortschritt und Vergaben verwalten."),
-        new(GuildModuleIds.Leaderboard, "Rangliste", "Ranglisten-Einstellungen und Sichtbarkeit verwalten."),
-        new(GuildModuleIds.VoiceHubs, "Voice-Hubs", "Temporäre Sprachkanäle und Voice-Hubs verwalten."),
-        new(GuildModuleIds.Reporting, "Berichte", "Aktivitäten, Befehle und Fehlerberichte einsehen.")
+        new(GuildModuleIds.Xp),
+        new(GuildModuleIds.Leaderboard),
+        new(GuildModuleIds.VoiceHubs),
+        new(GuildModuleIds.Reporting)
     ];
 
     public bool Contains(string moduleId) => Modules.Any(module => module.Id == moduleId);
@@ -46,7 +46,7 @@ public sealed class GuildRolePermissionService(RankoonDbContext database, IGuild
     {
         var allModuleIds = modules.Modules.Select(module => module.Id).ToList();
         var initialGrants = guild.Roles
-            .Where(role => role.Permissions.Administrator)
+            .Where(role => !role.IsManaged && !role.IsEveryone && role.Permissions.Administrator)
             .Select(role => new GuildRoleModuleGrant { RoleId = role.Id, ModuleIds = [.. allModuleIds] })
             .ToList();
         var now = DateTime.UtcNow;

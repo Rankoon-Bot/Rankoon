@@ -1,0 +1,106 @@
+{
+  "app": {
+    "title": "Rankoon Control Deck",
+    "dashboard": "Rankoon Dashboard"
+  },
+  "language": {
+    "label": "Sprache"
+  },
+  "common": {
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "paused": "Pausiert",
+    "on": "An",
+    "off": "Aus",
+    "all": "Alle",
+    "add": "Hinzufügen",
+    "remove": "Entfernen",
+    "removeNamed": "{{name}} entfernen",
+    "save": "Speichern",
+    "saving": "Wird gespeichert...",
+    "saved": "Gespeichert",
+    "saveChanges": "Änderungen speichern",
+    "delete": "Löschen",
+    "retry": "Erneut versuchen",
+    "loading": "Wird geladen...",
+    "loadMore": "Weitere laden",
+    "viewAll": "Alle anzeigen",
+    "owner": "Owner",
+    "manager": "Manager",
+    "botMissing": "Bot fehlt",
+    "unavailable": "Nicht verfügbar",
+    "invite": "Einladen",
+    "noServers": "Keine Server gefunden",
+    "loadingServers": "Server werden geladen...",
+    "unknown": "Unbekannt",
+    "visible": "Sichtbar",
+    "hidden": "Ausgeblendet",
+    "you": "Du",
+    "level": "Level",
+    "levelValue": "Level {{value}}",
+    "name": "Name",
+    "system": "System",
+    "successful": "Erfolgreich",
+    "failed": "Fehlgeschlagen",
+    "error": "Fehler",
+    "errors": "Fehler",
+    "warning": "Warnung",
+    "critical": "Kritisch",
+    "closeDetails": "Details schließen",
+    "serverConfiguration": "SERVERKONFIGURATION"
+  },
+  "header": {
+    "toggleNavigation": "Navigation umschalten",
+    "switchServer": "Server wechseln",
+    "allServers": "Alle Server anzeigen",
+    "logout": "Abmelden"
+  },
+  "errors": {
+    "generic": "Etwas ist schiefgelaufen.",
+    "save": "Die Änderungen konnten nicht gespeichert werden.",
+    "guildForbidden": "Du hast keinen Zugriff auf diesen Server.",
+    "guildsLoad": "Die Server konnten nicht geladen werden. Bitte versuche es erneut.",
+    "capabilitiesLoad": "Die Server-Berechtigungen konnten nicht geladen werden.",
+    "settingsForbidden": "Dein Zugriff auf die Server-Einstellungen wurde abgelehnt.",
+    "capabilitiesCheck": "Die Server-Berechtigungen konnten nicht geprüft werden. Bitte versuche es erneut.",
+    "noServer": "Es ist kein Server ausgewählt."
+  },
+  "apiErrors": {
+    "request": {
+      "badRequest": "Die Anfrage ist ungültig.",
+      "validationFailed": "Bitte prüfe deine Eingaben.",
+      "malformedJson": "Die Anfrage enthält ungültiges JSON.",
+      "unsupportedMediaType": "Dieser Medientyp wird nicht unterstützt.",
+      "methodNotAllowed": "Diese Aktion ist nicht erlaubt.",
+      "rejected": "Die Anfrage konnte nicht abgeschlossen werden."
+    },
+    "resource": {
+      "notFound": "Die angeforderte Ressource wurde nicht gefunden."
+    },
+    "auth": {
+      "unauthorized": "Bitte melde dich an, um fortzufahren.",
+      "forbidden": "Du darfst auf diese Ressource nicht zugreifen.",
+      "refreshTokenRequired": "Ein Refresh-Token ist erforderlich.",
+      "refreshTokenInvalid": "Der Refresh-Token ist ungültig oder abgelaufen.",
+      "logoutFailed": "Die Abmeldung konnte nicht abgeschlossen werden.",
+      "tokenInvalid": "Das Zugriffstoken ist ungültig.",
+      "tokenMissing": "Ein Zugriffstoken ist erforderlich.",
+      "guildsUnavailable": "Die Serverliste konnte nicht abgerufen werden.",
+      "oauthFailed": "Die Authentifizierung konnte nicht abgeschlossen werden. Bitte versuche es erneut."
+    },
+    "rateLimit": {
+      "exceeded": "Zu viele Anfragen. Bitte versuche es später erneut."
+    },
+    "server": {
+      "internal": "Ein unerwarteter Serverfehler ist aufgetreten."
+    },
+    "guild": {
+      "invalidId": "Die Server-ID ist ungültig.",
+      "forbidden": "Du hast keinen Zugriff auf diesen Server."
+    },
+    "user": {
+      "invalidId": "Die Nutzer-ID ist ungültig.",
+      "notFound": "Der Nutzer wurde nicht gefunden."
+    }
+  }
+}

@@ -10,6 +10,7 @@ using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Xp;
 using Rankoon.Data.Reporting;
+using Rankoon.Api;
 
 namespace Rankoon.Controllers;
 
@@ -22,7 +23,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
 {
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId, string? moduleId = null)
     {
-        if (!ulong.TryParse(guildId, out var id)) return (0, BadRequest(new { error = "Invalid guild ID" }));
+        if (!ulong.TryParse(guildId, out var id)) return (0, this.ApiError("guild.invalidId"));
         var canAccess = moduleId == null
             ? await authorization.CanAccessAnyModuleAsync(User, id, HttpContext.RequestAborted)
             : await authorization.CanAccessModuleAsync(User, id, moduleId, HttpContext.RequestAborted);
@@ -41,7 +42,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         var activeTemp = await database.TemporaryVoiceChannels.CountDocumentsAsync(x => x.GuildId == id);
         var top = await xp.GetLeaderboardAsync(id, 5, HttpContext.RequestAborted);
         var leaderboardSettings = await leaderboard.GetOrCreateSettingsAsync(id, guild.Name, HttpContext.RequestAborted);
-        return Ok(new { guildName = guild.Name, leaderboardAlias = leaderboardSettings.Alias, memberCount = guild.MemberCount - botCount, botCount, activeVoiceMembers = activeVc, activeXpMembers = await database.MemberXp.CountDocumentsAsync(x => x.GuildId == id), stats, activeTemporaryChannels = activeTemp, processUptimeSeconds = (long)(DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalSeconds, watchdog = watchdog.GetStatus(id), leaderboard = top.Select(ToRank) });
+        return Ok(new { guildName = guild.Name, leaderboardAlias = leaderboardSettings.Alias, memberCount = guild.MemberCount - botCount, botCount, activeVoiceMembers = activeVc, activeXpMembers = await database.MemberXp.CountDocumentsAsync(x => x.GuildId == id), stats = new { xpAwarded = decimal.Truncate(stats.XpAwarded), stats.Messages, stats.Reactions, stats.Threads, stats.EventInterests, stats.TemporaryChannelsCreated }, activeTemporaryChannels = activeTemp, processUptimeSeconds = (long)(DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalSeconds, watchdog = watchdog.GetStatus(id), leaderboard = top.Select(ToRank) });
     }
 
     [HttpGet("resources")]
@@ -59,7 +60,16 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     {
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
         var validationErrors = ValidateXpSettings(settings);
-        if (validationErrors.Count > 0) return BadRequest(new { errors = validationErrors });
+        if (validationErrors.Count > 0)
+        {
+            var errors = validationErrors
+                .GroupBy(error => error.Field, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyList<ApiValidationError>)group.Select(error => ApiErrorFactory.Validation(error.ErrorKey)).ToArray(),
+                    StringComparer.Ordinal);
+            return this.ApiError("xp.settingsInvalid", errors: errors);
+        }
         settings.GuildId = id;
         settings.Voice.CheckIntervalSeconds = Math.Clamp(settings.Voice.CheckIntervalSeconds, 15, 300);
         settings.Voice.MinimumSessionSeconds = Math.Clamp(settings.Voice.MinimumSessionSeconds, 0, 86400);
@@ -95,7 +105,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     public async Task<IActionResult> Member(string guildId, string userId)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
-        if (!ulong.TryParse(userId, out var user)) return BadRequest();
+        if (!ulong.TryParse(userId, out var user)) return this.ApiError("user.invalidId");
         var member = await xp.GetMemberAsync(id, user, HttpContext.RequestAborted); return member == null ? NotFound() : Ok(ToRank(member));
     }
 
@@ -103,8 +113,8 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     public async Task<IActionResult> ImportMee6(string guildId, [FromBody] JsonElement payload)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
-        if (!payload.TryGetProperty("guild", out var importGuild) || !importGuild.TryGetProperty("id", out var importGuildId) || importGuildId.GetString() != guildId) return BadRequest(new { error = "The MEE6 export belongs to another guild." });
-        if (!payload.TryGetProperty("players", out var players) || players.ValueKind != JsonValueKind.Array) return BadRequest(new { error = "Invalid MEE6 players export." });
+        if (!payload.TryGetProperty("guild", out var importGuild) || !importGuild.TryGetProperty("id", out var importGuildId) || importGuildId.GetString() != guildId) return this.ApiError("xp.import.guildMismatch");
+        if (!payload.TryGetProperty("players", out var players) || players.ValueKind != JsonValueKind.Array) return this.ApiError("xp.import.invalidPlayers");
         var imported = 0;
         foreach (var player in players.EnumerateArray())
         {
@@ -168,34 +178,34 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         return NoContent();
     }
 
-    private static object ToRank(MemberXp member) { var total = member.TotalXp; return new { member.UserId, member.DisplayName, totalXp = total, level = Mee6LevelCurve.GetLevel(total), member.MessageCount, member.VoiceSeconds }; }
+    private static object ToRank(MemberXp member) { var total = member.TotalXp; return new { member.UserId, member.DisplayName, totalXp = decimal.Truncate(total), level = Mee6LevelCurve.GetLevel(total), member.MessageCount, member.VoiceSeconds }; }
 
     private Task WriteActivityAsync(ulong guildId, string name, string? action = null, IReadOnlyDictionary<string, object?>? metadata = null) =>
         reports.WriteAsync(new(guildId, ReportCategories.Activity, name, ReportOutcomes.Succeeded, action, authorization.GetDiscordUserId(User), Metadata: metadata), HttpContext.RequestAborted);
 
-    private static List<string> ValidateXpSettings(GuildXpSettings settings)
+    private static List<(string Field, string ErrorKey)> ValidateXpSettings(GuildXpSettings settings)
     {
-        var errors = new List<string>();
+        var errors = new List<(string Field, string ErrorKey)>();
         if (settings.Message == null || settings.Voice == null || settings.Reaction == null || settings.EventInterest == null || settings.Thread == null)
         {
-            errors.Add("All XP setting groups are required.");
+            errors.Add(("settings", "xp.settings.groupsRequired"));
             return errors;
         }
         if (settings.ExcludedChannelIds == null || settings.ExcludedCategoryIds == null || settings.ExcludedRoleIds == null || settings.ChannelMultipliers == null || settings.LevelRoles == null)
         {
-            errors.Add("All XP rule collections are required.");
+            errors.Add(("settings", "xp.settings.collectionsRequired"));
             return errors;
         }
-        if (settings.Message.MinimumPoints < 0 || settings.Message.MaximumPoints < settings.Message.MinimumPoints) errors.Add("Message XP values are invalid.");
-        if (settings.Message.MinimumCharacters < 0 || settings.Message.MaximumCharacters < settings.Message.MinimumCharacters) errors.Add("Message character limits are invalid.");
-        if (settings.Message.CooldownSeconds < 0) errors.Add("Message cooldown must not be negative.");
-        if (settings.Voice.PointsPerMinute < 0) errors.Add("Voice XP values must not be negative.");
-        if (settings.Voice.MinimumSessionSeconds is < 0 or > 86400 || settings.Voice.CheckIntervalSeconds is < 15 or > 300) errors.Add("Voice timing values are invalid.");
-        if (settings.Reaction.Points < 0 || settings.Reaction.CooldownSeconds < 0) errors.Add("Reaction XP values are invalid.");
-        if (settings.EventInterest.Points < 0) errors.Add("Event interest XP must not be negative.");
-        if (settings.Thread.CreatePoints < 0 || settings.Thread.MessagePoints < 0 || settings.Thread.CooldownSeconds < 0) errors.Add("Thread XP values are invalid.");
-        if (settings.ChannelMultipliers.Any(x => x.ChannelId == 0 || x.Multiplier < 0) || settings.ChannelMultipliers.Select(x => x.ChannelId).Distinct().Count() != settings.ChannelMultipliers.Count) errors.Add("Channel multipliers require unique channels and non-negative values.");
-        if (settings.LevelRoles.Any(x => x.Level < 1 || x.RoleId == 0) || settings.LevelRoles.Select(x => x.RoleId).Distinct().Count() != settings.LevelRoles.Count) errors.Add("Level roles require unique roles and positive levels.");
+        if (settings.Message.MinimumPoints < 0 || settings.Message.MaximumPoints < settings.Message.MinimumPoints) errors.Add(("message.points", "xp.settings.messagePoints"));
+        if (settings.Message.MinimumCharacters < 0 || settings.Message.MaximumCharacters < settings.Message.MinimumCharacters) errors.Add(("message.characters", "xp.settings.messageCharacters"));
+        if (settings.Message.CooldownSeconds < 0) errors.Add(("message.cooldownSeconds", "xp.settings.messageCooldown"));
+        if (settings.Voice.PointsPerMinute < 0) errors.Add(("voice.pointsPerMinute", "xp.settings.voicePoints"));
+        if (settings.Voice.MinimumSessionSeconds is < 0 or > 86400 || settings.Voice.CheckIntervalSeconds is < 15 or > 300) errors.Add(("voice.timing", "xp.settings.voiceTiming"));
+        if (settings.Reaction.Points < 0 || settings.Reaction.CooldownSeconds < 0) errors.Add(("reaction", "xp.settings.reaction"));
+        if (settings.EventInterest.Points < 0) errors.Add(("eventInterest.points", "xp.settings.eventInterest"));
+        if (settings.Thread.CreatePoints < 0 || settings.Thread.MessagePoints < 0 || settings.Thread.CooldownSeconds < 0) errors.Add(("thread", "xp.settings.thread"));
+        if (settings.ChannelMultipliers.Any(x => x.ChannelId == 0 || x.Multiplier < 0) || settings.ChannelMultipliers.Select(x => x.ChannelId).Distinct().Count() != settings.ChannelMultipliers.Count) errors.Add(("channelMultipliers", "xp.settings.channelMultipliers"));
+        if (settings.LevelRoles.Any(x => x.Level < 1 || x.RoleId == 0) || settings.LevelRoles.Select(x => x.RoleId).Distinct().Count() != settings.LevelRoles.Count) errors.Add(("levelRoles", "xp.settings.levelRoles"));
         return errors;
     }
 }

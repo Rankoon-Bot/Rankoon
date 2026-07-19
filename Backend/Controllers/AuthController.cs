@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Utils;
+using Rankoon.Api;
 
 namespace Rankoon.Controllers;
 
@@ -43,7 +44,7 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating login URL");
-            return StatusCode(500, new { error = "Internal server error" });
+            return this.ApiError("server.internal");
         }
     }
 
@@ -54,13 +55,13 @@ public class AuthController : ControllerBase
     /// <param name="state">State parameter for CSRF protection</param>
     /// <returns>Redirect to frontend with token</returns>
     [HttpGet("callback")]
-    public async Task<IActionResult> Callback([FromQuery] string code, [FromQuery] string? state = null)
+    public async Task<IActionResult> Callback([FromQuery] string? code, [FromQuery] string? state = null)
     {
         try
         {
             if (string.IsNullOrEmpty(code))
             {
-                return BadRequest(new { error = "Authorization code is required" });
+                return OAuthFailureRedirect();
             }
 
             string? cached_state = null;
@@ -126,8 +127,7 @@ public class AuthController : ControllerBase
             _logger.LogError(ex, "Error handling OAuth callback");
 
             // Redirect to frontend with error
-            var errorUrl = $"{_frontendSettings.BaseUrl}{_frontendSettings.CallbackPath}?error=authentication_failed";
-            return Redirect(errorUrl);
+            return OAuthFailureRedirect();
         }
     }
 
@@ -143,7 +143,7 @@ public class AuthController : ControllerBase
         {
             if (string.IsNullOrEmpty(request.RefreshToken))
             {
-                return BadRequest(new { error = "Refresh token is required" });
+                return this.ApiError("auth.refreshTokenRequired");
             }
 
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
@@ -151,7 +151,7 @@ public class AuthController : ControllerBase
 
             if (tokenResponse == null)
             {
-                return Unauthorized(new { error = "Invalid or expired refresh token" });
+                return this.ApiError("auth.refreshTokenInvalid");
             }
 
             return Ok(tokenResponse);
@@ -159,7 +159,7 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error refreshing token");
-            return StatusCode(500, new { error = "Internal server error" });
+            return this.ApiError("server.internal");
         }
     }
 
@@ -175,24 +175,24 @@ public class AuthController : ControllerBase
         {
             if (string.IsNullOrEmpty(request.RefreshToken))
             {
-                return BadRequest(new { error = "Refresh token is required" });
+                return this.ApiError("auth.refreshTokenRequired");
             }
 
             var success = await _authService.RevokeTokenAsync(request.RefreshToken);
 
             if (success)
             {
-                return Ok(new { message = "Logged out successfully" });
+                return Ok(new { messageKey = "auth.logoutSucceeded", message = "Logged out successfully." });
             }
             else
             {
-                return BadRequest(new { error = "Failed to logout" });
+                return this.ApiError("auth.logoutFailed");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during logout");
-            return StatusCode(500, new { error = "Internal server error" });
+            return this.ApiError("server.internal");
         }
     }
 
@@ -209,13 +209,13 @@ public class AuthController : ControllerBase
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized(new { error = "Invalid token" });
+                return this.ApiError("auth.tokenInvalid");
             }
 
             var user = await _authService.GetUserAsync(userId);
             if (user == null)
             {
-                return NotFound(new { error = "User not found" });
+                return this.ApiError("user.notFound");
             }
 
             var userDto = new DiscordUserDto
@@ -234,7 +234,7 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting current user");
-            return StatusCode(500, new { error = "Internal server error" });
+            return this.ApiError("server.internal");
         }
     }
 
@@ -251,13 +251,13 @@ public class AuthController : ControllerBase
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized(new { error = "Invalid token" });
+                return this.ApiError("auth.tokenInvalid");
             }
 
             var user = await _authService.GetUserAsync(userId);
             if (user == null)
             {
-                return Unauthorized(new { error = "User not found" });
+                return this.ApiError("auth.tokenInvalid");
             }
 
             // Get the current token from Authorization header
@@ -266,7 +266,7 @@ public class AuthController : ControllerBase
 
             if (string.IsNullOrEmpty(token))
             {
-                return Unauthorized(new { error = "No token provided" });
+                return this.ApiError("auth.tokenMissing");
             }
 
             // Get token expiration from claims
@@ -301,7 +301,7 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error verifying token");
-            return StatusCode(500, new { error = "Internal server error" });
+            return this.ApiError("server.internal");
         }
     }
 
@@ -318,13 +318,13 @@ public class AuthController : ControllerBase
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
             {
-                return Unauthorized(new { error = "Invalid token" });
+                return this.ApiError("auth.tokenInvalid");
             }
 
             var guilds = await _authService.GetUserGuildsAsync(userId);
             if (guilds == null)
             {
-                return StatusCode(500, new { error = "Failed to fetch guilds" });
+                return this.ApiError("auth.guildsUnavailable");
             }
 
             return Ok(guilds);
@@ -332,8 +332,15 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting user guilds");
-            return StatusCode(500, new { error = "Internal server error" });
+            return this.ApiError("server.internal");
         }
+    }
+
+    private IActionResult OAuthFailureRedirect()
+    {
+        var error = ApiErrorCatalog.Get("auth.oauthFailed");
+        var errorUrl = $"{_frontendSettings.BaseUrl}{_frontendSettings.CallbackPath}?errorKey={Uri.EscapeDataString(error.Key)}&message={Uri.EscapeDataString(error.Message)}";
+        return Redirect(errorUrl);
     }
 
 }

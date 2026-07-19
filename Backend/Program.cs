@@ -2,6 +2,9 @@ using Discord;
 using Discord.WebSocket;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Rankoon.Data.Auth;
@@ -9,9 +12,11 @@ using Rankoon.Data.Discord;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Utils;
+using Rankoon.Api;
 using Serilog;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
@@ -29,22 +34,57 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 ConfigurationHelper.ExpandEnvironmentVariables(builder.Configuration);
 
 // Add services to the container.
-builder.Services.AddControllers().AddJsonOptions(options =>
+builder.Services.AddControllers(options => options.Filters.Add<ApiErrorResultFilter>()).AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString | System.Text.Json.Serialization.JsonNumberHandling.WriteAsString;
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
 });
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var malformedJson = context.ModelState.Any(entry =>
+            entry.Value?.Errors.Count > 0 &&
+            (entry.Key.StartsWith('$') || entry.Value.Errors.Any(error => IsJsonException(error.Exception))));
+        var validationError = ApiErrorFactory.Validation("request.validationFailed");
+        var errors = context.ModelState
+            .Where(entry => entry.Value?.Errors.Count > 0)
+            .ToDictionary(
+                entry => string.IsNullOrWhiteSpace(entry.Key) ? "$" : entry.Key,
+                entry => (IReadOnlyList<ApiValidationError>)entry.Value!.Errors.Select(_ => validationError).ToArray(),
+                StringComparer.Ordinal);
+        return ApiErrorFactory.Result(
+            context.HttpContext,
+            malformedJson ? "request.malformedJson" : "request.validationFailed",
+            errors: errors);
+    };
+});
+builder.Services.Configure<RouteOptions>(options =>
+    options.ConstraintMap["nonApi"] = typeof(NonApiPathRouteConstraint));
 builder.Services.AddAuthorization();
+var leaderboardPermitLimit = builder.Configuration.GetValue("RateLimiting:LeaderboardPermitLimit", 90);
+var reportsPermitLimit = builder.Configuration.GetValue("RateLimiting:ReportsPermitLimit", 60);
+var rateLimitQueueLimit = builder.Configuration.GetValue("RateLimiting:QueueLimit", 2);
 builder.Services.AddRateLimiter(options =>
 {
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        IReadOnlyDictionary<string, object?>? parameters = null;
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            var seconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
+            context.HttpContext.Response.Headers.RetryAfter = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            parameters = new Dictionary<string, object?> { ["retryAfterSeconds"] = seconds };
+        }
+        await ApiErrorFactory.WriteAsync(context.HttpContext, "rateLimit.exceeded", parameters);
+    };
     options.AddPolicy("leaderboard", context =>
         RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
-            new FixedWindowRateLimiterOptions { PermitLimit = 90, Window = TimeSpan.FromMinutes(1), QueueLimit = 2 }));
+            new FixedWindowRateLimiterOptions { PermitLimit = leaderboardPermitLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = rateLimitQueueLimit }));
     options.AddPolicy("reports", context =>
         RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
-            new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 2 }));
+            new FixedWindowRateLimiterOptions { PermitLimit = reportsPermitLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = rateLimitQueueLimit }));
 });
-builder.Services.AddProblemDetails();
 builder.Services.Configure<HostOptions>(options =>
     options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 
@@ -76,7 +116,6 @@ builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddSingleton<RankoonDbContext>();
 builder.Services.AddSingleton<ReportWriter>();
 builder.Services.AddSingleton<IReportWriter>(services => services.GetRequiredService<ReportWriter>());
-builder.Services.AddHostedService(services => services.GetRequiredService<ReportWriter>());
 builder.Services.AddSingleton<IReportQueryService, ReportQueryService>();
 
 // Register HTTP client for Discord API calls
@@ -92,16 +131,21 @@ builder.Services.AddSingleton<IGuildRolePermissionService, GuildRolePermissionSe
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpService, Rankoon.Data.Xp.XpService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
-builder.Services.AddHostedService<MongoIndexInitializer>();
-builder.Services.AddHostedService<RankoonBotHostedService>();
 builder.Services.AddSingleton<VoiceXpWatchdog>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
 builder.Services.AddSingleton<VcHubService>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<VcHubService>());
-builder.Services.AddHostedService<ActivityXpEventService>();
 builder.Services.AddSingleton<GuildMembershipService>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<GuildMembershipService>());
-builder.Services.AddHostedService<RankoonCommandService>();
+
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHostedService(services => services.GetRequiredService<ReportWriter>());
+    builder.Services.AddHostedService<MongoIndexInitializer>();
+    builder.Services.AddHostedService<RankoonBotHostedService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<VcHubService>());
+    builder.Services.AddHostedService<ActivityXpEventService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<GuildMembershipService>());
+    builder.Services.AddHostedService<RankoonCommandService>();
+}
 
 // Configure JWT authentication
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>();
@@ -132,11 +176,41 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnChallenge = async context =>
+        {
+            context.HandleResponse();
+            await ApiErrorFactory.WriteAsync(context.HttpContext, "auth.unauthorized");
+        },
+        OnForbidden = context => ApiErrorFactory.WriteAsync(context.HttpContext, "auth.forbidden")
+    };
 });
 
 var app = builder.Build();
 
-app.UseExceptionHandler();
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+    var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+    context.RequestServices.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("ApiExceptionHandler")
+        .LogError(exception, "Unhandled exception for {Method} {Path}; trace ID {TraceId}", context.Request.Method, context.Request.Path, context.TraceIdentifier);
+    if (!context.Response.HasStarted)
+    {
+        context.Response.Clear();
+        await ApiErrorFactory.WriteAsync(context, "server.internal");
+    }
+}));
+app.UseStatusCodePages(async statusContext =>
+{
+    var context = statusContext.HttpContext;
+    if (context.Request.Path.StartsWithSegments("/api") && !context.Response.HasStarted)
+    {
+        var statusCode = context.Response.StatusCode;
+        var definition = ApiErrorCatalog.ForStatusCode(statusCode);
+        await ApiErrorFactory.WriteAsync(context, definition.Key, statusCode: statusCode);
+    }
+});
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
@@ -146,7 +220,7 @@ if (Directory.Exists(app.Environment.WebRootPath))
 {
     app.UseDefaultFiles();
     app.UseStaticFiles();
-    app.MapFallbackToFile("index.html");
+    app.MapFallbackToFile("{*path:nonApi}", "index.html");
 }
 
 try
@@ -171,3 +245,15 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
     builder.Services.Configure<FrontendSettings>(
         builder.Configuration.GetSection(FrontendSettings.SectionName));
 }
+
+static bool IsJsonException(Exception? exception)
+{
+    while (exception != null)
+    {
+        if (exception is JsonException or InputFormatterException) return true;
+        exception = exception.InnerException;
+    }
+    return false;
+}
+
+public partial class Program;

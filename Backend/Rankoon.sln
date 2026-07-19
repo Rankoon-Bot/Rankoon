@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36202.13 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rankoon", "Rankoon.csproj", "{70FAFB98-F585-4B58-8BA9-FBC83CAD7114}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backend.Tests", "Backend.Tests\Backend.Tests.csproj", "{443397F9-5D8B-4EAF-949E-807969B62BC1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{70FAFB98-F585-4B58-8BA9-FBC83CAD7114}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{70FAFB98-F585-4B58-8BA9-FBC83CAD7114}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{70FAFB98-F585-4B58-8BA9-FBC83CAD7114}.Release|Any CPU.Build.0 = Release|Any CPU
+		{443397F9-5D8B-4EAF-949E-807969B62BC1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{443397F9-5D8B-4EAF-949E-807969B62BC1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{443397F9-5D8B-4EAF-949E-807969B62BC1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{443397F9-5D8B-4EAF-949E-807969B62BC1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

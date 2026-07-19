@@ -334,6 +334,7 @@
 .header-right {
   display: flex;
   align-items: center;
+  gap: var(--rk-space-3);
 }
 
 .user-info {

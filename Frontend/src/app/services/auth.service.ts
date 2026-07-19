@@ -6,12 +6,23 @@ import { catchError, tap, map } from 'rxjs/operators';
 import { AuthStore, User } from '../store/auth.store';
 import { AppStore, Guild } from '../store/app.store';
 import { environment } from '../../environments/environment';
+import { ApiErrorService } from './api-error.service';
 
 export interface BackendTokenResponse {
     token: string;
     user: User;
     expiresAt: string;
 }
+
+export interface BackendRefreshResponse {
+    accessToken: string;
+    refreshToken: string;
+    user: User;
+    expiresAt: string;
+}
+
+export const ACCESS_TOKEN_STORAGE_KEY = 'rankoon_token';
+export const REFRESH_TOKEN_STORAGE_KEY = 'rankoon_refresh_token';
 
 @Injectable({
     providedIn: 'root'
@@ -21,14 +32,11 @@ export class AuthService {
     private readonly router = inject(Router);
     private readonly authStore = inject(AuthStore);
     private readonly appStore = inject(AppStore);
+    private readonly apiErrors = inject(ApiErrorService);
 
     private readonly DISCORD_CLIENT_ID = environment.discordClientId;
     private readonly DISCORD_REDIRECT_URI = environment.discordRedirectUri; // Backend URL
     private readonly API_BASE_URL = environment.apiBaseUrl;
-
-    constructor() {
-        this.loadTokenFromStorage();
-    }
 
     /**
      * Initiates Discord OAuth2 login flow - gets login URL from backend
@@ -46,7 +54,7 @@ export class AuthService {
                 }
             },
             error: (err) => {
-                this.authStore.setError('Fehler beim Starten der Anmeldung.');
+                this.authStore.setError(this.apiErrors.resolve(err, 'errors.loginStart').message);
                 console.error('Login URL fetch error:', err);
             }
         });
@@ -55,7 +63,7 @@ export class AuthService {
     /**
      * Handles callback with backend token from query parameter
      */
-    handleTokenCallback(token: string): Observable<boolean> {
+    handleTokenCallback(token: string, refreshToken: string): Observable<boolean> {
         this.authStore.setLoading(true);
         this.authStore.setError(null);
 
@@ -63,6 +71,7 @@ export class AuthService {
         return this.validateBackendToken().pipe(
             tap(response => {
                 this.saveTokenToStorage(response.token);
+                this.saveRefreshTokenToStorage(refreshToken);
                 this.authStore.setToken(response.token);
                 this.authStore.setUser(response.user);
                 this.authStore.setLoading(false);
@@ -70,8 +79,8 @@ export class AuthService {
             map(() => true),
             catchError(error => {
                 console.error('Token validation error:', error);
-                this.authStore.setToken('');
-                this.authStore.setError('Fehler beim Anmelden. Bitte versuchen Sie es erneut.');
+                this.clearLocalAuth();
+                this.authStore.setError(this.apiErrors.resolve(error, 'errors.signIn').message);
                 this.authStore.setLoading(false);
                 return of(false);
             })
@@ -89,25 +98,57 @@ export class AuthService {
      * Refreshes the backend token
      */
     refreshToken(): Observable<boolean> {
-        const currentToken = this.authStore.token();
-        if (!currentToken) {
+        const refreshToken = this.loadRefreshTokenFromStorage();
+        if (!refreshToken) {
+            this.clearLocalAuth();
             return of(false);
         }
 
-        return this.http.post<BackendTokenResponse>(`${this.API_BASE_URL}/auth/refresh`, {
-            token: currentToken
+        return this.http.post<BackendRefreshResponse>(`${this.API_BASE_URL}/auth/refresh`, {
+            refreshToken
         }).pipe(
             tap(response => {
-                this.saveTokenToStorage(response.token);
-                this.authStore.setToken(response.token);
+                this.saveTokenToStorage(response.accessToken);
+                this.saveRefreshTokenToStorage(response.refreshToken);
+                this.authStore.setToken(response.accessToken);
                 this.authStore.setUser(response.user);
             }),
             map(() => true),
             catchError(error => {
                 console.error('Token refresh failed:', error);
-                this.logout();
+                this.clearLocalAuth();
+                void this.router.navigate(['/login']);
                 return of(false);
             })
+        );
+    }
+
+    /**
+     * Restores a persisted session before the router evaluates protected routes.
+     */
+    initializeSession(): Observable<boolean> {
+        const token = this.loadTokenFromStorage();
+        if (!token) {
+            return this.refreshToken();
+        }
+
+        this.authStore.setLoading(true);
+        this.authStore.setToken(token);
+        return this.validateBackendToken().pipe(
+            tap(response => {
+                this.saveTokenToStorage(response.token);
+                this.authStore.setAuthData(response.user, response.token);
+            }),
+            map(() => true),
+            catchError(error => {
+                if (error.status !== 401) {
+                    this.clearLocalAuth();
+                    return of(false);
+                }
+
+                return this.refreshToken();
+            }),
+            tap(() => this.authStore.setLoading(false))
         );
     }
 
@@ -115,19 +156,16 @@ export class AuthService {
      * Logs out the user
      */
     logout(): void {
-        const token = this.authStore.token();
+        const refreshToken = this.loadRefreshTokenFromStorage();
 
-        // Optional: Notify backend about logout
-        if (token) {
-            this.http.post(`${this.API_BASE_URL}/auth/logout`, { token }).subscribe({
+        if (refreshToken) {
+            this.http.post(`${this.API_BASE_URL}/auth/logout`, { refreshToken }).subscribe({
                 error: (error) => console.warn('Logout notification failed:', error)
             });
         }
 
-        this.clearTokenFromStorage();
-        this.authStore.clearAuth();
-        this.appStore.clearState();
-        this.router.navigate(['/login']);
+        this.clearLocalAuth();
+        void this.router.navigate(['/login']);
     }
 
     /**
@@ -190,16 +228,8 @@ export class AuthService {
     /**
      * Loads token from localStorage and validates it
      */
-    private loadTokenFromStorage(): void {
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('rankoon_token');
-
-            if (token) {
-                this.authStore.setToken(token);
-                // Validate token and get user info
-                this.getCurrentUser().subscribe();
-            }
-        }
+    private loadTokenFromStorage(): string | null {
+        return typeof window === 'undefined' ? null : localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
     }
 
     /**
@@ -207,7 +237,7 @@ export class AuthService {
      */
     private saveTokenToStorage(token: string): void {
         if (typeof window !== 'undefined') {
-            localStorage.setItem('rankoon_token', token);
+            localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
         }
     }
 
@@ -216,7 +246,30 @@ export class AuthService {
      */
     private clearTokenFromStorage(): void {
         if (typeof window !== 'undefined') {
-            localStorage.removeItem('rankoon_token');
+            localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
         }
+    }
+
+    private loadRefreshTokenFromStorage(): string | null {
+        return typeof window === 'undefined' ? null : localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+    }
+
+    private saveRefreshTokenToStorage(token: string): void {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
+        }
+    }
+
+    private clearRefreshTokenFromStorage(): void {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+        }
+    }
+
+    clearLocalAuth(): void {
+        this.clearTokenFromStorage();
+        this.clearRefreshTokenFromStorage();
+        this.authStore.clearAuth();
+        this.appStore.clearState();
     }
 }

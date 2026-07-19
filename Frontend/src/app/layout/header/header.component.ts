@@ -6,18 +6,21 @@ import { AppStore, Guild } from '../../store/app.store';
 import { AuthService } from '../../services/auth.service';
 import { LayoutStateService } from '../layout-state.service';
 import { GuildAccessService } from '../../services/guild-access.service';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { LanguageSwitcherComponent } from '../../shared/language-switcher/language-switcher.component';
+import { ApiErrorService } from '../../services/api-error.service';
 
 @Component({
     selector: 'app-header',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, TranslocoPipe, LanguageSwitcherComponent],
     template: `
         <header class="header">
             <div class="header-left">
-                <button class="menu-btn" type="button" aria-label="Navigation umschalten" (click)="layoutState.toggleMobileNavigation()">
+                <button class="menu-btn" type="button" [attr.aria-label]="'header.toggleNavigation' | transloco" (click)="layoutState.toggleMobileNavigation()">
                     <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
                 </button>
-                <h1 class="logo">Rankoon Dashboard</h1>
+                <h1 class="logo">{{ 'app.dashboard' | transloco }}</h1>
                 <div *ngIf="appStore.hasSelectedGuild()" class="guild-info" role="button" tabindex="0" aria-haspopup="menu" [attr.aria-expanded]="isGuildDropdownOpen" (click)="toggleGuildDropdown()" (keydown.enter)="toggleGuildDropdown()" (keydown.space)="toggleGuildDropdown(); $event.preventDefault()">
                     <div class="guild-icon">
                         <img 
@@ -40,12 +43,12 @@ import { GuildAccessService } from '../../services/guild-access.service';
                     <!-- Guild Dropdown -->
                     <div *ngIf="isGuildDropdownOpen" class="guild-dropdown">
                         <div class="dropdown-header">
-                            <span>Server wechseln</span>
+                            <span>{{ 'header.switchServer' | transloco }}</span>
                         </div>
                         <div class="dropdown-content">
                             <div *ngIf="appStore.isLoading()" class="dropdown-loading">
                                 <div class="loading-spinner"></div>
-                                <span>Server werden geladen...</span>
+                                <span>{{ 'common.loadingServers' | transloco }}</span>
                             </div>
                             
                             <div *ngIf="!appStore.isLoading() && appStore.hasGuilds()" class="guild-list">
@@ -74,9 +77,9 @@ import { GuildAccessService } from '../../services/guild-access.service';
                                     <div class="guild-item-info">
                                         <span class="guild-item-name">{{ guild.name }}</span>
                                         <div class="guild-item-badges">
-                                            <span *ngIf="guild.owner" class="badge owner-badge">Owner</span>
-                                            <span *ngIf="!guild.owner && hasAdminPermissions(guild)" class="badge manager-badge">Manager</span>
-                                            <span *ngIf="guild.botInstalled !== true" class="badge missing-badge">Bot fehlt</span>
+                                             <span *ngIf="guild.owner" class="badge owner-badge">{{ 'common.owner' | transloco }}</span>
+                                             <span *ngIf="!guild.owner && hasAdminPermissions(guild)" class="badge manager-badge">{{ 'common.manager' | transloco }}</span>
+                                             <span *ngIf="guild.botInstalled !== true" class="badge missing-badge">{{ 'common.botMissing' | transloco }}</span>
                                         </div>
                                     </div>
                                     <a
@@ -87,7 +90,7 @@ import { GuildAccessService } from '../../services/guild-access.service';
                                         rel="noopener noreferrer"
                                         (click)="inviteBot($event)"
                                     >
-                                        Einladen
+                                         {{ 'common.invite' | transloco }}
                                     </a>
                                     <div *ngIf="guild.id === appStore.selectedGuild()?.id" class="selected-indicator">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -98,24 +101,25 @@ import { GuildAccessService } from '../../services/guild-access.service';
                             </div>
 
                             <div *ngIf="!appStore.isLoading() && !appStore.hasGuilds()" class="dropdown-empty">
-                                <span>Keine Server gefunden</span>
+                                 <span>{{ 'common.noServers' | transloco }}</span>
                             </div>
 
                             <div *ngIf="appStore.hasError()" class="dropdown-error">
                                 <span>{{ appStore.error() }}</span>
-                                <button class="retry-btn" (click)="loadGuilds(); $event.stopPropagation()">Erneut versuchen</button>
+                                 <button class="retry-btn" (click)="loadGuilds(); $event.stopPropagation()">{{ 'common.retry' | transloco }}</button>
                             </div>
                         </div>
                         
                         <div class="dropdown-footer">
                             <button class="view-all-btn" (click)="goToServerSelection(); $event.stopPropagation()">
-                                Alle Server anzeigen
+                                 {{ 'header.allServers' | transloco }}
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="header-right">
+                <app-language-switcher />
                 <div *ngIf="authStore.isAuthenticated()" class="user-info">
                     <img 
                         [src]="getAvatarUrl()"
@@ -123,7 +127,7 @@ import { GuildAccessService } from '../../services/guild-access.service';
                         class="user-avatar"
                     >
                     <span class="username">{{ authStore.user()?.username }}</span>
-                    <button class="logout-btn" (click)="logout()">
+                    <button class="logout-btn" (click)="logout()" [attr.aria-label]="'header.logout' | transloco">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                             <polyline points="16,17 21,12 16,7"/>
@@ -146,7 +150,9 @@ export class HeaderComponent implements OnInit {
         private authService: AuthService,
         private router: Router,
         public readonly layoutState: LayoutStateService,
-        private readonly guildAccess: GuildAccessService
+        private readonly guildAccess: GuildAccessService,
+        private readonly i18n: TranslocoService,
+        private readonly apiErrors: ApiErrorService
     ) {}
 
     ngOnInit(): void {
@@ -220,9 +226,9 @@ export class HeaderComponent implements OnInit {
                 if (this.appStore.selectedGuild()?.id !== guild.id) return;
                 this.appStore.setLoading(false);
                 this.appStore.setSelectedGuild(null);
-                this.appStore.setError(error?.status === 403
-                    ? 'Du hast keinen Zugriff auf diesen Server.'
-                    : 'Die Server-Berechtigungen konnten nicht geladen werden.');
+                 this.appStore.setError(error?.status === 403
+                     ? this.i18n.translate('errors.guildForbidden')
+                     : this.apiErrors.resolve(error, 'errors.capabilitiesLoad').message);
                 void this.router.navigate(['/server-selection'], {
                     queryParams: { access: error?.status === 403 ? 'forbidden' : 'unavailable' }
                 });
@@ -248,7 +254,7 @@ export class HeaderComponent implements OnInit {
             },
             error: (error) => {
                 console.error('Error loading guilds in header:', error);
-                this.appStore.setError('Fehler beim Laden der Server.');
+                 this.appStore.setError(this.apiErrors.resolve(error, 'errors.guildsLoad').message);
                 this.appStore.setLoading(false);
             }
         });

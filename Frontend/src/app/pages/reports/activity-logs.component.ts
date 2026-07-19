@@ -9,10 +9,14 @@ import { ReportStatusComponent } from '../../reporting/components/report-status.
 import { ActivityEventDto, ActivityQuery, ActivityReportDto } from '../../reporting/reporting.models';
 import { ReportingService } from '../../reporting/reporting.service';
 import { AppStore } from '../../store/app.store';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { LocaleService } from '../../i18n/locale.service';
+import { ApiErrorService } from '../../services/api-error.service';
+import { DomainValueService } from '../../i18n/domain-value.service';
 
 @Component({
   selector: 'app-activity-logs', standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, ReportFilterBarComponent, ReportStateComponent, ReportStatusComponent],
+  imports: [CommonModule, RouterLink, RouterLinkActive, ReportFilterBarComponent, ReportStateComponent, ReportStatusComponent, TranslocoPipe],
   templateUrl: './activity-logs.component.html', styleUrl: './activity-logs.component.scss'
 })
 export class ActivityLogsComponent {
@@ -21,6 +25,9 @@ export class ActivityLogsComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly locale = inject(LocaleService);
+  private readonly apiErrors = inject(ApiErrorService);
+  private readonly domain = inject(DomainValueService);
   private readonly reloadTick = signal(0);
   private requestGeneration = 0;
   readonly report = signal<ActivityReportDto | null>(null);
@@ -38,7 +45,7 @@ export class ActivityLogsComponent {
         const generation = this.requestGeneration;
         if (!guild) { this.loading.set(false); return EMPTY; }
         return this.reporting.activity(guild.id, this.query()).pipe(
-          catchError(() => { if (generation === this.requestGeneration) this.error.set('Die Aktivitätsdaten konnten nicht geladen werden.'); return EMPTY; }),
+           catchError(error => { if (generation === this.requestGeneration) this.error.set(this.apiErrors.resolve(error, 'errors.activityLoad').message); return EMPTY; }),
           finalize(() => { if (generation === this.requestGeneration) this.loading.set(false); })
         );
       }),
@@ -63,11 +70,13 @@ export class ActivityLogsComponent {
     ).subscribe({ next: page => {
       if (guildId !== this.appStore.selectedGuild()?.id || generation !== this.requestGeneration) return;
       this.report.set({ ...page, items: [...current.items, ...page.items] });
-    }, error: () => { if (guildId === this.appStore.selectedGuild()?.id && generation === this.requestGeneration) this.loadMoreError.set('Weitere Aktivitäten konnten nicht geladen werden.'); } });
+     }, error: error => { if (guildId === this.appStore.selectedGuild()?.id && generation === this.requestGeneration) this.loadMoreError.set(this.apiErrors.resolve(error, 'errors.activityMore').message); } });
   }
 
-  formatDate(value: string): string { return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
+  formatDate(value: string): string { return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'short' }); }
   metadata(value: ActivityEventDto): string { return JSON.stringify(value.metadata, null, 2); }
+  loadedCount(value: number): string { return this.locale.plural(value, 'activity.loadedOne', 'activity.loadedOther'); }
+  typeLabel(value: string): string { return this.domain.activityName(value); }
 
   private navigate(queryParams: Record<string, string | null>): void { this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: 'merge' }); }
   private readQuery(params: import('@angular/router').ParamMap): ActivityQuery {

@@ -104,7 +104,11 @@ export class AppStore {
   setGuilds(guilds: Guild[]): void {
     this._guilds.set(guilds);
     const selectedGuild = this._selectedGuild();
-    if (!selectedGuild) return;
+    if (!selectedGuild) {
+      const installedGuilds = guilds.filter(guild => guild.botInstalled);
+      if (installedGuilds.length === 1) this.setSelectedGuild(installedGuilds[0]);
+      return;
+    }
 
     const currentGuild = guilds.find(guild => guild.id === selectedGuild.id && guild.botInstalled);
     this.setSelectedGuild(currentGuild ?? null);
@@ -146,7 +150,7 @@ export class AppStore {
   // Storage management for selected guild
   private loadSelectedGuildFromStorage(): void {
     if (typeof window !== 'undefined') {
-      const storedGuild = sessionStorage.getItem('rankoon_selected_guild');
+      const storedGuild = localStorage.getItem('rankoon_selected_guild');
       if (storedGuild) {
         try {
           const guild = JSON.parse(storedGuild) as Guild;
@@ -162,16 +166,16 @@ export class AppStore {
   private saveSelectedGuildToStorage(guild: Guild | null): void {
     if (typeof window !== 'undefined') {
       if (guild) {
-        sessionStorage.setItem('rankoon_selected_guild', JSON.stringify(guild));
+        localStorage.setItem('rankoon_selected_guild', JSON.stringify(guild));
       } else {
-        sessionStorage.removeItem('rankoon_selected_guild');
+        localStorage.removeItem('rankoon_selected_guild');
       }
     }
   }
 
   private clearSelectedGuildFromStorage(): void {
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('rankoon_selected_guild');
+      localStorage.removeItem('rankoon_selected_guild');
     }
   }
 

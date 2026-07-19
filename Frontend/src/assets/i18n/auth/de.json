@@ -1,0 +1,25 @@
+{
+  "login": {
+    "logoAlt": "Rankoon-Logo",
+    "subtitle": "Verwalte deinen Discord-Bot mit Leichtigkeit",
+    "signIn": "Mit Discord anmelden",
+    "signingIn": "Anmeldung läuft...",
+    "secure": "Sichere Authentifizierung",
+    "control": "Vollständige Bot-Kontrolle",
+    "analytics": "Detaillierte Logs & Analytics",
+    "copyright": "© 2025 Rankoon Dashboard. Alle Rechte vorbehalten."
+  },
+  "authCallback": {
+    "processing": "Anmeldung wird verarbeitet...",
+    "wait": "Bitte warte, während wir deine Discord-Authentifizierung abschließen.",
+    "failed": "Anmeldung fehlgeschlagen"
+  },
+  "errors": {
+    "authCancelled": "Die Discord-Authentifizierung wurde abgebrochen.",
+    "authTokenMissing": "Kein Authentifizierungstoken erhalten.",
+    "authRefreshTokenMissing": "Kein Refresh-Token erhalten.",
+    "authFailed": "Fehler bei der Authentifizierung.",
+    "loginStart": "Die Anmeldung konnte nicht gestartet werden.",
+    "signIn": "Fehler beim Anmelden. Bitte versuche es erneut."
+  }
+}

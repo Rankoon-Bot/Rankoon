@@ -3,11 +3,13 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { AuthStore } from '../../store/auth.store';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { ApiErrorService } from '../../services/api-error.service';
 
 @Component({
   selector: 'app-auth-callback',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslocoPipe],
   template: `
     <div class="callback-container">
       <div class="callback-content">
@@ -20,8 +22,8 @@ import { AuthStore } from '../../store/auth.store';
           </svg>
         </div>
         
-        <h2>Anmeldung wird verarbeitet...</h2>
-        <p>Bitte warten Sie, während wir Ihre Discord-Authentifizierung abschließen.</p>
+        <h2>{{ 'authCallback.processing' | transloco }}</h2>
+        <p>{{ 'authCallback.wait' | transloco }}</p>
         
         <div *ngIf="authStore.hasError()" class="error-message">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -30,9 +32,9 @@ import { AuthStore } from '../../store/auth.store';
             <line x1="9" y1="9" x2="15" y2="15"/>
           </svg>
           <div>
-            <h3>Anmeldung fehlgeschlagen</h3>
+            <h3>{{ 'authCallback.failed' | transloco }}</h3>
             <p>{{ authStore.error() }}</p>
-            <button class="retry-btn" (click)="retry()">Erneut versuchen</button>
+            <button class="retry-btn" (click)="retry()">{{ 'common.retry' | transloco }}</button>
           </div>
         </div>
       </div>
@@ -45,6 +47,8 @@ export class AuthCallbackComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
   public readonly authStore = inject(AuthStore);
+  private readonly i18n = inject(TranslocoService);
+  private readonly apiErrors = inject(ApiErrorService);
 
   ngOnInit(): void {
     this.handleAuthCallback();
@@ -52,22 +56,32 @@ export class AuthCallbackComponent implements OnInit {
 
   private handleAuthCallback(): void {
     const token = this.route.snapshot.queryParams['token'];
-    const error = this.route.snapshot.queryParams['error'];
+    const refreshToken = this.route.snapshot.queryParams['refresh_token'];
+    const errorKey = this.route.snapshot.queryParams['errorKey'];
+    const errorMessage = this.route.snapshot.queryParams['message'];
 
     const return_url = this.route.snapshot.queryParams['return_url'] || '/dashboard';
     console.log('Return URL:', return_url, this.route.snapshot.queryParams['return_url']);
 
-    if (error) {
-      this.authStore.setError('Discord Authentifizierung wurde abgebrochen.');
+    if (errorKey) {
+      this.authService.clearLocalAuth();
+      this.authStore.setError(this.apiErrors.resolve({ error: { errorKey, message: errorMessage } }, 'errors.authFailed').message);
       return;
     }
 
     if (!token) {
-      this.authStore.setError('Kein Authentifizierungstoken erhalten.');
+      this.authService.clearLocalAuth();
+      this.authStore.setError(this.i18n.translate('errors.authTokenMissing'));
       return;
     }
 
-    this.authService.handleTokenCallback(token).subscribe({
+    if (!refreshToken) {
+      this.authService.clearLocalAuth();
+      this.authStore.setError(this.i18n.translate('errors.authRefreshTokenMissing'));
+      return;
+    }
+
+    this.authService.handleTokenCallback(token, refreshToken).subscribe({
       next: (success) => {
         if (success) {
           this.router.navigate([return_url]);
@@ -75,7 +89,7 @@ export class AuthCallbackComponent implements OnInit {
       },
       error: (error) => {
         console.error('Token callback error:', error);
-        this.authStore.setError('Fehler bei der Authentifizierung.');
+        this.authStore.setError(this.i18n.translate('errors.authFailed'));
       }
     });
   }

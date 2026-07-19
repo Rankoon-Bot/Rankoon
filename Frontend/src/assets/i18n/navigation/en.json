@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "leaderboard": "Leaderboard",
+    "dashboard": "Dashboard",
+    "xp": "XP & Levels",
+    "voiceHubs": "Voice hubs",
+    "leaderboardSettings": "Leaderboard settings",
+    "roles": "Roles & permissions",
+    "reports": "Logs & analytics",
+    "activity": "Activity logs",
+    "commands": "Command usage",
+    "errors": "Error logs"
+  }
+}

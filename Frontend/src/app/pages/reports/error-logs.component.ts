@@ -10,10 +10,14 @@ import { ReportStatusComponent } from '../../reporting/components/report-status.
 import { ErrorEventDto, ErrorQuery, ErrorReportDto, ReportStatus } from '../../reporting/reporting.models';
 import { ReportingService } from '../../reporting/reporting.service';
 import { AppStore } from '../../store/app.store';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { LocaleService } from '../../i18n/locale.service';
+import { ApiErrorService } from '../../services/api-error.service';
+import { DomainValueService } from '../../i18n/domain-value.service';
 
 @Component({
   selector: 'app-error-logs', standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, ReportFilterBarComponent, ReportKpiComponent, ReportStateComponent, ReportStatusComponent],
+  imports: [CommonModule, RouterLink, RouterLinkActive, ReportFilterBarComponent, ReportKpiComponent, ReportStateComponent, ReportStatusComponent, TranslocoPipe],
   templateUrl: './error-logs.component.html', styleUrl: './error-logs.component.scss'
 })
 export class ErrorLogsComponent {
@@ -22,6 +26,9 @@ export class ErrorLogsComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly locale = inject(LocaleService);
+  private readonly apiErrors = inject(ApiErrorService);
+  private readonly domain = inject(DomainValueService);
   private readonly reloadTick = signal(0);
   private requestGeneration = 0;
   readonly report = signal<ErrorReportDto | null>(null);
@@ -39,7 +46,7 @@ export class ErrorLogsComponent {
         const generation = this.requestGeneration;
         if (!guild) { this.loading.set(false); return EMPTY; }
         return this.reporting.errors(guild.id, this.query()).pipe(
-          catchError(() => { if (generation === this.requestGeneration) this.error.set('Die Fehlerdaten konnten nicht geladen werden.'); return EMPTY; }),
+           catchError(error => { if (generation === this.requestGeneration) this.error.set(this.apiErrors.resolve(error, 'errors.errorReportsLoad').message); return EMPTY; }),
           finalize(() => { if (generation === this.requestGeneration) this.loading.set(false); })
         );
       }), takeUntilDestroyed(this.destroyRef)
@@ -66,13 +73,15 @@ export class ErrorLogsComponent {
     ).subscribe({ next: page => {
       if (guildId !== this.appStore.selectedGuild()?.id || generation !== this.requestGeneration) return;
       this.report.set({ ...page, events: { ...page.events, items: [...current.events.items, ...page.events.items] } });
-    }, error: () => { if (guildId === this.appStore.selectedGuild()?.id && generation === this.requestGeneration) this.loadMoreError.set('Weitere Fehler konnten nicht geladen werden.'); } });
+     }, error: error => { if (guildId === this.appStore.selectedGuild()?.id && generation === this.requestGeneration) this.loadMoreError.set(this.apiErrors.resolve(error, 'errors.errorsMore').message); } });
   }
 
   status(severity: ErrorEventDto['severity']): ReportStatus { return severity === 'warning' ? 'warning' : 'error'; }
-  number(value: number): string { return new Intl.NumberFormat('de-DE').format(value); }
-  formatDate(value: string): string { return new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)); }
+  number(value: number): string { return this.locale.number(value); }
+  formatDate(value: string): string { return this.locale.date(value, { dateStyle: 'short', timeStyle: 'short' }); }
   metadata(value: ErrorEventDto): string { return JSON.stringify(value.metadata, null, 2); }
+  sourceLabel(value: string): string { return this.domain.errorSource(value); }
+  severityLabel(value: string): string { return this.domain.severity(value); }
 
   private navigate(queryParams: Record<string, string | null>): void { this.router.navigate([], { relativeTo: this.route, queryParams, queryParamsHandling: 'merge' }); }
   private readQuery(params: ParamMap): ErrorQuery { return { from: params.get('from') || undefined, to: params.get('to') || undefined, search: params.get('search') || undefined, severity: (params.get('severity') as ErrorQuery['severity']) || undefined, source: params.get('source') || undefined, correlationId: params.get('correlationId') || undefined, take: 25 }; }

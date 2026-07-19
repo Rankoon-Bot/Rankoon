@@ -4,10 +4,14 @@ import { Observable } from 'rxjs';
 import { forkJoin, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ActivityEventDto, ActivityQuery, ActivityReportDto, CommandInvocationDto, CommandQuery, CommandReportDto, DateRangeQuery, ErrorEventDto, ErrorQuery, ErrorReportDto, ReportItemDto, ReportListDto, ReportStatus, ReportSummaryDto } from './reporting.models';
+import { TranslocoService } from '@jsverse/transloco';
+import { DomainValueService } from '../i18n/domain-value.service';
 
 @Injectable({ providedIn: 'root' })
 export class ReportingService {
   private readonly http = inject(HttpClient);
+  private readonly i18n = inject(TranslocoService);
+  private readonly domain = inject(DomainValueService);
 
   activity(guildId: string, query: ActivityQuery): Observable<ActivityReportDto> {
     return this.request(guildId, 'activity', query, { name: query.type, actorId: query.actorId }).pipe(map(({ list, summary }) => {
@@ -43,7 +47,7 @@ export class ReportingService {
           affectedCommands: this.number(summary.uniqueCommands),
           unresolvedErrors: this.number(summary.failed)
         },
-        groups: summary.groups.map(group => ({ fingerprint: group.key, title: this.humanize(group.key), source: group.key, severity: 'error' as const, count: this.number(group.count), firstSeenAt: group.firstSeenAt, lastSeenAt: group.lastSeenAt })),
+        groups: summary.groups.map(group => ({ fingerprint: group.key, title: this.domain.errorSource(group.key), source: this.domain.errorSource(group.key), severity: 'error' as const, count: this.number(group.count), firstSeenAt: group.firstSeenAt, lastSeenAt: group.lastSeenAt })),
         events: { items: events, nextCursor: list.nextCursor, hasMore: list.nextCursor !== null },
         availableSources: summary.byName.map(group => group.key)
       };
@@ -73,21 +77,21 @@ export class ReportingService {
   }
 
   private activityItem(item: ReportItemDto): ActivityEventDto {
-    return { id: item.id, occurredAt: item.occurredAt, type: item.name, title: this.humanize(item.name), description: item.action ? this.humanize(item.action) : null, actorId: item.actorId, actorName: item.actorId, channelId: item.channelId ?? item.metadata['channelId'] ?? item.metadata['voiceChannelId'] ?? null, channelName: null, status: this.status(item.outcome), metadata: item.metadata, correlationId: item.correlationId };
+    return { id: item.id, occurredAt: item.occurredAt, type: item.name, title: this.domain.activityName(item.name), description: item.action ? this.domain.activityAction(item.action) : null, actorId: item.actorId, actorName: item.actorId, channelId: item.channelId ?? item.metadata['channelId'] ?? item.metadata['voiceChannelId'] ?? null, channelName: null, status: this.status(item.outcome), outcome: this.domain.outcome(item.outcome), metadata: item.metadata, correlationId: item.correlationId };
   }
 
   private commandItem(item: ReportItemDto): CommandInvocationDto {
-    return { id: item.id, occurredAt: item.occurredAt, command: item.name, userId: item.actorId ?? '', userName: item.actorId ?? 'System', channelName: item.channelId, durationMs: this.number(item.durationMs), succeeded: item.outcome === 'succeeded', correlationId: item.correlationId };
+     return { id: item.id, occurredAt: item.occurredAt, command: item.name, userId: item.actorId ?? '', userName: item.actorId ?? this.i18n.translate('common.system'), channelName: item.channelId, durationMs: this.number(item.durationMs), succeeded: item.outcome === 'succeeded', status: this.status(item.outcome), outcome: this.domain.outcome(item.outcome), correlationId: item.correlationId };
   }
 
   private errorItem(item: ReportItemDto): ErrorEventDto {
     const source = item.action ?? item.name;
-    return { id: item.id, occurredAt: item.occurredAt, title: item.metadata['errorType'] ?? this.humanize(item.name), message: `Fehler in ${this.humanize(source)}`, source, severity: this.errorSeverity(item), command: item.metadata['command'] ?? null, userId: item.actorId, userName: item.actorId, correlationId: item.correlationId, stackTrace: null, metadata: item.metadata };
+     const sourceLabel = this.domain.errorSource(source);
+     return { id: item.id, occurredAt: item.occurredAt, title: item.metadata['errorType'] ?? this.domain.errorSource(item.name), message: this.i18n.translate('reports.errorIn', { source: sourceLabel }), source: sourceLabel, severity: this.errorSeverity(item), command: item.metadata['command'] ?? null, userId: item.actorId, userName: item.actorId, correlationId: item.correlationId, stackTrace: null, metadata: item.metadata };
   }
 
   private status(outcome: string): ReportStatus { return outcome === 'succeeded' ? 'success' : outcome === 'rejected' ? 'warning' : outcome === 'failed' ? 'error' : 'info'; }
   private errorSeverity(item: ReportItemDto): ErrorEventDto['severity'] { return item.severity === 'critical' ? 'critical' : item.severity === 'warning' ? 'warning' : 'error'; }
-  private humanize(value: string): string { return value.split(/[._-]/).filter(Boolean).map(part => part.charAt(0).toLocaleUpperCase('de-DE') + part.slice(1)).join(' '); }
   private number(value: string | number | null | undefined): number { const result = Number(value ?? 0); return Number.isFinite(result) ? result : 0; }
   private utc(value: string): string { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toISOString(); }
 }

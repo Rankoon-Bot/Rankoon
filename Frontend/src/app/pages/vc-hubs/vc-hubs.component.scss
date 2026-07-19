@@ -10,6 +10,10 @@ button:hover { background: var(--rk-brand-hover); }
 .danger { color: var(--rk-danger); background: var(--rk-danger-subtle); border-color: transparent; }
 .danger:hover { background: var(--rk-danger-subtle); border-color: var(--rk-danger); }
 .notice { padding: var(--rk-space-3); margin-bottom: var(--rk-space-5); color: var(--rk-success); background: var(--rk-success-subtle); border: 1px solid color-mix(in srgb, var(--rk-success) 50%, transparent); border-radius: var(--rk-radius-md); }
+.notice.error { display: flex; align-items: center; justify-content: space-between; gap: var(--rk-space-3); color: var(--rk-danger); background: var(--rk-danger-subtle); border-color: var(--rk-danger); }
+.notice.error button { color: var(--rk-text-strong); background: var(--rk-surface-2); border-color: var(--rk-border-strong); }
+.notice.error button:hover { background: var(--rk-surface-3); border-color: var(--rk-info); }
+.loading { color: var(--rk-text-muted); }
 .grid { display: grid; gap: var(--rk-space-4); }
 .hub { padding: var(--rk-space-6); background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); }
 .hub-title { display: flex; align-items: center; justify-content: space-between; gap: var(--rk-space-4); margin-bottom: var(--rk-space-4); }

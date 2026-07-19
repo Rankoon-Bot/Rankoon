@@ -1,0 +1,33 @@
+{
+  "leaderboardSettings": {
+    "subtitle": "Control access and the unique address of your guild leaderboard.",
+    "open": "Open leaderboard",
+    "loading": "Loading configuration",
+    "visibility": "Visibility",
+    "visibilityHint": "Choose who can open the leaderboard.",
+    "public": "Public",
+    "publicHint": "Anyone can view the leaderboard. Members can hide from external visitors.",
+    "membersOnly": "Server members only",
+    "membersHint": "Discord sign-in and current membership are required.",
+    "address": "Public address",
+    "addressHint": "The alias must be globally unique and may contain letters, numbers and hyphens.",
+    "alias": "Alias",
+    "aliasPlaceholder": "your-alias",
+    "save": "Save settings",
+    "saved": "Leaderboard settings saved."
+  },
+  "errors": {
+    "settingsLoad": "Could not load leaderboard settings.",
+    "aliasTaken": "This alias is already taken."
+  },
+  "apiErrors": {
+    "leaderboard": {
+      "invalidCursor": "The leaderboard position is invalid.",
+      "invalidAlias": "The leaderboard alias is invalid.",
+      "aliasConflict": "The leaderboard alias is already in use."
+    },
+    "alias": {
+      "taken": "This alias is already taken."
+    }
+  }
+}

@@ -1,6 +1,14 @@
 import { Routes } from '@angular/router';
-import { guildGuard, guestGuard, moduleGuard, ownerGuard, serverSelectionGuard, settingsGuard } from './guards/auth.guard';
+import {
+  guildGuard,
+  guestGuard,
+  moduleGuard,
+  ownerGuard,
+  serverSelectionGuard,
+  settingsGuard,
+} from './guards/auth.guard';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
+import { translationScope } from './i18n/module-translation.resolver';
 
 export const routes: Routes = [
   {
@@ -10,75 +18,121 @@ export const routes: Routes = [
       { path: '', redirectTo: '/server-selection', pathMatch: 'full' },
       {
         path: 'login',
-        loadComponent: () => import('./pages/login/login.component').then(c => c.LoginComponent),
-        canActivate: [guestGuard]
+        loadComponent: () =>
+          import('./pages/login/login.component').then((c) => c.LoginComponent),
+        canActivate: [guestGuard],
+        resolve: { translations: translationScope('auth') },
       },
       {
         path: 'auth/callback',
-        loadComponent: () => import('./pages/auth-callback/auth-callback.component').then(c => c.AuthCallbackComponent)
+        loadComponent: () =>
+          import('./pages/auth-callback/auth-callback.component').then(
+            (c) => c.AuthCallbackComponent,
+          ),
+        resolve: { translations: translationScope('auth') },
       },
       {
         path: 'rankings/:alias',
-        loadComponent: () => import('./pages/leaderboard/leaderboard.component').then(c => c.LeaderboardComponent)
+        loadComponent: () =>
+          import('./pages/leaderboard/leaderboard.component').then(
+            (c) => c.LeaderboardComponent,
+          ),
+        resolve: { translations: translationScope('leaderboard') },
       },
       {
         path: 'server-selection',
-        loadComponent: () => import('./pages/server-selection/server-selection.component').then(c => c.ServerSelectionComponent),
-        canActivate: [serverSelectionGuard]
+        loadComponent: () =>
+          import('./pages/server-selection/server-selection.component').then(
+            (c) => c.ServerSelectionComponent,
+          ),
+        canActivate: [serverSelectionGuard],
+        resolve: { translations: translationScope('server-selection') },
       },
       {
         path: 'dashboard',
-        loadComponent: () => import('./pages/dashboard/dashboard.component').then(c => c.DashboardComponent),
-        canActivate: [guildGuard, settingsGuard]
+        loadComponent: () =>
+          import('./pages/dashboard/dashboard.component').then(
+            (c) => c.DashboardComponent,
+          ),
+        canActivate: [guildGuard, settingsGuard],
+        resolve: { translations: translationScope('dashboard') },
       },
       {
         path: 'xp',
-        loadComponent: () => import('./pages/xp-config/xp-config.component').then(c => c.XpConfigComponent),
+        loadComponent: () =>
+          import('./pages/xp-config/xp-config.component').then(
+            (c) => c.XpConfigComponent,
+          ),
         canActivate: [guildGuard, moduleGuard],
-        data: { module: 'xp' }
+        data: { module: 'xp' },
+        resolve: { translations: translationScope('xp') },
       },
       {
         path: 'vc-hubs',
-        loadComponent: () => import('./pages/vc-hubs/vc-hubs.component').then(c => c.VcHubsComponent),
+        loadComponent: () =>
+          import('./pages/vc-hubs/vc-hubs.component').then(
+            (c) => c.VcHubsComponent,
+          ),
         canActivate: [guildGuard, moduleGuard],
-        data: { module: 'voice-hubs' }
+        data: { module: 'voice-hubs' },
+        resolve: { translations: translationScope('voice-hubs') },
       },
       {
         path: 'server-config',
         redirectTo: 'server-config/leaderboard',
-        pathMatch: 'full'
+        pathMatch: 'full',
       },
       {
         path: 'server-config/leaderboard',
-        loadComponent: () => import('./pages/leaderboard-settings/leaderboard-settings.component').then(c => c.LeaderboardSettingsComponent),
+        loadComponent: () =>
+          import('./pages/leaderboard-settings/leaderboard-settings.component').then(
+            (c) => c.LeaderboardSettingsComponent,
+          ),
         canActivate: [guildGuard, moduleGuard],
-        data: { module: 'leaderboard' }
+        data: { module: 'leaderboard' },
+        resolve: { translations: translationScope('leaderboard-settings') },
       },
       {
         path: 'server-config/roles',
-        loadComponent: () => import('./pages/role-permissions/role-permissions.component').then(c => c.RolePermissionsComponent),
-        canActivate: [guildGuard, ownerGuard]
+        loadComponent: () =>
+          import('./pages/role-permissions/role-permissions.component').then(
+            (c) => c.RolePermissionsComponent,
+          ),
+        canActivate: [guildGuard, ownerGuard],
+        resolve: { translations: translationScope('role-permissions') },
       },
       { path: 'logs', redirectTo: '/logs/activity', pathMatch: 'full' },
       {
         path: 'logs/activity',
-        loadComponent: () => import('./pages/reports/activity-logs.component').then(c => c.ActivityLogsComponent),
+        loadComponent: () =>
+          import('./pages/reports/activity-logs.component').then(
+            (c) => c.ActivityLogsComponent,
+          ),
         canActivate: [guildGuard, moduleGuard],
-        data: { module: 'reporting' }
+        data: { module: 'reporting' },
+        resolve: { translations: translationScope('reporting') },
       },
       {
         path: 'logs/commands',
-        loadComponent: () => import('./pages/reports/command-usage.component').then(c => c.CommandUsageComponent),
+        loadComponent: () =>
+          import('./pages/reports/command-usage.component').then(
+            (c) => c.CommandUsageComponent,
+          ),
         canActivate: [guildGuard, moduleGuard],
-        data: { module: 'reporting' }
+        data: { module: 'reporting' },
+        resolve: { translations: translationScope('reporting') },
       },
       {
         path: 'logs/errors',
-        loadComponent: () => import('./pages/reports/error-logs.component').then(c => c.ErrorLogsComponent),
+        loadComponent: () =>
+          import('./pages/reports/error-logs.component').then(
+            (c) => c.ErrorLogsComponent,
+          ),
         canActivate: [guildGuard, moduleGuard],
-        data: { module: 'reporting' }
-      }
-    ]
+        data: { module: 'reporting' },
+        resolve: { translations: translationScope('reporting') },
+      },
+    ],
   },
-  { path: '**', redirectTo: '/server-selection' }
+  { path: '**', redirectTo: '/server-selection' },
 ];

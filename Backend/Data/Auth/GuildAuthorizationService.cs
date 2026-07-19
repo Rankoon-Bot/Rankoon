@@ -70,7 +70,10 @@ public sealed class GuildAuthorizationService(
         if (member == null) return [];
 
         var policy = await permissions.GetOrInitializeAsync(guild, cancellationToken);
-        var roleIds = member.RoleIds.ToHashSet();
+        var roleIds = guild.Roles
+            .Where(role => !role.IsManaged && !role.IsEveryone && member.RoleIds.Contains(role.Id))
+            .Select(role => role.Id)
+            .ToHashSet();
         var grantedIds = policy.RoleGrants
             .Where(grant => roleIds.Contains(grant.RoleId))
             .SelectMany(grant => grant.ModuleIds)
