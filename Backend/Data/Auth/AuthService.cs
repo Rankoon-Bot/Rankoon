@@ -47,6 +47,9 @@ public interface IAuthService
 
 public class AuthService : IAuthService
 {
+    private const long AdministratorPermission = 1L << 3;
+    private const long ManageGuildPermission = 1L << 5;
+
     private readonly DiscordShardedClient discord;
     private readonly IDiscordService _discordService;
     private readonly IJwtService _jwtService;
@@ -329,6 +332,7 @@ public class AuthService : IAuthService
             }
 
             var guildDtos = discordGuilds
+                .Where(g => g.owner || (g.permissions & (AdministratorPermission | ManageGuildPermission)) != 0)
                 .Select(g =>
                 {
                     var botInstalled = ulong.TryParse(g.id, out var guildId) && discord.GetGuild(guildId) != null;

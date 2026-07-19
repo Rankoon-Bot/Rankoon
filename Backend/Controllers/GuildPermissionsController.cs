@@ -9,7 +9,7 @@ using Rankoon.Data.Xp;
 namespace Rankoon.Controllers;
 
 public sealed record RoleModuleGrantRequest(ulong RoleId, List<string>? ModuleIds);
-public sealed record RolePermissionsRequest(List<RoleModuleGrantRequest?>? Roles);
+public sealed record RolePermissionsRequest(long Revision, List<RoleModuleGrantRequest?>? Roles);
 
 [ApiController]
 [Authorize]
@@ -53,7 +53,7 @@ public sealed class GuildPermissionsController(
         if (request.Roles == null) return BadRequest(new { error = "Roles are required." });
         if (request.Roles.Any(grant => grant == null)) return BadRequest(new { error = "Roles must not contain null entries." });
 
-        var selectableRoles = guild!.Roles.Where(role => !role.IsManaged && !role.IsEveryone).ToDictionary(role => role.Id);
+        var selectableRoles = guild!.Roles.ToDictionary(role => role.Id);
         var requestedRoles = request.Roles.Select(grant => grant!).ToArray();
         if (requestedRoles.Select(grant => grant.RoleId).Distinct().Count() != requestedRoles.Length)
             return BadRequest(new { error = "Duplicate role IDs are not allowed." });
@@ -61,7 +61,7 @@ public sealed class GuildPermissionsController(
         foreach (var grant in requestedRoles)
         {
             if (!selectableRoles.ContainsKey(grant.RoleId))
-                return BadRequest(new { error = $"Role {grant.RoleId} is invalid, managed, or the everyone role." });
+                return BadRequest(new { error = $"Role {grant.RoleId} does not belong to this server." });
             if (grant.ModuleIds == null)
                 return BadRequest(new { error = $"Module IDs are required for role {grant.RoleId}." });
             if (grant.ModuleIds.Distinct(StringComparer.Ordinal).Count() != grant.ModuleIds.Count)
@@ -75,7 +75,8 @@ public sealed class GuildPermissionsController(
         {
             RoleId = grant.RoleId,
             ModuleIds = [.. grant.ModuleIds!]
-        }).ToArray(), HttpContext.RequestAborted);
+        }).ToArray(), request.Revision, HttpContext.RequestAborted);
+        if (saved == null) return Conflict(new { error = "Die Rollenberechtigungen wurden zwischenzeitlich geändert. Bitte lade die Seite neu." });
         await reports.WriteAsync(new(
             guild.Id,
             ReportCategories.Activity,
@@ -94,7 +95,6 @@ public sealed class GuildPermissionsController(
     {
         var grants = policy.RoleGrants.ToDictionary(grant => grant.RoleId, grant => grant.ModuleIds);
         var roles = guild.Roles
-            .Where(role => !role.IsManaged && !role.IsEveryone)
             .OrderByDescending(role => role.Position)
             .Select(role => new
             {
@@ -105,7 +105,7 @@ public sealed class GuildPermissionsController(
                 moduleIds = grants.GetValueOrDefault(role.Id) ?? []
             })
             .ToArray();
-        return new { guildId = guild.Id, isOwner = true, modules = modules.Modules, roles, policy.UpdatedAt };
+        return new { guildId = guild.Id, isOwner = true, modules = modules.Modules, roles, policy.Revision, policy.UpdatedAt };
     }
 
     private async Task<(SocketGuild? Guild, IActionResult? Error)> AuthorizeOwnerAsync(string guildId)

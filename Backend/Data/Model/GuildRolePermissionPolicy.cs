@@ -1,13 +1,12 @@
-using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace Rankoon.Data.Model;
 
 public sealed class GuildRolePermissionPolicy
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
-    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonId] public ulong GuildId { get; set; }
     [BsonElement("role_grants")] public List<GuildRoleModuleGrant> RoleGrants { get; set; } = [];
+    [BsonElement("revision")] public long Revision { get; set; } = 1;
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 

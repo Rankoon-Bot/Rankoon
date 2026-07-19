@@ -27,11 +27,13 @@ export interface RolePermission {
 export interface RolePermissions {
   guildId: string;
   isOwner: boolean;
+  revision: number;
   modules: PermissionModule[];
   roles: RolePermission[];
   updatedAt: string | null;
 }
 
 export interface SaveRolePermissions {
+  revision: number;
   roles: { roleId: string; moduleIds: GuildModuleId[] }[];
 }

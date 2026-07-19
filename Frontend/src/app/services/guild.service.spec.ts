@@ -27,13 +27,13 @@ describe('GuildService permissions API', () => {
     service.rolePermissions('guild-1').subscribe();
     const getRequest = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/role-permissions`);
     expect(getRequest.request.method).toBe('GET');
-    getRequest.flush({ guildId: 'guild-1', isOwner: true, modules: [], roles: [], updatedAt: null });
+    getRequest.flush({ guildId: 'guild-1', isOwner: true, revision: 1, modules: [], roles: [], updatedAt: null });
 
-    const body = { roles: [{ roleId: 'role-1', moduleIds: ['xp' as const] }] };
+    const body = { revision: 1, roles: [{ roleId: 'role-1', moduleIds: ['xp' as const] }] };
     service.saveRolePermissions('guild-1', body).subscribe();
     const putRequest = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/role-permissions`);
     expect(putRequest.request.method).toBe('PUT');
     expect(putRequest.request.body).toEqual(body);
-    putRequest.flush({ guildId: 'guild-1', isOwner: true, modules: [], roles: [], updatedAt: null });
+    putRequest.flush({ guildId: 'guild-1', isOwner: true, revision: 2, modules: [], roles: [], updatedAt: null });
   });
 });

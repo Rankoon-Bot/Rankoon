@@ -37,7 +37,7 @@ public sealed class GuildModuleRegistry : IGuildModuleRegistry
 public interface IGuildRolePermissionService
 {
     Task<GuildRolePermissionPolicy> GetOrInitializeAsync(SocketGuild guild, CancellationToken cancellationToken = default);
-    Task<GuildRolePermissionPolicy> ReplaceAsync(SocketGuild guild, IReadOnlyCollection<GuildRoleModuleGrant> roleGrants, CancellationToken cancellationToken = default);
+    Task<GuildRolePermissionPolicy?> ReplaceAsync(SocketGuild guild, IReadOnlyCollection<GuildRoleModuleGrant> roleGrants, long expectedRevision, CancellationToken cancellationToken = default);
 }
 
 public sealed class GuildRolePermissionService(RankoonDbContext database, IGuildModuleRegistry modules) : IGuildRolePermissionService
@@ -46,13 +46,13 @@ public sealed class GuildRolePermissionService(RankoonDbContext database, IGuild
     {
         var allModuleIds = modules.Modules.Select(module => module.Id).ToList();
         var initialGrants = guild.Roles
-            .Where(role => !role.IsManaged && !role.IsEveryone && role.Permissions.Administrator)
+            .Where(role => role.Permissions.Administrator)
             .Select(role => new GuildRoleModuleGrant { RoleId = role.Id, ModuleIds = [.. allModuleIds] })
             .ToList();
         var now = DateTime.UtcNow;
         var update = Builders<GuildRolePermissionPolicy>.Update
-            .SetOnInsert(policy => policy.GuildId, guild.Id)
             .SetOnInsert(policy => policy.RoleGrants, initialGrants)
+            .SetOnInsert(policy => policy.Revision, 1)
             .SetOnInsert(policy => policy.UpdatedAt, now);
 
         try
@@ -69,14 +69,15 @@ public sealed class GuildRolePermissionService(RankoonDbContext database, IGuild
         }
     }
 
-    public async Task<GuildRolePermissionPolicy> ReplaceAsync(SocketGuild guild, IReadOnlyCollection<GuildRoleModuleGrant> roleGrants, CancellationToken cancellationToken = default)
+    public async Task<GuildRolePermissionPolicy?> ReplaceAsync(SocketGuild guild, IReadOnlyCollection<GuildRoleModuleGrant> roleGrants, long expectedRevision, CancellationToken cancellationToken = default)
     {
         await GetOrInitializeAsync(guild, cancellationToken);
         var update = Builders<GuildRolePermissionPolicy>.Update
             .Set(policy => policy.RoleGrants, roleGrants.ToList())
+            .Inc(policy => policy.Revision, 1)
             .Set(policy => policy.UpdatedAt, DateTime.UtcNow);
         return await database.GuildRolePermissionPolicies.FindOneAndUpdateAsync(
-            policy => policy.GuildId == guild.Id,
+            policy => policy.GuildId == guild.Id && policy.Revision == expectedRevision,
             update,
             new FindOneAndUpdateOptions<GuildRolePermissionPolicy> { ReturnDocument = ReturnDocument.After },
             cancellationToken);

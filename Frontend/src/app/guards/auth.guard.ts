@@ -47,7 +47,7 @@ function capabilityGuardFor(kind: 'settings' | 'module' | 'owner'): CanActivateF
     if (!guild?.botInstalled) return router.createUrlTree(['/server-selection']);
 
     const requiredModule = route.data['module'] as GuildModuleId | undefined;
-    return access.loadCapabilities(guild.id).pipe(
+    return access.loadCapabilities(guild.id, true).pipe(
       map(capabilities => {
         const allowed = kind === 'owner'
           ? capabilities.isOwner

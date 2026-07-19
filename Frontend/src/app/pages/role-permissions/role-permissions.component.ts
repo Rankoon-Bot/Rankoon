@@ -104,6 +104,7 @@ export class RolePermissionsComponent implements OnInit {
     this.error.set('');
     this.success.set('');
     this.api.saveRolePermissions(guildId, {
+      revision: data.revision,
       roles: data.roles.map(role => ({
         roleId: role.id,
         moduleIds: this.assignments()[role.id] ?? []
@@ -119,7 +120,9 @@ export class RolePermissionsComponent implements OnInit {
         this.forbidden.set(error?.status === 403);
         this.error.set(error?.status === 403
           ? 'Dein Zugriff wurde abgelehnt. Lade die Seite neu oder prüfe den Server-Owner.'
-          : 'Die Änderungen konnten nicht gespeichert werden.');
+          : error?.status === 409
+            ? 'Die Berechtigungen wurden zwischenzeitlich geändert. Lade die Seite neu und prüfe deine Änderungen.'
+            : 'Die Änderungen konnten nicht gespeichert werden.');
         this.saving.set(false);
       }
     });

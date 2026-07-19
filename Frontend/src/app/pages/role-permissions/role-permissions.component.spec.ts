@@ -11,7 +11,7 @@ describe('RolePermissionsComponent', () => {
     features: [], botInstalled: true, inviteUrl: ''
   };
   const response = {
-    guildId: 'guild-1', isOwner: true, updatedAt: '2026-07-19T12:00:00Z',
+    guildId: 'guild-1', isOwner: true, revision: 1, updatedAt: '2026-07-19T12:00:00Z',
     modules: [
       { id: 'xp' as const, name: 'XP', description: 'XP verwalten' },
       { id: 'reporting' as const, name: 'Berichte', description: 'Berichte ansehen' }
@@ -57,6 +57,7 @@ describe('RolePermissionsComponent', () => {
     component.save();
     const request = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/role-permissions`);
     expect(request.request.method).toBe('PUT');
+    expect(request.request.body.revision).toBe(response.revision);
     expect(request.request.body.roles).toEqual([
       { roleId: 'admin', moduleIds: ['xp', 'reporting'] },
       { roleId: 'moderator', moduleIds: ['xp', 'reporting'] }
