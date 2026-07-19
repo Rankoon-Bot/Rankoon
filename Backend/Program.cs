@@ -87,6 +87,8 @@ builder.Services.AddSingleton<IBotInfoCache, BotInfoCache>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGuildAuthorizationService, GuildAuthorizationService>();
+builder.Services.AddSingleton<IGuildModuleRegistry, GuildModuleRegistry>();
+builder.Services.AddSingleton<IGuildRolePermissionService, GuildRolePermissionService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpService, Rankoon.Data.Xp.XpService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();

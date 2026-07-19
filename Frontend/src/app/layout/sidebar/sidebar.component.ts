@@ -1,7 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LayoutStateService } from '../layout-state.service';
+import { AppStore } from '../../store/app.store';
+import { GuildModuleId } from '../../models/guild-permissions.models';
 
 interface MenuItem {
   label: string;
@@ -18,13 +20,13 @@ interface MenuItem {
     <aside class="sidebar" [class.mobile-open]="layoutState.mobileNavigationOpen()">
       <nav class="sidebar-nav">
         <ul class="nav-list">
-          <li *ngFor="let item of menuItems" class="nav-item">
+          <li *ngFor="let item of menuItems()" class="nav-item">
             <a 
                 [routerLink]="item.route" (click)="layoutState.closeMobileNavigation()"
               routerLinkActive="active"
               class="nav-link"
             >
-              <i [innerHTML]="item.icon" class="nav-icon"></i>
+              <i [innerHTML]="item.icon" class="nav-icon" aria-hidden="true"></i>
               <span class="nav-label">{{ item.label }}</span>
             </a>
             <ul *ngIf="item.children" class="sub-nav">
@@ -47,10 +49,20 @@ interface MenuItem {
   styleUrls: ['./sidebar.component.scss']
 })
 export class SidebarComponent {
-  constructor(public readonly layoutState: LayoutStateService) {}
+  readonly layoutState = inject(LayoutStateService);
+  private readonly appStore = inject(AppStore);
 
-  menuItems: MenuItem[] = [
-    {
+  readonly menuItems = computed<MenuItem[]>(() => {
+    const capabilities = this.appStore.guildCapabilities();
+    if (!capabilities || capabilities.guildId !== this.appStore.selectedGuild()?.id) return [];
+
+    const items: MenuItem[] = [{
+      label: 'Rangliste',
+      route: `/rankings/${capabilities.leaderboardAlias}`,
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>`
+    }];
+
+    if (capabilities.isOwner || capabilities.canAccessSettings) items.push({
       label: 'Dashboard',
       route: '/dashboard',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -59,20 +71,22 @@ export class SidebarComponent {
         <rect x="14" y="12" width="7" height="9"/>
         <rect x="3" y="16" width="7" height="5"/>
       </svg>`
-    },
-    {
+    });
+    const hasModule = (moduleId: GuildModuleId) => capabilities.isOwner || capabilities.moduleIds.includes(moduleId);
+    if (hasModule('xp')) items.push({
       label: 'XP & Level',
       route: '/xp',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3.1 6.3L22 9.3l-5 4.9 1.2 6.8-6.2-3.3-6.2 3.3L7 14.2 2 9.3l6.9-1z"/></svg>`
-    },
-    {
+    });
+    if (hasModule('voice-hubs')) items.push({
       label: 'VC-Hubs',
       route: '/vc-hubs',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a9 9 0 0 0-9 9v4a3 3 0 0 0 3 3h2v-7H5.1A7 7 0 0 1 19 10h-3v7h2a3 3 0 0 0 3-3v-4a9 9 0 0 0-9-9Z"/><path d="M12 19v4"/></svg>`
-    },
-    {
-      label: 'Server Konfiguration',
-      route: '/server-config',
+    });
+
+    if (hasModule('leaderboard')) items.push({
+      label: 'Ranglisten-Einstellungen',
+      route: '/server-config/leaderboard',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="2" y="3" width="20" height="4" rx="1"/>
         <rect x="2" y="9" width="20" height="4" rx="1"/>
@@ -80,15 +94,14 @@ export class SidebarComponent {
         <line x1="6" y1="5" x2="6.01" y2="5"/>
         <line x1="6" y1="11" x2="6.01" y2="11"/>
         <line x1="6" y1="17" x2="6.01" y2="17"/>
-      </svg>`,
-      children: [
-        { label: 'Rangliste', route: '/server-config/leaderboard', icon: '' },
-        { label: 'Allgemeine Einstellungen', route: '/server-config/general', icon: '' },
-        { label: 'Rollen & Berechtigungen', route: '/server-config/roles', icon: '' },
-        { label: 'Kanäle', route: '/server-config/channels', icon: '' }
-      ]
-    },
-    {
+      </svg>`
+    });
+    if (capabilities.isOwner) items.push({
+      label: 'Rollen & Berechtigungen',
+      route: '/server-config/roles',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 11 2 2 4-4"/></svg>`
+    });
+    if (hasModule('reporting')) items.push({
       label: 'Logs & Analytics',
       route: '/logs',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -103,6 +116,7 @@ export class SidebarComponent {
         { label: 'Command Usage', route: '/logs/commands', icon: '' },
         { label: 'Error Logs', route: '/logs/errors', icon: '' }
       ]
-    }
-  ];
+    });
+    return items;
+  });
 }

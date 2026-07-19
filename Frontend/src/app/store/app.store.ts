@@ -1,4 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
+import { GuildCapabilities, GuildModuleId } from '../models/guild-permissions.models';
+
+export type { GuildCapabilities, GuildModuleId } from '../models/guild-permissions.models';
 
 export interface Guild {
   id: string;
@@ -40,6 +43,7 @@ export interface BotConfig {
 export interface AppState {
   selectedGuild: Guild | null;
   guilds: Guild[];
+  guildCapabilities: GuildCapabilities | null;
   botConfig: BotConfig | null;
   isLoading: boolean;
   error: string | null;
@@ -52,6 +56,7 @@ export class AppStore {
   // Private writable signals
   private readonly _selectedGuild = signal<Guild | null>(null);
   private readonly _guilds = signal<Guild[]>([]);
+  private readonly _guildCapabilities = signal<GuildCapabilities | null>(null);
   private readonly _botConfig = signal<BotConfig | null>(null);
   private readonly _isLoading = signal<boolean>(false);
   private readonly _error = signal<string | null>(null);
@@ -59,6 +64,7 @@ export class AppStore {
   // Public readonly signals
   readonly selectedGuild = this._selectedGuild.asReadonly();
   readonly guilds = this._guilds.asReadonly();
+  readonly guildCapabilities = this._guildCapabilities.asReadonly();
   readonly botConfig = this._botConfig.asReadonly();
   readonly isLoading = this._isLoading.asReadonly();
   readonly error = this._error.asReadonly();
@@ -67,6 +73,8 @@ export class AppStore {
   readonly hasSelectedGuild = computed(() => this._selectedGuild() !== null);
   readonly hasGuilds = computed(() => this._guilds().length > 0);
   readonly hasError = computed(() => this._error() !== null);
+  readonly isGuildOwner = computed(() => this._guildCapabilities()?.isOwner === true);
+  readonly canAccessSettings = computed(() => this._guildCapabilities()?.canAccessSettings === true);
 
   constructor() {
     this.loadSelectedGuildFromStorage();
@@ -74,9 +82,23 @@ export class AppStore {
 
   // Actions
   setSelectedGuild(guild: Guild | null): void {
+    if (guild?.id !== this._selectedGuild()?.id) {
+      this._guildCapabilities.set(null);
+      this._botConfig.set(null);
+    }
     this._selectedGuild.set(guild);
     this._error.set(null);
     this.saveSelectedGuildToStorage(guild);
+  }
+
+  setGuildCapabilities(capabilities: GuildCapabilities | null): void {
+    if (capabilities && capabilities.guildId !== this._selectedGuild()?.id) return;
+    this._guildCapabilities.set(capabilities);
+  }
+
+  hasModule(moduleId: GuildModuleId): boolean {
+    const capabilities = this._guildCapabilities();
+    return capabilities?.isOwner === true || capabilities?.moduleIds.includes(moduleId) === true;
   }
 
   setGuilds(guilds: Guild[]): void {
@@ -115,6 +137,7 @@ export class AppStore {
   clearState(): void {
     this._selectedGuild.set(null);
     this._guilds.set([]);
+    this._guildCapabilities.set(null);
     this._botConfig.set(null);
     this._error.set(null);
     this.clearSelectedGuildFromStorage();
@@ -157,6 +180,7 @@ export class AppStore {
     return {
       selectedGuild: this._selectedGuild(),
       guilds: this._guilds(),
+      guildCapabilities: this._guildCapabilities(),
       botConfig: this._botConfig(),
       isLoading: this._isLoading(),
       error: this._error()

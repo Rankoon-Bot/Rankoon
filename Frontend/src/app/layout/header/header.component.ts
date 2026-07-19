@@ -2,10 +2,10 @@ import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthStore } from '../../store/auth.store';
-import { AppStore } from '../../store/app.store';
+import { AppStore, Guild } from '../../store/app.store';
 import { AuthService } from '../../services/auth.service';
-import { Guild } from '../../services/auth.service';
 import { LayoutStateService } from '../layout-state.service';
+import { GuildAccessService } from '../../services/guild-access.service';
 
 @Component({
     selector: 'app-header',
@@ -18,7 +18,7 @@ import { LayoutStateService } from '../layout-state.service';
                     <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
                 </button>
                 <h1 class="logo">Rankoon Dashboard</h1>
-                <div *ngIf="appStore.hasSelectedGuild()" class="guild-info" (click)="toggleGuildDropdown()">
+                <div *ngIf="appStore.hasSelectedGuild()" class="guild-info" role="button" tabindex="0" aria-haspopup="menu" [attr.aria-expanded]="isGuildDropdownOpen" (click)="toggleGuildDropdown()" (keydown.enter)="toggleGuildDropdown()" (keydown.space)="toggleGuildDropdown(); $event.preventDefault()">
                     <div class="guild-icon">
                         <img 
                             *ngIf="appStore.selectedGuild()?.icon" 
@@ -51,10 +51,14 @@ import { LayoutStateService } from '../layout-state.service';
                             <div *ngIf="!appStore.isLoading() && appStore.hasGuilds()" class="guild-list">
                                 <div 
                                     *ngFor="let guild of appStore.guilds()" 
-                                    class="guild-item"
+                                 class="guild-item"
+                                    [attr.role]="guild.botInstalled === true ? 'menuitem' : null"
+                                    [attr.tabindex]="guild.botInstalled === true ? 0 : null"
                                     [class.selected]="guild.id === appStore.selectedGuild()?.id"
                                     [class.missing]="guild.botInstalled !== true"
                                     (click)="selectGuild(guild); $event.stopPropagation()"
+                                    (keydown.enter)="selectGuild(guild); $event.stopPropagation()"
+                                    (keydown.space)="selectGuild(guild); $event.stopPropagation(); $event.preventDefault()"
                                 >
                                     <div class="guild-item-icon">
                                         <img 
@@ -71,12 +75,12 @@ import { LayoutStateService } from '../layout-state.service';
                                         <span class="guild-item-name">{{ guild.name }}</span>
                                         <div class="guild-item-badges">
                                             <span *ngIf="guild.owner" class="badge owner-badge">Owner</span>
-                                            <span *ngIf="!guild.owner" class="badge manager-badge">Manager</span>
+                                            <span *ngIf="!guild.owner && hasAdminPermissions(guild)" class="badge manager-badge">Manager</span>
                                             <span *ngIf="guild.botInstalled !== true" class="badge missing-badge">Bot fehlt</span>
                                         </div>
                                     </div>
                                     <a
-                                        *ngIf="guild.botInstalled !== true && guild.inviteUrl"
+                                        *ngIf="guild.botInstalled !== true && guild.inviteUrl && canInviteBot(guild)"
                                         class="invite-btn"
                                         [href]="guild.inviteUrl"
                                         target="_blank"
@@ -141,7 +145,8 @@ export class HeaderComponent implements OnInit {
         public appStore: AppStore,
         private authService: AuthService,
         private router: Router,
-        public readonly layoutState: LayoutStateService
+        public readonly layoutState: LayoutStateService,
+        private readonly guildAccess: GuildAccessService
     ) {}
 
     ngOnInit(): void {
@@ -206,8 +211,23 @@ export class HeaderComponent implements OnInit {
 
     selectGuild(guild: Guild): void {
         if (!guild.botInstalled) return;
-        this.appStore.setSelectedGuild(guild);
         this.isGuildDropdownOpen = false;
+        this.appStore.setLoading(true);
+        this.appStore.setError(null);
+        this.guildAccess.selectAndNavigate(guild).subscribe({
+            next: () => this.appStore.setLoading(false),
+            error: (error) => {
+                if (this.appStore.selectedGuild()?.id !== guild.id) return;
+                this.appStore.setLoading(false);
+                this.appStore.setSelectedGuild(null);
+                this.appStore.setError(error?.status === 403
+                    ? 'Du hast keinen Zugriff auf diesen Server.'
+                    : 'Die Server-Berechtigungen konnten nicht geladen werden.');
+                void this.router.navigate(['/server-selection'], {
+                    queryParams: { access: error?.status === 403 ? 'forbidden' : 'unavailable' }
+                });
+            }
+        });
     }
 
     inviteBot(event: Event): void {
@@ -253,6 +273,19 @@ export class HeaderComponent implements OnInit {
                 .toUpperCase();
         }
         return '';
+    }
+
+    hasAdminPermissions(guild: Guild): boolean {
+        try {
+            const permissions = BigInt(guild.permissions);
+            return (permissions & 8n) === 8n || (permissions & 32n) === 32n;
+        } catch {
+            return false;
+        }
+    }
+
+    canInviteBot(guild: Guild): boolean {
+        return guild.owner || this.hasAdminPermissions(guild);
     }
 
     logout(): void {

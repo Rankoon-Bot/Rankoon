@@ -61,7 +61,7 @@ public sealed class LeaderboardSettingsController(LeaderboardService leaderboard
     public async Task<IActionResult> Get(string guildId)
     {
         if (!ulong.TryParse(guildId, out var id)) return BadRequest();
-        if (!await authorization.CanManageAsync(User, id, HttpContext.RequestAborted)) return Forbid();
+        if (!await authorization.CanAccessModuleAsync(User, id, GuildModuleIds.Leaderboard, HttpContext.RequestAborted)) return Forbid();
         var guild = discord.GetGuild(id);
         if (guild == null) return NotFound();
         return Ok(await leaderboard.GetOrCreateSettingsAsync(id, guild.Name, HttpContext.RequestAborted));
@@ -71,7 +71,7 @@ public sealed class LeaderboardSettingsController(LeaderboardService leaderboard
     public async Task<IActionResult> Save(string guildId, [FromBody] LeaderboardSettingsRequest request)
     {
         if (!ulong.TryParse(guildId, out var id)) return BadRequest();
-        if (!await authorization.CanManageAsync(User, id, HttpContext.RequestAborted)) return Forbid();
+        if (!await authorization.CanAccessModuleAsync(User, id, GuildModuleIds.Leaderboard, HttpContext.RequestAborted)) return Forbid();
         var guild = discord.GetGuild(id);
         if (guild == null) return NotFound();
         try

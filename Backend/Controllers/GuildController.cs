@@ -20,10 +20,13 @@ public sealed record VoiceWatchdogControl(bool Enabled);
 [Route("api/guilds/{guildId}")]
 public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, GuildMembershipService memberships, VoiceXpWatchdog watchdog, VcHubService hubs, IReportWriter reports) : ControllerBase
 {
-    private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId)
+    private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId, string? moduleId = null)
     {
         if (!ulong.TryParse(guildId, out var id)) return (0, BadRequest(new { error = "Invalid guild ID" }));
-        if (!await authorization.CanManageAsync(User, id, HttpContext.RequestAborted)) return (0, Forbid());
+        var canAccess = moduleId == null
+            ? await authorization.CanAccessAnyModuleAsync(User, id, HttpContext.RequestAborted)
+            : await authorization.CanAccessModuleAsync(User, id, moduleId, HttpContext.RequestAborted);
+        if (!canAccess) return (0, Forbid());
         return (id, null);
     }
 
@@ -50,11 +53,11 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     }
 
     [HttpGet("xp/config")]
-    public async Task<IActionResult> GetXpConfig(string guildId) { var (id, error) = await AuthorizeGuildAsync(guildId); return error ?? Ok(await xp.GetSettingsAsync(id, HttpContext.RequestAborted)); }
+    public async Task<IActionResult> GetXpConfig(string guildId) { var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); return error ?? Ok(await xp.GetSettingsAsync(id, HttpContext.RequestAborted)); }
     [HttpPut("xp/config")]
     public async Task<IActionResult> SaveXpConfig(string guildId, [FromBody] GuildXpSettings settings)
     {
-        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
         var validationErrors = ValidateXpSettings(settings);
         if (validationErrors.Count > 0) return BadRequest(new { errors = validationErrors });
         settings.GuildId = id;
@@ -69,14 +72,14 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     [HttpGet("xp/watchdog")]
     public async Task<IActionResult> GetVoiceWatchdog(string guildId)
     {
-        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
         return Ok(watchdog.GetStatus(id));
     }
 
     [HttpPut("xp/watchdog")]
     public async Task<IActionResult> SetVoiceWatchdog(string guildId, [FromBody] VoiceWatchdogControl control)
     {
-        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
         var settings = await xp.GetSettingsAsync(id, HttpContext.RequestAborted);
         settings.Voice.Enabled = control.Enabled;
         if (control.Enabled) settings.Enabled = true;
@@ -87,11 +90,11 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     }
 
     [HttpGet("xp/leaderboard")]
-    public async Task<IActionResult> Leaderboard(string guildId, [FromQuery] int take = 25) { var (id, error) = await AuthorizeGuildAsync(guildId); return error ?? Ok((await xp.GetLeaderboardAsync(id, take, HttpContext.RequestAborted)).Select(ToRank)); }
+    public async Task<IActionResult> Leaderboard(string guildId, [FromQuery] int take = 25) { var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); return error ?? Ok((await xp.GetLeaderboardAsync(id, take, HttpContext.RequestAborted)).Select(ToRank)); }
     [HttpGet("xp/members/{userId}")]
     public async Task<IActionResult> Member(string guildId, string userId)
     {
-        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
         if (!ulong.TryParse(userId, out var user)) return BadRequest();
         var member = await xp.GetMemberAsync(id, user, HttpContext.RequestAborted); return member == null ? NotFound() : Ok(ToRank(member));
     }
@@ -99,7 +102,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     [HttpPost("xp/import/mee6")]
     public async Task<IActionResult> ImportMee6(string guildId, [FromBody] JsonElement payload)
     {
-        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
         if (!payload.TryGetProperty("guild", out var importGuild) || !importGuild.TryGetProperty("id", out var importGuildId) || importGuildId.GetString() != guildId) return BadRequest(new { error = "The MEE6 export belongs to another guild." });
         if (!payload.TryGetProperty("players", out var players) || players.ValueKind != JsonValueKind.Array) return BadRequest(new { error = "Invalid MEE6 players export." });
         var imported = 0;
@@ -136,11 +139,11 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     }
 
     [HttpGet("vc-hubs")]
-    public async Task<IActionResult> Hubs(string guildId) { var (id, error) = await AuthorizeGuildAsync(guildId); return error ?? Ok(await database.VcHubs.Find(x => x.GuildId == id).ToListAsync(HttpContext.RequestAborted)); }
+    public async Task<IActionResult> Hubs(string guildId) { var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.VoiceHubs); return error ?? Ok(await database.VcHubs.Find(x => x.GuildId == id).ToListAsync(HttpContext.RequestAborted)); }
     [HttpPost("vc-hubs")]
     public async Task<IActionResult> CreateHub(string guildId, [FromBody] VcHub hub)
     {
-        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.VoiceHubs); if (error != null) return error;
         hub.Id = null; hub.GuildId = id;
         if (hub.JoinChannelId == 0)
         {
@@ -153,11 +156,11 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         return Ok(hub);
     }
     [HttpPut("vc-hubs/{hubId}")]
-    public async Task<IActionResult> UpdateHub(string guildId, string hubId, [FromBody] VcHub hub) { var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error; hub.Id = hubId; hub.GuildId = id; var result = await database.VcHubs.ReplaceOneAsync(x => x.GuildId == id && x.Id == hubId, hub, cancellationToken: HttpContext.RequestAborted); if (result.MatchedCount == 0) return NotFound(); await WriteActivityAsync(id, ReportNames.VoiceHubUpdated, metadata: new Dictionary<string, object?> { ["hubId"] = hubId }); return Ok(hub); }
+    public async Task<IActionResult> UpdateHub(string guildId, string hubId, [FromBody] VcHub hub) { var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.VoiceHubs); if (error != null) return error; hub.Id = hubId; hub.GuildId = id; var result = await database.VcHubs.ReplaceOneAsync(x => x.GuildId == id && x.Id == hubId, hub, cancellationToken: HttpContext.RequestAborted); if (result.MatchedCount == 0) return NotFound(); await WriteActivityAsync(id, ReportNames.VoiceHubUpdated, metadata: new Dictionary<string, object?> { ["hubId"] = hubId }); return Ok(hub); }
     [HttpDelete("vc-hubs/{hubId}")]
     public async Task<IActionResult> DeleteHub(string guildId, string hubId)
     {
-        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.VoiceHubs); if (error != null) return error;
         var hub = await database.VcHubs.Find(x => x.GuildId == id && x.Id == hubId).FirstOrDefaultAsync(HttpContext.RequestAborted);
         if (hub == null) return NotFound();
         await hubs.DeleteHubAsync(discord.GetGuild(id)!, hub, HttpContext.RequestAborted);

@@ -37,6 +37,11 @@
   cursor: pointer;
   transition: border-color var(--rk-motion-fast), background-color var(--rk-motion-fast);
 
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--rk-focus-ring);
+  }
+
   &:hover {
     background: var(--rk-surface-3);
     border-color: var(--rk-border-strong);
@@ -148,6 +153,11 @@
 
     &:hover {
       background: var(--rk-surface-2);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: inset var(--rk-focus-ring);
     }
 
     &.selected {

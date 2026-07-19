@@ -3,6 +3,7 @@
 .header-content { max-width: 600px; margin: 0 auto; }
 .header-content h1 { margin-bottom: var(--rk-space-3); }
 .header-content p { color: var(--rk-text-muted); }
+.access-notice { max-width: 600px; padding: var(--rk-space-3) var(--rk-space-4); margin: 0 auto var(--rk-space-5); color: var(--rk-warning); text-align: center; background: var(--rk-warning-subtle); border: 1px solid var(--rk-warning); border-radius: var(--rk-radius-md); }
 .server-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--rk-space-4); max-width: 1120px; margin: 0 auto; }
 .server-card { display: flex; align-items: center; gap: var(--rk-space-4); min-height: 100px; padding: var(--rk-space-5); cursor: pointer; background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); transition: transform var(--rk-motion-fast), border-color var(--rk-motion-base), background-color var(--rk-motion-base); }
 .server-card:hover { background: var(--rk-surface-2); border-color: var(--rk-info); transform: translateY(-2px); }
@@ -22,6 +23,7 @@
 .bot-badge { color: var(--rk-success); background: var(--rk-success-subtle); }
 .missing-badge { color: var(--rk-warning); background: var(--rk-warning-subtle); }
 .server-arrow { color: var(--rk-text-muted); }
+.unavailable-copy { max-width: 180px; color: var(--rk-text-muted); font-size: 0.8rem; text-align: right; }
 .server-card:hover .server-arrow { color: var(--rk-brand); }
 .invite-btn { display: inline-flex; align-items: center; min-height: 44px; padding: var(--rk-space-2) var(--rk-space-3); color: var(--rk-text-strong); background: var(--rk-discord); border: 1px solid var(--rk-discord); border-radius: var(--rk-radius-md); font-weight: 700; text-decoration: none; white-space: nowrap; }
 .invite-btn:hover { box-shadow: var(--rk-shadow-discord); }

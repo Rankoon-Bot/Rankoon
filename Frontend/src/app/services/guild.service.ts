@@ -2,6 +2,11 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import {
+  GuildCapabilities,
+  RolePermissions,
+  SaveRolePermissions
+} from '../models/guild-permissions.models';
 
 export interface RankEntry { userId: string; displayName: string; totalXp: string | number; level: number; messageCount: string | number; voiceSeconds: string | number; }
 export interface DashboardData { guildName: string; leaderboardAlias: string; memberCount: string | number; botCount: string | number; activeVoiceMembers: number; activeXpMembers: string | number; stats: { xpAwarded: string | number; messages: string | number; reactions: string | number; threads: string | number; eventInterests: string | number; temporaryChannelsCreated: string | number }; activeTemporaryChannels: string | number; processUptimeSeconds: number; watchdog: { state: string; lastRunAt: string | null; lastError: string | null }; leaderboard: RankEntry[]; }
@@ -20,6 +25,9 @@ export class GuildService {
   private readonly http = inject(HttpClient);
   private url(guildId: string, path: string): string { return `${environment.apiBaseUrl}/guilds/${guildId}/${path}`; }
   dashboard(guildId: string): Observable<DashboardData> { return this.http.get<DashboardData>(this.url(guildId, 'dashboard')); }
+  capabilities(guildId: string): Observable<GuildCapabilities> { return this.http.get<GuildCapabilities>(this.url(guildId, 'capabilities')); }
+  rolePermissions(guildId: string): Observable<RolePermissions> { return this.http.get<RolePermissions>(this.url(guildId, 'role-permissions')); }
+  saveRolePermissions(guildId: string, permissions: SaveRolePermissions): Observable<RolePermissions> { return this.http.put<RolePermissions>(this.url(guildId, 'role-permissions'), permissions); }
   resources(guildId: string): Observable<GuildResources> { return this.http.get<GuildResources>(this.url(guildId, 'resources')); }
   config(guildId: string): Observable<XpConfig> { return this.http.get<XpConfig>(this.url(guildId, 'xp/config')); }
   saveConfig(guildId: string, config: XpConfig): Observable<XpConfig> { return this.http.put<XpConfig>(this.url(guildId, 'xp/config'), config); }

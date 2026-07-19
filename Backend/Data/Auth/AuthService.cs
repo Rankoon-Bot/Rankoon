@@ -329,7 +329,6 @@ public class AuthService : IAuthService
             }
 
             var guildDtos = discordGuilds
-                .Where(g => g.owner || HasManageGuildOrAdminPermissions(g.permissions))
                 .Select(g =>
                 {
                     var botInstalled = ulong.TryParse(g.id, out var guildId) && discord.GetGuild(guildId) != null;
@@ -353,24 +352,6 @@ public class AuthService : IAuthService
             _logger.LogError(ex, "Error getting user guilds for user: {UserId}", userId);
             return null;
         }
-    }
-
-    /// <summary>
-    /// Checks if the given permissions include Administrator or Manage Guild permissions
-    /// which are required to invite bots to a server
-    /// </summary>
-    /// <param name="permissions">Discord permissions as a long value</param>
-    /// <returns>True if user has permission to invite bots</returns>
-    private static bool HasManageGuildOrAdminPermissions(long permissions)
-    {
-        // Discord permission constants:
-        // Administrator = 8 (0x8)
-        // Manage Guild = 32 (0x20)
-        const long Administrator = 8;
-        const long ManageGuild = 32;
-        
-        return (permissions & Administrator) == Administrator || 
-                (permissions & ManageGuild) == ManageGuild;
     }
 
     private string GetBotInviteUrl(string guildId)

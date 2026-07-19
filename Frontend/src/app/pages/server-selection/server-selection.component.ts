@@ -1,9 +1,10 @@
-import { Component, HostListener, OnInit, inject } from '@angular/core';
+import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { AuthService, Guild } from '../../services/auth.service';
+import { AuthService } from '../../services/auth.service';
 import { AuthStore } from '../../store/auth.store';
-import { AppStore } from '../../store/app.store';
+import { AppStore, Guild } from '../../store/app.store';
+import { GuildAccessService } from '../../services/guild-access.service';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-server-selection',
@@ -18,6 +19,8 @@ import { AppStore } from '../../store/app.store';
         </div>
       </div>
 
+      <p *ngIf="accessNotice()" class="access-notice" role="alert">{{ accessNotice() }}</p>
+
       <div class="server-grid" *ngIf="!appStore.isLoading() && appStore.hasGuilds(); else loadingOrEmpty">
         <div 
           class="server-card" 
@@ -27,7 +30,7 @@ import { AppStore } from '../../store/app.store';
           [class.missing]="guild.botInstalled !== true"
           [attr.role]="guild.botInstalled === true ? 'button' : null"
           [attr.tabindex]="guild.botInstalled === true ? 0 : null"
-          [attr.aria-label]="guild.botInstalled === true ? guild.name + ' auswählen' : null"
+          [attr.aria-label]="guild.botInstalled === true ? guild.name + ' auswählen' : guild.name + ': Bot nicht installiert'"
           (keydown.enter)="selectServer(guild)"
           (keydown.space)="selectServer(guild); $event.preventDefault()"
         >
@@ -65,12 +68,12 @@ import { AppStore } from '../../store/app.store';
                 Bot aktiv
               </span>
               <span class="badge missing-badge" *ngIf="guild.botInstalled !== true">
-                Bot fehlt
+                {{ canInviteBot(guild) ? 'Bot fehlt' : 'Nicht verfügbar' }}
               </span>
             </div>
           </div>
           <a
-            *ngIf="guild.botInstalled !== true && guild.inviteUrl"
+            *ngIf="guild.botInstalled !== true && guild.inviteUrl && canInviteBot(guild)"
             class="invite-btn"
             [href]="guild.inviteUrl"
             target="_blank"
@@ -79,6 +82,7 @@ import { AppStore } from '../../store/app.store';
           >
             Bot einladen
           </a>
+          <span class="unavailable-copy" *ngIf="guild.botInstalled !== true && !canInviteBot(guild)">Ein Server-Manager muss Rankoon einladen.</span>
           <div class="server-arrow" *ngIf="guild.botInstalled">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="9,18 15,12 9,6"/>
@@ -104,7 +108,7 @@ import { AppStore } from '../../store/app.store';
               </svg>
             </div>
             <h3>Keine Server gefunden</h3>
-            <p>Du scheinst noch keine Discord Server zu verwalten oder zu besitzen.</p>
+            <p>Es wurden keine gemeinsamen Discord Server gefunden.</p>
             <button class="retry-btn" (click)="loadGuilds()">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="23,4 23,10 17,10"/>
@@ -134,11 +138,16 @@ import { AppStore } from '../../store/app.store';
 export class ServerSelectionComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly authStore = inject(AuthStore);
-  private readonly router = inject(Router);
+  private readonly guildAccess = inject(GuildAccessService);
+  private readonly route = inject(ActivatedRoute);
   readonly appStore = inject(AppStore);
+  readonly accessNotice = signal('');
   private refreshAfterInvite = false;
 
   ngOnInit(): void {
+    const access = this.route.snapshot.queryParamMap.get('access');
+    if (access === 'forbidden') this.accessNotice.set('Dein Zugriff auf die Server-Einstellungen wurde abgelehnt.');
+    if (access === 'unavailable') this.accessNotice.set('Die Server-Berechtigungen konnten nicht geprüft werden. Bitte versuche es erneut.');
     this.loadGuilds();
   }
 
@@ -161,8 +170,19 @@ export class ServerSelectionComponent implements OnInit {
 
   selectServer(guild: Guild): void {
     if (!guild.botInstalled) return;
-    this.appStore.setSelectedGuild(guild);
-    this.router.navigate(['/dashboard']);
+    this.appStore.setLoading(true);
+    this.appStore.setError(null);
+    this.guildAccess.selectAndNavigate(guild).subscribe({
+      next: () => this.appStore.setLoading(false),
+      error: (error) => {
+        if (this.appStore.selectedGuild()?.id !== guild.id) return;
+        this.appStore.setLoading(false);
+        this.appStore.setSelectedGuild(null);
+        this.appStore.setError(error?.status === 403
+          ? 'Du hast keinen Zugriff auf diesen Server.'
+          : 'Die Server-Berechtigungen konnten nicht geladen werden.');
+      }
+    });
   }
 
   inviteBot(event: Event): void {
@@ -192,11 +212,15 @@ export class ServerSelectionComponent implements OnInit {
   }
 
   hasAdminPermissions(guild: Guild): boolean {
-    // Check if user has administrator or manage guild permissions
-    // Discord permission values: Administrator = 8, Manage Guild = 32
-    const permissions = parseInt(guild.permissions);
-    const hasAdmin = (permissions & 8) === 8; // Administrator
-    const hasManageGuild = (permissions & 32) === 32; // Manage Guild
-    return hasAdmin || hasManageGuild;
+    try {
+      const permissions = BigInt(guild.permissions);
+      return (permissions & 8n) === 8n || (permissions & 32n) === 32n;
+    } catch {
+      return false;
+    }
+  }
+
+  canInviteBot(guild: Guild): boolean {
+    return guild.owner || this.hasAdminPermissions(guild);
   }
 }

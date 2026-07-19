@@ -1,27 +1,16 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { catchError, tap, map } from 'rxjs/operators';
 import { AuthStore, User } from '../store/auth.store';
-import { AppStore } from '../store/app.store';
+import { AppStore, Guild } from '../store/app.store';
 import { environment } from '../../environments/environment';
 
 export interface BackendTokenResponse {
     token: string;
     user: User;
     expiresAt: string;
-}
-
-export interface Guild {
-    id: string;
-    name: string;
-    icon: string | null;
-    owner: boolean;
-    permissions: string;
-    features: string[];
-    botInstalled: boolean;
-    inviteUrl: string;
 }
 
 @Injectable({
@@ -191,8 +180,9 @@ export class AuthService {
                 console.error('Failed to fetch user guilds:', error);
                 if (error.status === 401) {
                     this.logout();
+                    return of([]);
                 }
-                return of([]);
+                return throwError(() => error);
             })
         );
     }
