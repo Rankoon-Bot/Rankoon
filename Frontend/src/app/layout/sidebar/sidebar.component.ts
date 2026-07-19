@@ -81,6 +81,7 @@ export class SidebarComponent {
         <line x1="6" y1="17" x2="6.01" y2="17"/>
       </svg>`,
       children: [
+        { label: 'Rangliste', route: '/server-config/leaderboard', icon: '' },
         { label: 'Allgemeine Einstellungen', route: '/server-config/general', icon: '' },
         { label: 'Rollen & Berechtigungen', route: '/server-config/roles', icon: '' },
         { label: 'Kanäle', route: '/server-config/channels', icon: '' }

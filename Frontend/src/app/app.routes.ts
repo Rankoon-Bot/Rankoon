@@ -22,6 +22,10 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/auth-callback/auth-callback.component').then(c => c.AuthCallbackComponent)
       },
       {
+        path: 'rankings/:alias',
+        loadComponent: () => import('./pages/leaderboard/leaderboard.component').then(c => c.LeaderboardComponent)
+      },
+      {
         path: 'server-selection',
         loadComponent: () => import('./pages/server-selection/server-selection.component').then(c => c.ServerSelectionComponent),
         canActivate: [serverSelectionGuard]
@@ -45,6 +49,11 @@ export const routes: Routes = [
         path: 'server-config',
         canActivate: [guildGuard],
         loadComponent: () => import('./pages/dashboard/dashboard.component').then(c => c.DashboardComponent) // Placeholder
+      },
+      {
+        path: 'server-config/leaderboard',
+        canActivate: [guildGuard],
+        loadComponent: () => import('./pages/leaderboard-settings/leaderboard-settings.component').then(c => c.LeaderboardSettingsComponent)
       },
       {
         path: 'moderation',

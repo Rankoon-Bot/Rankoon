@@ -39,11 +39,38 @@ public sealed class MemberXp
     [BsonElement("imported_mee6_xp")] public long ImportedMee6Xp { get; set; }
     [BsonElement("earned_xp")] public decimal EarnedXp { get; set; }
     [BsonElement("manual_adjustment")] public long ManualAdjustment { get; set; }
+    [BsonElement("total_xp")] public decimal TotalXp { get; set; }
+    [BsonElement("is_current_member")] public bool IsCurrentMember { get; set; } = true;
+    [BsonElement("public_leaderboard_visible")] public bool PublicLeaderboardVisible { get; set; } = true;
     [BsonElement("message_count")] public long MessageCount { get; set; }
     [BsonElement("voice_seconds")] public long VoiceSeconds { get; set; }
     [BsonElement("last_message_xp_at")] public DateTime? LastMessageXpAt { get; set; }
     [BsonElement("last_reaction_xp_at")] public DateTime? LastReactionXpAt { get; set; }
     [BsonElement("last_thread_xp_at")] public DateTime? LastThreadXpAt { get; set; }
+    [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public enum LeaderboardVisibility
+{
+    Public,
+    MembersOnly
+}
+
+public sealed class GuildLeaderboardSettings
+{
+    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonElement("alias")] public string Alias { get; set; } = string.Empty;
+    [BsonElement("visibility"), BsonRepresentation(BsonType.String)] public LeaderboardVisibility Visibility { get; set; } = LeaderboardVisibility.MembersOnly;
+    [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class MemberLeaderboardPreference
+{
+    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonElement("user_id")] public ulong UserId { get; set; }
+    [BsonElement("public_visible")] public bool PublicVisible { get; set; } = true;
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 

@@ -1,0 +1,40 @@
+<section class="page">
+  <header class="hero" *ngIf="page() as data">
+    <div>
+      <p class="eyebrow">GUILD RANKING</p>
+      <h1>{{ data.guildName }}</h1>
+      <p>XP, Aktivitaet und Level auf einen Blick.</p>
+    </div>
+    <button class="secondary" *ngIf="data.isMember" type="button" (click)="jumpToMe()" [disabled]="jumping()">
+      {{ jumping() ? 'Rang wird gesucht...' : 'Springe zu mir' }}
+    </button>
+  </header>
+
+  <div class="privacy" *ngIf="page()?.visibility === 'Public' && page()?.isMember && page()?.publicVisible !== null">
+    <div><strong>Deine oeffentliche Sichtbarkeit</strong><p>Servermitglieder sehen dich weiterhin. Diese Einstellung gilt nur fuer externe Besucher.</p></div>
+    <label class="toggle">
+      <input type="checkbox" aria-label="Oeffentliche Sichtbarkeit in der Rangliste" [checked]="page()?.publicVisible" (change)="setPrivacy($any($event.target).checked)" [disabled]="privacyBusy()">
+      <span aria-hidden="true"></span><b>{{ page()?.publicVisible ? 'Sichtbar' : 'Ausgeblendet' }}</b>
+    </label>
+  </div>
+
+  <div class="state-card" *ngIf="initialLoading()" role="status" aria-live="polite"><span class="loader" aria-hidden="true"></span><div><strong>Rangliste wird aufgebaut</strong><p>Die besten Plaetze werden geladen.</p></div></div>
+  <div class="state-card error-state" *ngIf="!initialLoading() && error() && !entries().length" role="alert"><strong>{{ error() }}</strong><a routerLink="/login" *ngIf="!auth.isAuthenticated()">Mit Discord anmelden</a><button type="button" (click)="load(true)">Erneut versuchen</button></div>
+
+  <section class="ranking" *ngIf="entries().length" aria-label="Rangliste" role="table">
+    <div class="ranking-head" role="row"><span role="columnheader">Rang</span><span role="columnheader">Mitglied</span><span role="columnheader">Level</span><span role="columnheader">XP</span></div>
+    <article class="rank-row" role="row" *ngFor="let entry of entries(); trackBy: trackEntry" [class.current-user]="entry.isCurrentUser" [attr.data-current-user]="entry.isCurrentUser">
+      <div class="rank-number" role="cell">#{{ entry.rank }}</div>
+      <div class="member" role="cell"><span class="avatar" aria-hidden="true">{{ entry.displayName.charAt(0).toUpperCase() }}</span><div><strong>{{ entry.displayName }}</strong><small *ngIf="entry.isCurrentUser">Du</small><p>{{ formatNumber(entry.messageCount) }} Nachrichten</p></div></div>
+      <div class="level" role="cell"><span>Level</span><strong>{{ entry.level }}</strong></div>
+      <div class="xp" role="cell"><strong>{{ formatNumber(entry.totalXp) }}</strong><span> XP</span></div>
+    </article>
+    <div #sentinel class="sentinel" aria-hidden="true"></div>
+    <div class="append-state" *ngIf="loadingMore()" role="status" aria-live="polite"><span class="loader" aria-hidden="true"></span>Weitere Plaetze werden geladen</div>
+    <div class="append-state error" *ngIf="error() && entries().length" role="alert">{{ error() }} <button type="button" (click)="loadMore()">Erneut versuchen</button></div>
+    <div class="append-state" *ngIf="page() && !page()?.hasMore && !loadingMore()">Ende der Rangliste</div>
+    <button class="load-more" type="button" *ngIf="page()?.hasMore && !loadingMore()" (click)="loadMore()">Mehr laden</button>
+  </section>
+
+  <div class="state-card error-state" *ngIf="!initialLoading() && !error() && !entries().length"><strong>Noch keine Rangplaetze</strong><p>Sobald Mitglieder XP sammeln, erscheinen sie hier.</p></div>
+</section>

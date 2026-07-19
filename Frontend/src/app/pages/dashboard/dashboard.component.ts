@@ -30,7 +30,7 @@ import { DashboardData, GuildService } from '../../services/guild.service';
           <div class="stat-info">
             <h3>Mitglieder</h3>
             <p class="stat-number">{{ data()?.memberCount ?? '-' }}</p>
-            <p class="stat-label">Servermitglieder</p>
+            <p class="stat-label">Servermitglieder · {{ data()?.botCount ?? '-' }} Bots</p>
           </div>
         </div>
 
@@ -84,7 +84,7 @@ import { DashboardData, GuildService } from '../../services/guild.service';
           <div class="card recent-activity">
             <div class="card-header">
               <h3>XP-Rangliste</h3>
-              <a class="view-all-btn" routerLink="/xp">XP konfigurieren</a>
+              <a class="view-all-btn" [routerLink]="['/rankings', data()?.leaderboardAlias]">Alle anzeigen</a>
             </div>
             <div class="activity-list">
               <div class="activity-item" *ngFor="let member of data()?.leaderboard; let index = index">

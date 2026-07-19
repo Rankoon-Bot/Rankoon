@@ -33,6 +33,8 @@ public class RankoonDbContext
 
     public IMongoCollection<GuildXpSettings> GuildXpSettings => _database.GetCollection<GuildXpSettings>("guild_xp_settings");
     public IMongoCollection<MemberXp> MemberXp => _database.GetCollection<MemberXp>("member_xp");
+    public IMongoCollection<GuildLeaderboardSettings> GuildLeaderboardSettings => _database.GetCollection<GuildLeaderboardSettings>("guild_leaderboard_settings");
+    public IMongoCollection<MemberLeaderboardPreference> MemberLeaderboardPreferences => _database.GetCollection<MemberLeaderboardPreference>("member_leaderboard_preferences");
     public IMongoCollection<XpLedgerEntry> XpLedger => _database.GetCollection<XpLedgerEntry>("xp_ledger");
     public IMongoCollection<VoiceSession> VoiceSessions => _database.GetCollection<VoiceSession>("voice_sessions");
     public IMongoCollection<VcHub> VcHubs => _database.GetCollection<VcHub>("vc_hubs");

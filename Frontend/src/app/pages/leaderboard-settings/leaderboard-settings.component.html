@@ -1,0 +1,19 @@
+<section class="page">
+  <header class="page-header"><div><p class="eyebrow">SERVER KONFIGURATION</p><h1>Rangliste</h1><p>Steuere den Zugriff und die eindeutige Adresse deiner Guild-Rangliste.</p></div><a class="secondary" *ngIf="settings()" [routerLink]="['/rankings', settings()?.alias]">Rangliste oeffnen</a></header>
+  <div class="notice" *ngIf="message()" role="status">{{ message() }}</div>
+  <div class="notice error" *ngIf="error()" role="alert">{{ error() }}</div>
+  <div class="state-card" *ngIf="loading()"><span class="loader" aria-hidden="true"></span>Konfiguration wird geladen</div>
+  <form *ngIf="!loading() && settings()" (ngSubmit)="save()">
+    <section class="card">
+      <div class="card-heading"><div><h2>Sichtbarkeit</h2><p>Lege fest, wer die Rangliste aufrufen darf.</p></div></div>
+      <label class="option" [class.active]="visibility === 'Public'"><input type="radio" name="visibility" value="Public" [(ngModel)]="visibility"><span><strong>Oeffentlich</strong><small>Jeder kann die Rangliste sehen. Mitglieder koennen sich fuer externe Besucher ausblenden.</small></span></label>
+      <label class="option" [class.active]="visibility === 'MembersOnly'"><input type="radio" name="visibility" value="MembersOnly" [(ngModel)]="visibility"><span><strong>Nur Servermitglieder</strong><small>Discord-Login und eine aktuelle Mitgliedschaft sind erforderlich.</small></span></label>
+    </section>
+    <section class="card">
+      <div class="card-heading"><div><h2>Oeffentliche Adresse</h2><p>Der Alias muss global eindeutig sein und besteht aus Buchstaben, Zahlen und Bindestrichen.</p></div></div>
+      <label>Alias<input name="alias" [(ngModel)]="alias" minlength="3" maxlength="48" pattern="[a-z0-9-]+" required></label>
+      <div class="url-preview"><span>URL</span><strong>/rankings/{{ alias || 'dein-alias' }}</strong></div>
+    </section>
+    <div class="actions"><button type="submit" [disabled]="saving() || !alias.trim()">{{ saving() ? 'Wird gespeichert...' : 'Einstellungen speichern' }}</button></div>
+  </form>
+</section>

@@ -11,6 +11,8 @@ using Rankoon.Data.Utils;
 using Serilog;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 // Load environment variables from .env file
 Env.Load();
@@ -26,8 +28,15 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 ConfigurationHelper.ExpandEnvironmentVariables(builder.Configuration);
 
 // Add services to the container.
-builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString | System.Text.Json.Serialization.JsonNumberHandling.WriteAsString);
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString | System.Text.Json.Serialization.JsonNumberHandling.WriteAsString;
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
+});
 builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(options => options.AddPolicy("leaderboard", context =>
+    RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
+        new FixedWindowRateLimiterOptions { PermitLimit = 90, Window = TimeSpan.FromMinutes(1), QueueLimit = 2 })));
 builder.Services.AddProblemDetails();
 builder.Services.Configure<HostOptions>(options =>
     options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
@@ -50,6 +59,7 @@ var dcConfig = new DiscordSocketConfig()
         | GatewayIntents.GuildMessages
         | GatewayIntents.GuildMessageReactions
         | GatewayIntents.GuildScheduledEvents
+        | GatewayIntents.GuildMembers
         | GatewayIntents.MessageContent
 };
 builder.Services.AddSingleton(new DiscordShardedClient(dcConfig));
@@ -68,6 +78,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGuildAuthorizationService, GuildAuthorizationService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpService, Rankoon.Data.Xp.XpService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
 builder.Services.AddHostedService<MongoIndexInitializer>();
 builder.Services.AddHostedService<RankoonBotHostedService>();
 builder.Services.AddSingleton<VoiceXpWatchdog>();
@@ -75,6 +86,8 @@ builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceX
 builder.Services.AddSingleton<VcHubService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<VcHubService>());
 builder.Services.AddHostedService<ActivityXpEventService>();
+builder.Services.AddSingleton<GuildMembershipService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<GuildMembershipService>());
 builder.Services.AddHostedService<RankoonCommandService>();
 
 // Configure JWT authentication
@@ -112,6 +125,7 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

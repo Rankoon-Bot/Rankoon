@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
+using MongoDB.Bson;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
@@ -16,7 +17,7 @@ public sealed record VoiceWatchdogControl(bool Enabled);
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}")]
-public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, VoiceXpWatchdog watchdog, VcHubService hubs) : ControllerBase
+public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, GuildMembershipService memberships, VoiceXpWatchdog watchdog, VcHubService hubs) : ControllerBase
 {
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId)
     {
@@ -31,10 +32,12 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
         var guild = discord.GetGuild(id)!;
         var stats = await database.GuildStats.Find(x => x.GuildId == id).FirstOrDefaultAsync() ?? new GuildStats { GuildId = id };
+        var botCount = guild.Users.Count(user => user.IsBot);
         var activeVc = guild.VoiceChannels.Sum(x => x.ConnectedUsers.Count(user => !user.IsBot));
         var activeTemp = await database.TemporaryVoiceChannels.CountDocumentsAsync(x => x.GuildId == id);
         var top = await xp.GetLeaderboardAsync(id, 5, HttpContext.RequestAborted);
-        return Ok(new { guildName = guild.Name, memberCount = guild.MemberCount, activeVoiceMembers = activeVc, activeXpMembers = await database.MemberXp.CountDocumentsAsync(x => x.GuildId == id), stats, activeTemporaryChannels = activeTemp, processUptimeSeconds = (long)(DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalSeconds, watchdog = watchdog.GetStatus(id), leaderboard = top.Select(ToRank) });
+        var leaderboardSettings = await leaderboard.GetOrCreateSettingsAsync(id, guild.Name, HttpContext.RequestAborted);
+        return Ok(new { guildName = guild.Name, leaderboardAlias = leaderboardSettings.Alias, memberCount = guild.MemberCount - botCount, botCount, activeVoiceMembers = activeVc, activeXpMembers = await database.MemberXp.CountDocumentsAsync(x => x.GuildId == id), stats, activeTemporaryChannels = activeTemp, processUptimeSeconds = (long)(DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalSeconds, watchdog = watchdog.GetStatus(id), leaderboard = top.Select(ToRank) });
     }
 
     [HttpGet("resources")]
@@ -103,9 +106,28 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
             var points = player.TryGetProperty("xp", out var value) ? value.GetInt64() : 0;
             var messages = player.TryGetProperty("message_count", out var messageCount) ? messageCount.GetInt64() : 0;
             var name = player.TryGetProperty("username", out var userName) ? userName.GetString() ?? userId.ToString() : userId.ToString();
-            await database.MemberXp.UpdateOneAsync(x => x.GuildId == id && x.UserId == userId, Builders<MemberXp>.Update.SetOnInsert(x => x.GuildId, id).SetOnInsert(x => x.UserId, userId).Set(x => x.DisplayName, name).Set(x => x.ImportedMee6Xp, points).Set(x => x.MessageCount, messages).Set(x => x.UpdatedAt, DateTime.UtcNow), new UpdateOptions { IsUpsert = true });
+            var preference = await database.MemberLeaderboardPreferences.Find(x => x.GuildId == id && x.UserId == userId).FirstOrDefaultAsync(HttpContext.RequestAborted);
+            var importUpdate = new PipelineUpdateDefinition<MemberXp>(new BsonDocument[]
+            {
+                new("$set", new BsonDocument
+                {
+                    { "guild_id", new BsonDocument("$ifNull", new BsonArray { "$guild_id", new BsonDecimal128((decimal)id) }) },
+                    { "user_id", new BsonDocument("$ifNull", new BsonArray { "$user_id", new BsonDecimal128((decimal)userId) }) },
+                    { "display_name", name }, { "imported_mee6_xp", points }, { "message_count", messages }, { "updated_at", DateTime.UtcNow },
+                    { "is_current_member", new BsonDocument("$ifNull", new BsonArray { "$is_current_member", false }) },
+                    { "public_leaderboard_visible", new BsonDocument("$ifNull", new BsonArray { "$public_leaderboard_visible", preference?.PublicVisible ?? true }) }
+                }),
+                new("$set", new BsonDocument("total_xp", new BsonDocument("$add", new BsonArray
+                {
+                    new BsonDocument("$ifNull", new BsonArray { "$imported_mee6_xp", 0 }),
+                    new BsonDocument("$ifNull", new BsonArray { "$earned_xp", 0 }),
+                    new BsonDocument("$ifNull", new BsonArray { "$manual_adjustment", 0 })
+                })))
+            });
+            await database.MemberXp.UpdateOneAsync(x => x.GuildId == id && x.UserId == userId, importUpdate, new UpdateOptions { IsUpsert = true }, HttpContext.RequestAborted);
             imported++;
         }
+        memberships.QueueGuild(id);
         return Ok(new { imported });
     }
 
@@ -137,7 +159,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         return NoContent();
     }
 
-    private static object ToRank(MemberXp member) { var total = member.ImportedMee6Xp + member.EarnedXp + member.ManualAdjustment; return new { member.UserId, member.DisplayName, totalXp = total, level = Mee6LevelCurve.GetLevel(total), member.MessageCount, member.VoiceSeconds }; }
+    private static object ToRank(MemberXp member) { var total = member.TotalXp; return new { member.UserId, member.DisplayName, totalXp = total, level = Mee6LevelCurve.GetLevel(total), member.MessageCount, member.VoiceSeconds }; }
 
     private static List<string> ValidateXpSettings(GuildXpSettings settings)
     {
