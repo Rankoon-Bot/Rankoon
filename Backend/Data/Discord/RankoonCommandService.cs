@@ -33,7 +33,13 @@ public sealed class RankoonCommandService(DiscordShardedClient client, IXpServic
                     type = 1,
                     options = new object[]
                     {
-                        new { name = "action", type = 3, description = "name, limit, lock, unlock, kick oder transfer", required = true },
+                        new { name = "action", type = 3, description = "name, limit, kick oder transfer", required = true, choices = new object[]
+                        {
+                            new { name = "name", value = "name" },
+                            new { name = "limit", value = "limit" },
+                            new { name = "kick", value = "kick" },
+                            new { name = "transfer", value = "transfer" }
+                        } },
                         new { name = "value", type = 3, description = "Name oder Limit", required = false },
                         new { name = "member", type = 6, description = "Mitglied fuer kick oder transfer", required = false }
                     }
@@ -92,16 +98,24 @@ public sealed class RankoonCommandService(DiscordShardedClient client, IXpServic
         var action = command.Data.Options.First(x => x.Name == "action").Value?.ToString()?.ToLowerInvariant();
         var value = command.Data.Options.FirstOrDefault(x => x.Name == "value")?.Value?.ToString();
         var target = command.Data.Options.FirstOrDefault(x => x.Name == "member")?.Value as SocketGuildUser;
-        switch (action)
+        await command.DeferAsync(ephemeral: true);
+        try
         {
-            case "name" when !string.IsNullOrWhiteSpace(value): await channel.ModifyAsync(x => x.Name = value[..Math.Min(value.Length, 100)]); break;
-            case "limit" when int.TryParse(value, out var limit): await channel.ModifyAsync(x => x.UserLimit = Math.Clamp(limit, 0, 99)); break;
-            case "lock": await channel.AddPermissionOverwriteAsync(channel.Guild.EveryoneRole, new OverwritePermissions(connect: PermValue.Deny)); await channel.AddPermissionOverwriteAsync(member, new OverwritePermissions(connect: PermValue.Allow)); break;
-            case "unlock": await channel.RemovePermissionOverwriteAsync(channel.Guild.EveryoneRole); await channel.RemovePermissionOverwriteAsync(member); break;
-            case "kick" when target != null: await target.ModifyAsync(x => x.Channel = null); break;
-            case "transfer" when target != null: await hubs.TransferOwnershipAsync(guildId, channel.Id, target.Id); break;
-            default: await command.RespondAsync("Nutze `name`, `limit`, `lock`, `unlock`, `kick` oder `transfer` mit den benoetigten Optionen.", ephemeral: true); return;
+            switch (action)
+            {
+                case "name" when !string.IsNullOrWhiteSpace(value): await channel.ModifyAsync(x => x.Name = value[..Math.Min(value.Length, 100)]); break;
+                case "limit" when int.TryParse(value, out var limit): await channel.ModifyAsync(x => x.UserLimit = Math.Clamp(limit, 0, 99)); break;
+                case "kick" when target != null: await target.ModifyAsync(x => x.Channel = null); break;
+                case "transfer" when target != null: await hubs.TransferOwnershipAsync(guildId, channel.Id, target.Id); break;
+                default: await command.FollowupAsync("Nutze `name`, `limit`, `kick` oder `transfer` mit den benoetigten Optionen.", ephemeral: true); return;
+            }
         }
-        await command.RespondAsync("Voice-Kanal aktualisiert.", ephemeral: true);
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Voice command {Action} failed for channel {ChannelId}", action, channel.Id);
+            await command.FollowupAsync("Der Voice-Kanal konnte nicht aktualisiert werden. Pruefe, ob Rankoon die Berechtigung `Kanaele verwalten` besitzt.", ephemeral: true);
+            return;
+        }
+        await command.FollowupAsync("Voice-Kanal aktualisiert.", ephemeral: true);
     }
 }

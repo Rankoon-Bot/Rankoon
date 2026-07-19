@@ -15,7 +15,14 @@ public sealed record VoiceWatchdogStatus(ulong GuildId, VoiceWatchdogState State
 public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContext database, IXpService xp, LevelRoleService levelRoles, TimeProvider timeProvider, ILogger<VoiceXpWatchdog> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<ulong, VoiceWatchdogStatus> _statuses = new();
+    private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _guildGates = new();
     public VoiceWatchdogStatus GetStatus(ulong guildId) => _statuses.TryGetValue(guildId, out var status) ? status : new(guildId, VoiceWatchdogState.Stopped, null, null, 0, 0, 0, null);
+
+    public async Task ReconcileNowAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        var guild = client.GetGuild(guildId) ?? throw new InvalidOperationException("The guild is not available to the Discord client.");
+        await ReconcileGuildAsync(guild, cancellationToken);
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -47,26 +54,51 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
     private async Task HandleVoiceStateChangedAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)
     {
         if (user.IsBot || user is not SocketGuildUser member) return;
-        var now = timeProvider.GetUtcNow().UtcDateTime;
-        if (before.VoiceChannel?.Id != after.VoiceChannel?.Id)
+        var gate = _guildGates.GetOrAdd(member.Guild.Id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync();
+        try
         {
-            if (before.VoiceChannel != null) await SettleUserAsync(member.Guild, member, before.VoiceChannel, now, CancellationToken.None);
-            if (after.VoiceChannel != null)
+            var settings = await xp.GetSettingsAsync(member.Guild.Id, CancellationToken.None);
+            if (!settings.Enabled || !settings.Voice.Enabled)
             {
-                await database.VoiceSessions.ReplaceOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id,
-                    new VoiceSession { GuildId = member.Guild.Id, UserId = member.Id, ChannelId = after.VoiceChannel.Id, JoinedAt = now, LastAccruedAt = now }, new ReplaceOptions { IsUpsert = true });
+                await database.VoiceSessions.DeleteOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id);
+                return;
             }
-            else await database.VoiceSessions.DeleteOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id);
+            var now = timeProvider.GetUtcNow().UtcDateTime;
+            if (before.VoiceChannel?.Id != after.VoiceChannel?.Id)
+            {
+                if (before.VoiceChannel != null) await SettleUserAsync(member.Guild, member, before.VoiceChannel, now, CancellationToken.None);
+                if (after.VoiceChannel != null)
+                {
+                    await database.VoiceSessions.ReplaceOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id,
+                        new VoiceSession { GuildId = member.Guild.Id, UserId = member.Id, ChannelId = after.VoiceChannel.Id, JoinedAt = now, LastAccruedAt = now }, new ReplaceOptions { IsUpsert = true });
+                }
+                else await database.VoiceSessions.DeleteOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id);
+            }
         }
+        finally { gate.Release(); }
     }
 
     private async Task ReconcileGuildAsync(SocketGuild guild, CancellationToken cancellationToken)
+    {
+        var gate = _guildGates.GetOrAdd(guild.Id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try { await ReconcileGuildCoreAsync(guild, cancellationToken); }
+        finally { gate.Release(); }
+    }
+
+    private async Task ReconcileGuildCoreAsync(SocketGuild guild, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
         try
         {
             var settings = await xp.GetSettingsAsync(guild.Id, cancellationToken);
-            if (!settings.Enabled || !settings.Voice.Enabled) { _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Stopped, DateTimeOffset.UtcNow, null, 0, 0, 0, null); return; }
+            if (!settings.Enabled || !settings.Voice.Enabled)
+            {
+                await database.VoiceSessions.DeleteManyAsync(x => x.GuildId == guild.Id, cancellationToken);
+                _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Stopped, DateTimeOffset.UtcNow, null, 0, 0, 0, null);
+                return;
+            }
             var connected = guild.VoiceChannels.SelectMany(x => x.ConnectedUsers).Where(x => !x.IsBot).DistinctBy(x => x.Id).ToArray();
             foreach (var member in connected)
             {
@@ -97,6 +129,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
     private async Task SettleUserAsync(SocketGuild guild, SocketGuildUser member, SocketVoiceChannel channel, DateTime now, CancellationToken cancellationToken)
     {
         var settings = await xp.GetSettingsAsync(guild.Id, cancellationToken);
+        if (!settings.Enabled || !settings.Voice.Enabled) return;
         var session = await database.VoiceSessions.Find(x => x.GuildId == guild.Id && x.UserId == member.Id).FirstOrDefaultAsync(cancellationToken);
         if (session == null || now <= session.LastAccruedAt) return;
         var seconds = Math.Min((long)(now - session.LastAccruedAt).TotalSeconds, settings.Voice.CheckIntervalSeconds * 2L);

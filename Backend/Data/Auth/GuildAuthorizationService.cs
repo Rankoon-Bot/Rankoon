@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Net;
+using Discord;
 using Discord.WebSocket;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
@@ -17,7 +19,18 @@ public sealed class GuildAuthorizationService(RankoonDbContext database, Discord
         var account = await database.DiscordUsers.Find(x => x.Id == id).FirstOrDefaultAsync(cancellationToken);
         if (account == null || !ulong.TryParse(account.DiscordId, out var discordUserId)) return false;
         var guild = discord.GetGuild(guildId);
-        var member = guild?.GetUser(discordUserId);
-        return guild != null && member != null && (guild.OwnerId == discordUserId || member.GuildPermissions.Administrator || member.GuildPermissions.ManageGuild);
+        if (guild == null) return false;
+        if (guild.OwnerId == discordUserId) return true;
+
+        IGuildUser? member = guild.GetUser(discordUserId);
+        try
+        {
+            member ??= await discord.Rest.GetGuildUserAsync(guildId, discordUserId, new RequestOptions { CancelToken = cancellationToken });
+        }
+        catch (global::Discord.Net.HttpException exception) when (exception.HttpCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
+        {
+            return false;
+        }
+        return member != null && (member.GuildPermissions.Administrator || member.GuildPermissions.ManageGuild);
     }
 }

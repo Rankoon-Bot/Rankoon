@@ -1,44 +1,236 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { catchError, finalize, forkJoin, of } from 'rxjs';
+import {
+  GuildResources,
+  GuildService,
+  RankEntry,
+  VoiceWatchdogStatus,
+  XpConfig,
+} from '../../services/guild.service';
 import { AppStore } from '../../store/app.store';
-import { GuildResources, GuildService, RankEntry, XpConfig } from '../../services/guild.service';
 
 @Component({
-  selector: 'app-xp-config', standalone: true, imports: [CommonModule, FormsModule], styleUrls: ['./xp-config.component.scss'],
-  template: `
-  <section class="page" *ngIf="config() as cfg">
-    <header class="page-header"><div><p class="eyebrow">RANK & REWARDS</p><h1>XP-Einstellungen</h1><p>Lege fest, welche Aktivitaeten zaehlen und wie Mitglieder aufsteigen.</p></div><button class="primary" (click)="save()" [disabled]="saving()">{{ saving() ? 'Speichert...' : 'Aenderungen speichern' }}</button></header>
-    <p class="notice" *ngIf="message()" role="status">{{ message() }}</p>
-    <div class="summary"><div><span>Modulstatus</span><strong [class.off]="!cfg.enabled">{{ cfg.enabled ? 'Aktiv' : 'Pausiert' }}</strong></div><div><span>Aktive Quellen</span><strong>{{ activeSources(cfg) }} von 5</strong></div><div><span>Level-Rollen</span><strong>{{ cfg.levelRoles.length }}</strong></div><div><span>Kanalregeln</span><strong>{{ cfg.channelMultipliers.length }}</strong></div></div>
-    <div class="layout">
-      <main class="stack">
-        <article class="card module-card"><div><h2>XP-Modul</h2><p>Stoppt oder aktiviert die gesamte XP-Vergabe fuer diesen Server.</p></div><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.enabled"><span aria-hidden="true"></span><b>{{ cfg.enabled ? 'Aktiv' : 'Pausiert' }}</b></label></article>
-        <article class="card"><div class="card-heading"><div><h2>Nachrichten</h2><p>Belohne sinnvolle Chat-Beitraege innerhalb eines klaren Rahmens.</p></div><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.message.enabled"><span aria-hidden="true"></span><b>{{ cfg.message.enabled ? 'Aktiv' : 'Inaktiv' }}</b></label></div><div class="fields four"><label>Minimum XP<input type="number" min="0" [(ngModel)]="cfg.message.minimumPoints"></label><label>Maximum XP<input type="number" min="0" [(ngModel)]="cfg.message.maximumPoints"></label><label>Minimum Zeichen<input type="number" min="0" [(ngModel)]="cfg.message.minimumCharacters"></label><label>Maximum Zeichen<input type="number" min="1" [(ngModel)]="cfg.message.maximumCharacters"></label><label>Cooldown (Sek.)<input type="number" min="0" [(ngModel)]="cfg.message.cooldownSeconds"></label></div></article>
-        <article class="card"><div class="card-heading"><div><h2>Voice</h2><p>Vergib XP fuer aktive Teilnahme in Sprachkanaelen.</p></div><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.voice.enabled"><span aria-hidden="true"></span><b>{{ cfg.voice.enabled ? 'Aktiv' : 'Inaktiv' }}</b></label></div><div class="fields four"><label>XP pro Minute<input type="number" min="0" step="0.1" [(ngModel)]="cfg.voice.pointsPerMinute"></label><label>Mindestdauer (Sek.)<input type="number" min="0" [(ngModel)]="cfg.voice.minimumSessionSeconds"></label><label>Pruefintervall (Sek.)<input type="number" min="15" max="300" [(ngModel)]="cfg.voice.checkIntervalSeconds"></label><label>Holdback-Schwelle<input type="number" min="0" step="0.1" [(ngModel)]="cfg.voice.holdbackThreshold"></label></div><div class="switch-list"><label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.requireMultipleHumans"><span>Mindestens zwei menschliche Teilnehmer</span></label><label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.excludeAfkChannel"><span>AFK-Kanal ausschliessen</span></label></div></article>
-        <article class="card"><div class="card-heading"><div><h2>Interaktionen</h2><p>Ergaenze den Chat durch XP fuer Reaktionen, Events und Threads.</p></div></div><div class="source-grid"><section><div class="source-heading"><h3>Reaktionen</h3><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.reaction.enabled"><span aria-hidden="true"></span><b>{{ cfg.reaction.enabled ? 'Aktiv' : 'Inaktiv' }}</b></label></div><div class="fields"><label>XP pro Reaktion<input type="number" min="0" [(ngModel)]="cfg.reaction.points"></label><label>Cooldown (Sek.)<input type="number" min="0" [(ngModel)]="cfg.reaction.cooldownSeconds"></label></div><label class="switch"><input type="checkbox" [(ngModel)]="cfg.reaction.reverseOnRemove"><span>XP beim Entfernen zuruecknehmen</span></label></section><section><div class="source-heading"><h3>Event-Interesse</h3><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.eventInterest.enabled"><span aria-hidden="true"></span><b>{{ cfg.eventInterest.enabled ? 'Aktiv' : 'Inaktiv' }}</b></label></div><label>XP fuer Interesse<input type="number" min="0" [(ngModel)]="cfg.eventInterest.points"></label></section><section><div class="source-heading"><h3>Threads</h3><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.thread.enabled"><span aria-hidden="true"></span><b>{{ cfg.thread.enabled ? 'Aktiv' : 'Inaktiv' }}</b></label></div><div class="fields"><label>Thread erstellen<input type="number" min="0" [(ngModel)]="cfg.thread.createPoints"></label><label>Thread-Beitrag<input type="number" min="0" [(ngModel)]="cfg.thread.messagePoints"></label><label>Cooldown (Sek.)<input type="number" min="0" [(ngModel)]="cfg.thread.cooldownSeconds"></label></div></section></div></article>
-        <article class="card"><div class="card-heading"><div><h2>Regeln & Ausschluesse</h2><p>Definiere Bereiche, die keine XP vergeben, und gezielte Kanal-Boni.</p></div></div><div class="rule-grid"><div><h3>Rollen ausschliessen</h3><div class="picker"><select [(ngModel)]="selectedRole" aria-label="Auszuschliessende Rolle"><option value="">Rolle waehlen</option><option *ngFor="let role of resources()?.roles" [value]="role.id">{{ role.name }}</option></select><button class="secondary" (click)="excludeRole()" [disabled]="!selectedRole">Hinzufuegen</button></div><div class="chips"><span *ngFor="let id of cfg.excludedRoleIds">{{ roleName(id) }} <button (click)="remove(cfg.excludedRoleIds, id)" [attr.aria-label]="roleName(id) + ' entfernen'">Entfernen</button></span></div></div><div><h3>Kanäle ausschliessen</h3><div class="picker"><select [(ngModel)]="selectedChannel" aria-label="Auszuschliessender Kanal"><option value="">Kanal waehlen</option><option *ngFor="let channel of resources()?.channels" [value]="channel.id">{{ channel.name }}</option></select><button class="secondary" (click)="excludeChannel()" [disabled]="!selectedChannel">Hinzufuegen</button></div><div class="chips"><span *ngFor="let id of cfg.excludedChannelIds">{{ channelName(id) }} <button (click)="remove(cfg.excludedChannelIds, id)" [attr.aria-label]="channelName(id) + ' entfernen'">Entfernen</button></span></div></div><div><h3>Kategorien ausschliessen</h3><div class="picker"><select [(ngModel)]="selectedCategory" aria-label="Auszuschliessende Kategorie"><option value="">Kategorie waehlen</option><option *ngFor="let channel of categories()" [value]="channel.id">{{ channel.name }}</option></select><button class="secondary" (click)="excludeCategory()" [disabled]="!selectedCategory">Hinzufuegen</button></div><div class="chips"><span *ngFor="let id of cfg.excludedCategoryIds">{{ channelName(id) }} <button (click)="remove(cfg.excludedCategoryIds, id)" [attr.aria-label]="channelName(id) + ' entfernen'">Entfernen</button></span></div></div></div><div class="repeater"><div class="section-label"><h3>Kanal-Multiplikatoren</h3><button class="secondary" (click)="addMultiplier()">Multiplikator hinzufuegen</button></div><p class="helper" *ngIf="!cfg.channelMultipliers.length">Noch keine Kanal-Boni eingerichtet.</p><div class="rule-row" *ngFor="let multiplier of cfg.channelMultipliers; let index = index"><select [(ngModel)]="multiplier.channelId" aria-label="Kanal fuer Multiplikator"><option value="">Kanal waehlen</option><option *ngFor="let channel of resources()?.channels" [value]="channel.id">{{ channel.name }}</option></select><label>Faktor<input type="number" min="0" step="0.1" [(ngModel)]="multiplier.multiplier"></label><button class="danger" (click)="cfg.channelMultipliers.splice(index, 1)">Entfernen</button></div></div></article>
-        <article class="card"><div class="card-heading"><div><h2>Level & Rollen</h2><p>Vergib Rollen automatisch, sobald ein Mitglied die jeweilige Stufe erreicht.</p></div></div><label class="wide-field">Level-up-Kanal<select [(ngModel)]="cfg.levelUpChannelId"><option [ngValue]="null">Keine Benachrichtigung</option><option *ngFor="let channel of textChannels()" [value]="channel.id">{{ channel.name }}</option></select><small>In diesem Kanal werden Level-ups angekuendigt.</small></label><div class="repeater"><div class="section-label"><h3>Level-Rollen</h3><button class="secondary" (click)="addLevelRole()">Level-Rolle hinzufuegen</button></div><p class="helper" *ngIf="!cfg.levelRoles.length">Noch keine automatische Rollenvergabe eingerichtet.</p><div class="rule-row level-row" *ngFor="let role of cfg.levelRoles; let index = index"><label>Ab Level<input type="number" [(ngModel)]="role.level" min="1"></label><select [(ngModel)]="role.roleId" aria-label="Zu vergebende Rolle"><option value="">Rolle waehlen</option><option *ngFor="let option of resources()?.roles" [value]="option.id">{{ option.name }}</option></select><button class="danger" (click)="cfg.levelRoles.splice(index, 1)">Entfernen</button></div></div></article>
-      </main>
-      <aside class="sidebar"><article class="card leaderboard"><div class="card-heading"><div><h2>Rangliste</h2><p>Aktueller Stand im Server.</p></div></div><div class="rank" *ngFor="let entry of leaderboard(); let index = index"><b>{{ index + 1 }}</b><div><strong>{{ entry.displayName }}</strong><span>Level {{ entry.level }} · {{ entry.totalXp }} XP</span></div></div><p class="helper" *ngIf="!leaderboard().length">Noch keine Rangdaten vorhanden.</p></article><article class="card import-card"><h2>MEE6-Import</h2><p>Uebernimm bestehende XP und Nachrichten aus einem MEE6-JSON-Export.</p><label class="file-input">JSON-Datei waehlen<input type="file" accept="application/json" (change)="importMee6($event)"></label></article></aside>
-    </div>
-  </section>`
+  selector: 'app-xp-config',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  templateUrl: './xp-config.component.html',
+  styleUrls: ['./xp-config.component.scss'],
 })
 export class XpConfigComponent implements OnInit {
-  readonly appStore = inject(AppStore); private readonly api = inject(GuildService);
-  readonly config = signal<XpConfig | null>(null); readonly resources = signal<GuildResources | null>(null); readonly leaderboard = signal<RankEntry[]>([]); readonly saving = signal(false); readonly message = signal(''); selectedRole = ''; selectedChannel = ''; selectedCategory = '';
-  ngOnInit(): void { const id = this.appStore.selectedGuild()?.id; if (!id) return; this.api.config(id).subscribe(c => this.config.set(c)); this.api.resources(id).subscribe(r => this.resources.set(r)); this.api.leaderboard(id).subscribe(r => this.leaderboard.set(r)); }
-  addLevelRole(): void { this.config()?.levelRoles.push({ level: 1, roleId: '' }); }
-  addMultiplier(): void { this.config()?.channelMultipliers.push({ channelId: '', multiplier: 1 }); }
-  activeSources(config: XpConfig): number { return [config.message.enabled, config.voice.enabled, config.reaction.enabled, config.eventInterest.enabled, config.thread.enabled].filter(Boolean).length; }
-  categories = () => this.resources()?.channels.filter(channel => channel.type.includes('Category')) ?? [];
-  textChannels = () => this.resources()?.channels.filter(channel => channel.type.includes('Text')) ?? [];
-  excludeRole(): void { const cfg = this.config(); if (cfg && this.selectedRole && !cfg.excludedRoleIds.includes(this.selectedRole)) cfg.excludedRoleIds.push(this.selectedRole); this.selectedRole = ''; }
-  excludeChannel(): void { const cfg = this.config(); if (cfg && this.selectedChannel && !cfg.excludedChannelIds.includes(this.selectedChannel)) cfg.excludedChannelIds.push(this.selectedChannel); this.selectedChannel = ''; }
-  excludeCategory(): void { const cfg = this.config(); if (cfg && this.selectedCategory && !cfg.excludedCategoryIds.includes(this.selectedCategory)) cfg.excludedCategoryIds.push(this.selectedCategory); this.selectedCategory = ''; }
-  remove(list: string[], value: string): void { const index = list.indexOf(value); if (index >= 0) list.splice(index, 1); }
-  roleName(id: string): string { return this.resources()?.roles.find(x => x.id === id)?.name ?? id; }
-  channelName(id: string): string { return this.resources()?.channels.find(x => x.id === id)?.name ?? id; }
-  save(): void { const id = this.appStore.selectedGuild()?.id; const config = this.config(); if (!id || !config) return; this.saving.set(true); this.api.saveConfig(id, config).subscribe({ next: saved => { this.config.set(saved); this.message.set('XP-Konfiguration gespeichert.'); this.saving.set(false); }, error: () => { this.message.set('Speichern fehlgeschlagen.'); this.saving.set(false); } }); }
-  importMee6(event: Event): void { const id = this.appStore.selectedGuild()?.id; const file = (event.target as HTMLInputElement).files?.[0]; if (!id || !file) return; file.text().then(text => this.api.importMee6(id, JSON.parse(text)).subscribe({ next: result => { this.message.set(`${result.imported} MEE6-Mitglieder importiert.`); this.api.leaderboard(id).subscribe(r => this.leaderboard.set(r)); }, error: () => this.message.set('Der MEE6-Import ist fehlgeschlagen.') })); }
+  private readonly appStore = inject(AppStore);
+  private readonly api = inject(GuildService);
+
+  readonly config = signal<XpConfig | null>(null);
+  readonly resources = signal<GuildResources>({ roles: [], channels: [] });
+  readonly leaderboard = signal<RankEntry[]>([]);
+  readonly watchdog = signal<VoiceWatchdogStatus | null>(null);
+  readonly loading = signal(true);
+  readonly loadError = signal('');
+  readonly saving = signal(false);
+  readonly watchdogBusy = signal(false);
+  readonly message = signal('');
+  readonly messageType = signal<'success' | 'error'>('success');
+
+  selectedRole = '';
+  selectedChannel = '';
+  selectedCategory = '';
+
+  ngOnInit(): void {
+    this.load();
+  }
+
+  load(): void {
+    const id = this.appStore.selectedGuild()?.id;
+    if (!id) {
+      this.loading.set(false);
+      this.loadError.set('Es ist kein Server ausgewaehlt.');
+      return;
+    }
+
+    this.loading.set(true);
+    this.loadError.set('');
+    forkJoin({
+      config: this.api.config(id),
+      resources: this.api.resources(id).pipe(catchError(() => of({ roles: [], channels: [] }))),
+      watchdog: this.api.voiceWatchdog(id).pipe(catchError(() => of(null))),
+      leaderboard: this.api.leaderboard(id).pipe(catchError(() => of([]))),
+    })
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: result => {
+          this.config.set(result.config);
+          this.resources.set(result.resources);
+          this.watchdog.set(result.watchdog);
+          this.leaderboard.set(result.leaderboard);
+        },
+        error: () => this.loadError.set('Die XP-Einstellungen konnten nicht geladen werden.'),
+      });
+  }
+
+  save(): void {
+    const id = this.appStore.selectedGuild()?.id;
+    const config = this.config();
+    if (!id || !config || !this.isValid(config)) return;
+
+    this.saving.set(true);
+    this.message.set('');
+    this.api.saveConfig(id, config)
+      .pipe(finalize(() => this.saving.set(false)))
+      .subscribe({
+        next: saved => {
+          this.config.set(saved);
+          this.showMessage('XP-Konfiguration gespeichert.', 'success');
+          this.refreshWatchdog();
+        },
+        error: () => this.showMessage('Speichern fehlgeschlagen. Bitte pruefe deine Eingaben.', 'error'),
+      });
+  }
+
+  setWatchdog(enabled: boolean): void {
+    const id = this.appStore.selectedGuild()?.id;
+    const config = this.config();
+    if (!id || !config) return;
+
+    const previousEnabled = config.enabled;
+    const previousVoiceEnabled = config.voice.enabled;
+    config.voice.enabled = enabled;
+    if (enabled) config.enabled = true;
+    this.watchdogBusy.set(true);
+    this.message.set('');
+
+    this.api.setVoiceWatchdog(id, enabled)
+      .pipe(finalize(() => this.watchdogBusy.set(false)))
+      .subscribe({
+        next: result => {
+          this.watchdog.set(result.status);
+          const running = this.watchdogIsRunning();
+          this.showMessage(
+            enabled && !running ? 'VCWatchdog aktiviert, der aktuelle Lauf ist jedoch beeintraechtigt.' : enabled ? 'VCWatchdog gestartet.' : 'VCWatchdog deaktiviert.',
+            enabled && !running ? 'error' : 'success',
+          );
+        },
+        error: () => {
+          config.enabled = previousEnabled;
+          config.voice.enabled = previousVoiceEnabled;
+          this.showMessage('Der VCWatchdog konnte nicht umgeschaltet werden.', 'error');
+          this.refreshWatchdog();
+        },
+      });
+  }
+
+  refreshWatchdog(): void {
+    const id = this.appStore.selectedGuild()?.id;
+    if (!id) return;
+    this.api.voiceWatchdog(id).subscribe({ next: status => this.watchdog.set(status) });
+  }
+
+  addLevelRole(): void {
+    this.config()?.levelRoles.push({ level: 1, roleId: '' });
+  }
+
+  addMultiplier(): void {
+    this.config()?.channelMultipliers.push({ channelId: '', multiplier: 1 });
+  }
+
+  activeSources(config: XpConfig): number {
+    return [config.message.enabled, config.voice.enabled, config.reaction.enabled, config.eventInterest.enabled, config.thread.enabled].filter(Boolean).length;
+  }
+
+  categories = () => this.resources().channels.filter(channel => channel.type.includes('Category'));
+  textChannels = () => this.resources().channels.filter(channel => channel.type.includes('Text'));
+
+  excludeRole(): void {
+    const config = this.config();
+    if (config && this.selectedRole && !config.excludedRoleIds.includes(this.selectedRole)) config.excludedRoleIds.push(this.selectedRole);
+    this.selectedRole = '';
+  }
+
+  excludeChannel(): void {
+    const config = this.config();
+    if (config && this.selectedChannel && !config.excludedChannelIds.includes(this.selectedChannel)) config.excludedChannelIds.push(this.selectedChannel);
+    this.selectedChannel = '';
+  }
+
+  excludeCategory(): void {
+    const config = this.config();
+    if (config && this.selectedCategory && !config.excludedCategoryIds.includes(this.selectedCategory)) config.excludedCategoryIds.push(this.selectedCategory);
+    this.selectedCategory = '';
+  }
+
+  remove(list: string[], value: string): void {
+    const index = list.indexOf(value);
+    if (index >= 0) list.splice(index, 1);
+  }
+
+  roleName(id: string): string {
+    return this.resources().roles.find(role => role.id === id)?.name ?? id;
+  }
+
+  channelName(id: string): string {
+    return this.resources().channels.find(channel => channel.id === id)?.name ?? id;
+  }
+
+  watchdogState(status: VoiceWatchdogStatus | null): string {
+    if (!status) return 'Unbekannt';
+    const states = ['Startet', 'Aktiv', 'Beeintraechtigt', 'Veraltet', 'Startet neu', 'Fehler', 'Deaktiviert'];
+    if (typeof status.state === 'number') return states[status.state] ?? 'Unbekannt';
+    const numericState = Number(status.state);
+    if (!Number.isNaN(numericState)) return states[numericState] ?? 'Unbekannt';
+    const labels: Record<string, string> = { Starting: 'Startet', Healthy: 'Aktiv', Degraded: 'Beeintraechtigt', Stale: 'Veraltet', Restarting: 'Startet neu', Faulted: 'Fehler', Stopped: 'Deaktiviert' };
+    return labels[status.state] ?? status.state;
+  }
+
+  watchdogIsRunning(): boolean {
+    const state = this.watchdog()?.state;
+    return state === 1 || state === '1' || state === 'Healthy' || state === 'Starting' || state === 0 || state === '0';
+  }
+
+  isValid(config: XpConfig): boolean {
+    return config.message.minimumPoints >= 0
+      && config.message.maximumPoints >= config.message.minimumPoints
+      && config.message.minimumCharacters >= 0
+      && config.message.maximumCharacters >= config.message.minimumCharacters
+      && config.message.cooldownSeconds >= 0
+      && config.voice.pointsPerMinute >= 0
+      && config.voice.minimumSessionSeconds >= 0
+      && config.voice.checkIntervalSeconds >= 15
+      && config.voice.checkIntervalSeconds <= 300
+      && config.voice.holdbackThreshold >= 0
+      && config.reaction.points >= 0
+      && config.reaction.cooldownSeconds >= 0
+      && config.eventInterest.points >= 0
+      && config.thread.createPoints >= 0
+      && config.thread.messagePoints >= 0
+      && config.thread.cooldownSeconds >= 0
+      && config.channelMultipliers.every(rule => !!rule.channelId && rule.multiplier >= 0)
+      && new Set(config.channelMultipliers.map(rule => rule.channelId)).size === config.channelMultipliers.length
+      && config.levelRoles.every(role => !!role.roleId && role.level >= 1)
+      && new Set(config.levelRoles.map(role => role.roleId)).size === config.levelRoles.length;
+  }
+
+  importMee6(event: Event): void {
+    const id = this.appStore.selectedGuild()?.id;
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!id || !file) return;
+
+    file.text()
+      .then(text => JSON.parse(text) as unknown)
+      .then(payload => this.api.importMee6(id, payload).subscribe({
+        next: result => {
+          this.showMessage(`${result.imported} MEE6-Mitglieder importiert.`, 'success');
+          this.api.leaderboard(id).subscribe(entries => this.leaderboard.set(entries));
+          input.value = '';
+        },
+        error: () => this.showMessage('Der MEE6-Import ist fehlgeschlagen.', 'error'),
+      }))
+      .catch(() => this.showMessage('Die ausgewaehlte Datei enthaelt kein gueltiges JSON.', 'error'));
+  }
+
+  private showMessage(message: string, type: 'success' | 'error'): void {
+    this.messageType.set(type);
+    this.message.set(message);
+  }
 }

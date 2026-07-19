@@ -1,0 +1,188 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">RANK & REWARDS</p>
+      <h1>XP & Level</h1>
+      <p>Steuere XP-Quellen, Voice-Tracking, Ausnahmen und automatische Level-Rollen.</p>
+    </div>
+    <button class="primary" type="button" (click)="save()" [disabled]="saving() || watchdogBusy() || !config() || !isValid(config()!)">
+      {{ saving() ? 'Speichert...' : 'Aenderungen speichern' }}
+    </button>
+  </header>
+
+  @if (message()) {
+    <p class="notice" [class.error]="messageType() === 'error'" role="status">{{ message() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="state-card" role="status">
+      <span class="loader" aria-hidden="true"></span>
+      <div><h2>Einstellungen werden geladen</h2><p>Server, Ressourcen und Watchdog-Status werden abgerufen.</p></div>
+    </div>
+  } @else if (loadError()) {
+    <div class="state-card error-state" role="alert">
+      <div><h2>XP-Einstellungen nicht verfuegbar</h2><p>{{ loadError() }}</p></div>
+      <button class="secondary" type="button" (click)="load()">Erneut versuchen</button>
+    </div>
+  } @else {
+  @if (config(); as cfg) {
+    <div class="summary" aria-label="XP-Zusammenfassung">
+      <div><span>XP-Modul</span><strong [class.off]="!cfg.enabled">{{ cfg.enabled ? 'Aktiv' : 'Pausiert' }}</strong></div>
+      <div><span>Aktive Quellen</span><strong>{{ activeSources(cfg) }} von 5</strong></div>
+      <div><span>Level-Rollen</span><strong>{{ cfg.levelRoles.length }}</strong></div>
+      <div><span>Kanalregeln</span><strong>{{ cfg.channelMultipliers.length }}</strong></div>
+    </div>
+
+    <article class="card watchdog-card" [class.running]="watchdogIsRunning()">
+      <div class="watchdog-main">
+        <div class="status-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div>
+          <div class="status-line"><h2>VCWatchdog</h2><span class="status-pill">{{ watchdogState(watchdog()) }}</span></div>
+          <p>Erfasst berechtigte Voice-Zeit und schreibt die verdienten XP automatisch gut.</p>
+          @if (watchdog()?.lastRunAt) {
+            <small>Letzte Pruefung: {{ watchdog()!.lastRunAt | date:'dd.MM.yyyy, HH:mm:ss' }} · {{ watchdog()!.connectedUsers }} verbundene Mitglieder</small>
+          } @else {
+            <small>Noch keine Pruefung fuer diesen Server ausgefuehrt.</small>
+          }
+          @if (watchdog()?.lastError) { <small class="error-text">{{ watchdog()!.lastError }}</small> }
+        </div>
+      </div>
+      <div class="watchdog-actions">
+        <button class="icon-button" type="button" (click)="refreshWatchdog()" aria-label="Watchdog-Status aktualisieren">Status aktualisieren</button>
+        @if (watchdogIsRunning()) {
+          <button class="danger" type="button" (click)="setWatchdog(false)" [disabled]="watchdogBusy()">
+            {{ watchdogBusy() ? 'Wird deaktiviert...' : 'VCWatchdog deaktivieren' }}
+          </button>
+        } @else {
+          <button class="primary" type="button" (click)="setWatchdog(true)" [disabled]="watchdogBusy()">
+            {{ watchdogBusy() ? 'Wird gestartet...' : 'VCWatchdog starten' }}
+          </button>
+        }
+      </div>
+    </article>
+
+    <div class="layout">
+      <main class="stack">
+        <article class="card module-card">
+          <div><h2>XP-Modul</h2><p>Der Hauptschalter pausiert die gesamte XP-Vergabe auf diesem Server.</p></div>
+          <label class="toggle"><input type="checkbox" [(ngModel)]="cfg.enabled"><span aria-hidden="true"></span><b>{{ cfg.enabled ? 'Aktiv' : 'Pausiert' }}</b></label>
+        </article>
+
+        <article class="card">
+          <div class="card-heading">
+            <div><p class="section-kicker">TEXTAKTIVITAET</p><h2>Nachrichten-XP</h2><p>Belohne hilfreiche Beitraege, ohne Spam attraktiv zu machen.</p></div>
+            <label class="toggle"><input type="checkbox" [(ngModel)]="cfg.message.enabled"><span aria-hidden="true"></span><b>{{ cfg.message.enabled ? 'Aktiv' : 'Inaktiv' }}</b></label>
+          </div>
+          <div class="fields three">
+            <label>Minimum XP<input type="number" min="0" [(ngModel)]="cfg.message.minimumPoints"><small>Untergrenze pro Nachricht</small></label>
+            <label>Maximum XP<input type="number" min="0" [(ngModel)]="cfg.message.maximumPoints"><small>Obergrenze pro Nachricht</small></label>
+            <label>Cooldown<input type="number" min="0" [(ngModel)]="cfg.message.cooldownSeconds"><small>Sekunden zwischen Vergaben</small></label>
+            <label>Minimum Zeichen<input type="number" min="0" [(ngModel)]="cfg.message.minimumCharacters"><small>Laenge fuer Minimum-XP</small></label>
+            <label>Maximum Zeichen<input type="number" min="1" [(ngModel)]="cfg.message.maximumCharacters"><small>Laenge fuer Maximum-XP</small></label>
+          </div>
+          @if (cfg.message.maximumPoints < cfg.message.minimumPoints || cfg.message.maximumCharacters < cfg.message.minimumCharacters) {
+            <p class="validation" role="alert">Maximum-Werte muessen mindestens so gross wie die jeweiligen Minimum-Werte sein.</p>
+          }
+        </article>
+
+        <article class="card">
+          <div class="card-heading">
+            <div><p class="section-kicker">VOICE-TRACKING</p><h2>Voice-XP</h2><p>Lege fest, wann und wie stark aktive Sprachzeit belohnt wird.</p></div>
+            <label class="toggle"><input type="checkbox" [(ngModel)]="cfg.voice.enabled"><span aria-hidden="true"></span><b>{{ cfg.voice.enabled ? 'Aktiv' : 'Inaktiv' }}</b></label>
+          </div>
+          <div class="fields four">
+            <label>XP pro Minute<input type="number" min="0" step="0.1" [(ngModel)]="cfg.voice.pointsPerMinute"></label>
+            <label>Mindestdauer<input type="number" min="0" max="86400" [(ngModel)]="cfg.voice.minimumSessionSeconds"><small>Sekunden bis zur Wertung</small></label>
+            <label>Pruefintervall<input type="number" min="15" max="300" [(ngModel)]="cfg.voice.checkIntervalSeconds"><small>15 bis 300 Sekunden</small></label>
+            <label>Holdback-Schwelle<input type="number" min="0" step="0.1" [(ngModel)]="cfg.voice.holdbackThreshold"></label>
+          </div>
+          <div class="switch-list">
+            <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.requireMultipleHumans"><span><b>Mindestens zwei Personen</b><small>Alleine im Kanal werden keine XP gesammelt.</small></span></label>
+            <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.excludeAfkChannel"><span><b>AFK-Kanal ausschliessen</b><small>Zeit im Server-AFK-Kanal wird ignoriert.</small></span></label>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-heading"><div><p class="section-kicker">WEITERE QUELLEN</p><h2>Interaktionen</h2><p>Aktiviere nur die Signale, die auf deinem Server echte Beteiligung zeigen.</p></div></div>
+          <div class="source-grid">
+            <section>
+              <div class="source-heading"><h3>Reaktionen</h3><label class="toggle compact"><input type="checkbox" [(ngModel)]="cfg.reaction.enabled" aria-label="Reaktions-XP aktivieren"><span aria-hidden="true"></span><b>{{ cfg.reaction.enabled ? 'An' : 'Aus' }}</b></label></div>
+              <label>XP pro Reaktion<input type="number" min="0" [(ngModel)]="cfg.reaction.points"></label>
+              <label>Cooldown in Sekunden<input type="number" min="0" [(ngModel)]="cfg.reaction.cooldownSeconds"></label>
+              <label class="switch simple"><input type="checkbox" [(ngModel)]="cfg.reaction.reverseOnRemove"><span>XP beim Entfernen zuruecknehmen</span></label>
+            </section>
+            <section>
+              <div class="source-heading"><h3>Event-Interesse</h3><label class="toggle compact"><input type="checkbox" [(ngModel)]="cfg.eventInterest.enabled" aria-label="Event-Interesse-XP aktivieren"><span aria-hidden="true"></span><b>{{ cfg.eventInterest.enabled ? 'An' : 'Aus' }}</b></label></div>
+              <label>XP fuer Interesse<input type="number" min="0" [(ngModel)]="cfg.eventInterest.points"></label>
+            </section>
+            <section>
+              <div class="source-heading"><h3>Threads</h3><label class="toggle compact"><input type="checkbox" [(ngModel)]="cfg.thread.enabled" aria-label="Thread-XP aktivieren"><span aria-hidden="true"></span><b>{{ cfg.thread.enabled ? 'An' : 'Aus' }}</b></label></div>
+              <label>XP fuer Erstellung<input type="number" min="0" [(ngModel)]="cfg.thread.createPoints"></label>
+              <label>XP pro Beitrag<input type="number" min="0" [(ngModel)]="cfg.thread.messagePoints"></label>
+              <label>Cooldown in Sekunden<input type="number" min="0" [(ngModel)]="cfg.thread.cooldownSeconds"></label>
+            </section>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-heading"><div><p class="section-kicker">BERECHTIGUNGEN</p><h2>Ausschluesse</h2><p>Diese Rollen und Bereiche erhalten unabhaengig von der XP-Quelle keine Punkte.</p></div></div>
+          <div class="rule-grid">
+            <section>
+              <h3>Rollen</h3>
+              <div class="picker"><select [(ngModel)]="selectedRole" aria-label="Auszuschliessende Rolle"><option value="">Rolle waehlen</option><option *ngFor="let role of resources().roles" [value]="role.id">{{ role.name }}</option></select><button class="secondary" type="button" (click)="excludeRole()" [disabled]="!selectedRole">Hinzufuegen</button></div>
+              <div class="chips"><span *ngFor="let id of cfg.excludedRoleIds">{{ roleName(id) }} <button type="button" (click)="remove(cfg.excludedRoleIds, id)" [attr.aria-label]="roleName(id) + ' entfernen'">Entfernen</button></span><small *ngIf="!cfg.excludedRoleIds.length">Keine Rollen ausgeschlossen</small></div>
+            </section>
+            <section>
+              <h3>Kanaele</h3>
+              <div class="picker"><select [(ngModel)]="selectedChannel" aria-label="Auszuschliessender Kanal"><option value="">Kanal waehlen</option><option *ngFor="let channel of resources().channels" [value]="channel.id">{{ channel.name }}</option></select><button class="secondary" type="button" (click)="excludeChannel()" [disabled]="!selectedChannel">Hinzufuegen</button></div>
+              <div class="chips"><span *ngFor="let id of cfg.excludedChannelIds">{{ channelName(id) }} <button type="button" (click)="remove(cfg.excludedChannelIds, id)" [attr.aria-label]="channelName(id) + ' entfernen'">Entfernen</button></span><small *ngIf="!cfg.excludedChannelIds.length">Keine Kanaele ausgeschlossen</small></div>
+            </section>
+            <section>
+              <h3>Kategorien</h3>
+              <div class="picker"><select [(ngModel)]="selectedCategory" aria-label="Auszuschliessende Kategorie"><option value="">Kategorie waehlen</option><option *ngFor="let channel of categories()" [value]="channel.id">{{ channel.name }}</option></select><button class="secondary" type="button" (click)="excludeCategory()" [disabled]="!selectedCategory">Hinzufuegen</button></div>
+              <div class="chips"><span *ngFor="let id of cfg.excludedCategoryIds">{{ channelName(id) }} <button type="button" (click)="remove(cfg.excludedCategoryIds, id)" [attr.aria-label]="channelName(id) + ' entfernen'">Entfernen</button></span><small *ngIf="!cfg.excludedCategoryIds.length">Keine Kategorien ausgeschlossen</small></div>
+            </section>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-heading"><div><p class="section-kicker">KANALREGELN</p><h2>XP-Multiplikatoren</h2><p>Erhoehe oder reduziere Voice-XP gezielt in einzelnen Kanaelen.</p></div><button class="secondary" type="button" (click)="addMultiplier()">Regel hinzufuegen</button></div>
+          <p class="helper" *ngIf="!cfg.channelMultipliers.length">Noch keine kanalspezifischen Multiplikatoren eingerichtet.</p>
+          <div class="rule-row" *ngFor="let rule of cfg.channelMultipliers; let index = index">
+            <label>Kanal<select [(ngModel)]="rule.channelId"><option value="">Kanal waehlen</option><option *ngFor="let channel of resources().channels" [value]="channel.id">{{ channel.name }}</option></select></label>
+            <label>Multiplikator<input type="number" min="0" step="0.1" [(ngModel)]="rule.multiplier"></label>
+            <button class="danger" type="button" (click)="cfg.channelMultipliers.splice(index, 1)">Entfernen</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-heading"><div><p class="section-kicker">LEVEL-BELOHNUNGEN</p><h2>Level & Rollen</h2><p>Vergib Discord-Rollen automatisch beim Erreichen einer Stufe.</p></div><button class="secondary" type="button" (click)="addLevelRole()">Level-Rolle hinzufuegen</button></div>
+          <label class="wide-field">Level-up-Kanal<select [(ngModel)]="cfg.levelUpChannelId"><option [ngValue]="null">Keine Benachrichtigung</option><option *ngFor="let channel of textChannels()" [value]="channel.id">{{ channel.name }}</option></select></label>
+          <div class="repeater">
+            <p class="helper" *ngIf="!cfg.levelRoles.length">Noch keine automatische Rollenvergabe eingerichtet.</p>
+            <div class="rule-row level-row" *ngFor="let role of cfg.levelRoles; let index = index">
+              <label>Ab Level<input type="number" [(ngModel)]="role.level" min="1"></label>
+              <label>Discord-Rolle<select [(ngModel)]="role.roleId"><option value="">Rolle waehlen</option><option *ngFor="let option of resources().roles" [value]="option.id">{{ option.name }}</option></select></label>
+              <button class="danger" type="button" (click)="cfg.levelRoles.splice(index, 1)">Entfernen</button>
+            </div>
+          </div>
+        </article>
+      </main>
+
+      <aside class="sidebar">
+        <article class="card leaderboard">
+          <div class="card-heading"><div><p class="section-kicker">TOP 25</p><h2>Rangliste</h2><p>Aktueller Stand auf dem Server.</p></div></div>
+          <div class="rank" *ngFor="let entry of leaderboard(); let index = index"><b>{{ index + 1 }}</b><div><strong>{{ entry.displayName }}</strong><span>Level {{ entry.level }} · {{ entry.totalXp }} XP</span></div></div>
+          <p class="helper" *ngIf="!leaderboard().length">Noch keine Rangdaten vorhanden.</p>
+        </article>
+        <article class="card import-card">
+          <p class="section-kicker">DATENUEBERNAHME</p><h2>MEE6-Import</h2><p>Uebernimm vorhandene XP und Nachrichten aus einem MEE6-JSON-Export.</p>
+          <label class="file-input">JSON-Datei waehlen<input type="file" accept="application/json,.json" (change)="importMee6($event)"></label>
+        </article>
+      </aside>
+    </div>
+  }
+  }
+</section>

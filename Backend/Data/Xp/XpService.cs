@@ -1,3 +1,4 @@
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
@@ -60,7 +61,18 @@ public sealed class XpService(RankoonDbContext database, ILogger<XpService> logg
     }
 
     public async Task<IReadOnlyList<MemberXp>> GetLeaderboardAsync(ulong guildId, int take, CancellationToken cancellationToken = default) =>
-        await database.MemberXp.Find(x => x.GuildId == guildId).SortByDescending(x => x.ImportedMee6Xp + x.EarnedXp + x.ManualAdjustment).Limit(Math.Clamp(take, 1, 100)).ToListAsync(cancellationToken);
+        await database.MemberXp.Aggregate()
+            .Match(x => x.GuildId == guildId)
+            .AppendStage<MemberXp>(new BsonDocument("$addFields", new BsonDocument("_leaderboard_total_xp", new BsonDocument("$add", new BsonArray
+            {
+                new BsonDocument("$ifNull", new BsonArray { "$imported_mee6_xp", 0 }),
+                new BsonDocument("$ifNull", new BsonArray { "$earned_xp", 0 }),
+                new BsonDocument("$ifNull", new BsonArray { "$manual_adjustment", 0 })
+            }))))
+            .Sort(Builders<MemberXp>.Sort.Descending("_leaderboard_total_xp"))
+            .Limit(Math.Clamp(take, 1, 100))
+            .AppendStage<MemberXp>(new BsonDocument("$project", new BsonDocument("_leaderboard_total_xp", 0)))
+            .ToListAsync(cancellationToken);
 
     public async Task<MemberXp?> GetMemberAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default) => await database.MemberXp.Find(x => x.GuildId == guildId && x.UserId == userId).FirstOrDefaultAsync(cancellationToken);
 }

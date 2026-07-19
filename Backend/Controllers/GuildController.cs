@@ -11,10 +11,12 @@ using Rankoon.Data.Xp;
 
 namespace Rankoon.Controllers;
 
+public sealed record VoiceWatchdogControl(bool Enabled);
+
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}")]
-public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, VoiceXpWatchdog watchdog) : ControllerBase
+public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, VoiceXpWatchdog watchdog, VcHubService hubs) : ControllerBase
 {
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId)
     {
@@ -49,11 +51,33 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     public async Task<IActionResult> SaveXpConfig(string guildId, [FromBody] GuildXpSettings settings)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var validationErrors = ValidateXpSettings(settings);
+        if (validationErrors.Count > 0) return BadRequest(new { errors = validationErrors });
         settings.GuildId = id;
         settings.Voice.CheckIntervalSeconds = Math.Clamp(settings.Voice.CheckIntervalSeconds, 15, 300);
         settings.Voice.MinimumSessionSeconds = Math.Clamp(settings.Voice.MinimumSessionSeconds, 0, 86400);
         await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted);
+        await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
         return Ok(settings);
+    }
+
+    [HttpGet("xp/watchdog")]
+    public async Task<IActionResult> GetVoiceWatchdog(string guildId)
+    {
+        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        return Ok(watchdog.GetStatus(id));
+    }
+
+    [HttpPut("xp/watchdog")]
+    public async Task<IActionResult> SetVoiceWatchdog(string guildId, [FromBody] VoiceWatchdogControl control)
+    {
+        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var settings = await xp.GetSettingsAsync(id, HttpContext.RequestAborted);
+        settings.Voice.Enabled = control.Enabled;
+        if (control.Enabled) settings.Enabled = true;
+        await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted);
+        await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
+        return Ok(new { settings, status = watchdog.GetStatus(id) });
     }
 
     [HttpGet("xp/leaderboard")]
@@ -104,7 +128,40 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     [HttpPut("vc-hubs/{hubId}")]
     public async Task<IActionResult> UpdateHub(string guildId, string hubId, [FromBody] VcHub hub) { var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error; hub.Id = hubId; hub.GuildId = id; var result = await database.VcHubs.ReplaceOneAsync(x => x.GuildId == id && x.Id == hubId, hub, cancellationToken: HttpContext.RequestAborted); return result.MatchedCount == 0 ? NotFound() : Ok(hub); }
     [HttpDelete("vc-hubs/{hubId}")]
-    public async Task<IActionResult> DeleteHub(string guildId, string hubId) { var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error; await database.VcHubs.DeleteOneAsync(x => x.GuildId == id && x.Id == hubId, HttpContext.RequestAborted); return NoContent(); }
+    public async Task<IActionResult> DeleteHub(string guildId, string hubId)
+    {
+        var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
+        var hub = await database.VcHubs.Find(x => x.GuildId == id && x.Id == hubId).FirstOrDefaultAsync(HttpContext.RequestAborted);
+        if (hub == null) return NotFound();
+        await hubs.DeleteHubAsync(discord.GetGuild(id)!, hub, HttpContext.RequestAborted);
+        return NoContent();
+    }
 
     private static object ToRank(MemberXp member) { var total = member.ImportedMee6Xp + member.EarnedXp + member.ManualAdjustment; return new { member.UserId, member.DisplayName, totalXp = total, level = Mee6LevelCurve.GetLevel(total), member.MessageCount, member.VoiceSeconds }; }
+
+    private static List<string> ValidateXpSettings(GuildXpSettings settings)
+    {
+        var errors = new List<string>();
+        if (settings.Message == null || settings.Voice == null || settings.Reaction == null || settings.EventInterest == null || settings.Thread == null)
+        {
+            errors.Add("All XP setting groups are required.");
+            return errors;
+        }
+        if (settings.ExcludedChannelIds == null || settings.ExcludedCategoryIds == null || settings.ExcludedRoleIds == null || settings.ChannelMultipliers == null || settings.LevelRoles == null)
+        {
+            errors.Add("All XP rule collections are required.");
+            return errors;
+        }
+        if (settings.Message.MinimumPoints < 0 || settings.Message.MaximumPoints < settings.Message.MinimumPoints) errors.Add("Message XP values are invalid.");
+        if (settings.Message.MinimumCharacters < 0 || settings.Message.MaximumCharacters < settings.Message.MinimumCharacters) errors.Add("Message character limits are invalid.");
+        if (settings.Message.CooldownSeconds < 0) errors.Add("Message cooldown must not be negative.");
+        if (settings.Voice.PointsPerMinute < 0 || settings.Voice.HoldbackThreshold < 0) errors.Add("Voice XP values must not be negative.");
+        if (settings.Voice.MinimumSessionSeconds is < 0 or > 86400 || settings.Voice.CheckIntervalSeconds is < 15 or > 300) errors.Add("Voice timing values are invalid.");
+        if (settings.Reaction.Points < 0 || settings.Reaction.CooldownSeconds < 0) errors.Add("Reaction XP values are invalid.");
+        if (settings.EventInterest.Points < 0) errors.Add("Event interest XP must not be negative.");
+        if (settings.Thread.CreatePoints < 0 || settings.Thread.MessagePoints < 0 || settings.Thread.CooldownSeconds < 0) errors.Add("Thread XP values are invalid.");
+        if (settings.ChannelMultipliers.Any(x => x.ChannelId == 0 || x.Multiplier < 0) || settings.ChannelMultipliers.Select(x => x.ChannelId).Distinct().Count() != settings.ChannelMultipliers.Count) errors.Add("Channel multipliers require unique channels and non-negative values.");
+        if (settings.LevelRoles.Any(x => x.Level < 1 || x.RoleId == 0) || settings.LevelRoles.Select(x => x.RoleId).Distinct().Count() != settings.LevelRoles.Count) errors.Add("Level roles require unique roles and positive levels.");
+        return errors;
+    }
 }
