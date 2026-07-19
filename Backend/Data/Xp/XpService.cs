@@ -2,6 +2,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
+using Rankoon.Data.Reporting;
 
 namespace Rankoon.Data.Xp;
 
@@ -15,7 +16,7 @@ public interface IXpService
     Task RecalculateTotalAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default);
 }
 
-public sealed class XpService(RankoonDbContext database, ILogger<XpService> logger) : IXpService
+public sealed class XpService(RankoonDbContext database, IReportWriter reports, ILogger<XpService> logger) : IXpService
 {
     public async Task<GuildXpSettings> GetSettingsAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
@@ -60,6 +61,12 @@ public sealed class XpService(RankoonDbContext database, ILogger<XpService> logg
         if (source.StartsWith("thread", StringComparison.Ordinal)) statsUpdate = statsUpdate.Inc(x => x.Threads, 1);
         if (source == "event_interest") statsUpdate = statsUpdate.Inc(x => x.EventInterests, 1);
         await database.GuildStats.UpdateOneAsync(x => x.GuildId == guildId, statsUpdate, new UpdateOptions { IsUpsert = true }, cancellationToken);
+        await reports.WriteAsync(new(guildId, ReportCategories.Activity, ReportNames.XpGranted, ReportOutcomes.Succeeded, source, userId, Metadata: new Dictionary<string, object?>
+        {
+            ["source"] = source,
+            ["amount"] = amount,
+            ["channelId"] = channelId
+        }, SubjectId: userId, ChannelId: channelId), cancellationToken);
         logger.LogDebug("Granted {Amount} {Source} XP to {UserId} in {GuildId}", amount, source, userId, guildId);
         return true;
     }

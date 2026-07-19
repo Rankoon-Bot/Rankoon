@@ -9,6 +9,7 @@ using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Xp;
+using Rankoon.Data.Reporting;
 
 namespace Rankoon.Controllers;
 
@@ -17,7 +18,7 @@ public sealed record VoiceWatchdogControl(bool Enabled);
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}")]
-public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, GuildMembershipService memberships, VoiceXpWatchdog watchdog, VcHubService hubs) : ControllerBase
+public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, GuildMembershipService memberships, VoiceXpWatchdog watchdog, VcHubService hubs, IReportWriter reports) : ControllerBase
 {
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId)
     {
@@ -61,6 +62,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         settings.Voice.MinimumSessionSeconds = Math.Clamp(settings.Voice.MinimumSessionSeconds, 0, 86400);
         await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted);
         await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
+        await WriteActivityAsync(id, ReportNames.XpSettingsChanged, metadata: new Dictionary<string, object?> { ["enabled"] = settings.Enabled });
         return Ok(settings);
     }
 
@@ -80,6 +82,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         if (control.Enabled) settings.Enabled = true;
         await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted);
         await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
+        await WriteActivityAsync(id, ReportNames.VoiceWatchdogChanged, metadata: new Dictionary<string, object?> { ["enabled"] = control.Enabled });
         return Ok(new { settings, status = watchdog.GetStatus(id) });
     }
 
@@ -128,6 +131,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
             imported++;
         }
         memberships.QueueGuild(id);
+        await WriteActivityAsync(id, ReportNames.Mee6Imported, metadata: new Dictionary<string, object?> { ["imported"] = imported });
         return Ok(new { imported });
     }
 
@@ -145,10 +149,11 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
             hub.JoinChannelId = created.Id;
         }
         await database.VcHubs.InsertOneAsync(hub, cancellationToken: HttpContext.RequestAborted);
+        await WriteActivityAsync(id, ReportNames.VoiceHubCreated, metadata: new Dictionary<string, object?> { ["hubId"] = hub.Id, ["channelId"] = hub.JoinChannelId });
         return Ok(hub);
     }
     [HttpPut("vc-hubs/{hubId}")]
-    public async Task<IActionResult> UpdateHub(string guildId, string hubId, [FromBody] VcHub hub) { var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error; hub.Id = hubId; hub.GuildId = id; var result = await database.VcHubs.ReplaceOneAsync(x => x.GuildId == id && x.Id == hubId, hub, cancellationToken: HttpContext.RequestAborted); return result.MatchedCount == 0 ? NotFound() : Ok(hub); }
+    public async Task<IActionResult> UpdateHub(string guildId, string hubId, [FromBody] VcHub hub) { var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error; hub.Id = hubId; hub.GuildId = id; var result = await database.VcHubs.ReplaceOneAsync(x => x.GuildId == id && x.Id == hubId, hub, cancellationToken: HttpContext.RequestAborted); if (result.MatchedCount == 0) return NotFound(); await WriteActivityAsync(id, ReportNames.VoiceHubUpdated, metadata: new Dictionary<string, object?> { ["hubId"] = hubId }); return Ok(hub); }
     [HttpDelete("vc-hubs/{hubId}")]
     public async Task<IActionResult> DeleteHub(string guildId, string hubId)
     {
@@ -156,10 +161,14 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         var hub = await database.VcHubs.Find(x => x.GuildId == id && x.Id == hubId).FirstOrDefaultAsync(HttpContext.RequestAborted);
         if (hub == null) return NotFound();
         await hubs.DeleteHubAsync(discord.GetGuild(id)!, hub, HttpContext.RequestAborted);
+        await WriteActivityAsync(id, ReportNames.VoiceHubDeleted, metadata: new Dictionary<string, object?> { ["hubId"] = hubId, ["channelId"] = hub.JoinChannelId });
         return NoContent();
     }
 
     private static object ToRank(MemberXp member) { var total = member.TotalXp; return new { member.UserId, member.DisplayName, totalXp = total, level = Mee6LevelCurve.GetLevel(total), member.MessageCount, member.VoiceSeconds }; }
+
+    private Task WriteActivityAsync(ulong guildId, string name, string? action = null, IReadOnlyDictionary<string, object?>? metadata = null) =>
+        reports.WriteAsync(new(guildId, ReportCategories.Activity, name, ReportOutcomes.Succeeded, action, authorization.GetDiscordUserId(User), Metadata: metadata), HttpContext.RequestAborted);
 
     private static List<string> ValidateXpSettings(GuildXpSettings settings)
     {
@@ -177,7 +186,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         if (settings.Message.MinimumPoints < 0 || settings.Message.MaximumPoints < settings.Message.MinimumPoints) errors.Add("Message XP values are invalid.");
         if (settings.Message.MinimumCharacters < 0 || settings.Message.MaximumCharacters < settings.Message.MinimumCharacters) errors.Add("Message character limits are invalid.");
         if (settings.Message.CooldownSeconds < 0) errors.Add("Message cooldown must not be negative.");
-        if (settings.Voice.PointsPerMinute < 0 || settings.Voice.HoldbackThreshold < 0) errors.Add("Voice XP values must not be negative.");
+        if (settings.Voice.PointsPerMinute < 0) errors.Add("Voice XP values must not be negative.");
         if (settings.Voice.MinimumSessionSeconds is < 0 or > 86400 || settings.Voice.CheckIntervalSeconds is < 15 or > 300) errors.Add("Voice timing values are invalid.");
         if (settings.Reaction.Points < 0 || settings.Reaction.CooldownSeconds < 0) errors.Add("Reaction XP values are invalid.");
         if (settings.EventInterest.Points < 0) errors.Add("Event interest XP must not be negative.");

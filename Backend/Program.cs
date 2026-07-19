@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Discord;
 using Rankoon.Data.MongoDb;
+using Rankoon.Data.Reporting;
 using Rankoon.Data.Utils;
 using Serilog;
 using System.Net.Sockets;
@@ -34,9 +35,15 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
 });
 builder.Services.AddAuthorization();
-builder.Services.AddRateLimiter(options => options.AddPolicy("leaderboard", context =>
-    RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
-        new FixedWindowRateLimiterOptions { PermitLimit = 90, Window = TimeSpan.FromMinutes(1), QueueLimit = 2 })));
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("leaderboard", context =>
+        RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
+            new FixedWindowRateLimiterOptions { PermitLimit = 90, Window = TimeSpan.FromMinutes(1), QueueLimit = 2 }));
+    options.AddPolicy("reports", context =>
+        RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
+            new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 2 }));
+});
 builder.Services.AddProblemDetails();
 builder.Services.Configure<HostOptions>(options =>
     options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
@@ -67,6 +74,10 @@ builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
 // Register database context
 builder.Services.AddSingleton<RankoonDbContext>();
+builder.Services.AddSingleton<ReportWriter>();
+builder.Services.AddSingleton<IReportWriter>(services => services.GetRequiredService<ReportWriter>());
+builder.Services.AddHostedService(services => services.GetRequiredService<ReportWriter>());
+builder.Services.AddSingleton<IReportQueryService, ReportQueryService>();
 
 // Register HTTP client for Discord API calls
 builder.Services.AddHttpClient<IDiscordService, DiscordService>();

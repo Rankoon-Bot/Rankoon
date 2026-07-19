@@ -31,6 +31,7 @@ interface MenuItem {
               <li *ngFor="let child of item.children" class="sub-nav-item">
                 <a 
                   [routerLink]="child.route" 
+                  (click)="layoutState.closeMobileNavigation()"
                   routerLinkActive="active"
                   class="sub-nav-link"
                 >

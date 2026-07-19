@@ -40,6 +40,7 @@ public class RankoonDbContext
     public IMongoCollection<VcHub> VcHubs => _database.GetCollection<VcHub>("vc_hubs");
     public IMongoCollection<TemporaryVoiceChannel> TemporaryVoiceChannels => _database.GetCollection<TemporaryVoiceChannel>("temporary_voice_channels");
     public IMongoCollection<GuildStats> GuildStats => _database.GetCollection<GuildStats>("guild_stats");
+    public IMongoCollection<ReportEvent> ReportEvents => _database.GetCollection<ReportEvent>("report_events");
 }
 
 /// <summary>

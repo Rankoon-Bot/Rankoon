@@ -2,11 +2,12 @@ using Discord;
 using Discord.Rest;
 using Discord.WebSocket;
 using Rankoon.Data.Xp;
+using Rankoon.Data.Reporting;
 
 namespace Rankoon.Data.Discord;
 
 /// <summary>Gateway adapters for non-voice XP sources. All awards use the idempotent ledger pipeline.</summary>
-public sealed class ActivityXpEventService(DiscordShardedClient client, IXpService xp, LevelRoleService levelRoles, ILogger<ActivityXpEventService> logger) : IHostedService
+public sealed class ActivityXpEventService(DiscordShardedClient client, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, ILogger<ActivityXpEventService> logger) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -30,7 +31,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
     private async Task OnMessageAsync(SocketMessage message)
     {
         try { await HandleMessageAsync(message); }
-        catch (Exception exception) { logger.LogError(exception, "Message XP event failed for message {MessageId}", message.Id); }
+        catch (Exception exception) { logger.LogError(exception, "Message XP event failed for message {MessageId}", message.Id); if (message.Channel is SocketGuildChannel channel) await reports.WriteErrorAsync(channel.Guild.Id, "xp.message", exception, message.Author.Id, new Dictionary<string, object?> { ["channelId"] = channel.Id }); }
     }
     private async Task HandleMessageAsync(SocketMessage message)
     {
@@ -49,7 +50,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
     private async Task OnReactionAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
     {
         try { await HandleReactionAsync(message, channel, reaction); }
-        catch (Exception exception) { logger.LogError(exception, "Reaction XP event failed for message {MessageId}", message.Id); }
+        catch (Exception exception) { logger.LogError(exception, "Reaction XP event failed for message {MessageId}", message.Id); if (reaction.User.IsSpecified && reaction.User.Value is SocketGuildUser member) await reports.WriteErrorAsync(member.Guild.Id, "xp.reaction", exception, reaction.UserId, new Dictionary<string, object?> { ["channelId"] = channel.Id }); }
     }
     private async Task HandleReactionAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
     {
@@ -67,7 +68,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
     private async Task OnThreadAsync(SocketThreadChannel thread)
     {
         try { await HandleThreadAsync(thread); }
-        catch (Exception exception) { logger.LogError(exception, "Thread XP event failed for thread {ThreadId}", thread.Id); }
+        catch (Exception exception) { logger.LogError(exception, "Thread XP event failed for thread {ThreadId}", thread.Id); await reports.WriteErrorAsync(thread.Guild.Id, "xp.thread", exception, thread.Owner?.Id, new Dictionary<string, object?> { ["channelId"] = thread.Id }); }
     }
     private async Task HandleThreadAsync(SocketThreadChannel thread)
     {
@@ -79,7 +80,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
     private async Task OnEventInterestAsync(Cacheable<SocketUser, RestUser, IUser, ulong> cachedUser, SocketGuildEvent guildEvent)
     {
         try { await HandleEventInterestAsync(cachedUser, guildEvent); }
-        catch (Exception exception) { logger.LogError(exception, "Event interest XP event failed for event {EventId}", guildEvent.Id); }
+        catch (Exception exception) { logger.LogError(exception, "Event interest XP event failed for event {EventId}", guildEvent.Id); await reports.WriteErrorAsync(guildEvent.Guild.Id, "xp.event_interest", exception, metadata: new Dictionary<string, object?> { ["eventId"] = guildEvent.Id }); }
     }
     private async Task HandleEventInterestAsync(Cacheable<SocketUser, RestUser, IUser, ulong> cachedUser, SocketGuildEvent guildEvent)
     {
@@ -92,7 +93,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
     private async Task OnEventInterestRemovedAsync(Cacheable<SocketUser, RestUser, IUser, ulong> cachedUser, SocketGuildEvent guildEvent)
     {
         try { await HandleEventInterestRemovedAsync(cachedUser, guildEvent); }
-        catch (Exception exception) { logger.LogError(exception, "Event interest removal failed for event {EventId}", guildEvent.Id); }
+        catch (Exception exception) { logger.LogError(exception, "Event interest removal failed for event {EventId}", guildEvent.Id); await reports.WriteErrorAsync(guildEvent.Guild.Id, "xp.event_interest.remove", exception, metadata: new Dictionary<string, object?> { ["eventId"] = guildEvent.Id }); }
     }
     private async Task HandleEventInterestRemovedAsync(Cacheable<SocketUser, RestUser, IUser, ulong> cachedUser, SocketGuildEvent guildEvent)
     {

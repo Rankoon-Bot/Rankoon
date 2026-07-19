@@ -72,8 +72,23 @@ export const routes: Routes = [
       },
       {
         path: 'logs',
+        redirectTo: '/logs/activity',
+        pathMatch: 'full'
+      },
+      {
+        path: 'logs/activity',
         canActivate: [guildGuard],
-        loadComponent: () => import('./pages/dashboard/dashboard.component').then(c => c.DashboardComponent) // Placeholder
+        loadComponent: () => import('./pages/reports/activity-logs.component').then(c => c.ActivityLogsComponent)
+      },
+      {
+        path: 'logs/commands',
+        canActivate: [guildGuard],
+        loadComponent: () => import('./pages/reports/command-usage.component').then(c => c.CommandUsageComponent)
+      },
+      {
+        path: 'logs/errors',
+        canActivate: [guildGuard],
+        loadComponent: () => import('./pages/reports/error-logs.component').then(c => c.ErrorLogsComponent)
       }
     ]
   },

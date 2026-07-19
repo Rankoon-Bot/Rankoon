@@ -1,0 +1,3 @@
+@use 'report-page' as report;
+@include report.layout;
+.inline-empty { padding: var(--rk-space-6); color: var(--rk-text-muted); text-align: center; }

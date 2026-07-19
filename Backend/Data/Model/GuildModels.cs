@@ -23,7 +23,8 @@ public sealed class GuildXpSettings
 }
 
 public sealed class MessageXpSettings { public bool Enabled { get; set; } = true; public int MinimumPoints { get; set; } = 5; public int MaximumPoints { get; set; } = 50; public int MinimumCharacters { get; set; } = 1; public int MaximumCharacters { get; set; } = 500; public int CooldownSeconds { get; set; } = 60; }
-public sealed class VoiceXpSettings { public bool Enabled { get; set; } = true; public decimal PointsPerMinute { get; set; } = 10; public int MinimumSessionSeconds { get; set; } = 60; public int CheckIntervalSeconds { get; set; } = 30; public bool RequireMultipleHumans { get; set; } = true; public bool ExcludeAfkChannel { get; set; } = true; public decimal HoldbackThreshold { get; set; } = 0; }
+[BsonIgnoreExtraElements]
+public sealed class VoiceXpSettings { public bool Enabled { get; set; } = true; public decimal PointsPerMinute { get; set; } = 10; public int MinimumSessionSeconds { get; set; } = 60; public int CheckIntervalSeconds { get; set; } = 30; public bool RequireMultipleHumans { get; set; } = true; public bool ExcludeAfkChannel { get; set; } = true; }
 public sealed class ReactionXpSettings { public bool Enabled { get; set; } = true; public int Points { get; set; } = 2; public int CooldownSeconds { get; set; } = 30; public bool ReverseOnRemove { get; set; } = true; }
 public sealed class EventInterestXpSettings { public bool Enabled { get; set; } = true; public int Points { get; set; } = 10; }
 public sealed class ThreadXpSettings { public bool Enabled { get; set; } = true; public int CreatePoints { get; set; } = 15; public int MessagePoints { get; set; } = 5; public int CooldownSeconds { get; set; } = 60; }

@@ -5,6 +5,7 @@ using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Xp;
+using Rankoon.Data.Reporting;
 
 namespace Rankoon.Data.Discord;
 
@@ -12,7 +13,7 @@ public enum VoiceWatchdogState { Starting, Healthy, Degraded, Stale, Restarting,
 public sealed record VoiceWatchdogStatus(ulong GuildId, VoiceWatchdogState State, DateTimeOffset? LastRunAt, DateTimeOffset? LastPersistenceAt, int ConnectedUsers, int EligibleUsers, int ExcludedUsers, string? LastError);
 
 /// <summary>Rankoon-owned, per-guild voice reconciliation worker inspired by SharedVcWatchdog.</summary>
-public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContext database, IXpService xp, LevelRoleService levelRoles, TimeProvider timeProvider, ILogger<VoiceXpWatchdog> logger) : BackgroundService
+public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContext database, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, TimeProvider timeProvider, ILogger<VoiceXpWatchdog> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<ulong, VoiceWatchdogStatus> _statuses = new();
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _guildGates = new();
@@ -48,6 +49,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
         catch (Exception exception)
         {
             logger.LogError(exception, "Voice XP event failed for user {UserId}", user.Id);
+            if (user is SocketGuildUser member) await reports.WriteErrorAsync(member.Guild.Id, "voice.xp.lifecycle", exception, user.Id, new Dictionary<string, object?> { ["userId"] = user.Id });
         }
     }
 
@@ -122,7 +124,8 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
         catch (Exception exception)
         {
             logger.LogError(exception, "Voice watchdog failed for guild {GuildId}", guild.Id);
-            _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Degraded, DateTimeOffset.UtcNow, null, 0, 0, 0, exception.Message);
+            await reports.WriteErrorAsync(guild.Id, "voice.watchdog", exception, metadata: new Dictionary<string, object?> { ["state"] = VoiceWatchdogState.Degraded });
+            _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Degraded, DateTimeOffset.UtcNow, null, 0, 0, 0, exception.GetBaseException().GetType().Name);
         }
     }
 

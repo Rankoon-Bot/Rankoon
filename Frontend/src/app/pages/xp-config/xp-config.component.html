@@ -96,7 +96,6 @@
             <label>XP pro Minute<input type="number" min="0" step="0.1" [(ngModel)]="cfg.voice.pointsPerMinute"></label>
             <label>Mindestdauer<input type="number" min="0" max="86400" [(ngModel)]="cfg.voice.minimumSessionSeconds"><small>Sekunden bis zur Wertung</small></label>
             <label>Pruefintervall<input type="number" min="15" max="300" [(ngModel)]="cfg.voice.checkIntervalSeconds"><small>15 bis 300 Sekunden</small></label>
-            <label>Holdback-Schwelle<input type="number" min="0" step="0.1" [(ngModel)]="cfg.voice.holdbackThreshold"></label>
           </div>
           <div class="switch-list">
             <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.requireMultipleHumans"><span><b>Mindestens zwei Personen</b><small>Alleine im Kanal werden keine XP gesammelt.</small></span></label>

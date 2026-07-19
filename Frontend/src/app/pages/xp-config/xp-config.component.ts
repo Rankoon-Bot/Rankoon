@@ -197,7 +197,6 @@ export class XpConfigComponent implements OnInit {
       && config.voice.minimumSessionSeconds >= 0
       && config.voice.checkIntervalSeconds >= 15
       && config.voice.checkIntervalSeconds <= 300
-      && config.voice.holdbackThreshold >= 0
       && config.reaction.points >= 0
       && config.reaction.cooldownSeconds >= 0
       && config.eventInterest.points >= 0
