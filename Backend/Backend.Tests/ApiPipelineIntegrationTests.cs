@@ -133,6 +133,16 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
     }
 
     [Fact]
+    public async Task Anonymous_leaderboard_hub_can_negotiate()
+    {
+        using var response = await _client.PostAsync("/hubs/leaderboard/negotiate?negotiateVersion=1", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(json.RootElement.TryGetProperty("connectionToken", out _));
+    }
+
+    [Fact]
     public async Task Missing_static_asset_returns_404_instead_of_spa_fallback()
     {
         using var response = await _client.GetAsync("/missing.js");

@@ -17,7 +17,7 @@ public sealed record LeaderboardPrivacyRequest(bool PublicVisible);
 [ApiController]
 [EnableRateLimiting("leaderboard")]
 [Route("api/rankings")]
-public sealed class LeaderboardController(LeaderboardService leaderboard, IGuildAuthorizationService authorization, IReportWriter reports) : ControllerBase
+public sealed class LeaderboardController(LeaderboardService leaderboard, ILeaderboardRealtimePublisher realtime, IGuildAuthorizationService authorization, IReportWriter reports) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet("{alias}")]
@@ -52,6 +52,9 @@ public sealed class LeaderboardController(LeaderboardService leaderboard, IGuild
         if (settings == null || userId == null) return NotFound();
         if (!await authorization.IsMemberAsync(User, settings.GuildId, HttpContext.RequestAborted)) return Forbid();
         await leaderboard.SetPublicVisibilityAsync(settings.GuildId, userId.Value, request.PublicVisible, HttpContext.RequestAborted);
+        await realtime.PublishMemberAsync(settings.GuildId, userId.Value, HttpContext.RequestAborted);
+        // A privacy change shifts every following public rank, so a complete page refresh is required.
+        await realtime.PublishGuildAsync(settings.GuildId, HttpContext.RequestAborted);
         await reports.WriteAsync(new(settings.GuildId, ReportCategories.Activity, ReportNames.LeaderboardPrivacyChanged, ReportOutcomes.Succeeded, ActorId: userId, Metadata: new Dictionary<string, object?> { ["enabled"] = request.PublicVisible }), HttpContext.RequestAborted);
         return Ok(new { request.PublicVisible });
     }
@@ -60,7 +63,7 @@ public sealed class LeaderboardController(LeaderboardService leaderboard, IGuild
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}/leaderboard-settings")]
-public sealed class LeaderboardSettingsController(LeaderboardService leaderboard, IGuildAuthorizationService authorization, Discord.WebSocket.DiscordShardedClient discord, GuildMembershipService memberships, IReportWriter reports) : ControllerBase
+public sealed class LeaderboardSettingsController(LeaderboardService leaderboard, ILeaderboardRealtimePublisher realtime, IGuildAuthorizationService authorization, Discord.WebSocket.DiscordShardedClient discord, GuildMembershipService memberships, IReportWriter reports) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(string guildId)
@@ -85,6 +88,7 @@ public sealed class LeaderboardSettingsController(LeaderboardService leaderboard
             if (request.Visibility == LeaderboardVisibility.Public && current.Visibility != LeaderboardVisibility.Public)
                 await memberships.ReconcileGuildAsync(id, HttpContext.RequestAborted);
             var saved = await leaderboard.SaveSettingsAsync(id, guild.Name, request.Alias, request.Visibility, HttpContext.RequestAborted);
+            await realtime.PublishSettingsAsync(saved, current.Alias, HttpContext.RequestAborted);
             await reports.WriteAsync(new(id, ReportCategories.Activity, ReportNames.LeaderboardSettingsChanged, ReportOutcomes.Succeeded, ActorId: authorization.GetDiscordUserId(User), Metadata: new Dictionary<string, object?> { ["state"] = request.Visibility }), HttpContext.RequestAborted);
             return Ok(saved);
         }

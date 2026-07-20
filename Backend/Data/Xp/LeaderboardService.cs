@@ -172,6 +172,15 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             : await GetHistoricalSeasonPageAsync(settings, season, isMember, currentUserId, cursor, take, aroundCurrentUser, history, currentOption, seasonsEnabled, cancellationToken);
     }
 
+    public async Task<bool> IsScopeAvailableAsync(GuildLeaderboardSettings settings, SeasonLeaderboardScope scope, string? seasonId, CancellationToken cancellationToken = default)
+    {
+        if (scope == SeasonLeaderboardScope.Lifetime) return true;
+        if (scope == SeasonLeaderboardScope.CurrentSeason)
+            return await database.GuildSeasons.Find(x => x.GuildId == settings.GuildId && x.Status == SeasonStatus.Active).AnyAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(seasonId)) return false;
+        return (await GetPublicHistoryAsync(settings.GuildId, cancellationToken)).Any(x => x.Id == seasonId);
+    }
+
     private async Task<IReadOnlyList<SeasonLeaderboardOption>> GetPublicHistoryAsync(ulong guildId, CancellationToken cancellationToken)
     {
         var settings = await database.GuildSeasonSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);

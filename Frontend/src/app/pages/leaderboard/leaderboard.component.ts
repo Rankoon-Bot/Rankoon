@@ -8,6 +8,7 @@ import { AuthStore } from '../../store/auth.store';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { LocaleService } from '../../i18n/locale.service';
 import { ApiErrorService } from '../../services/api-error.service';
+import { RealtimeService, LeaderboardChanged, LeaderboardEntryChanged } from '../../services/realtime.service';
 
 @Component({
   selector: 'app-leaderboard',
@@ -25,6 +26,7 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
   private readonly i18n = inject(TranslocoService);
   private readonly locale = inject(LocaleService);
   private readonly apiErrors = inject(ApiErrorService);
+  private readonly realtime = inject(RealtimeService);
 
   private observedSentinel?: HTMLElement;
   @ViewChild('sentinel') set sentinel(value: ElementRef<HTMLElement> | undefined) {
@@ -45,9 +47,16 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
   private hasExplicitScope = false;
   private observer?: IntersectionObserver;
   private requestSequence = 0;
+  private realtimeSubscription?: { alias: string; scope: SeasonLeaderboardScope; seasonId?: string };
 
   ngOnInit(): void {
+    this.realtime.leaderboardEntryChanges$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => this.applyRealtimeEntry(event));
+    this.realtime.leaderboardChanges$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => this.applyRealtimeChange(event));
+    this.destroyRef.onDestroy(() => {
+      if (this.realtimeSubscription) void this.realtime.unsubscribeLeaderboard(this.realtimeSubscription.alias, this.realtimeSubscription.scope, this.realtimeSubscription.seasonId);
+    });
     combineLatest([this.route.paramMap, this.route.queryParamMap]).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(([params, query]) => {
+      if (this.realtimeSubscription) void this.realtime.unsubscribeLeaderboard(this.realtimeSubscription.alias, this.realtimeSubscription.scope, this.realtimeSubscription.seasonId);
       this.alias = params.get('alias') ?? '';
       const requestedScope = query.get('scope');
       this.hasExplicitScope = requestedScope !== null;
@@ -59,6 +68,9 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
       this.loadingMore.set(false);
       this.jumping.set(false);
       this.privacyBusy.set(false);
+      const seasonId = this.scope() === 'Season' ? this.selectedSeasonId() ?? undefined : undefined;
+      this.realtimeSubscription = { alias: this.alias, scope: this.scope(), seasonId };
+      void this.realtime.subscribeLeaderboard(this.alias, this.scope(), seasonId);
       this.load(true);
     });
   }
@@ -151,6 +163,33 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
   private navigateScope(scope: SeasonLeaderboardScope, seasonId: string | null): void {
     // Keep an explicit Lifetime choice distinct from a fresh navbar navigation without scope.
     void this.router.navigate([], { relativeTo: this.route, queryParams: { scope, seasonId }, queryParamsHandling: '' });
+  }
+
+  private applyRealtimeEntry(event: LeaderboardEntryChanged): void {
+    if (event.alias !== this.alias || event.scope !== this.scope() || event.seasonId !== (this.scope() === 'Season' ? this.selectedSeasonId() : null)) return;
+    if (event.operation === 'remove') {
+      this.entries.update(entries => entries.filter(entry => entry.userId !== event.userId));
+      return;
+    }
+    if (!event.entry) return;
+    const currentUserId = this.auth.user()?.discordId;
+    const entry = { ...event.entry, rank: Number(event.entry.rank), isCurrentUser: event.entry.userId === currentUserId };
+    this.entries.update(entries => {
+      const existing = entries.findIndex(item => item.userId === entry.userId);
+      const lastRank = Number(entries.at(-1)?.rank ?? 0);
+      if (existing < 0 && lastRank > 0 && entry.rank > lastRank) return entries;
+      const updated = existing < 0 ? [...entries, entry] : entries.map(item => item.userId === entry.userId ? entry : item);
+      return updated.sort((left, right) => Number(left.rank) - Number(right.rank) || left.userId.localeCompare(right.userId));
+    });
+  }
+
+  private applyRealtimeChange(event: LeaderboardChanged): void {
+    if (event.alias !== this.alias) return;
+    // Settings and season transitions can change the entire query shape.
+    this.requestSequence++;
+    this.entries.set([]);
+    this.page.set(null);
+    this.load(true);
   }
 
   formatNumber(value: string | number): string { return this.locale.number(value); }

@@ -20,7 +20,7 @@ public interface IXpService
 
 public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null);
 
-public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IReportWriter reports, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
+public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IReportWriter reports, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
 {
     public async Task<GuildXpSettings> GetSettingsAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
@@ -182,6 +182,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
                 .Set(x => x.EventInterests, stats.EventInterests),
             new UpdateOptions { IsUpsert = true }, cancellationToken);
         await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionStatus == SeasonProjectionStatus.Pending, Builders<XpLedgerEntry>.Update.Set(x => x.ProjectionStatus, SeasonProjectionStatus.Applied).Set(x => x.ProjectedAtUtc, now), cancellationToken: cancellationToken);
+        await realtime.PublishMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken);
     }
 
     private static decimal InitialXp(GuildSeasonSettings settings, MemberXp member) => settings.InitialXpMode switch

@@ -7,7 +7,7 @@ namespace Rankoon.Data.Xp;
 
 public sealed record SeasonCoordinatorStatus(DateTimeOffset? LastRunAt, string? LastError);
 
-public sealed class SeasonCoordinator(RankoonDbContext database, IReportWriter reports, TimeProvider timeProvider, ILogger<SeasonCoordinator> logger) : BackgroundService
+public sealed class SeasonCoordinator(RankoonDbContext database, IReportWriter reports, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<SeasonCoordinator> logger) : BackgroundService
 {
     private readonly string instanceId = Guid.NewGuid().ToString("N");
     private volatile SeasonCoordinatorStatus status = new(null, null);
@@ -113,6 +113,7 @@ public sealed class SeasonCoordinator(RankoonDbContext database, IReportWriter r
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { return; }
         await ApplyCarryOverAsync(season, now, cancellationToken);
         await reports.WriteAsync(new(season.GuildId, ReportCategories.Activity, ReportNames.SeasonStarted, ReportOutcomes.Succeeded, Metadata: new Dictionary<string, object?> { ["seasonId"] = season.Id, ["sequence"] = season.Sequence }), cancellationToken);
+        await realtime.PublishGuildAsync(season.GuildId, cancellationToken);
     }
 
     private async Task ApplyCarryOverAsync(GuildSeason season, DateTime now, CancellationToken cancellationToken)
@@ -144,6 +145,10 @@ public sealed class SeasonCoordinator(RankoonDbContext database, IReportWriter r
             Builders<SeasonFinalStanding>.Update.SetOnInsert(x => x.SeasonId, season.Id!).SetOnInsert(x => x.GuildId, season.GuildId).SetOnInsert(x => x.UserId, member.UserId).SetOnInsert(x => x.DisplayName, member.DisplayName).SetOnInsert(x => x.Rank, index + 1).SetOnInsert(x => x.TotalXp, member.TotalXp).SetOnInsert(x => x.Level, Mee6LevelCurve.GetLevel(member.TotalXp)).SetOnInsert(x => x.MessageCount, member.MessageCount).SetOnInsert(x => x.VoiceSeconds, member.VoiceSeconds).SetOnInsert(x => x.PublicLeaderboardVisible, member.PublicLeaderboardVisible).SetOnInsert(x => x.FinalizedAtUtc, now)) { IsUpsert = true }).ToList();
         if (writes.Count > 0) await database.SeasonFinalStandings.BulkWriteAsync(writes, new BulkWriteOptions { IsOrdered = false }, cancellationToken);
         var finalized = await database.GuildSeasons.UpdateOneAsync(x => x.Id == season.Id && !x.Finalized, Builders<GuildSeason>.Update.Set(x => x.Finalized, true).Set(x => x.RequiresFinalStandingRefresh, false).Set(x => x.Status, SeasonStatus.Closed).Unset(x => x.ActiveGuildId).Set(x => x.ClosedAtUtc, now), cancellationToken: cancellationToken);
-        if (finalized.ModifiedCount > 0) await reports.WriteAsync(new(season.GuildId, ReportCategories.Activity, ReportNames.SeasonClosed, ReportOutcomes.Succeeded, Metadata: new Dictionary<string, object?> { ["seasonId"] = season.Id }), cancellationToken);
+        if (finalized.ModifiedCount > 0)
+        {
+            await reports.WriteAsync(new(season.GuildId, ReportCategories.Activity, ReportNames.SeasonClosed, ReportOutcomes.Succeeded, Metadata: new Dictionary<string, object?> { ["seasonId"] = season.Id }), cancellationToken);
+            await realtime.PublishGuildAsync(season.GuildId, cancellationToken);
+        }
     }
 }

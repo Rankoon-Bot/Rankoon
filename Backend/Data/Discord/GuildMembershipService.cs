@@ -4,11 +4,12 @@ using Discord.WebSocket;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
+using Rankoon.Data.Xp;
 using System.Threading.Channels;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class GuildMembershipService(DiscordShardedClient discord, RankoonDbContext database, TimeProvider timeProvider, ILogger<GuildMembershipService> logger) : BackgroundService
+public sealed class GuildMembershipService(DiscordShardedClient discord, RankoonDbContext database, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<GuildMembershipService> logger) : BackgroundService
 {
     private readonly SemaphoreSlim reconciliationLock = new(1, 1);
     private readonly Channel<ulong> reconciliationQueue = Channel.CreateUnbounded<ulong>();
@@ -94,6 +95,7 @@ public sealed class GuildMembershipService(DiscordShardedClient discord, Rankoon
                 Builders<SeasonMemberXp>.Filter.Where(x => x.GuildId == guildId && x.UserId == userId),
                 Builders<SeasonMemberXp>.Update.Set(x => x.IsCurrentMember, currentMembers.Contains(userId)).Set(x => x.UpdatedAtUtc, timeProvider.GetUtcNow().UtcDateTime))).ToList();
             if (seasonWrites.Count > 0) await database.SeasonMemberXp.BulkWriteAsync(seasonWrites, new BulkWriteOptions { IsOrdered = false }, cancellationToken);
+            foreach (var userId in userIds) await realtime.PublishMemberAsync(guildId, userId, cancellationToken);
         }
         finally { reconciliationLock.Release(); }
     }
@@ -105,5 +107,6 @@ public sealed class GuildMembershipService(DiscordShardedClient discord, Rankoon
         var now = timeProvider.GetUtcNow().UtcDateTime;
         await database.MemberXp.UpdateOneAsync(x => x.GuildId == guildId && x.UserId == userId, Builders<MemberXp>.Update.Set(x => x.IsCurrentMember, current).Set(x => x.UpdatedAt, now));
         await database.SeasonMemberXp.UpdateManyAsync(x => x.GuildId == guildId && x.UserId == userId, Builders<SeasonMemberXp>.Update.Set(x => x.IsCurrentMember, current).Set(x => x.UpdatedAtUtc, now));
+        await realtime.PublishMemberAsync(guildId, userId);
     }
 }

@@ -14,6 +14,7 @@ using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Utils;
 using Rankoon.Api;
+using Rankoon.Hubs;
 using Serilog;
 using System.Net.Sockets;
 using System.Text;
@@ -63,6 +64,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.Configure<RouteOptions>(options =>
     options.ConstraintMap["nonApi"] = typeof(NonApiPathRouteConstraint));
 builder.Services.AddAuthorization();
+builder.Services.AddSignalR().AddJsonProtocol(options =>
+    options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
+builder.Services.AddSingleton<LeaderboardSubscriptionRegistry>();
 var leaderboardPermitLimit = builder.Configuration.GetValue("RateLimiting:LeaderboardPermitLimit", 90);
 var reportsPermitLimit = builder.Configuration.GetValue("RateLimiting:ReportsPermitLimit", 60);
 var rateLimitQueueLimit = builder.Configuration.GetValue("RateLimiting:QueueLimit", 2);
@@ -136,6 +140,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.LedgerProjectionRepairService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonCoordinator>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.ILeaderboardRealtimePublisher, Rankoon.Data.Xp.LeaderboardRealtimePublisher>();
 builder.Services.AddSingleton<VoiceXpWatchdog>();
 builder.Services.AddSingleton<VcHubService>();
 builder.Services.AddSingleton<GuildMembershipService>();
@@ -188,6 +193,12 @@ builder.Services.AddAuthentication(options =>
     };
     options.Events = new JwtBearerEvents
     {
+        OnMessageReceived = context =>
+        {
+            if (context.Request.Path.StartsWithSegments("/hubs/leaderboard") && context.Request.Query.TryGetValue("access_token", out var token))
+                context.Token = token;
+            return Task.CompletedTask;
+        },
         OnChallenge = async context =>
         {
             context.HandleResponse();
@@ -226,6 +237,7 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<LeaderboardHub>("/hubs/leaderboard");
 if (Directory.Exists(app.Environment.WebRootPath))
 {
     var webRootFileProvider = new PhysicalFileProvider(app.Environment.WebRootPath);
