@@ -26,9 +26,24 @@ public sealed class XpService(RankoonDbContext database, IReportWriter reports, 
 
     public Task SaveSettingsAsync(GuildXpSettings settings, CancellationToken cancellationToken = default)
     {
-        settings.Id ??= ObjectId.GenerateNewId().ToString();
-        settings.UpdatedAt = DateTime.UtcNow;
-        return database.GuildXpSettings.ReplaceOneAsync(x => x.GuildId == settings.GuildId, settings, new ReplaceOptions { IsUpsert = true }, cancellationToken);
+        var updatedAt = DateTime.UtcNow;
+        settings.UpdatedAt = updatedAt;
+        var update = Builders<GuildXpSettings>.Update
+            .SetOnInsert(x => x.GuildId, settings.GuildId)
+            .Set(x => x.Enabled, settings.Enabled)
+            .Set(x => x.Message, settings.Message)
+            .Set(x => x.Voice, settings.Voice)
+            .Set(x => x.Reaction, settings.Reaction)
+            .Set(x => x.EventInterest, settings.EventInterest)
+            .Set(x => x.Thread, settings.Thread)
+            .Set(x => x.ExcludedChannelIds, settings.ExcludedChannelIds)
+            .Set(x => x.ExcludedCategoryIds, settings.ExcludedCategoryIds)
+            .Set(x => x.ExcludedRoleIds, settings.ExcludedRoleIds)
+            .Set(x => x.ChannelMultipliers, settings.ChannelMultipliers)
+            .Set(x => x.LevelRoles, settings.LevelRoles)
+            .Set(x => x.LevelUpChannelId, settings.LevelUpChannelId)
+            .Set(x => x.UpdatedAt, updatedAt);
+        return database.GuildXpSettings.UpdateOneAsync(x => x.GuildId == settings.GuildId, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
     }
 
     public async Task<bool> GrantAsync(ulong guildId, ulong userId, string displayName, string source, decimal amount, string key, ulong? channelId = null, CancellationToken cancellationToken = default)

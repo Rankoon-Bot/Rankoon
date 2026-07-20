@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using Discord;
 using Discord.WebSocket;
-using MongoDB.Bson;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
@@ -73,8 +72,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
                 if (before.VoiceChannel != null) await SettleUserAsync(member.Guild, member, before.VoiceChannel, now, CancellationToken.None);
                 if (after.VoiceChannel != null)
                 {
-                    await database.VoiceSessions.ReplaceOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id,
-                        new VoiceSession { Id = ObjectId.GenerateNewId().ToString(), GuildId = member.Guild.Id, UserId = member.Id, ChannelId = after.VoiceChannel.Id, JoinedAt = now, LastAccruedAt = now }, new ReplaceOptions { IsUpsert = true });
+                    await StartSessionAsync(member.Guild.Id, member.Id, after.VoiceChannel.Id, now, CancellationToken.None);
                 }
                 else await database.VoiceSessions.DeleteOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id);
             }
@@ -109,8 +107,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
                 var session = await database.VoiceSessions.Find(x => x.GuildId == guild.Id && x.UserId == member.Id).FirstOrDefaultAsync(cancellationToken);
                 if (session == null || session.ChannelId != member.VoiceChannel.Id)
                 {
-                    session = new VoiceSession { Id = ObjectId.GenerateNewId().ToString(), GuildId = guild.Id, UserId = member.Id, ChannelId = member.VoiceChannel.Id, JoinedAt = now, LastAccruedAt = now };
-                    await database.VoiceSessions.ReplaceOneAsync(x => x.GuildId == guild.Id && x.UserId == member.Id, session, new ReplaceOptions { IsUpsert = true }, cancellationToken);
+                    await StartSessionAsync(guild.Id, member.Id, member.VoiceChannel.Id, now, cancellationToken);
                 }
                 await SettleUserAsync(guild, member, member.VoiceChannel, now, cancellationToken);
             }
@@ -149,5 +146,17 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
         }
         await database.VoiceSessions.UpdateOneAsync(x => x.GuildId == guild.Id && x.UserId == member.Id, Builders<VoiceSession>.Update.Set(x => x.LastAccruedAt, now).Inc(x => x.EligibleSeconds, eligible ? seconds : 0), cancellationToken: cancellationToken);
         await database.MemberXp.UpdateOneAsync(x => x.GuildId == guild.Id && x.UserId == member.Id, Builders<MemberXp>.Update.SetOnInsert(x => x.GuildId, guild.Id).SetOnInsert(x => x.UserId, member.Id).Set(x => x.DisplayName, member.DisplayName).Inc(x => x.VoiceSeconds, seconds), new UpdateOptions { IsUpsert = true }, cancellationToken);
+    }
+
+    private Task StartSessionAsync(ulong guildId, ulong userId, ulong channelId, DateTime now, CancellationToken cancellationToken)
+    {
+        var update = Builders<VoiceSession>.Update
+            .SetOnInsert(x => x.GuildId, guildId)
+            .SetOnInsert(x => x.UserId, userId)
+            .Set(x => x.ChannelId, channelId)
+            .Set(x => x.JoinedAt, now)
+            .Set(x => x.LastAccruedAt, now)
+            .Set(x => x.EligibleSeconds, 0);
+        return database.VoiceSessions.UpdateOneAsync(x => x.GuildId == guildId && x.UserId == userId, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
     }
 }
