@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Rankoon.Data.Auth;
@@ -218,9 +219,11 @@ app.UseAuthorization();
 app.MapControllers();
 if (Directory.Exists(app.Environment.WebRootPath))
 {
-    app.UseDefaultFiles();
-    app.UseStaticFiles();
-    app.MapFallbackToFile("{*path:nonApi}", "index.html");
+    var webRootFileProvider = new PhysicalFileProvider(app.Environment.WebRootPath);
+    var staticFileOptions = new StaticFileOptions { FileProvider = webRootFileProvider };
+    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = webRootFileProvider });
+    app.UseStaticFiles(staticFileOptions);
+    app.MapFallbackToFile("{*path:nonApi}", "index.html", staticFileOptions);
 }
 
 try

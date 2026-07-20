@@ -122,6 +122,25 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
         Assert.Contains("Rankoon test SPA", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Existing_static_asset_is_served_instead_of_spa_fallback()
+    {
+        using var response = await _client.GetAsync("/test.js");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/javascript", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("console.log('static asset');", (await response.Content.ReadAsStringAsync()).Trim());
+    }
+
+    [Fact]
+    public async Task Missing_static_asset_returns_404_instead_of_spa_fallback()
+    {
+        using var response = await _client.GetAsync("/missing.js");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.DoesNotContain("Rankoon test SPA", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
     private static HttpRequestMessage CreateAuthenticatedRequest(HttpMethod method, string path)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-test-secret-key-that-is-long-enough"));
