@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/Rankoon-Bot/Rankoon/compare/v1.0.1...v1.0.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* enhance static file serving and add tests for static asset handling ([1b6f19e](https://github.com/Rankoon-Bot/Rankoon/commit/1b6f19e4e68cf0adb774f34c4a044686780b2491))
+
 ## [1.0.1](https://github.com/Rankoon-Bot/Rankoon/compare/v1.0.0...v1.0.1) (2026-07-20)
 
 
