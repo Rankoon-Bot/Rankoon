@@ -4,6 +4,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Version>0.0.0-local</Version>
+    <InformationalVersion>$(Version)</InformationalVersion>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>..</DockerfileContext>
     <DefaultItemExcludes>$(DefaultItemExcludes);Backend.Tests\**</DefaultItemExcludes>

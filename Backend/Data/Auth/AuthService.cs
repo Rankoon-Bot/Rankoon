@@ -324,7 +324,10 @@ public class AuthService : IAuthService
                 return null;
             }
 
-            var discordGuilds = await _discordService.GetUserGuildsAsync(user.AccessToken);
+            var discordGuilds = await CacheManager.GetOrSetAsync<DiscordGuildInfo[]?>(
+                $"discord_user_guilds_{userId}",
+                () => _discordService.GetUserGuildsAsync(user.AccessToken),
+                DateTimeOffset.UtcNow.AddMinutes(1));
             if (discordGuilds == null)
             {
                 _logger.LogError("Failed to fetch guilds from Discord for user: {UserId}", userId);
