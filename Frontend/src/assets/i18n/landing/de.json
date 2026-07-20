@@ -1,0 +1,30 @@
+{
+  "landing": {
+    "eyebrow": "Dein Server. Dein Control Deck.",
+    "title": "Mache aus deiner Community ein Level weiter.",
+    "intro": "Rankoon verbindet Leveling, Voice-Management und klare Einblicke in einem Dashboard, das sich nach deinem Server richtet.",
+    "start": "Mit Discord starten",
+    "explore": "Funktionen entdecken",
+    "loginHint": "Die Anmeldung erfolgt sicher über Discord.",
+    "previewLive": "SYSTEM ONLINE",
+    "previewServer": "night shift",
+    "previewStatus": "Alle Systeme laufen stabil",
+    "metricMembers": "MITGLIEDER",
+    "metricVoice": "IM VOICE",
+    "metricXp": "XP HEUTE",
+    "previewActivity": "LEVEL-AKTIVITÄT",
+    "featuresOverline": "Weniger Chaos. Mehr Community.",
+    "featuresTitle": "Werkzeuge, die im Takt deines Servers arbeiten.",
+    "xpTitle": "Level, die motivieren",
+    "xpText": "Belohne Aktivität, setze Rollen frei und mache Fortschritt für alle sichtbar.",
+    "voiceTitle": "Voice, der mitdenkt",
+    "voiceText": "Temporäre Kanäle entstehen genau dann, wenn deine Mitglieder sie brauchen.",
+    "logsTitle": "Alles im Blick",
+    "logsText": "Verfolge Aktivitäten, Befehle und Fehler über ein klares Reporting.",
+    "closingOverline": "Bereit für den nächsten Schritt?",
+    "closingTitle": "Gib deiner Community ein starkes Fundament.",
+    "closingAction": "Jetzt anmelden",
+    "terms": "Nutzungsbedingungen",
+    "privacy": "Datenschutz"
+  }
+}

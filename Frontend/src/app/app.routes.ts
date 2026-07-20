@@ -15,13 +15,33 @@ export const routes: Routes = [
     path: '',
     component: MainLayoutComponent,
     children: [
-      { path: '', redirectTo: '/server-selection', pathMatch: 'full' },
+      {
+        path: '',
+        loadComponent: () =>
+          import('./pages/landing/landing.component').then(
+            (c) => c.LandingComponent,
+          ),
+        canActivate: [guestGuard],
+        resolve: { translations: translationScope('landing') },
+      },
       {
         path: 'login',
         loadComponent: () =>
           import('./pages/login/login.component').then((c) => c.LoginComponent),
         canActivate: [guestGuard],
         resolve: { translations: translationScope('auth') },
+      },
+      {
+        path: 'tos',
+        loadComponent: () =>
+          import('./pages/legal/legal.component').then((c) => c.LegalComponent),
+        data: { page: 'tos' },
+      },
+      {
+        path: 'privacy',
+        loadComponent: () =>
+          import('./pages/legal/legal.component').then((c) => c.LegalComponent),
+        data: { page: 'privacy' },
       },
       {
         path: 'auth/callback',
@@ -134,5 +154,5 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: '/server-selection' },
+  { path: '**', redirectTo: '' },
 ];

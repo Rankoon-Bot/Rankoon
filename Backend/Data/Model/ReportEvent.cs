@@ -1,11 +1,12 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson.Serialization.IdGenerators;
 
 namespace Rankoon.Data.Model;
 
 public sealed class ReportEvent
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("category")] public string Category { get; set; } = string.Empty;
     [BsonElement("name")] public string Name { get; set; } = string.Empty;

@@ -1,11 +1,12 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson.Serialization.IdGenerators;
 
 namespace Rankoon.Data.Model;
 
 public sealed class GuildXpSettings
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("enabled")] public bool Enabled { get; set; } = true;
     [BsonElement("message")] public MessageXpSettings Message { get; set; } = new();
@@ -33,7 +34,7 @@ public sealed class LevelRole { public int Level { get; set; } public ulong Role
 
 public sealed class MemberXp
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("user_id")] public ulong UserId { get; set; }
     [BsonElement("display_name")] public string DisplayName { get; set; } = string.Empty;
@@ -59,7 +60,7 @@ public enum LeaderboardVisibility
 
 public sealed class GuildLeaderboardSettings
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("alias")] public string Alias { get; set; } = string.Empty;
     [BsonElement("visibility"), BsonRepresentation(BsonType.String)] public LeaderboardVisibility Visibility { get; set; } = LeaderboardVisibility.MembersOnly;
@@ -68,7 +69,7 @@ public sealed class GuildLeaderboardSettings
 
 public sealed class MemberLeaderboardPreference
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("user_id")] public ulong UserId { get; set; }
     [BsonElement("public_visible")] public bool PublicVisible { get; set; } = true;
@@ -77,7 +78,7 @@ public sealed class MemberLeaderboardPreference
 
 public sealed class XpLedgerEntry
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("grant_key")] public string GrantKey { get; set; } = string.Empty;
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("user_id")] public ulong UserId { get; set; }
@@ -89,7 +90,7 @@ public sealed class XpLedgerEntry
 
 public sealed class VoiceSession
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("user_id")] public ulong UserId { get; set; }
     [BsonElement("channel_id")] public ulong ChannelId { get; set; }
@@ -100,7 +101,7 @@ public sealed class VoiceSession
 
 public sealed class VcHub
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("join_channel_id")] public ulong JoinChannelId { get; set; }
     [BsonElement("hub_channel_name")] public string HubChannelName { get; set; } = "VC erstellen";
@@ -114,7 +115,7 @@ public sealed class VcHub
 
 public sealed class TemporaryVoiceChannel
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("channel_id")] public ulong ChannelId { get; set; }
     [BsonElement("hub_id")] public string HubId { get; set; } = string.Empty;
@@ -124,7 +125,7 @@ public sealed class TemporaryVoiceChannel
 
 public sealed class GuildStats
 {
-    [BsonId, BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("xp_awarded")] public decimal XpAwarded { get; set; }
     [BsonElement("messages")] public long Messages { get; set; }

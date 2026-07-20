@@ -1,0 +1,5 @@
+.legal-page { max-width: 960px; margin: 0 auto; padding: var(--rk-space-10) 0; }
+.back-link { display: inline-flex; min-height: 44px; align-items: center; color: var(--rk-text-muted); }.back-link:hover { color: var(--rk-text-strong); }
+header { padding: var(--rk-space-8) 0; border-bottom: 1px solid var(--rk-border-subtle); }.overline { color: var(--rk-text-muted); font-size: .75rem; font-weight: 700; letter-spacing: .12em; }.intro { max-width: 720px; margin-top: var(--rk-space-4); color: var(--rk-text); font-size: 1.125rem; }
+section { padding: var(--rk-space-6) 0; border-bottom: 1px solid var(--rk-border-subtle); }section h2 { margin-bottom: var(--rk-space-3); }section p { color: var(--rk-text); }section p + p { margin-top: var(--rk-space-3); }
+@media (max-width: 768px) { .legal-page { padding: var(--rk-space-6) 0; }header { padding: var(--rk-space-6) 0; } }

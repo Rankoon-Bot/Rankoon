@@ -1,0 +1,30 @@
+{
+  "landing": {
+    "eyebrow": "Your server. Your control deck.",
+    "title": "Take your community to the next level.",
+    "intro": "Rankoon brings leveling, voice management, and clear insights together in a dashboard built around your server.",
+    "start": "Start with Discord",
+    "explore": "Explore features",
+    "loginHint": "Sign in securely through Discord.",
+    "previewLive": "SYSTEM ONLINE",
+    "previewServer": "night shift",
+    "previewStatus": "All systems running smoothly",
+    "metricMembers": "MEMBERS",
+    "metricVoice": "IN VOICE",
+    "metricXp": "XP TODAY",
+    "previewActivity": "LEVEL ACTIVITY",
+    "featuresOverline": "Less chaos. More community.",
+    "featuresTitle": "Tools that work to your server's rhythm.",
+    "xpTitle": "Levels that motivate",
+    "xpText": "Reward activity, unlock roles, and make progress visible for everyone.",
+    "voiceTitle": "Voice that thinks ahead",
+    "voiceText": "Temporary channels appear exactly when your members need them.",
+    "logsTitle": "Everything in view",
+    "logsText": "Track activity, commands, and errors in clear reporting.",
+    "closingOverline": "Ready for the next step?",
+    "closingTitle": "Give your community a strong foundation.",
+    "closingAction": "Sign in now",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy"
+  }
+}

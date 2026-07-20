@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 
 export type TranslationScope =
   | 'auth'
+  | 'landing'
   | 'navigation'
   | 'server-selection'
   | 'dashboard'
