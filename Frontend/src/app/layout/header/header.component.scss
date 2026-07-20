@@ -1,5 +1,7 @@
 .header {
-  min-height: 64px;
+  position: sticky;
+  top: 0;
+  min-height: var(--rk-header-height);
   background: var(--rk-header-bg);
   backdrop-filter: blur(18px);
   color: var(--rk-text-strong);
@@ -15,6 +17,7 @@
   display: flex;
   align-items: center;
   gap: var(--rk-space-4);
+  min-width: 0;
 }
 
 .logo {
@@ -23,6 +26,8 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin: 0;
+  color: var(--rk-text-strong);
+  white-space: nowrap;
 }
 
 .guild-info {
@@ -30,8 +35,9 @@
   display: flex;
   align-items: center;
   gap: var(--rk-space-2);
-  padding: 6px var(--rk-space-3);
-  background: var(--rk-surface-2);
+  min-height: 44px;
+  padding: var(--rk-space-1) var(--rk-space-3);
+  background: var(--rk-surface-1);
   border: 1px solid var(--rk-border-subtle);
   border-radius: var(--rk-radius-md);
   cursor: pointer;
@@ -73,7 +79,7 @@
   .guild-name {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--rk-space-2);
     font-weight: 500;
     font-size: 0.9rem;
 
@@ -86,7 +92,7 @@
 
     svg {
       opacity: 0.7;
-      transition: transform 0.2s ease;
+      transition: transform var(--rk-motion-base);
     }
   }
 }
@@ -340,7 +346,7 @@
 .user-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--rk-space-3);
 }
 
 .user-avatar {
@@ -359,8 +365,8 @@
   min-height: 44px;
   background: transparent;
   border: none;
-  color: white;
-  padding: 8px;
+  color: var(--rk-text-strong);
+  padding: var(--rk-space-2);
   border-radius: var(--rk-radius-md);
   cursor: pointer;
   display: flex;
@@ -380,7 +386,7 @@
   }
 
   .header-left {
-    gap: 12px;
+    gap: var(--rk-space-2);
   }
 
   .logo {
@@ -391,6 +397,10 @@
     .guild-name span {
       max-width: 100px;
     }
+  }
+
+  .header-right {
+    gap: var(--rk-space-2);
   }
 
   .username {
