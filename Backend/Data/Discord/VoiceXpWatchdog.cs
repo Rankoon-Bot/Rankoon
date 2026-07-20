@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Discord;
 using Discord.WebSocket;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
@@ -73,7 +74,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
                 if (after.VoiceChannel != null)
                 {
                     await database.VoiceSessions.ReplaceOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id,
-                        new VoiceSession { GuildId = member.Guild.Id, UserId = member.Id, ChannelId = after.VoiceChannel.Id, JoinedAt = now, LastAccruedAt = now }, new ReplaceOptions { IsUpsert = true });
+                        new VoiceSession { Id = ObjectId.GenerateNewId().ToString(), GuildId = member.Guild.Id, UserId = member.Id, ChannelId = after.VoiceChannel.Id, JoinedAt = now, LastAccruedAt = now }, new ReplaceOptions { IsUpsert = true });
                 }
                 else await database.VoiceSessions.DeleteOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id);
             }
@@ -108,7 +109,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
                 var session = await database.VoiceSessions.Find(x => x.GuildId == guild.Id && x.UserId == member.Id).FirstOrDefaultAsync(cancellationToken);
                 if (session == null || session.ChannelId != member.VoiceChannel.Id)
                 {
-                    session = new VoiceSession { GuildId = guild.Id, UserId = member.Id, ChannelId = member.VoiceChannel.Id, JoinedAt = now, LastAccruedAt = now };
+                    session = new VoiceSession { Id = ObjectId.GenerateNewId().ToString(), GuildId = guild.Id, UserId = member.Id, ChannelId = member.VoiceChannel.Id, JoinedAt = now, LastAccruedAt = now };
                     await database.VoiceSessions.ReplaceOneAsync(x => x.GuildId == guild.Id && x.UserId == member.Id, session, new ReplaceOptions { IsUpsert = true }, cancellationToken);
                 }
                 await SettleUserAsync(guild, member, member.VoiceChannel, now, cancellationToken);

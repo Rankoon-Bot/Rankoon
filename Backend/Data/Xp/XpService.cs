@@ -26,6 +26,7 @@ public sealed class XpService(RankoonDbContext database, IReportWriter reports, 
 
     public Task SaveSettingsAsync(GuildXpSettings settings, CancellationToken cancellationToken = default)
     {
+        settings.Id ??= ObjectId.GenerateNewId().ToString();
         settings.UpdatedAt = DateTime.UtcNow;
         return database.GuildXpSettings.ReplaceOneAsync(x => x.GuildId == settings.GuildId, settings, new ReplaceOptions { IsUpsert = true }, cancellationToken);
     }
