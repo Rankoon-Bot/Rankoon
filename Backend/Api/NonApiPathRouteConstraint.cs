@@ -13,6 +13,7 @@ public sealed class NonApiPathRouteConstraint : IRouteConstraint
     {
         var path = values[routeKey]?.ToString()?.TrimStart('/');
         return !string.Equals(path, "api", StringComparison.OrdinalIgnoreCase) &&
-            !(path?.StartsWith("api/", StringComparison.OrdinalIgnoreCase) ?? false);
+            !(path?.StartsWith("api/", StringComparison.OrdinalIgnoreCase) ?? false) &&
+            !Path.HasExtension(path);
     }
 }

@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <None Update="TestWebRoot\index.html" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="TestWebRoot\test.js" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
