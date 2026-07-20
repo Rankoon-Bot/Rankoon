@@ -59,7 +59,7 @@ public sealed class SelfRolePanelsController(IGuildAuthorizationService authoriz
         if (error != null) return error;
         var roles = guild!.Roles.Where(role => !role.IsManaged && !role.IsEveryone && role.Position < guild.CurrentUser.Hierarchy)
             .OrderByDescending(role => role.Position).Select(role => new { id = role.Id, role.Name });
-        var channels = guild.Channels.OfType<SocketTextChannel>().OrderBy(channel => channel.Position).Select(channel => new { id = channel.Id, channel.Name, type = "Text" });
+        var channels = guild.TextChannels.OrderBy(channel => channel.Position).Select(channel => new { id = channel.Id, channel.Name, type = "Text" });
         var emojis = guild.Emotes.OrderBy(emote => emote.Name).Select(emote => new { id = emote.Id, emote.Name, animated = emote.Animated, url = emote.Url });
         return Ok(new { roles, channels, emojis });
     }

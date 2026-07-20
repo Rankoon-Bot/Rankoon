@@ -84,6 +84,7 @@ public static class ApiErrorCatalog
         ["selfRoles.duplicateEmoji"] = new("selfRoles.duplicateEmoji", "Each self-role mapping must use a unique emoji.", StatusCodes.Status400BadRequest),
         ["selfRoles.roleNotManageable"] = new("selfRoles.roleNotManageable", "The selected role cannot be managed by the bot.", StatusCodes.Status400BadRequest),
         ["selfRoles.channelNotUsable"] = new("selfRoles.channelNotUsable", "The selected channel cannot receive self-role messages.", StatusCodes.Status400BadRequest),
+        ["selfRoles.discordPermissions"] = new("selfRoles.discordPermissions", "The bot is missing permissions in the selected channel. Grant View Channel, Send Messages, Embed Links, Add Reactions, Read Message History, and Manage Messages.", StatusCodes.Status400BadRequest),
         ["selfRoles.emojiInvalid"] = new("selfRoles.emojiInvalid", "A self-role mapping contains an invalid emoji.", StatusCodes.Status400BadRequest),
         ["selfRoles.revisionConflict"] = new("selfRoles.revisionConflict", "The self-role panel changed since it was loaded. Reload and try again.", StatusCodes.Status409Conflict)
     };

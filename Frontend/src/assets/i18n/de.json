@@ -158,6 +158,7 @@
       "duplicateEmoji": "Jede Selbstrollen-Zuordnung muss ein eindeutiges Emoji verwenden.",
       "roleNotManageable": "Die ausgewählte Rolle kann vom Bot nicht verwaltet werden.",
       "channelNotUsable": "Der ausgewählte Kanal kann keine Selbstrollen-Nachrichten empfangen.",
+      "discordPermissions": "Dem Bot fehlen Berechtigungen in diesem Kanal. Erteile Kanal ansehen, Nachrichten senden, Links einbetten, Reaktionen hinzufügen, Nachrichtenverlauf anzeigen und Nachrichten verwalten.",
       "emojiInvalid": "Eine Selbstrollen-Zuordnung enthält ein ungültiges Emoji.",
       "revisionConflict": "Das Selbstrollen-Panel wurde seit dem Laden geändert. Bitte lade es neu."
     }

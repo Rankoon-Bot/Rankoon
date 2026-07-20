@@ -97,14 +97,24 @@ public sealed class SelfRoleService(RankoonDbContext database, ILogger<SelfRoleS
         foreach (var mapping in panel.Mappings) mapping.Id ??= ObjectId.GenerateNewId().ToString();
     }
 
-    private static void Validate(SocketGuild guild, SelfRolePanel panel)
+    private void Validate(SocketGuild guild, SelfRolePanel panel)
     {
         if (panel.ChannelId == 0 || string.IsNullOrWhiteSpace(panel.Title) || panel.Title.Length > 256 || panel.Mappings is null || panel.Mappings.Count == 0) throw new SelfRoleValidationException("selfRoles.invalidPanel");
         if (panel.Mappings.Count > 20) throw new SelfRoleValidationException("selfRoles.tooManyMappings");
-        if (guild.GetChannel(panel.ChannelId) is not SocketTextChannel channel) throw new SelfRoleValidationException("selfRoles.channelNotUsable");
-        var permissions = guild.CurrentUser.GetPermissions(channel);
-        if (!permissions.ViewChannel || !permissions.SendMessages || !permissions.EmbedLinks || !permissions.AddReactions || !permissions.ReadMessageHistory || !permissions.ManageMessages)
+        if (guild.GetChannel(panel.ChannelId) is not SocketTextChannel channel)
+        {
+            logger.LogWarning("Self-role validation rejected non-text or unavailable channel {ChannelId} in guild {GuildId}; bot {BotId}", panel.ChannelId, guild.Id, guild.CurrentUser.Id);
             throw new SelfRoleValidationException("selfRoles.channelNotUsable");
+        }
+        var permissions = guild.CurrentUser.GetPermissions(channel);
+        var administrator = guild.CurrentUser.GuildPermissions.Administrator;
+        logger.LogInformation("Self-role channel permission check: guild {GuildId}, channel {ChannelId} ({ChannelName}), bot {BotId}, administrator {Administrator}, hierarchy {Hierarchy}, view {ViewChannel}, send {SendMessages}, embed {EmbedLinks}, react {AddReactions}, history {ReadMessageHistory}, manageMessages {ManageMessages}",
+            guild.Id, channel.Id, channel.Name, guild.CurrentUser.Id, administrator, guild.CurrentUser.Hierarchy, permissions.ViewChannel, permissions.SendMessages, permissions.EmbedLinks, permissions.AddReactions, permissions.ReadMessageHistory, permissions.ManageMessages);
+        if (!administrator && (!permissions.ViewChannel || !permissions.SendMessages || !permissions.EmbedLinks || !permissions.AddReactions || !permissions.ReadMessageHistory || !permissions.ManageMessages))
+        {
+            logger.LogWarning("Self-role validation rejected channel {ChannelId} in guild {GuildId} because the calculated channel permissions are incomplete", channel.Id, guild.Id);
+            throw new SelfRoleValidationException("selfRoles.discordPermissions");
+        }
         if (!TryColor(panel.Color, out _)) throw new SelfRoleValidationException("selfRoles.invalidPanel");
         var emojiKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var mapping in panel.Mappings)
@@ -125,23 +135,42 @@ public sealed class SelfRoleService(RankoonDbContext database, ILogger<SelfRoleS
         if (panel.Description.Length + mappingLegendLength + (string.IsNullOrWhiteSpace(panel.Description) ? 0 : 2) > 4096) throw new SelfRoleValidationException("selfRoles.invalidPanel");
     }
 
-    private static async Task PublishAsync(SocketGuild guild, SelfRolePanel panel, bool isNew)
+    private async Task PublishAsync(SocketGuild guild, SelfRolePanel panel, bool isNew)
     {
-        var channel = guild.GetChannel(panel.ChannelId) as IMessageChannel ?? throw new SelfRoleValidationException("selfRoles.channelNotUsable");
-        IUserMessage message;
-        if (isNew)
+        try
         {
-            message = await channel.SendMessageAsync(embed: BuildEmbed(panel));
-            panel.MessageId = message.Id;
+            var channel = guild.GetChannel(panel.ChannelId) as IMessageChannel ?? throw new SelfRoleValidationException("selfRoles.channelNotUsable");
+            IUserMessage message;
+            if (isNew)
+            {
+                logger.LogInformation("Self-role Discord publish: sending embed to guild {GuildId}, channel {ChannelId}, panel {PanelId}, mappings {MappingCount}", guild.Id, channel.Id, panel.Id, panel.Mappings.Count);
+                message = await channel.SendMessageAsync(embed: BuildEmbed(panel));
+                panel.MessageId = message.Id;
+            }
+            else
+            {
+                logger.LogInformation("Self-role Discord publish: updating message {MessageId} in guild {GuildId}, channel {ChannelId}, panel {PanelId}, mappings {MappingCount}", panel.MessageId, guild.Id, channel.Id, panel.Id, panel.Mappings.Count);
+                if (await channel.GetMessageAsync(panel.MessageId) is not IUserMessage existing) throw new SelfRoleValidationException("selfRoles.channelNotUsable");
+                message = existing;
+                await message.ModifyAsync(properties => properties.Embed = BuildEmbed(panel));
+                logger.LogDebug("Self-role Discord publish: removing existing reactions from message {MessageId}", message.Id);
+                await message.RemoveAllReactionsAsync();
+            }
+            if (panel.Enabled)
+            {
+                foreach (var mapping in panel.Mappings)
+                {
+                    logger.LogDebug("Self-role Discord publish: adding reaction {Emoji} for role {RoleId} to message {MessageId}", mapping.Emoji.Value, mapping.RoleId, message.Id);
+                    await message.AddReactionAsync(ToEmote(mapping.Emoji));
+                }
+            }
         }
-        else
+        catch (global::Discord.Net.HttpException exception) when (exception.HttpCode == System.Net.HttpStatusCode.Forbidden)
         {
-            if (await channel.GetMessageAsync(panel.MessageId) is not IUserMessage existing) throw new SelfRoleValidationException("selfRoles.channelNotUsable");
-            message = existing;
-            await message.ModifyAsync(properties => properties.Embed = BuildEmbed(panel));
-            await message.RemoveAllReactionsAsync();
+            logger.LogWarning(exception, "Self-role Discord request was forbidden: guild {GuildId}, channel {ChannelId}, message {MessageId}, panel {PanelId}, HTTP {HttpStatus}, DiscordCode {DiscordCode}, reason {Reason}",
+                guild.Id, panel.ChannelId, panel.MessageId, panel.Id, exception.HttpCode, exception.DiscordCode, exception.Message);
+            throw new SelfRoleValidationException("selfRoles.discordPermissions");
         }
-        if (panel.Enabled) foreach (var mapping in panel.Mappings) await message.AddReactionAsync(ToEmote(mapping.Emoji));
     }
 
     private static Embed BuildEmbed(SelfRolePanel panel)

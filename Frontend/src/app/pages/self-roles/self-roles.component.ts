@@ -61,10 +61,8 @@ export class SelfRolesComponent implements OnInit {
   }
 
   textChannels(): SelfRoleResources['channels'] {
-    return this.resources()?.channels.filter(channel => {
-      const type = channel.type.toLowerCase();
-      return type.includes('text') || type.includes('announcement') || type.includes('news');
-    }) ?? [];
+    // The self-role resource endpoint returns only Discord text channels.
+    return this.resources()?.channels ?? [];
   }
 
   channelLabel(channelId: string): string {
