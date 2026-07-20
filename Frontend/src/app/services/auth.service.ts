@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
-import { catchError, tap, map } from 'rxjs/operators';
+import { catchError, finalize, map, shareReplay, tap } from 'rxjs/operators';
 import { AuthStore, User } from '../store/auth.store';
 import { AppStore, Guild } from '../store/app.store';
 import { environment } from '../../environments/environment';
@@ -23,6 +23,7 @@ export interface BackendRefreshResponse {
 
 export const ACCESS_TOKEN_STORAGE_KEY = 'rankoon_token';
 export const REFRESH_TOKEN_STORAGE_KEY = 'rankoon_refresh_token';
+export const ACCESS_TOKEN_EXPIRATION_STORAGE_KEY = 'rankoon_token_expires_at';
 
 @Injectable({
     providedIn: 'root'
@@ -37,6 +38,8 @@ export class AuthService {
     private readonly DISCORD_CLIENT_ID = environment.discordClientId;
     private readonly DISCORD_REDIRECT_URI = environment.discordRedirectUri; // Backend URL
     private readonly API_BASE_URL = environment.apiBaseUrl;
+    private readonly TOKEN_REFRESH_BUFFER_MS = 60_000;
+    private refreshInFlight$: Observable<boolean> | null = null;
 
     /**
      * Initiates Discord OAuth2 login flow - gets login URL from backend
@@ -71,6 +74,7 @@ export class AuthService {
         return this.validateBackendToken().pipe(
             tap(response => {
                 this.saveTokenToStorage(response.token);
+                this.saveTokenExpirationToStorage(response.expiresAt);
                 this.saveRefreshTokenToStorage(refreshToken);
                 this.authStore.setToken(response.token);
                 this.authStore.setUser(response.user);
@@ -98,17 +102,22 @@ export class AuthService {
      * Refreshes the backend token
      */
     refreshToken(): Observable<boolean> {
+        if (this.refreshInFlight$) {
+            return this.refreshInFlight$;
+        }
+
         const refreshToken = this.loadRefreshTokenFromStorage();
         if (!refreshToken) {
             this.clearLocalAuth();
             return of(false);
         }
 
-        return this.http.post<BackendRefreshResponse>(`${this.API_BASE_URL}/auth/refresh`, {
+        this.refreshInFlight$ = this.http.post<BackendRefreshResponse>(`${this.API_BASE_URL}/auth/refresh`, {
             refreshToken
         }).pipe(
             tap(response => {
                 this.saveTokenToStorage(response.accessToken);
+                this.saveTokenExpirationToStorage(response.expiresAt);
                 this.saveRefreshTokenToStorage(response.refreshToken);
                 this.authStore.setToken(response.accessToken);
                 this.authStore.setUser(response.user);
@@ -119,7 +128,25 @@ export class AuthService {
                 this.clearLocalAuth();
                 void this.router.navigate(['/login']);
                 return of(false);
-            })
+            }),
+            finalize(() => this.refreshInFlight$ = null),
+            shareReplay({ bufferSize: 1, refCount: false })
+        );
+
+        return this.refreshInFlight$;
+    }
+
+    /**
+     * Returns a usable access token, refreshing it before it expires.
+     */
+    ensureValidAccessToken(): Observable<string | null> {
+        const token = this.authStore.token();
+        if (!token || !this.isTokenExpiringSoon(token)) {
+            return of(token);
+        }
+
+        return this.refreshToken().pipe(
+            map(refreshed => refreshed ? this.authStore.token() : null)
         );
     }
 
@@ -137,6 +164,7 @@ export class AuthService {
         return this.validateBackendToken().pipe(
             tap(response => {
                 this.saveTokenToStorage(response.token);
+                this.saveTokenExpirationToStorage(response.expiresAt);
                 this.authStore.setAuthData(response.user, response.token);
             }),
             map(() => true),
@@ -250,6 +278,48 @@ export class AuthService {
         }
     }
 
+    private isTokenExpiringSoon(token: string): boolean {
+        const expiresAt = this.loadTokenExpirationFromStorage() ?? this.getJwtExpiration(token);
+        return expiresAt !== null && expiresAt - Date.now() <= this.TOKEN_REFRESH_BUFFER_MS;
+    }
+
+    private getJwtExpiration(token: string): number | null {
+        try {
+            const payload = token.split('.')[1];
+            if (!payload || typeof window === 'undefined') {
+                return null;
+            }
+
+            const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+            const expiresAt = JSON.parse(json).exp;
+            return typeof expiresAt === 'number' ? expiresAt * 1_000 : null;
+        } catch {
+            return null;
+        }
+    }
+
+    private loadTokenExpirationFromStorage(): number | null {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+
+        const expiresAt = localStorage.getItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY);
+        const timestamp = expiresAt ? Date.parse(expiresAt) : NaN;
+        return Number.isNaN(timestamp) ? null : timestamp;
+    }
+
+    private saveTokenExpirationToStorage(expiresAt: string): void {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY, expiresAt);
+        }
+    }
+
+    private clearTokenExpirationFromStorage(): void {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY);
+        }
+    }
+
     private loadRefreshTokenFromStorage(): string | null {
         return typeof window === 'undefined' ? null : localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
     }
@@ -268,6 +338,7 @@ export class AuthService {
 
     clearLocalAuth(): void {
         this.clearTokenFromStorage();
+        this.clearTokenExpirationFromStorage();
         this.clearRefreshTokenFromStorage();
         this.authStore.clearAuth();
         this.appStore.clearState();

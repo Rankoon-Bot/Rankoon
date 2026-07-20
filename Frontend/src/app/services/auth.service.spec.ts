@@ -1,4 +1,4 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
@@ -6,7 +6,7 @@ import { environment } from '../../environments/environment';
 import { AuthStore, User } from '../store/auth.store';
 import { testI18n } from '../testing/i18n-testing';
 import { authInterceptor } from '../interceptors/auth.interceptor';
-import { ACCESS_TOKEN_STORAGE_KEY, AuthService, REFRESH_TOKEN_STORAGE_KEY } from './auth.service';
+import { ACCESS_TOKEN_EXPIRATION_STORAGE_KEY, ACCESS_TOKEN_STORAGE_KEY, AuthService, REFRESH_TOKEN_STORAGE_KEY } from './auth.service';
 
 describe('AuthService token contracts', () => {
   const user: User = { id: 'user-1', discordId: 'discord-1', username: 'user', displayName: 'User', avatar: 'avatar' };
@@ -14,6 +14,7 @@ describe('AuthService token contracts', () => {
   let service: AuthService;
   let http: HttpTestingController;
   let store: AuthStore;
+  let client: HttpClient;
 
   beforeEach(() => {
     localStorage.clear();
@@ -25,6 +26,7 @@ describe('AuthService token contracts', () => {
     service = TestBed.inject(AuthService);
     http = TestBed.inject(HttpTestingController);
     store = TestBed.inject(AuthStore);
+    client = TestBed.inject(HttpClient);
   });
 
   afterEach(() => { http.verify(); localStorage.clear(); router.navigate.calls.reset(); });
@@ -83,6 +85,35 @@ describe('AuthService token contracts', () => {
     expect(store.token()).toBe('new-access');
     expect(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)).toBe('new-access');
     expect(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBe('new-refresh');
+  });
+
+  it('refreshes an access token that is close to expiry before sending an API request', () => {
+    store.setAuthData(user, 'expiring-access');
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'valid-refresh');
+    localStorage.setItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY, new Date(Date.now() + 30_000).toISOString());
+
+    client.get('/api/protected').subscribe();
+    const refreshRequest = http.expectOne(`${environment.apiBaseUrl}/auth/refresh`);
+    expect(refreshRequest.request.headers.has('Authorization')).toBeFalse();
+    refreshRequest.flush({ accessToken: 'new-access', refreshToken: 'new-refresh', user, expiresAt: '2099-01-01T00:00:00Z' });
+
+    const protectedRequest = http.expectOne('/api/protected');
+    expect(protectedRequest.request.headers.get('Authorization')).toBe('Bearer new-access');
+    protectedRequest.flush({});
+  });
+
+  it('silently refreshes and retries an API request rejected with 401', () => {
+    store.setAuthData(user, 'current-access');
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'valid-refresh');
+    localStorage.setItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY, '2099-01-01T00:00:00Z');
+
+    client.get('/api/protected').subscribe();
+    http.expectOne('/api/protected').flush({}, { status: 401, statusText: 'Unauthorized' });
+    http.expectOne(`${environment.apiBaseUrl}/auth/refresh`).flush({ accessToken: 'new-access', refreshToken: 'new-refresh', user, expiresAt: '2099-01-01T01:00:00Z' });
+
+    const retriedRequest = http.expectOne('/api/protected');
+    expect(retriedRequest.request.headers.get('Authorization')).toBe('Bearer new-access');
+    retriedRequest.flush({});
   });
 
   it('sends the refresh token on logout and immediately clears local authentication', () => {
