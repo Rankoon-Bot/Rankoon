@@ -18,7 +18,18 @@
     "loadingMore": "Weitere Plätze werden geladen",
     "end": "Ende der Rangliste",
     "emptyTitle": "Noch keine Rangplätze",
-    "emptyHint": "Sobald Mitglieder XP sammeln, erscheinen sie hier."
+    "emptyHint": "Sobald Mitglieder XP sammeln, erscheinen sie hier.",
+    "scopeAria": "Ranglistenzeitraum",
+    "historyAria": "Historische Season",
+    "noActiveSeason": "Es gibt keine aktive Season.",
+    "seasonScopeHint": "Season-Rangliste",
+    "emptySeasonHint": "In dieser Season wurden noch keine XP gesammelt.",
+    "emptyHistoryHint": "Für diese Season ist keine Abschlussrangliste verfügbar.",
+    "scopes": {
+      "lifetime": "All-Time XP",
+      "currentSeason": "Season XP",
+      "history": "Season-Historie"
+    }
   },
   "errors": {
     "leaderboardLogin": "Diese Rangliste ist nur für Servermitglieder sichtbar. Bitte melde dich an.",
@@ -32,7 +43,8 @@
     "leaderboard": {
       "invalidCursor": "Die Ranglistenposition ist ungültig.",
       "invalidAlias": "Der Ranglisten-Alias ist ungültig.",
-      "aliasConflict": "Der Ranglisten-Alias wird bereits verwendet."
+      "aliasConflict": "Der Ranglisten-Alias wird bereits verwendet.",
+      "invalidSeason": "Die angeforderte Season ist in dieser Rangliste nicht verfügbar."
     }
   }
 }

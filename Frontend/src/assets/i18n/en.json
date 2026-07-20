@@ -20,6 +20,7 @@
     "saving": "Saving...",
     "saved": "Saved",
     "saveChanges": "Save changes",
+    "cancel": "Cancel",
     "delete": "Delete",
     "retry": "Try again",
     "loading": "Loading...",
@@ -101,6 +102,64 @@
     "user": {
       "invalidId": "The user ID is invalid.",
       "notFound": "The user was not found."
+    },
+    "leaderboard": {
+      "invalidCursor": "The leaderboard cursor is invalid.",
+      "invalidAlias": "The leaderboard alias is invalid.",
+      "aliasConflict": "The leaderboard alias is already in use.",
+      "invalidSeason": "The requested season is not available on this leaderboard."
+    },
+    "reports": {
+      "invalidQuery": "The report query is invalid."
+    },
+    "permissions": {
+      "rolesRequired": "Roles are required.",
+      "nullRole": "Roles must not contain null entries.",
+      "duplicateRole": "Duplicate role IDs are not allowed.",
+      "roleNotInGuild": "The role does not belong to this server.",
+      "modulesRequired": "Module IDs are required for the role.",
+      "duplicateModule": "Duplicate module IDs are not allowed for the role.",
+      "unknownModule": "The module ID is unknown.",
+      "revisionConflict": "Role permissions changed since they were loaded. Reload and try again."
+    },
+    "xp": {
+      "settingsInvalid": "The XP settings are invalid.",
+      "settings": {
+        "groupsRequired": "All XP setting groups are required.",
+        "collectionsRequired": "All XP rule collections are required.",
+        "messagePoints": "Message XP values are invalid.",
+        "messageCharacters": "Message character limits are invalid.",
+        "messageCooldown": "Message cooldown must not be negative.",
+        "voicePoints": "Voice XP values must not be negative.",
+        "voiceTiming": "Voice timing values are invalid.",
+        "reaction": "Reaction XP values are invalid.",
+        "eventInterest": "Event interest XP must not be negative.",
+        "thread": "Thread XP values are invalid.",
+        "channelMultipliers": "Channel multipliers require unique channels and non-negative values.",
+        "levelRoles": "Level roles require unique roles and positive levels."
+      },
+      "import": {
+        "guildMismatch": "The MEE6 export belongs to another server.",
+        "invalidPlayers": "The MEE6 players export is invalid."
+      }
+    },
+    "season": {
+      "invalidTimeZone": "The season time zone is invalid.",
+      "invalidSchedule": "The season schedule or naming template is invalid.",
+      "invalidTransition": "The requested season status transition is not allowed.",
+      "activeConflict": "Another season is already active for this server.",
+      "manualSchedule": "Manual schedules require explicit dates.",
+      "planConflict": "The requested seasons overlap with the existing plan."
+      ,"notResumable": "This season can only be resumed during its original time range."
+    },
+    "selfRoles": {
+      "invalidPanel": "The self-role panel is invalid.",
+      "tooManyMappings": "A self-role panel supports at most 20 mappings.",
+      "duplicateEmoji": "Each self-role mapping must use a unique emoji.",
+      "roleNotManageable": "The selected role cannot be managed by the bot.",
+      "channelNotUsable": "The selected channel cannot receive self-role messages.",
+      "emojiInvalid": "A self-role mapping contains an invalid emoji.",
+      "revisionConflict": "The self-role panel changed since it was loaded. Reload and try again."
     }
   }
 }

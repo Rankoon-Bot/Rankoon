@@ -21,7 +21,10 @@
   <div class="state-card" *ngIf="initialLoading()" role="status" aria-live="polite"><span class="loader" aria-hidden="true"></span><div><strong>{{ 'leaderboard.loading' | transloco }}</strong><p>{{ 'leaderboard.loadingHint' | transloco }}</p></div></div>
   <div class="state-card error-state" *ngIf="!initialLoading() && error() && !entries().length" role="alert"><strong>{{ error() }}</strong><a routerLink="/login" *ngIf="!auth.isAuthenticated()">{{ 'login.signIn' | transloco }}</a><button type="button" (click)="load(true)">{{ 'common.retry' | transloco }}</button></div>
 
-  <section class="ranking" *ngIf="entries().length" [attr.aria-label]="'leaderboard.title' | transloco" role="table">
+  <section class="ranking" *ngIf="page() as data" [attr.aria-label]="'leaderboard.title' | transloco" role="table">
+    <div class="scope-bar"><div class="scope-buttons" role="group" [attr.aria-label]="'leaderboard.scopeAria' | transloco"><button type="button" class="secondary" [class.selected]="scope() === 'CurrentSeason'" (click)="selectScope('CurrentSeason')" *ngIf="data.seasonsEnabled || data.currentSeason">{{ 'leaderboard.scopes.currentSeason' | transloco }}</button><button type="button" class="secondary" [class.selected]="scope() === 'Lifetime'" (click)="selectScope('Lifetime')">{{ 'leaderboard.scopes.lifetime' | transloco }}</button></div><div class="scope-trailing" *ngIf="data.historicalSeasons?.length"><button type="button" class="secondary" [class.selected]="scope() === 'Season'" (click)="selectScope('Season')">{{ 'leaderboard.scopes.history' | transloco }}</button><select *ngIf="scope() === 'Season'" [value]="selectedSeasonId()" (change)="selectHistoricalSeason($any($event.target).value)" [attr.aria-label]="'leaderboard.historyAria' | transloco"><option *ngFor="let season of data.historicalSeasons" [value]="season.id">{{ season.name }}</option></select></div></div>
+    <p class="scope-summary" *ngIf="scope() !== 'Lifetime'">{{ data.seasonName || data.currentSeason?.name }}@if (data.seasonName || data.currentSeason?.name) { <span> · </span> }{{ 'leaderboard.seasonScopeHint' | transloco }}</p>
+    <ng-container *ngIf="entries().length; else scopedEmpty">
     <div class="ranking-head" role="row"><span role="columnheader">{{ 'leaderboard.rank' | transloco }}</span><span role="columnheader">{{ 'leaderboard.member' | transloco }}</span><span role="columnheader">{{ 'common.level' | transloco }}</span><span role="columnheader">XP</span></div>
     <article class="rank-row" role="row" *ngFor="let entry of entries(); trackBy: trackEntry" [class.current-user]="entry.isCurrentUser" [attr.data-current-user]="entry.isCurrentUser">
       <div class="rank-number" role="cell">#{{ entry.rank }}</div>
@@ -34,7 +37,8 @@
     <div class="append-state error" *ngIf="error() && entries().length" role="alert">{{ error() }} <button type="button" (click)="loadMore()">{{ 'common.retry' | transloco }}</button></div>
     <div class="append-state" *ngIf="page() && !page()?.hasMore && !loadingMore()">{{ 'leaderboard.end' | transloco }}</div>
     <button class="load-more" type="button" *ngIf="page()?.hasMore && !loadingMore()" (click)="loadMore()">{{ 'common.loadMore' | transloco }}</button>
+    </ng-container><ng-template #scopedEmpty><div class="append-state">{{ scope() === 'CurrentSeason' ? ('leaderboard.emptySeasonHint' | transloco) : ('leaderboard.emptyHistoryHint' | transloco) }}</div></ng-template>
   </section>
 
-  <div class="state-card error-state" *ngIf="!initialLoading() && !error() && !entries().length"><strong>{{ 'leaderboard.emptyTitle' | transloco }}</strong><p>{{ 'leaderboard.emptyHint' | transloco }}</p></div>
+  <div class="state-card error-state" *ngIf="!initialLoading() && !error() && !entries().length && !page()"><strong>{{ 'leaderboard.emptyTitle' | transloco }}</strong><p>{{ 'leaderboard.emptyHint' | transloco }}</p></div>
 </section>

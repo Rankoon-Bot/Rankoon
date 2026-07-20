@@ -21,7 +21,7 @@ public sealed class LeaderboardController(LeaderboardService leaderboard, IGuild
 {
     [AllowAnonymous]
     [HttpGet("{alias}")]
-    public async Task<IActionResult> Page(string alias, [FromQuery] string? cursor, [FromQuery] int take = 25, [FromQuery] bool aroundMe = false)
+    public async Task<IActionResult> Page(string alias, [FromQuery] SeasonLeaderboardScope scope = SeasonLeaderboardScope.Lifetime, [FromQuery] string? seasonId = null, [FromQuery] string? cursor = null, [FromQuery] int take = 25, [FromQuery] bool aroundMe = false)
     {
         var settings = await leaderboard.FindSettingsAsync(alias, HttpContext.RequestAborted);
         if (settings == null) return NotFound();
@@ -31,11 +31,15 @@ public sealed class LeaderboardController(LeaderboardService leaderboard, IGuild
         var userId = authorization.GetDiscordUserId(User);
         try
         {
-            return Ok(await leaderboard.GetPageAsync(settings, isMember, userId, cursor, take, aroundMe && isMember, HttpContext.RequestAborted));
+            return Ok(await leaderboard.GetScopedPageAsync(settings, isMember, userId, scope, seasonId, cursor, take, aroundMe && isMember, HttpContext.RequestAborted));
         }
         catch (FormatException)
         {
             return this.ApiError("leaderboard.invalidCursor");
+        }
+        catch (ArgumentException)
+        {
+            return this.ApiError("leaderboard.invalidSeason");
         }
     }
 

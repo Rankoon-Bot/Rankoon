@@ -15,6 +15,13 @@ button.secondary:hover:not(:disabled) { background: var(--rk-surface-3); border-
 .toggle input:checked + span::after { background: var(--rk-success); transform: translateX(18px); }
 .toggle input:focus-visible + span { box-shadow: var(--rk-focus-ring); }
 .ranking { overflow: hidden; background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); }
+.scope-bar { display: flex; align-items: center; gap: var(--rk-space-3); padding: var(--rk-space-3) var(--rk-space-5); background: var(--rk-surface-2); border-bottom: 1px solid var(--rk-border-subtle); }
+.scope-buttons { display: flex; flex-wrap: wrap; gap: var(--rk-space-2); }
+.scope-trailing { display: flex; align-items: center; gap: var(--rk-space-2); margin-left: auto; }
+.scope-buttons button { min-height: 44px; padding: var(--rk-space-1) var(--rk-space-3); }
+.scope-buttons button.selected { color: var(--rk-text-strong); background: var(--rk-info-subtle); border-color: var(--rk-info); }
+.scope-bar select { width: auto; min-height: 44px; }
+.scope-summary { padding: var(--rk-space-2) var(--rk-space-5); color: var(--rk-text-muted); background: var(--rk-surface-2); border-bottom: 1px solid var(--rk-border-subtle); }
 .ranking-head, .rank-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) 120px 180px; gap: var(--rk-space-4); }
 .ranking-head { padding: var(--rk-space-3) var(--rk-space-5); color: var(--rk-text-muted); background: var(--rk-canvas-deep); border-bottom: 1px solid var(--rk-border-subtle); font-size: .78rem; text-transform: uppercase; }
 .rank-row { position: relative; align-items: center; min-height: 76px; padding: var(--rk-space-3) var(--rk-space-5); border-bottom: 1px solid var(--rk-border-subtle); transition: background-color var(--rk-motion-base), transform var(--rk-motion-base); animation: row-in var(--rk-motion-base) both; }
@@ -44,6 +51,6 @@ button.secondary:hover:not(:disabled) { background: var(--rk-surface-3); border-
 .loader { width: 28px; height: 28px; border: 3px solid var(--rk-border-strong); border-top-color: var(--rk-info); border-radius: 50%; animation: spin 800ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes row-in { from { opacity: 0; transform: translateY(var(--rk-space-2)); } }
-@media (max-width: 768px) { .hero, .privacy { align-items: stretch; flex-direction: column; } .hero button { width: 100%; } .ranking-head { display: none; } .rank-row { grid-template-columns: 52px minmax(0, 1fr) auto; min-height: 88px; padding: var(--rk-space-3) var(--rk-space-4); } .level { display: none; } .xp { align-self: center; } .xp strong { display: block; } }
+@media (max-width: 768px) { .hero, .privacy, .scope-bar, .scope-trailing { align-items: stretch; flex-direction: column; } .hero button, .scope-bar select { width: 100%; } .scope-trailing { margin-left: 0; } .ranking-head { display: none; } .rank-row { grid-template-columns: 52px minmax(0, 1fr) auto; min-height: 88px; padding: var(--rk-space-3) var(--rk-space-4); } .level { display: none; } .xp { align-self: center; } .xp strong { display: block; } }
 @media (max-width: 520px) { .rank-row { grid-template-columns: 44px minmax(0, 1fr); } .xp { grid-column: 2; text-align: left; } .avatar { display: none; } }
 @media (prefers-reduced-motion: reduce) { .rank-row, .loader { animation: none; } }

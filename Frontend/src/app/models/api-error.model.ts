@@ -24,7 +24,7 @@ export const KNOWN_API_ERROR_KEYS = [
   'server.internal', 'guild.invalidId', 'user.invalidId', 'user.notFound',
   'auth.refreshTokenRequired', 'auth.refreshTokenInvalid', 'auth.logoutFailed',
   'auth.tokenInvalid', 'auth.tokenMissing', 'auth.guildsUnavailable', 'auth.oauthFailed',
-  'leaderboard.invalidCursor', 'leaderboard.invalidAlias', 'leaderboard.aliasConflict',
+  'leaderboard.invalidCursor', 'leaderboard.invalidAlias', 'leaderboard.aliasConflict', 'leaderboard.invalidSeason',
   'reports.invalidQuery', 'permissions.rolesRequired', 'permissions.nullRole',
   'permissions.duplicateRole', 'permissions.roleNotInGuild', 'permissions.modulesRequired',
   'permissions.duplicateModule', 'permissions.unknownModule', 'permissions.revisionConflict',
@@ -32,5 +32,10 @@ export const KNOWN_API_ERROR_KEYS = [
   'xp.settings.messagePoints', 'xp.settings.messageCharacters', 'xp.settings.messageCooldown',
   'xp.settings.voicePoints', 'xp.settings.voiceTiming', 'xp.settings.reaction',
   'xp.settings.eventInterest', 'xp.settings.thread', 'xp.settings.channelMultipliers',
-  'xp.settings.levelRoles', 'xp.import.guildMismatch', 'xp.import.invalidPlayers'
+  'xp.settings.levelRoles', 'xp.import.guildMismatch', 'xp.import.invalidPlayers',
+  'season.invalidTimeZone', 'season.invalidSchedule', 'season.invalidTransition', 'season.activeConflict',
+  'season.manualSchedule', 'season.planConflict', 'season.notResumable',
+  'selfRoles.invalidPanel', 'selfRoles.tooManyMappings', 'selfRoles.duplicateEmoji',
+  'selfRoles.roleNotManageable', 'selfRoles.channelNotUsable', 'selfRoles.emojiInvalid',
+  'selfRoles.revisionConflict'
 ] as const;

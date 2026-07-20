@@ -90,13 +90,20 @@ public sealed class GuildMembershipService(DiscordShardedClient discord, Rankoon
                 Builders<MemberXp>.Filter.Where(x => x.GuildId == guildId && x.UserId == userId),
                 Builders<MemberXp>.Update.Set(x => x.IsCurrentMember, currentMembers.Contains(userId)).Set(x => x.UpdatedAt, DateTime.UtcNow))).ToList();
             await database.MemberXp.BulkWriteAsync(writes, new BulkWriteOptions { IsOrdered = false }, cancellationToken);
+            var seasonWrites = userIds.Select(userId => new UpdateManyModel<SeasonMemberXp>(
+                Builders<SeasonMemberXp>.Filter.Where(x => x.GuildId == guildId && x.UserId == userId),
+                Builders<SeasonMemberXp>.Update.Set(x => x.IsCurrentMember, currentMembers.Contains(userId)).Set(x => x.UpdatedAtUtc, timeProvider.GetUtcNow().UtcDateTime))).ToList();
+            if (seasonWrites.Count > 0) await database.SeasonMemberXp.BulkWriteAsync(seasonWrites, new BulkWriteOptions { IsOrdered = false }, cancellationToken);
         }
         finally { reconciliationLock.Release(); }
     }
 
     private Task UserJoinedAsync(SocketGuildUser user) => SetMembershipAsync(user.Guild.Id, user.Id, true);
     private Task UserLeftAsync(SocketGuild guild, SocketUser user) => SetMembershipAsync(guild.Id, user.Id, false);
-    private Task SetMembershipAsync(ulong guildId, ulong userId, bool current) => database.MemberXp.UpdateOneAsync(
-        x => x.GuildId == guildId && x.UserId == userId,
-        Builders<MemberXp>.Update.Set(x => x.IsCurrentMember, current).Set(x => x.UpdatedAt, DateTime.UtcNow));
+    private async Task SetMembershipAsync(ulong guildId, ulong userId, bool current)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        await database.MemberXp.UpdateOneAsync(x => x.GuildId == guildId && x.UserId == userId, Builders<MemberXp>.Update.Set(x => x.IsCurrentMember, current).Set(x => x.UpdatedAt, now));
+        await database.SeasonMemberXp.UpdateManyAsync(x => x.GuildId == guildId && x.UserId == userId, Builders<SeasonMemberXp>.Update.Set(x => x.IsCurrentMember, current).Set(x => x.UpdatedAtUtc, now));
+    }
 }

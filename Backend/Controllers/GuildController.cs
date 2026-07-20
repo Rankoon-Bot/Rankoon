@@ -160,13 +160,26 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
             var guild = discord.GetGuild(id)!;
             var created = await guild.CreateVoiceChannelAsync(string.IsNullOrWhiteSpace(hub.HubChannelName) ? "VC erstellen" : hub.HubChannelName, options => options.CategoryId = hub.CategoryId);
             hub.JoinChannelId = created.Id;
+            hub.IsManagedChannel = true;
         }
+        else hub.IsManagedChannel = false;
         await database.VcHubs.InsertOneAsync(hub, cancellationToken: HttpContext.RequestAborted);
         await WriteActivityAsync(id, ReportNames.VoiceHubCreated, metadata: new Dictionary<string, object?> { ["hubId"] = hub.Id, ["channelId"] = hub.JoinChannelId });
         return Ok(hub);
     }
     [HttpPut("vc-hubs/{hubId}")]
-    public async Task<IActionResult> UpdateHub(string guildId, string hubId, [FromBody] VcHub hub) { var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.VoiceHubs); if (error != null) return error; hub.Id = hubId; hub.GuildId = id; var result = await database.VcHubs.ReplaceOneAsync(x => x.GuildId == id && x.Id == hubId, hub, cancellationToken: HttpContext.RequestAborted); if (result.MatchedCount == 0) return NotFound(); await WriteActivityAsync(id, ReportNames.VoiceHubUpdated, metadata: new Dictionary<string, object?> { ["hubId"] = hubId }); return Ok(hub); }
+    public async Task<IActionResult> UpdateHub(string guildId, string hubId, [FromBody] VcHub hub)
+    {
+        var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.VoiceHubs); if (error != null) return error;
+        var existingHub = await database.VcHubs.Find(x => x.GuildId == id && x.Id == hubId).FirstOrDefaultAsync(HttpContext.RequestAborted);
+        if (existingHub == null) return NotFound();
+
+        hub.Id = hubId;
+        hub.GuildId = id;
+        await hubs.UpdateHubAsync(discord.GetGuild(id)!, existingHub, hub, HttpContext.RequestAborted);
+        await WriteActivityAsync(id, ReportNames.VoiceHubUpdated, metadata: new Dictionary<string, object?> { ["hubId"] = hubId });
+        return Ok(hub);
+    }
     [HttpDelete("vc-hubs/{hubId}")]
     public async Task<IActionResult> DeleteHub(string guildId, string hubId)
     {

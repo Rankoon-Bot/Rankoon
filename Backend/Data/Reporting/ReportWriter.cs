@@ -25,7 +25,7 @@ public sealed class ReportWriter(RankoonDbContext database, TimeProvider timePro
     private static readonly HashSet<string> AllowedMetadata = new(StringComparer.Ordinal)
     {
         "amount", "channelId", "command", "count", "enabled", "errorType", "eventId", "hubId",
-        "imported", "memberId", "source", "state", "targetId", "userId", "voiceChannelId"
+        "imported", "memberId", "source", "state", "targetId", "userId", "voiceChannelId", "seasonId", "sequence", "grantKey"
     };
 
     public Task WriteAsync(ReportWrite report, CancellationToken cancellationToken = default)

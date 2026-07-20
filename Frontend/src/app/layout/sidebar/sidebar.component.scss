@@ -41,7 +41,8 @@
     color: var(--rk-text-strong);
   }
 
-  &.active {
+  &.active,
+  .nav-item.active > & {
     background: linear-gradient(90deg, var(--rk-brand-subtle), transparent);
     color: var(--rk-text-strong);
     border-left-color: var(--rk-brand);

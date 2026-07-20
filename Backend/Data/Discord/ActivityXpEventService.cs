@@ -3,11 +3,13 @@ using Discord.Rest;
 using Discord.WebSocket;
 using Rankoon.Data.Xp;
 using Rankoon.Data.Reporting;
+using Rankoon.Data.MongoDb;
+using MongoDB.Driver;
 
 namespace Rankoon.Data.Discord;
 
 /// <summary>Gateway adapters for non-voice XP sources. All awards use the idempotent ledger pipeline.</summary>
-public sealed class ActivityXpEventService(DiscordShardedClient client, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, ILogger<ActivityXpEventService> logger) : IHostedService
+public sealed class ActivityXpEventService(DiscordShardedClient client, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, RankoonDbContext database, ILogger<ActivityXpEventService> logger) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -57,6 +59,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
         var reactingUser = reaction.User.IsSpecified ? reaction.User.Value : null;
         var reactionChannel = await channel.GetOrDownloadAsync();
         if (reactingUser?.IsBot != false || reactionChannel is not SocketGuildChannel guildChannel) return;
+        if (await database.SelfRolePanels.Find(panel => panel.GuildId == guildChannel.Guild.Id && panel.MessageId == message.Id && panel.Enabled).AnyAsync()) return;
         var settings = await xp.GetSettingsAsync(guildChannel.Guild.Id);
         if (!settings.Enabled || !settings.Reaction.Enabled || settings.ExcludedChannelIds.Contains(guildChannel.Id)) return;
         var member = guildChannel.Guild.GetUser(reaction.UserId); if (member == null || member.Roles.Any(role => settings.ExcludedRoleIds.Contains(role.Id))) return;

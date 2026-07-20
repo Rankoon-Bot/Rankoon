@@ -22,7 +22,7 @@ interface MenuItem {
     <aside class="sidebar" [class.mobile-open]="layoutState.mobileNavigationOpen()">
       <nav class="sidebar-nav">
         <ul class="nav-list">
-          <li *ngFor="let item of menuItems()" class="nav-item">
+          <li *ngFor="let item of menuItems()" class="nav-item" routerLinkActive="active">
             <a 
                 [routerLink]="item.route" (click)="layoutState.closeMobileNavigation()"
               routerLinkActive="active"
@@ -80,27 +80,24 @@ export class SidebarComponent {
     const hasModule = (moduleId: GuildModuleId) => capabilities.isOwner || capabilities.moduleIds.includes(moduleId);
     if (hasModule('xp')) items.push({
        label: this.i18n.translate('nav.xp'),
-      route: '/xp',
-      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3.1 6.3L22 9.3l-5 4.9 1.2 6.8-6.2-3.3-6.2 3.3L7 14.2 2 9.3l6.9-1z"/></svg>`
+       route: '/xp',
+       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3.1 6.3L22 9.3l-5 4.9 1.2 6.8-6.2-3.3-6.2 3.3L7 14.2 2 9.3l6.9-1z"/></svg>`,
+        children: [
+          { label: this.i18n.translate('nav.seasons'), route: '/xp/seasons', icon: '' },
+          ...(hasModule('leaderboard') ? [{ label: this.i18n.translate('nav.leaderboardSettings'), route: '/server-config/leaderboard', icon: '' }] : [])
+        ]
     });
     if (hasModule('voice-hubs')) items.push({
        label: this.i18n.translate('nav.voiceHubs'),
       route: '/vc-hubs',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a9 9 0 0 0-9 9v4a3 3 0 0 0 3 3h2v-7H5.1A7 7 0 0 1 19 10h-3v7h2a3 3 0 0 0 3-3v-4a9 9 0 0 0-9-9Z"/><path d="M12 19v4"/></svg>`
     });
-
-    if (hasModule('leaderboard')) items.push({
-       label: this.i18n.translate('nav.leaderboardSettings'),
-      route: '/server-config/leaderboard',
-      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="3" width="20" height="4" rx="1"/>
-        <rect x="2" y="9" width="20" height="4" rx="1"/>
-        <rect x="2" y="15" width="20" height="4" rx="1"/>
-        <line x1="6" y1="5" x2="6.01" y2="5"/>
-        <line x1="6" y1="11" x2="6.01" y2="11"/>
-        <line x1="6" y1="17" x2="6.01" y2="17"/>
-      </svg>`
+    if (hasModule('self-roles')) items.push({
+       label: this.i18n.translate('nav.selfRoles'),
+      route: '/self-roles',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/><path d="m9 12 2 2 4-4"/></svg>`
     });
+
     if (capabilities.isOwner) items.push({
        label: this.i18n.translate('nav.roles'),
       route: '/server-config/roles',

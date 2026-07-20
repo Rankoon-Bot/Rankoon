@@ -39,6 +39,10 @@ public static class ReportNames
     public const string VoiceChannelCreated = "voice.channel.created";
     public const string VoiceChannelDeleted = "voice.channel.deleted";
     public const string VoiceOwnershipTransferred = "voice.ownership.transferred";
+    public const string XpProjectionRepaired = "xp.projection.repaired";
+    public const string SeasonStarted = "season.started";
+    public const string SeasonClosed = "season.closed";
+    public const string SeasonCarryOverApplied = "season.carryover.applied";
 }
 
 public sealed record ReportWrite(

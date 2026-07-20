@@ -20,6 +20,7 @@
     "saving": "Wird gespeichert...",
     "saved": "Gespeichert",
     "saveChanges": "Änderungen speichern",
+    "cancel": "Abbrechen",
     "delete": "Löschen",
     "retry": "Erneut versuchen",
     "loading": "Wird geladen...",
@@ -101,6 +102,64 @@
     "user": {
       "invalidId": "Die Nutzer-ID ist ungültig.",
       "notFound": "Der Nutzer wurde nicht gefunden."
+    },
+    "leaderboard": {
+      "invalidCursor": "Der Ranglisten-Cursor ist ungültig.",
+      "invalidAlias": "Der Ranglisten-Alias ist ungültig.",
+      "aliasConflict": "Der Ranglisten-Alias wird bereits verwendet.",
+      "invalidSeason": "Die angeforderte Season ist für diese Rangliste nicht verfügbar."
+    },
+    "reports": {
+      "invalidQuery": "Die Log-Abfrage ist ungültig."
+    },
+    "permissions": {
+      "rolesRequired": "Rollen sind erforderlich.",
+      "nullRole": "Rollen dürfen keine leeren Einträge enthalten.",
+      "duplicateRole": "Doppelte Rollen-IDs sind nicht erlaubt.",
+      "roleNotInGuild": "Die Rolle gehört nicht zu diesem Server.",
+      "modulesRequired": "Für die Rolle sind Modul-IDs erforderlich.",
+      "duplicateModule": "Doppelte Modul-IDs sind nicht erlaubt.",
+      "unknownModule": "Die Modul-ID ist unbekannt.",
+      "revisionConflict": "Die Rollenberechtigungen wurden seit dem Laden geändert. Bitte lade sie neu."
+    },
+    "xp": {
+      "settingsInvalid": "Die XP-Einstellungen sind ungültig.",
+      "settings": {
+        "groupsRequired": "Alle XP-Einstellungsgruppen sind erforderlich.",
+        "collectionsRequired": "Alle XP-Regelsammlungen sind erforderlich.",
+        "messagePoints": "Die Nachrichten-XP-Werte sind ungültig.",
+        "messageCharacters": "Die Zeichenlimits für Nachrichten-XP sind ungültig.",
+        "messageCooldown": "Der Nachrichten-XP-Cooldown darf nicht negativ sein.",
+        "voicePoints": "Die Voice-XP-Werte dürfen nicht negativ sein.",
+        "voiceTiming": "Die Voice-XP-Zeitwerte sind ungültig.",
+        "reaction": "Die Reaction-XP-Werte sind ungültig.",
+        "eventInterest": "Die Event-Interesse-XP dürfen nicht negativ sein.",
+        "thread": "Die Thread-XP-Werte sind ungültig.",
+        "channelMultipliers": "Kanal-Multiplikatoren benötigen eindeutige Kanäle und nicht-negative Werte.",
+        "levelRoles": "Level-Rollen benötigen eindeutige Rollen und positive Level."
+      },
+      "import": {
+        "guildMismatch": "Der MEE6-Export gehört zu einem anderen Server.",
+        "invalidPlayers": "Der MEE6-Spielerexport ist ungültig."
+      }
+    },
+    "season": {
+      "invalidTimeZone": "Die Zeitzone der Season ist ungültig.",
+      "invalidSchedule": "Der Season-Zeitplan oder das Namens-Template ist ungültig.",
+      "invalidTransition": "Der angeforderte Season-Statusübergang ist nicht zulässig.",
+      "activeConflict": "Für diesen Server ist bereits eine andere Season aktiv.",
+      "manualSchedule": "Manuelle Zeitpläne benötigen explizite Zeitpunkte.",
+      "planConflict": "Die angeforderten Seasons überschneiden sich mit dem bestehenden Plan."
+      ,"notResumable": "Diese Season kann nur innerhalb ihres ursprünglichen Zeitraums fortgesetzt werden."
+    },
+    "selfRoles": {
+      "invalidPanel": "Das Selbstrollen-Panel ist ungültig.",
+      "tooManyMappings": "Ein Selbstrollen-Panel unterstützt maximal 20 Zuordnungen.",
+      "duplicateEmoji": "Jede Selbstrollen-Zuordnung muss ein eindeutiges Emoji verwenden.",
+      "roleNotManageable": "Die ausgewählte Rolle kann vom Bot nicht verwaltet werden.",
+      "channelNotUsable": "Der ausgewählte Kanal kann keine Selbstrollen-Nachrichten empfangen.",
+      "emojiInvalid": "Eine Selbstrollen-Zuordnung enthält ein ungültiges Emoji.",
+      "revisionConflict": "Das Selbstrollen-Panel wurde seit dem Laden geändert. Bitte lade es neu."
     }
   }
 }

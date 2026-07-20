@@ -88,6 +88,16 @@ export const routes: Routes = [
         resolve: { translations: translationScope('xp') },
       },
       {
+        path: 'xp/seasons',
+        loadComponent: () =>
+          import('./pages/season-config/season-config.component').then(
+            (c) => c.SeasonConfigComponent,
+          ),
+        canActivate: [guildGuard, moduleGuard],
+        data: { module: 'xp' },
+        resolve: { translations: translationScope('xp') },
+      },
+      {
         path: 'vc-hubs',
         loadComponent: () =>
           import('./pages/vc-hubs/vc-hubs.component').then(
@@ -96,6 +106,16 @@ export const routes: Routes = [
         canActivate: [guildGuard, moduleGuard],
         data: { module: 'voice-hubs' },
         resolve: { translations: translationScope('voice-hubs') },
+      },
+      {
+        path: 'self-roles',
+        loadComponent: () =>
+          import('./pages/self-roles/self-roles.component').then(
+            (c) => c.SelfRolesComponent,
+          ),
+        canActivate: [guildGuard, moduleGuard],
+        data: { module: 'self-roles' },
+        resolve: { translations: translationScope('self-roles') },
       },
       {
         path: 'server-config',

@@ -82,10 +82,18 @@ public sealed class XpLedgerEntry
     [BsonElement("grant_key")] public string GrantKey { get; set; } = string.Empty;
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("user_id")] public ulong UserId { get; set; }
+    [BsonElement("display_name")] public string DisplayName { get; set; } = string.Empty;
     [BsonElement("source")] public string Source { get; set; } = string.Empty;
     [BsonElement("amount")] public decimal Amount { get; set; }
     [BsonElement("channel_id")] public ulong? ChannelId { get; set; }
     [BsonElement("created_at")] public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [BsonElement("occurred_at_utc")] public DateTime OccurredAtUtc { get; set; }
+    [BsonElement("season_id"), BsonRepresentation(BsonType.ObjectId)] public string? SeasonId { get; set; }
+    [BsonElement("period_starts_at_utc")] public DateTime? PeriodStartsAtUtc { get; set; }
+    [BsonElement("period_ends_at_utc")] public DateTime? PeriodEndsAtUtc { get; set; }
+    [BsonElement("reverses_grant_key")] public string? ReversesGrantKey { get; set; }
+    [BsonElement("projection_status"), BsonRepresentation(BsonType.String)] public SeasonProjectionStatus ProjectionStatus { get; set; } = SeasonProjectionStatus.Pending;
+    [BsonElement("projected_at_utc")] public DateTime? ProjectedAtUtc { get; set; }
 }
 
 public sealed class VoiceSession
@@ -105,6 +113,7 @@ public sealed class VcHub
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("join_channel_id")] public ulong JoinChannelId { get; set; }
     [BsonElement("hub_channel_name")] public string HubChannelName { get; set; } = "VC erstellen";
+    [BsonElement("is_managed_channel")] public bool IsManagedChannel { get; set; }
     [BsonElement("category_id")] public ulong? CategoryId { get; set; }
     [BsonElement("name_template")] public string NameTemplate { get; set; } = "{username}s Kanal";
     [BsonElement("user_limit")] public int UserLimit { get; set; }

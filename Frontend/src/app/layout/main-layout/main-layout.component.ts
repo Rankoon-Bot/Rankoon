@@ -5,6 +5,8 @@ import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { AuthStore } from '../../store/auth.store';
 import { ModuleTranslationService } from '../../i18n/module-translation.service';
+import { AppStore } from '../../store/app.store';
+import { GuildAccessService } from '../../services/guild-access.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -33,11 +35,20 @@ import { ModuleTranslationService } from '../../i18n/module-translation.service'
 export class MainLayoutComponent {
   readonly authStore = inject(AuthStore);
   readonly translations = inject(ModuleTranslationService);
+  private readonly appStore = inject(AppStore);
+  private readonly guildAccess = inject(GuildAccessService);
 
   constructor() {
     effect(() => {
-      if (this.authStore.isAuthenticated())
-        void this.translations.load('navigation');
+      if (!this.authStore.isAuthenticated()) return;
+
+      void this.translations.load('navigation');
+
+      const guild = this.appStore.selectedGuild();
+      if (!guild?.botInstalled) return;
+
+      // Public ranking routes do not run a capability guard after a page reload.
+      this.guildAccess.loadCapabilities(guild.id).subscribe({ error: () => undefined });
     });
   }
 }

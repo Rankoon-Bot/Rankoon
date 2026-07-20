@@ -11,6 +11,7 @@ public static class GuildModuleIds
     public const string Leaderboard = "leaderboard";
     public const string VoiceHubs = "voice-hubs";
     public const string Reporting = "reporting";
+    public const string SelfRoles = "self-roles";
 }
 
 public sealed record GuildModuleDescriptor(string Id);
@@ -28,7 +29,8 @@ public sealed class GuildModuleRegistry : IGuildModuleRegistry
         new(GuildModuleIds.Xp),
         new(GuildModuleIds.Leaderboard),
         new(GuildModuleIds.VoiceHubs),
-        new(GuildModuleIds.Reporting)
+        new(GuildModuleIds.Reporting),
+        new(GuildModuleIds.SelfRoles)
     ];
 
     public bool Contains(string moduleId) => Modules.Any(module => module.Id == moduleId);

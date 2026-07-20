@@ -12,6 +12,7 @@ describe('translation catalogs', () => {
     'leaderboard-settings',
     'role-permissions',
     'reporting',
+    'self-roles',
     'xp',
   ];
   const flatten = (value: unknown, prefix = ''): string[] =>

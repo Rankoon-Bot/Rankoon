@@ -1,0 +1,49 @@
+{
+  "selfRoles": {
+    "eyebrow": "ROLLENAUTOMATISIERUNG",
+    "title": "Selbstrollen",
+    "subtitle": "Mitglieder können freigegebene Rollen über eine Nachricht in einem Textkanal auswählen.",
+    "create": "Panel erstellen",
+    "loading": "Selbstrollen-Panels werden geladen...",
+    "emptyTitle": "Noch keine Selbstrollen-Panels",
+    "emptyDescription": "Erstelle ein Panel, damit Mitglieder Rollen auswählen können.",
+    "panel": "Panel",
+    "newPanel": "Neues Panel",
+    "channel": "Textkanal",
+    "channelPlaceholder": "Textkanal auswählen",
+    "titleLabel": "Panel-Titel",
+    "description": "Beschreibung",
+    "color": "Akzentfarbe",
+    "enabled": "Panel aktiv",
+    "mappings": "Rollenzuordnungen",
+    "mappingHint": "Jede Rolle und jedes Emoji kann nur einmal verwendet werden. Maximal 20 Zuordnungen.",
+    "addMapping": "Zuordnung hinzufügen",
+    "emoji": "Emoji",
+    "unicode": "Unicode",
+    "unicodeInput": "Beliebiges Unicode-Emoji",
+    "unicodeInputHint": "Emoji einfügen",
+    "custom": "Server-Emoji",
+    "searchEmoji": "Emoji suchen",
+    "searchUnicode": "Unicode-Emoji suchen",
+    "role": "Rolle",
+    "rolePlaceholder": "Rolle auswählen",
+    "moveUp": "Zuordnung nach oben verschieben",
+    "moveDown": "Zuordnung nach unten verschieben",
+    "removeMapping": "Zuordnung entfernen",
+    "save": "Panel speichern",
+    "saved": "Selbstrollen-Panel gespeichert.",
+    "deleteConfirm": "Dieses Selbstrollen-Panel löschen?",
+    "maxMappings": "Ein Panel kann maximal 20 Rollenzuordnungen enthalten.",
+    "validation": {
+      "channel": "Wähle einen Textkanal aus.",
+      "title": "Gib einen Panel-Titel ein.",
+      "mappings": "Füge mindestens eine Rollenzuordnung hinzu.",
+      "roles": "Jede Rolle kann nur einmal zugeordnet werden.",
+      "emojis": "Jedes Emoji kann nur einmal zugeordnet werden."
+    }
+  },
+  "errors": {
+    "selfRolesLoad": "Selbstrollen-Panels und Ressourcen konnten nicht geladen werden.",
+    "selfRoleDelete": "Das Selbstrollen-Panel konnte nicht gelöscht werden."
+  }
+}

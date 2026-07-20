@@ -47,6 +47,7 @@ public static class ApiErrorCatalog
         ["leaderboard.invalidCursor"] = new("leaderboard.invalidCursor", "The leaderboard cursor is invalid.", StatusCodes.Status400BadRequest),
         ["leaderboard.invalidAlias"] = new("leaderboard.invalidAlias", "The leaderboard alias is invalid.", StatusCodes.Status400BadRequest),
         ["leaderboard.aliasConflict"] = new("leaderboard.aliasConflict", "The leaderboard alias is already in use.", StatusCodes.Status409Conflict),
+        ["leaderboard.invalidSeason"] = new("leaderboard.invalidSeason", "The requested season is not available on this leaderboard.", StatusCodes.Status400BadRequest),
         ["reports.invalidQuery"] = new("reports.invalidQuery", "The report query is invalid.", StatusCodes.Status400BadRequest),
         ["permissions.rolesRequired"] = new("permissions.rolesRequired", "Roles are required.", StatusCodes.Status400BadRequest),
         ["permissions.nullRole"] = new("permissions.nullRole", "Roles must not contain null entries.", StatusCodes.Status400BadRequest),
@@ -70,7 +71,21 @@ public static class ApiErrorCatalog
         ["xp.settings.channelMultipliers"] = new("xp.settings.channelMultipliers", "Channel multipliers require unique channels and non-negative values.", StatusCodes.Status400BadRequest),
         ["xp.settings.levelRoles"] = new("xp.settings.levelRoles", "Level roles require unique roles and positive levels.", StatusCodes.Status400BadRequest),
         ["xp.import.guildMismatch"] = new("xp.import.guildMismatch", "The MEE6 export belongs to another guild.", StatusCodes.Status400BadRequest),
-        ["xp.import.invalidPlayers"] = new("xp.import.invalidPlayers", "The MEE6 players export is invalid.", StatusCodes.Status400BadRequest)
+        ["xp.import.invalidPlayers"] = new("xp.import.invalidPlayers", "The MEE6 players export is invalid.", StatusCodes.Status400BadRequest),
+        ["season.invalidTimeZone"] = new("season.invalidTimeZone", "The season time zone is invalid.", StatusCodes.Status400BadRequest),
+        ["season.invalidSchedule"] = new("season.invalidSchedule", "The season schedule or naming template is invalid.", StatusCodes.Status400BadRequest),
+        ["season.invalidTransition"] = new("season.invalidTransition", "The requested season status transition is not allowed.", StatusCodes.Status409Conflict),
+        ["season.activeConflict"] = new("season.activeConflict", "Another season is already active for this guild.", StatusCodes.Status409Conflict),
+        ["season.manualSchedule"] = new("season.manualSchedule", "Manual schedules must be created with explicit dates.", StatusCodes.Status400BadRequest),
+        ["season.planConflict"] = new("season.planConflict", "The requested seasons overlap with the existing plan.", StatusCodes.Status409Conflict),
+        ["season.notResumable"] = new("season.notResumable", "This season can only be resumed during its original time range.", StatusCodes.Status409Conflict),
+        ["selfRoles.invalidPanel"] = new("selfRoles.invalidPanel", "The self-role panel is invalid.", StatusCodes.Status400BadRequest),
+        ["selfRoles.tooManyMappings"] = new("selfRoles.tooManyMappings", "A self-role panel supports at most 20 mappings.", StatusCodes.Status400BadRequest),
+        ["selfRoles.duplicateEmoji"] = new("selfRoles.duplicateEmoji", "Each self-role mapping must use a unique emoji.", StatusCodes.Status400BadRequest),
+        ["selfRoles.roleNotManageable"] = new("selfRoles.roleNotManageable", "The selected role cannot be managed by the bot.", StatusCodes.Status400BadRequest),
+        ["selfRoles.channelNotUsable"] = new("selfRoles.channelNotUsable", "The selected channel cannot receive self-role messages.", StatusCodes.Status400BadRequest),
+        ["selfRoles.emojiInvalid"] = new("selfRoles.emojiInvalid", "A self-role mapping contains an invalid emoji.", StatusCodes.Status400BadRequest),
+        ["selfRoles.revisionConflict"] = new("selfRoles.revisionConflict", "The self-role panel changed since it was loaded. Reload and try again.", StatusCodes.Status409Conflict)
     };
 
     public static IReadOnlyCollection<ApiErrorDefinition> All { get; } = Definitions.Values.ToArray();

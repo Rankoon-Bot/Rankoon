@@ -18,7 +18,18 @@
     "loadingMore": "Loading more ranks",
     "end": "End of leaderboard",
     "emptyTitle": "No ranks yet",
-    "emptyHint": "Members will appear here once they earn XP."
+    "emptyHint": "Members will appear here once they earn XP.",
+    "scopeAria": "Leaderboard period",
+    "historyAria": "Historical season",
+    "noActiveSeason": "There is no active season.",
+    "seasonScopeHint": "Season leaderboard",
+    "emptySeasonHint": "No XP has been earned in this season yet.",
+    "emptyHistoryHint": "No final standings are available for this season.",
+    "scopes": {
+      "lifetime": "All-time XP",
+      "currentSeason": "Season XP",
+      "history": "Season history"
+    }
   },
   "errors": {
     "leaderboardLogin": "This leaderboard is only visible to server members. Please sign in.",
@@ -32,7 +43,8 @@
     "leaderboard": {
       "invalidCursor": "The leaderboard position is invalid.",
       "invalidAlias": "The leaderboard alias is invalid.",
-      "aliasConflict": "The leaderboard alias is already in use."
+      "aliasConflict": "The leaderboard alias is already in use.",
+      "invalidSeason": "The requested season is not available on this leaderboard."
     }
   }
 }

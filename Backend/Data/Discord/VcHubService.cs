@@ -116,7 +116,7 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
         await gate.WaitAsync(cancellationToken);
         try
         {
-            var channel = guild.GetVoiceChannel(hub.JoinChannelId);
+            var channel = hub.IsManagedChannel ? guild.GetVoiceChannel(hub.JoinChannelId) : null;
             if (channel != null)
             {
                 _deletingHubChannels.TryAdd(channel.Id, 0);
@@ -132,6 +132,41 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
             }
 
             await database.VcHubs.DeleteOneAsync(x => x.Id == hub.Id, cancellationToken);
+        }
+        finally { gate.Release(); }
+    }
+
+    public async Task UpdateHubAsync(SocketGuild guild, VcHub existingHub, VcHub updatedHub, CancellationToken cancellationToken)
+    {
+        var gate = _hubReconciliationGates.GetOrAdd(existingHub.Id!, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (updatedHub.JoinChannelId == 0)
+            {
+                var channel = await guild.CreateVoiceChannelAsync(string.IsNullOrWhiteSpace(updatedHub.HubChannelName) ? "VC erstellen" : updatedHub.HubChannelName, options => options.CategoryId = updatedHub.CategoryId);
+                updatedHub.JoinChannelId = channel.Id;
+                updatedHub.IsManagedChannel = true;
+            }
+            else if (updatedHub.JoinChannelId == existingHub.JoinChannelId)
+            {
+                updatedHub.IsManagedChannel = existingHub.IsManagedChannel;
+                if (existingHub.IsManagedChannel && existingHub.CategoryId != updatedHub.CategoryId && guild.GetVoiceChannel(existingHub.JoinChannelId) is { } channel)
+                    await channel.ModifyAsync(options => options.CategoryId = updatedHub.CategoryId);
+            }
+            else
+            {
+                updatedHub.IsManagedChannel = false;
+            }
+
+            if (existingHub.IsManagedChannel && existingHub.JoinChannelId != updatedHub.JoinChannelId && guild.GetVoiceChannel(existingHub.JoinChannelId) is { } previousChannel)
+            {
+                _deletingHubChannels.TryAdd(previousChannel.Id, 0);
+                try { await previousChannel.DeleteAsync(); }
+                finally { _deletingHubChannels.TryRemove(previousChannel.Id, out _); }
+            }
+
+            await database.VcHubs.ReplaceOneAsync(x => x.GuildId == updatedHub.GuildId && x.Id == updatedHub.Id, updatedHub, cancellationToken: cancellationToken);
         }
         finally { gate.Release(); }
     }
@@ -153,7 +188,7 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
             var currentHub = await database.VcHubs.Find(x => x.Id == hub.Id).FirstOrDefaultAsync(cancellationToken);
             if (currentHub == null || guild.GetVoiceChannel(currentHub.JoinChannelId) != null) return;
             var channel = await guild.CreateVoiceChannelAsync(string.IsNullOrWhiteSpace(currentHub.HubChannelName) ? "VC erstellen" : currentHub.HubChannelName, options => options.CategoryId = currentHub.CategoryId);
-            await database.VcHubs.UpdateOneAsync(x => x.Id == currentHub.Id, Builders<VcHub>.Update.Set(x => x.JoinChannelId, channel.Id), cancellationToken: cancellationToken);
+            await database.VcHubs.UpdateOneAsync(x => x.Id == currentHub.Id, Builders<VcHub>.Update.Set(x => x.JoinChannelId, channel.Id).Set(x => x.IsManagedChannel, true), cancellationToken: cancellationToken);
             logger.LogInformation("Recreated VC hub channel {ChannelId} for hub {HubId}", channel.Id, currentHub.Id);
         }
         finally { gate.Release(); }

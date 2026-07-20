@@ -14,6 +14,7 @@ export type TranslationScope =
   | 'leaderboard-settings'
   | 'role-permissions'
   | 'reporting'
+  | 'self-roles'
   | 'xp';
 
 @Injectable({ providedIn: 'root' })

@@ -223,7 +223,11 @@ Rankoon's generated bot invitation requests the `bot` and
 | Send Messages | Permission included by the configured bot invite |
 | Manage Channels | Create, update, and delete hub and temporary channels |
 | Move Members | Move members from hubs and support voice owner controls |
-| Manage Roles | Synchronize level reward roles |
+| Manage Roles | Synchronize level reward roles and assign self roles |
+| Embed Links | Publish self-role panel embeds |
+| Add Reactions | Seed the configured self-role reactions |
+| Read Message History | Reconcile self-role panel messages after reconnects |
+| Manage Messages | Update panel reactions and delete published panels |
 
 Rankoon does not request Administrator. Discord category overrides can still
 deny a permission, and Manage Roles works only for roles below the bot's highest

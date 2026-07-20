@@ -1,0 +1,49 @@
+{
+  "selfRoles": {
+    "eyebrow": "ROLE AUTOMATION",
+    "title": "Self roles",
+    "subtitle": "Let members assign approved roles from a message in a text channel.",
+    "create": "Create panel",
+    "loading": "Loading self-role panels...",
+    "emptyTitle": "No self-role panels yet",
+    "emptyDescription": "Create a panel to let members choose their roles.",
+    "panel": "Panel",
+    "newPanel": "New panel",
+    "channel": "Text channel",
+    "channelPlaceholder": "Choose a text channel",
+    "titleLabel": "Panel title",
+    "description": "Description",
+    "color": "Accent color",
+    "enabled": "Panel enabled",
+    "mappings": "Role mappings",
+    "mappingHint": "Each role and emoji can only be used once. Up to 20 mappings.",
+    "addMapping": "Add mapping",
+    "emoji": "Emoji",
+    "unicode": "Unicode",
+    "unicodeInput": "Any Unicode emoji",
+    "unicodeInputHint": "Paste an emoji",
+    "custom": "Server emoji",
+    "searchEmoji": "Search emoji",
+    "searchUnicode": "Search unicode emoji",
+    "role": "Role",
+    "rolePlaceholder": "Choose a role",
+    "moveUp": "Move mapping up",
+    "moveDown": "Move mapping down",
+    "removeMapping": "Remove mapping",
+    "save": "Save panel",
+    "saved": "Self-role panel saved.",
+    "deleteConfirm": "Delete this self-role panel?",
+    "maxMappings": "A panel can contain up to 20 role mappings.",
+    "validation": {
+      "channel": "Choose a text channel.",
+      "title": "Enter a panel title.",
+      "mappings": "Add at least one role mapping.",
+      "roles": "Each role can only be mapped once.",
+      "emojis": "Each emoji can only be mapped once."
+    }
+  },
+  "errors": {
+    "selfRolesLoad": "Could not load self-role panels and resources.",
+    "selfRoleDelete": "Could not delete the self-role panel."
+  }
+}
