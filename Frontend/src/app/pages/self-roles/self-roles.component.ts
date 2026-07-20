@@ -1,29 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { finalize, forkJoin } from 'rxjs';
+import 'emoji-picker-element';
 import { AppStore } from '../../store/app.store';
 import { ApiErrorService } from '../../services/api-error.service';
 import { GuildService, SelfRoleMapping, SelfRolePanel, SelfRoleResources } from '../../services/guild.service';
-
-interface UnicodeEmoji { value: string; name: string; }
-
-const UNICODE_EMOJIS: UnicodeEmoji[] = [
-  { value: '✅', name: 'check mark' }, { value: '🎮', name: 'video game' },
-  { value: '🎨', name: 'artist palette' }, { value: '🎵', name: 'music' },
-  { value: '📚', name: 'books' }, { value: '🏆', name: 'trophy' },
-  { value: '⚽', name: 'soccer ball' }, { value: '🎬', name: 'movie camera' },
-  { value: '💻', name: 'laptop' }, { value: '🌍', name: 'globe' },
-  { value: '🔥', name: 'fire' }, { value: '⭐', name: 'star' },
-  { value: '🎯', name: 'target' }, { value: '🛡️', name: 'shield' },
-  { value: '🧩', name: 'puzzle piece' }, { value: '🚀', name: 'rocket' },
-];
 
 @Component({
   selector: 'app-self-roles',
   standalone: true,
   imports: [CommonModule, FormsModule, TranslocoPipe],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './self-roles.component.html',
   styleUrls: ['./self-roles.component.scss'],
 })
@@ -41,9 +30,9 @@ export class SelfRolesComponent implements OnInit {
   readonly error = signal('');
   readonly message = signal('');
   readonly validationErrors = signal<string[]>([]);
-  readonly unicodeSearch = signal('');
+  readonly pickerIndex = signal<number | null>(null);
+  readonly pickerTab = signal<'server' | 'unicode'>('server');
   readonly customSearch = signal('');
-  readonly unicodeEmojis = UNICODE_EMOJIS;
 
   ngOnInit(): void { this.load(); }
 
@@ -69,11 +58,6 @@ export class SelfRolesComponent implements OnInit {
     return this.textChannels().find(channel => channel.id === channelId)?.name ?? channelId;
   }
 
-  filteredUnicode(): UnicodeEmoji[] {
-    const query = this.unicodeSearch().trim().toLowerCase();
-    return query ? UNICODE_EMOJIS.filter(emoji => emoji.name.includes(query) || emoji.value.includes(query)) : UNICODE_EMOJIS;
-  }
-
   filteredCustom(): SelfRoleResources['emojis'] {
     const query = this.customSearch().trim().toLowerCase();
     const emojis = this.resources()?.emojis ?? [];
@@ -94,9 +78,8 @@ export class SelfRolesComponent implements OnInit {
 
   addMapping(): void {
     const panel = this.editor();
-    const emoji = this.filteredUnicode()[0] ?? UNICODE_EMOJIS[0];
     if (!panel || panel.mappings.length >= 20) return;
-    panel.mappings.push({ emoji: { kind: 'Unicode', value: emoji.value, name: emoji.name }, roleId: '' });
+    panel.mappings.push({ emoji: { kind: 'Unicode', value: '✅', name: 'check mark' }, roleId: '' });
   }
 
   removeMapping(index: number): void { this.editor()?.mappings.splice(index, 1); }
@@ -108,16 +91,35 @@ export class SelfRolesComponent implements OnInit {
     [mappings[index], mappings[target]] = [mappings[target], mappings[index]];
   }
 
-  chooseUnicode(mapping: SelfRoleMapping, emoji: UnicodeEmoji): void {
-    mapping.emoji = { kind: 'Unicode', value: emoji.value, name: emoji.name };
-  }
-
-  setUnicode(mapping: SelfRoleMapping, value: string): void {
-    mapping.emoji = { kind: 'Unicode', value, name: value };
-  }
-
   chooseCustom(mapping: SelfRoleMapping, emoji: SelfRoleResources['emojis'][number]): void {
+    if (!emoji.available) return;
     mapping.emoji = { kind: 'Custom', value: emoji.id, name: emoji.name };
+  }
+
+  openEmojiPicker(index: number): void {
+    this.pickerIndex.set(index);
+    this.pickerTab.set((this.resources()?.emojis.length ?? 0) > 0 ? 'server' : 'unicode');
+    this.customSearch.set('');
+  }
+
+  closeEmojiPicker(): void { this.pickerIndex.set(null); this.customSearch.set(''); }
+
+  pickerMapping(): SelfRoleMapping | null {
+    const index = this.pickerIndex();
+    return index === null ? null : this.editor()?.mappings[index] ?? null;
+  }
+
+  selectUnicode(unicode: string): void {
+    const mapping = this.pickerMapping();
+    if (mapping) mapping.emoji = { kind: 'Unicode', value: unicode, name: unicode };
+    this.closeEmojiPicker();
+  }
+
+  selectCustom(emoji: SelfRoleResources['emojis'][number]): void {
+    const mapping = this.pickerMapping();
+    if (!mapping || !emoji.available) return;
+    this.chooseCustom(mapping, emoji);
+    this.closeEmojiPicker();
   }
 
   save(): void {

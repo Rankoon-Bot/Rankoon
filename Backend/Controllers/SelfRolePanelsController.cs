@@ -1,3 +1,4 @@
+using Discord;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +14,7 @@ namespace Rankoon.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}/self-role-panels")]
-public sealed class SelfRolePanelsController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, SelfRoleService selfRoles) : ControllerBase
+public sealed class SelfRolePanelsController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, SelfRoleService selfRoles, ILogger<SelfRolePanelsController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(string guildId)
@@ -59,8 +60,18 @@ public sealed class SelfRolePanelsController(IGuildAuthorizationService authoriz
         if (error != null) return error;
         var roles = guild!.Roles.Where(role => !role.IsManaged && !role.IsEveryone && role.Position < guild.CurrentUser.Hierarchy)
             .OrderByDescending(role => role.Position).Select(role => new { id = role.Id, role.Name });
-        var channels = guild.TextChannels.OrderBy(channel => channel.Position).Select(channel => new { id = channel.Id, channel.Name, type = "Text" });
-        var emojis = guild.Emotes.OrderBy(emote => emote.Name).Select(emote => new { id = emote.Id, emote.Name, animated = emote.Animated, url = emote.Url });
+        var channels = guild.TextChannels
+            .Where(channel => channel.GetChannelType() is Discord.ChannelType.Text or Discord.ChannelType.News)
+            .OrderBy(channel => channel.Position)
+            .Select(channel => new { id = channel.Id, channel.Name, type = "Text" });
+        IReadOnlyCollection<Discord.GuildEmote> guildEmotes;
+        try { guildEmotes = await guild.GetEmotesAsync(); }
+        catch (global::Discord.Net.HttpException exception)
+        {
+            logger.LogWarning(exception, "Could not load guild emotes from Discord REST for guild {GuildId}; falling back to the gateway cache", guild.Id);
+            guildEmotes = guild.Emotes;
+        }
+        var emojis = guildEmotes.OrderBy(emote => emote.Name).Select(emote => new { id = emote.Id, emote.Name, animated = emote.Animated, url = emote.Url, available = emote.IsAvailable });
         return Ok(new { roles, channels, emojis });
     }
 

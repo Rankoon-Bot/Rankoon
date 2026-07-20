@@ -18,7 +18,7 @@ export interface GuildResources { roles: { id: string; name: string }[]; channel
 export interface SelfRoleEmoji { kind: 'Unicode' | 'Custom'; value: string; name: string; }
 export interface SelfRoleMapping { id?: string; emoji: SelfRoleEmoji; roleId: string; }
 export interface SelfRolePanel { id?: string; guildId?: string; channelId: string; title: string; description: string; color: string; enabled: boolean; mappings: SelfRoleMapping[]; revision: number; updatedAt?: string; status?: string; }
-export interface SelfRoleResources extends GuildResources { emojis: { id: string; name: string; animated: boolean; url: string }[]; }
+export interface SelfRoleResources extends GuildResources { emojis: { id: string; name: string; animated: boolean; url: string; available: boolean }[]; }
 export type LeaderboardVisibility = 'Public' | 'MembersOnly';
 export interface LeaderboardSettings { guildId: string; alias: string; visibility: LeaderboardVisibility; updatedAt: string; }
 export interface LeaderboardEntry extends RankEntry { rank: number; isCurrentUser: boolean; }
