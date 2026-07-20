@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/Rankoon-Bot/Rankoon/compare/v1.0.0...v1.0.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* update configuration for release and container publishing, and refactor environment variables ([5202069](https://github.com/Rankoon-Bot/Rankoon/commit/52020695b857244062d489e5c091803843d7036d))
+
 # 1.0.0 (2026-07-20)
 
 
