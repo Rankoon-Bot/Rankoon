@@ -98,6 +98,13 @@ export const routes: Routes = [
         resolve: { translations: translationScope('xp') },
       },
       {
+        path: 'xp/audit',
+        loadComponent: () => import('./pages/xp-audit/xp-audit.component').then((c) => c.XpAuditComponent),
+        canActivate: [guildGuard, moduleGuard],
+        data: { module: 'xp-audit' },
+        resolve: { translations: translationScope('xp-audit') },
+      },
+      {
         path: 'vc-hubs',
         loadComponent: () =>
           import('./pages/vc-hubs/vc-hubs.component').then(

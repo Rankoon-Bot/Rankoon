@@ -135,6 +135,7 @@ builder.Services.AddSingleton<IGuildModuleRegistry, GuildModuleRegistry>();
 builder.Services.AddSingleton<IGuildRolePermissionService, GuildRolePermissionService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.XpService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpService>(services => services.GetRequiredService<Rankoon.Data.Xp.XpService>());
+builder.Services.AddSingleton<Rankoon.Data.Xp.IXpAuditService, Rankoon.Data.Xp.XpAuditService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonService, Rankoon.Data.Xp.SeasonService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonLifecycleService, Rankoon.Data.Xp.SeasonLifecycleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LedgerProjectionRepairService>();

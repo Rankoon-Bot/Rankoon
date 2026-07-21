@@ -1,0 +1,88 @@
+.audit-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--rk-space-6);
+  color: var(--rk-text-primary);
+}
+
+.panel {
+  background: var(--rk-surface-1);
+  border: 1px solid var(--rk-border-subtle);
+  border-radius: var(--rk-radius-lg);
+  box-shadow: var(--rk-shadow-panel);
+  padding: var(--rk-space-4);
+  margin-top: var(--rk-space-4);
+}
+
+.search,
+form,
+.totals {
+  display: grid;
+  gap: var(--rk-space-3);
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  min-height: 44px;
+  border-radius: var(--rk-radius-md);
+}
+
+input,
+select,
+textarea {
+  background: var(--rk-surface-2);
+  color: var(--rk-text-primary);
+  border: 1px solid var(--rk-border-subtle);
+  padding: var(--rk-space-2);
+}
+
+button {
+  background: var(--rk-surface-2);
+  color: var(--rk-text-primary);
+  border: 1px solid var(--rk-border-subtle);
+  padding: 0 var(--rk-space-3);
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: var(--rk-focus-ring);
+}
+
+form button {
+  background: var(--rk-brand);
+  color: var(--rk-text-on-brand);
+}
+
+.member,
+article {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: var(--rk-space-2);
+}
+
+.member small,
+article small,
+.totals span,
+.totals small {
+  display: block;
+  color: var(--rk-text-secondary);
+}
+
+.totals {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.manual {
+  color: var(--rk-status-warning);
+}
+
+.eyebrow {
+  color: var(--rk-brand);
+}

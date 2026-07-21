@@ -38,9 +38,10 @@ public sealed class MemberXp
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("user_id")] public ulong UserId { get; set; }
     [BsonElement("display_name")] public string DisplayName { get; set; } = string.Empty;
+    [BsonElement("normalized_display_name")] public string NormalizedDisplayName { get; set; } = string.Empty;
     [BsonElement("imported_mee6_xp")] public long ImportedMee6Xp { get; set; }
     [BsonElement("earned_xp")] public decimal EarnedXp { get; set; }
-    [BsonElement("manual_adjustment")] public long ManualAdjustment { get; set; }
+    [BsonElement("manual_adjustment")] public decimal ManualAdjustment { get; set; }
     [BsonElement("total_xp")] public decimal TotalXp { get; set; }
     [BsonElement("is_current_member")] public bool IsCurrentMember { get; set; } = true;
     [BsonElement("public_leaderboard_visible")] public bool PublicLeaderboardVisible { get; set; } = true;
@@ -80,6 +81,20 @@ public sealed class MemberLeaderboardPreference
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public enum XpLedgerEntryKind { AutomaticGrant, AutomaticReversal, ManualAdjustment, ManualAdjustmentReversal, SystemMigration }
+public enum XpLedgerScope { LifetimeOnly, LifetimeAndSeason, SeasonOnly }
+
+public static class XpLedgerSemantics
+{
+    public static XpLedgerEntryKind GetEffectiveKind(XpLedgerEntry entry) => entry.Kind ??
+        (entry.ReversesGrantKey == null ? XpLedgerEntryKind.AutomaticGrant : XpLedgerEntryKind.AutomaticReversal);
+    public static XpLedgerScope GetEffectiveScope(XpLedgerEntry entry) => entry.Scope ??
+        (entry.SeasonId == null ? XpLedgerScope.LifetimeOnly : XpLedgerScope.LifetimeAndSeason);
+    public static bool IsAutomatic(XpLedgerEntry entry) => GetEffectiveKind(entry) is XpLedgerEntryKind.AutomaticGrant or XpLedgerEntryKind.AutomaticReversal;
+    public static bool AffectsLifetime(XpLedgerEntry entry) => GetEffectiveScope(entry) != XpLedgerScope.SeasonOnly;
+    public static bool AffectsSeason(XpLedgerEntry entry) => entry.SeasonId != null && GetEffectiveScope(entry) != XpLedgerScope.LifetimeOnly;
+}
+
 public sealed class XpLedgerEntry
 {
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
@@ -96,6 +111,14 @@ public sealed class XpLedgerEntry
     [BsonElement("period_starts_at_utc")] public DateTime? PeriodStartsAtUtc { get; set; }
     [BsonElement("period_ends_at_utc")] public DateTime? PeriodEndsAtUtc { get; set; }
     [BsonElement("reverses_grant_key")] public string? ReversesGrantKey { get; set; }
+    [BsonElement("kind"), BsonRepresentation(BsonType.String), BsonIgnoreIfNull] public XpLedgerEntryKind? Kind { get; set; }
+    [BsonElement("scope"), BsonRepresentation(BsonType.String), BsonIgnoreIfNull] public XpLedgerScope? Scope { get; set; }
+    [BsonElement("actor_user_id"), BsonIgnoreIfNull] public ulong? ActorUserId { get; set; }
+    [BsonElement("actor_display_name"), BsonIgnoreIfNull] public string? ActorDisplayName { get; set; }
+    [BsonElement("reason"), BsonIgnoreIfNull] public string? Reason { get; set; }
+    [BsonElement("reference"), BsonIgnoreIfNull] public string? Reference { get; set; }
+    [BsonElement("request_id"), BsonIgnoreIfNull] public string? RequestId { get; set; }
+    [BsonElement("reverses_ledger_entry_id"), BsonRepresentation(BsonType.ObjectId), BsonIgnoreIfNull] public string? ReversesLedgerEntryId { get; set; }
     [BsonElement("projection_status"), BsonRepresentation(BsonType.String)] public SeasonProjectionStatus ProjectionStatus { get; set; } = SeasonProjectionStatus.Pending;
     [BsonElement("projected_at_utc")] public DateTime? ProjectedAtUtc { get; set; }
     [BsonElement("cooldown_source")] public string? CooldownSource { get; set; }

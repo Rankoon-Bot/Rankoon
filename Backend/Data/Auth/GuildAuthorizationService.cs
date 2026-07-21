@@ -78,6 +78,7 @@ public sealed class GuildAuthorizationService(
             .Where(grant => roleIds.Contains(grant.RoleId))
             .SelectMany(grant => grant.ModuleIds)
             .ToHashSet(StringComparer.Ordinal);
+        if (grantedIds.Contains(GuildModuleIds.XpAdjustments)) grantedIds.Add(GuildModuleIds.XpAudit);
         return modules.Modules.Where(module => grantedIds.Contains(module.Id)).Select(module => module.Id).ToArray();
     }
 

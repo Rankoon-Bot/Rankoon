@@ -59,6 +59,16 @@ per-projection applied-key sets make retries idempotent. A background repair
 worker resumes pending projections after interruptions between writes. The
 MEE6-compatible cumulative curve calculates levels from the persistent total.
 
+### XP history and adjustments
+
+`XP-Verlauf & Korrekturen` / `XP History & Adjustments` is an XP audit feature,
+not general user management. `xp-audit` permits reading the guild-scoped member
+history; `xp-adjustments` additionally permits immutable manual corrections.
+Corrections contain the actor and a reason in the permanent XP ledger, are never
+edited or deleted, and are neutralized only by a linked reversal entry. Non-owner
+actors cannot correct their own XP. The activity log receives a supplementary
+event, while the ledger remains the audit record. No message contents are stored.
+
 The following sources are implemented and independently configurable:
 
 | Source | Default behavior |

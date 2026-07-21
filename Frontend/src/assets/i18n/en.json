@@ -144,6 +144,12 @@
         "invalidPlayers": "The MEE6 players export is invalid."
       }
     },
+    "xpAudit": {
+      "invalidUserId": "The user ID is invalid.", "memberNotFound": "The XP member was not found.", "invalidCursor": "The XP audit cursor is invalid.", "invalidFilter": "The XP audit filter is invalid."
+    },
+    "xpAdjustment": {
+      "selfAdjustmentForbidden": "Non-owners cannot adjust their own XP.", "amountRequired": "An adjustment amount is required.", "amountOutOfRange": "The adjustment amount is out of range.", "reasonRequired": "A reason is required.", "reasonTooShort": "The reason is too short.", "reasonTooLong": "The reason is too long.", "referenceTooLong": "The reference is too long.", "invalidRequestId": "The request ID is invalid.", "requestConflict": "The request ID was already used with different content.", "entryNotFound": "The XP adjustment was not found.", "notManual": "Only manual adjustments can be reversed.", "alreadyReversed": "The adjustment has already been reversed."
+    },
     "season": {
       "invalidTimeZone": "The season time zone is invalid.",
       "invalidSchedule": "The season schedule or naming template is invalid.",

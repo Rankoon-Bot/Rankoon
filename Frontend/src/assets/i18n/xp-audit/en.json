@@ -1,0 +1,25 @@
+{
+  "xpAudit": {
+    "title": "XP History & Adjustments",
+    "subtitle": "Review XP entries and create auditable corrections.",
+    "search": "Search Discord ID or display name",
+    "former": "Include former members",
+    "more": "Load more",
+    "back": "Back to search",
+    "current": "Current member",
+    "formerMember": "Former member",
+    "lifetime": "Lifetime XP",
+    "imported": "MEE6 import",
+    "automatic": "Automatically earned",
+    "manual": "Manual adjustments",
+    "adjust": "Book XP adjustment",
+    "scopeSeason": "Lifetime XP and active season",
+    "scopeLifetime": "Lifetime XP only",
+    "reason": "Reason (at least 10 characters)",
+    "reference": "Optional reference",
+    "book": "Book irreversible adjustment",
+    "timeline": "XP history",
+    "reverse": "Create reversal",
+    "loadFailed": "The XP audit data could not be loaded."
+  }
+}

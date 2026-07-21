@@ -1,0 +1,25 @@
+{
+  "xpAudit": {
+    "title": "XP-Verlauf & Korrekturen",
+    "subtitle": "Pruefe XP-Buchungen und erfasse revisionssichere Korrekturen.",
+    "search": "Discord-ID oder Anzeigename suchen",
+    "former": "Ehemalige Mitglieder einbeziehen",
+    "more": "Mehr laden",
+    "back": "Zur Suche",
+    "current": "Aktuelles Mitglied",
+    "formerMember": "Ehemaliges Mitglied",
+    "lifetime": "Gesamt-XP",
+    "imported": "MEE6-Import",
+    "automatic": "Automatisch verdient",
+    "manual": "Manuelle Korrekturen",
+    "adjust": "XP-Korrektur buchen",
+    "scopeSeason": "Gesamt-XP und aktive Season",
+    "scopeLifetime": "Nur Gesamt-XP",
+    "reason": "Begruendung (mindestens 10 Zeichen)",
+    "reference": "Optionale Referenz",
+    "book": "Korrektur verbindlich buchen",
+    "timeline": "XP-Verlauf",
+    "reverse": "Gegenbuchung erstellen",
+    "loadFailed": "Die XP-Audit-Daten konnten nicht geladen werden."
+  }
+}

@@ -40,6 +40,8 @@ public static class ReportNames
     public const string VoiceChannelDeleted = "voice.channel.deleted";
     public const string VoiceOwnershipTransferred = "voice.ownership.transferred";
     public const string XpProjectionRepaired = "xp.projection.repaired";
+    public const string XpManualAdjustmentCreated = "xp.manual-adjustment.created";
+    public const string XpManualAdjustmentReversed = "xp.manual-adjustment.reversed";
     public const string SeasonStarted = "season.started";
     public const string SeasonClosed = "season.closed";
     public const string SeasonCarryOverApplied = "season.carryover.applied";

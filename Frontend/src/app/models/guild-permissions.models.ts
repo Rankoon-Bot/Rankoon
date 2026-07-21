@@ -1,4 +1,4 @@
-export const GUILD_MODULE_IDS = ['xp', 'leaderboard', 'voice-hubs', 'reporting', 'self-roles'] as const;
+export const GUILD_MODULE_IDS = ['xp', 'xp-audit', 'xp-adjustments', 'leaderboard', 'voice-hubs', 'reporting', 'self-roles'] as const;
 
 export type GuildModuleId = typeof GUILD_MODULE_IDS[number];
 

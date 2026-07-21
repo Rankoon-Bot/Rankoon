@@ -12,6 +12,8 @@ public static class GuildModuleIds
     public const string VoiceHubs = "voice-hubs";
     public const string Reporting = "reporting";
     public const string SelfRoles = "self-roles";
+    public const string XpAudit = "xp-audit";
+    public const string XpAdjustments = "xp-adjustments";
 }
 
 public sealed record GuildModuleDescriptor(string Id);
@@ -30,7 +32,9 @@ public sealed class GuildModuleRegistry : IGuildModuleRegistry
         new(GuildModuleIds.Leaderboard),
         new(GuildModuleIds.VoiceHubs),
         new(GuildModuleIds.Reporting),
-        new(GuildModuleIds.SelfRoles)
+        new(GuildModuleIds.SelfRoles),
+        new(GuildModuleIds.XpAudit),
+        new(GuildModuleIds.XpAdjustments)
     ];
 
     public bool Contains(string moduleId) => Modules.Any(module => module.Id == moduleId);
@@ -75,7 +79,7 @@ public sealed class GuildRolePermissionService(RankoonDbContext database, IGuild
     {
         await GetOrInitializeAsync(guild, cancellationToken);
         var update = Builders<GuildRolePermissionPolicy>.Update
-            .Set(policy => policy.RoleGrants, roleGrants.ToList())
+            .Set(policy => policy.RoleGrants, Normalize(roleGrants).ToList())
             .Inc(policy => policy.Revision, 1)
             .Set(policy => policy.UpdatedAt, DateTime.UtcNow);
         return await database.GuildRolePermissionPolicies.FindOneAndUpdateAsync(
@@ -84,4 +88,12 @@ public sealed class GuildRolePermissionService(RankoonDbContext database, IGuild
             new FindOneAndUpdateOptions<GuildRolePermissionPolicy> { ReturnDocument = ReturnDocument.After },
             cancellationToken);
     }
+
+    private static IEnumerable<GuildRoleModuleGrant> Normalize(IEnumerable<GuildRoleModuleGrant> grants) =>
+    grants.Select(grant => new GuildRoleModuleGrant
+    {
+        RoleId = grant.RoleId,
+        ModuleIds = grant.ModuleIds.Contains(GuildModuleIds.XpAdjustments) ?
+        [.. grant.ModuleIds.Append(GuildModuleIds.XpAudit).Distinct(StringComparer.Ordinal)] : grant.ModuleIds
+    });
 }

@@ -144,6 +144,12 @@
         "invalidPlayers": "Der MEE6-Spielerexport ist ungültig."
       }
     },
+    "xpAudit": {
+      "invalidUserId": "Die Benutzer-ID ist ungültig.", "memberNotFound": "Das XP-Mitglied wurde nicht gefunden.", "invalidCursor": "Der XP-Audit-Cursor ist ungültig.", "invalidFilter": "Der XP-Audit-Filter ist ungültig."
+    },
+    "xpAdjustment": {
+      "selfAdjustmentForbidden": "Nicht-Owner dürfen ihre eigenen XP nicht korrigieren.", "amountRequired": "Ein Korrekturbetrag ist erforderlich.", "amountOutOfRange": "Der Korrekturbetrag liegt außerhalb des zulässigen Bereichs.", "reasonRequired": "Eine Begründung ist erforderlich.", "reasonTooShort": "Die Begründung ist zu kurz.", "reasonTooLong": "Die Begründung ist zu lang.", "referenceTooLong": "Die Referenz ist zu lang.", "invalidRequestId": "Die Request-ID ist ungültig.", "requestConflict": "Diese Request-ID wurde bereits mit anderen Daten verwendet.", "entryNotFound": "Die XP-Korrektur wurde nicht gefunden.", "notManual": "Nur manuelle Korrekturen können zurückgenommen werden.", "alreadyReversed": "Die Korrektur wurde bereits zurückgenommen."
+    },
     "season": {
       "invalidTimeZone": "Die Zeitzone der Season ist ungültig.",
       "invalidSchedule": "Der Season-Zeitplan oder das Namens-Template ist ungültig.",
