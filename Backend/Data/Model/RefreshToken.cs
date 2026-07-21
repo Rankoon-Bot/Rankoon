@@ -13,10 +13,19 @@ public class RefreshToken
     public string? Id { get; set; }
 
     /// <summary>
-    /// The refresh token value
+    /// Legacy plaintext refresh token. New tokens are never persisted in plaintext.
     /// </summary>
     [BsonElement("token")]
     public string Token { get; set; } = string.Empty;
+
+    [BsonElement("token_hash")]
+    public string? TokenHash { get; set; }
+
+    /// <summary>
+    /// Links rotated tokens so a replay can revoke the complete session family.
+    /// </summary>
+    [BsonElement("family_id")]
+    public string? FamilyId { get; set; }
 
     /// <summary>
     /// User ID this token belongs to

@@ -6,7 +6,7 @@ using Rankoon.Data.MongoDb;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class SelfRoleReactionService(DiscordShardedClient client, RankoonDbContext database, SelfRoleService panels, ILogger<SelfRoleReactionService> logger) : BackgroundService
+public sealed class SelfRoleReactionService(DiscordShardedClient client, RankoonDbContext database, SelfRoleService panels, TimeProvider timeProvider, ILogger<SelfRoleReactionService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -53,7 +53,7 @@ public sealed class SelfRoleReactionService(DiscordShardedClient client, Rankoon
                 if (member.RoleIds.Contains(role.Id) && !await database.SelfRoleAssignments.Find(assignmentFilter).AnyAsync()) return;
                 if (!member.RoleIds.Contains(role.Id)) await member.AddRoleAsync(role);
                 await database.SelfRoleAssignments.UpdateOneAsync(x => x.GuildId == panel.GuildId && x.PanelId == panel.Id && x.MappingId == mapping.Id && x.UserId == member.Id,
-                    Builders<SelfRoleAssignment>.Update.SetOnInsert(x => x.GuildId, panel.GuildId).SetOnInsert(x => x.PanelId, panel.Id!).SetOnInsert(x => x.MappingId, mapping.Id!).SetOnInsert(x => x.UserId, member.Id).SetOnInsert(x => x.RoleId, role.Id).SetOnInsert(x => x.AssignedAt, DateTime.UtcNow), new UpdateOptions { IsUpsert = true });
+                    Builders<SelfRoleAssignment>.Update.SetOnInsert(x => x.GuildId, panel.GuildId).SetOnInsert(x => x.PanelId, panel.Id!).SetOnInsert(x => x.MappingId, mapping.Id!).SetOnInsert(x => x.UserId, member.Id).SetOnInsert(x => x.RoleId, role.Id).SetOnInsert(x => x.AssignedAt, timeProvider.GetUtcNow().UtcDateTime), new UpdateOptions { IsUpsert = true });
             }
             else
             {

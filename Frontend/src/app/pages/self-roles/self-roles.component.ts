@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -7,6 +8,9 @@ import 'emoji-picker-element';
 import { AppStore } from '../../store/app.store';
 import { ApiErrorService } from '../../services/api-error.service';
 import { GuildService, SelfRoleMapping, SelfRolePanel, SelfRoleResources } from '../../services/guild.service';
+import { environment } from '../../../environments/environment';
+
+type SelfRolePanelWithHealth = SelfRolePanel & { state?: 'Pending' | 'Published' | 'Disabled' | 'Degraded'; lastPublishedAt?: string; lastHealthCheckAt?: string; lastError?: string; lastErrorAt?: string; };
 
 @Component({
   selector: 'app-self-roles',
@@ -19,14 +23,17 @@ import { GuildService, SelfRoleMapping, SelfRolePanel, SelfRoleResources } from 
 export class SelfRolesComponent implements OnInit {
   private readonly appStore = inject(AppStore);
   private readonly api = inject(GuildService);
+  private readonly http = inject(HttpClient);
   private readonly i18n = inject(TranslocoService);
   private readonly apiErrors = inject(ApiErrorService);
 
-  readonly panels = signal<SelfRolePanel[]>([]);
+  readonly panels = signal<SelfRolePanelWithHealth[]>([]);
   readonly resources = signal<SelfRoleResources | null>(null);
   readonly editor = signal<SelfRolePanel | null>(null);
   readonly loading = signal(false);
   readonly saving = signal(false);
+  readonly repairing = signal<string | null>(null);
+  readonly confirmation = signal<{ panel: SelfRolePanelWithHealth; action: 'delete' | 'repair' } | null>(null);
   readonly error = signal('');
   readonly message = signal('');
   readonly validationErrors = signal<string[]>([]);
@@ -140,13 +147,55 @@ export class SelfRolesComponent implements OnInit {
   }
 
   remove(panel: SelfRolePanel): void {
+    if (!panel.id) return;
+    this.confirmation.set({ panel, action: 'delete' });
+  }
+
+  repair(panel: SelfRolePanelWithHealth): void {
+    if (!panel.id || this.repairing()) return;
+    this.confirmation.set({ panel, action: 'repair' });
+  }
+
+  cancelConfirmation(): void { this.confirmation.set(null); }
+
+  confirmAction(): void {
+    const confirmation = this.confirmation();
+    if (!confirmation) return;
+    this.confirmation.set(null);
+    if (confirmation.action === 'repair') {
+      this.repairConfirmed(confirmation.panel);
+      return;
+    }
+    const panel = confirmation.panel;
     const guildId = this.appStore.selectedGuild()?.id;
-    if (!guildId || !panel.id || !confirm(this.i18n.translate('selfRoles.deleteConfirm'))) return;
+    if (!guildId || !panel.id) return;
     this.error.set('');
     this.api.deleteSelfRolePanel(guildId, panel.id).subscribe({
       next: () => { this.panels.update(items => items.filter(item => item.id !== panel.id)); if (this.editor()?.id === panel.id) this.cancel(); },
       error: error => this.error.set(this.apiErrors.resolve(error, 'errors.selfRoleDelete').message),
     });
+  }
+
+  private repairConfirmed(panel: SelfRolePanelWithHealth): void {
+    const guildId = this.appStore.selectedGuild()?.id;
+    if (!guildId || !panel.id || this.repairing()) return;
+    this.repairing.set(panel.id);
+    this.error.set('');
+    this.http.post<SelfRolePanelWithHealth>(`${environment.apiBaseUrl}/guilds/${guildId}/self-role-panels/${panel.id}/repair`, panel)
+      .pipe(finalize(() => this.repairing.set(null)))
+      .subscribe({
+        next: repaired => {
+          this.panels.update(items => items.map(item => item.id === repaired.id ? repaired : item));
+          if (this.editor()?.id === repaired.id) this.editor.set(this.copyPanel(repaired));
+          this.message.set(this.i18n.translate('selfRoles.repaired'));
+        },
+        error: error => this.error.set(this.apiErrors.resolve(error, 'errors.save').message),
+      });
+  }
+
+  healthLabel(panel: SelfRolePanelWithHealth): string {
+    const state = panel.state ?? panel.status ?? (panel.enabled ? 'Published' : 'Disabled');
+    return this.i18n.translate(`selfRoles.health.${state.toLowerCase()}`);
   }
 
   emojiLabel(mapping: SelfRoleMapping): string { return mapping.emoji.kind === 'Custom' ? `:${mapping.emoji.name}:` : mapping.emoji.value; }

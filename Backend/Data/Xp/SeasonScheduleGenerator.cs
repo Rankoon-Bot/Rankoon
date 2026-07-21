@@ -20,7 +20,9 @@ public sealed class SeasonScheduleGenerator
         for (var index = 0; index < count; index++)
         {
             var startLocal = AddPeriod(localStart, settings, index);
-            var endLocal = AddPeriod(localStart, settings, index + 1).AddDays(-settings.GapDays);
+            var endLocal = settings.ScheduleKind == SeasonScheduleKind.FixedDuration
+                ? startLocal.AddDays(settings.FixedDurationDays!.Value)
+                : AddPeriod(localStart, settings, index + 1).AddDays(-settings.GapDays);
             var startsAtUtc = ToUtc(startLocal, zone);
             var endsAtUtc = ToUtc(endLocal, zone);
             if (endsAtUtc <= startsAtUtc) throw new ArgumentException("The configured season duration must be positive.", nameof(settings));

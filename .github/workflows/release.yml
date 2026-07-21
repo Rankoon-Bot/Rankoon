@@ -14,7 +14,11 @@ permissions:
   packages: write
 
 jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
+
   release:
+    needs: validate
     if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     permissions:
@@ -48,11 +52,13 @@ jobs:
           fi
 
   publish:
-    needs: release
+    needs: [validate, release]
     if: >-
       always() && (
+        needs.validate.result == 'success' && (
         github.ref_name != 'main' ||
         (needs.release.result == 'success' && needs.release.outputs.version != '')
+        )
       )
     runs-on: ubuntu-latest
     steps:

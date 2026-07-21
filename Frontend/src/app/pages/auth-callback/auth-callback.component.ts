@@ -60,8 +60,8 @@ export class AuthCallbackComponent implements OnInit {
     const errorKey = this.route.snapshot.queryParams['errorKey'];
     const errorMessage = this.route.snapshot.queryParams['message'];
 
-    const return_url = this.route.snapshot.queryParams['return_url'] || '/dashboard';
-    console.log('Return URL:', return_url, this.route.snapshot.queryParams['return_url']);
+    const requestedReturnUrl = this.route.snapshot.queryParams['return_url'];
+    const returnUrl = this.isSafeReturnUrl(requestedReturnUrl) ? requestedReturnUrl : '/dashboard';
 
     if (errorKey) {
       this.authService.clearLocalAuth();
@@ -84,11 +84,10 @@ export class AuthCallbackComponent implements OnInit {
     this.authService.handleTokenCallback(token, refreshToken).subscribe({
       next: (success) => {
         if (success) {
-          this.router.navigate([return_url]);
+          void this.router.navigateByUrl(returnUrl);
         }
       },
-      error: (error) => {
-        console.error('Token callback error:', error);
+      error: () => {
         this.authStore.setError(this.i18n.translate('errors.authFailed'));
       }
     });
@@ -96,5 +95,12 @@ export class AuthCallbackComponent implements OnInit {
 
   retry(): void {
     this.router.navigate(['/login']);
+  }
+
+  private isSafeReturnUrl(returnUrl: unknown): returnUrl is string {
+    return typeof returnUrl === 'string'
+      && returnUrl.startsWith('/')
+      && !returnUrl.startsWith('//')
+      && !returnUrl.includes('\\');
   }
 }

@@ -87,6 +87,18 @@ describe('AuthService token contracts', () => {
     expect(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBe('new-refresh');
   });
 
+  it('coalesces concurrent refresh requests into one rotation', () => {
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'old-refresh');
+    const results: boolean[] = [];
+
+    service.refreshToken().subscribe(result => results.push(result));
+    service.refreshToken().subscribe(result => results.push(result));
+    const request = http.expectOne(`${environment.apiBaseUrl}/auth/refresh`);
+    request.flush({ accessToken: 'new-access', refreshToken: 'new-refresh', user, expiresAt: '2026-07-19T13:00:00Z' });
+
+    expect(results).toEqual([true, true]);
+  });
+
   it('refreshes an access token that is close to expiry before sending an API request', () => {
     store.setAuthData(user, 'expiring-access');
     localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'valid-refresh');

@@ -49,6 +49,10 @@ public sealed class MemberXp
     [BsonElement("last_message_xp_at")] public DateTime? LastMessageXpAt { get; set; }
     [BsonElement("last_reaction_xp_at")] public DateTime? LastReactionXpAt { get; set; }
     [BsonElement("last_thread_xp_at")] public DateTime? LastThreadXpAt { get; set; }
+    // Retaining the key alongside the timestamp lets a retry recognize a CAS it completed before recording it on the ledger.
+    [BsonElement("last_message_xp_grant_key")] public string? LastMessageXpGrantKey { get; set; }
+    [BsonElement("last_reaction_xp_grant_key")] public string? LastReactionXpGrantKey { get; set; }
+    [BsonElement("last_thread_xp_grant_key")] public string? LastThreadXpGrantKey { get; set; }
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -94,6 +98,13 @@ public sealed class XpLedgerEntry
     [BsonElement("reverses_grant_key")] public string? ReversesGrantKey { get; set; }
     [BsonElement("projection_status"), BsonRepresentation(BsonType.String)] public SeasonProjectionStatus ProjectionStatus { get; set; } = SeasonProjectionStatus.Pending;
     [BsonElement("projected_at_utc")] public DateTime? ProjectedAtUtc { get; set; }
+    [BsonElement("cooldown_source")] public string? CooldownSource { get; set; }
+    [BsonElement("cooldown_seconds")] public int? CooldownSeconds { get; set; }
+    [BsonElement("cooldown_acquired")] public bool CooldownAcquired { get; set; }
+    [BsonElement("cooldown_denied")] public bool CooldownDenied { get; set; }
+    [BsonElement("is_projection_control")] public bool IsProjectionControl { get; set; }
+    [BsonElement("projection_lease_owner")] public string? ProjectionLeaseOwner { get; set; }
+    [BsonElement("projection_lease_expires_at_utc")] public DateTime? ProjectionLeaseExpiresAtUtc { get; set; }
 }
 
 public sealed class VoiceSession

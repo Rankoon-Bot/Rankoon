@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 import { AuthStore } from '../store/auth.store';
 import { LeaderboardEntry, LeaderboardVisibility, SeasonLeaderboardScope } from './guild.service';
 
+// Retained for consumers outside the leaderboard page during the event-contract transition.
 export interface LeaderboardEntryChanged {
   alias: string;
   scope: SeasonLeaderboardScope;
@@ -13,8 +14,7 @@ export interface LeaderboardEntryChanged {
   userId: string;
   entry: LeaderboardEntry | null;
 }
-
-export interface LeaderboardChanged { alias: string; visibility: LeaderboardVisibility; }
+export interface LeaderboardChanged { alias: string; scope: SeasonLeaderboardScope; seasonId: string | null; visibility: LeaderboardVisibility; }
 
 @Injectable({ providedIn: 'root' })
 export class RealtimeService {
@@ -22,6 +22,7 @@ export class RealtimeService {
   private readonly entryChangesSubject = new Subject<LeaderboardEntryChanged>();
   private readonly changesSubject = new Subject<LeaderboardChanged>();
   private readonly subscriptions = new Map<string, { alias: string; scope: SeasonLeaderboardScope; seasonId?: string }>();
+  private readonly activeSubscriptions = new Set<string>();
   private connection?: HubConnection;
   private starting?: Promise<void>;
   private lifecycle = Promise.resolve();
@@ -41,15 +42,11 @@ export class RealtimeService {
 
   async subscribeLeaderboard(alias: string, scope: SeasonLeaderboardScope, seasonId?: string): Promise<void> {
     const key = this.key(alias, scope, seasonId);
+    if (this.subscriptions.has(key)) return;
     this.subscriptions.set(key, { alias, scope, seasonId });
     await this.serialize(async () => {
       await this.start();
-      try {
-        await this.connection?.invoke('Subscribe', alias, scope, seasonId);
-      } catch {
-        // The HTTP request remains authoritative for the initial access decision.
-        this.subscriptions.delete(key);
-      }
+      await this.subscribeActive(key);
     });
   }
 
@@ -57,7 +54,8 @@ export class RealtimeService {
     const key = this.key(alias, scope, seasonId);
     this.subscriptions.delete(key);
     await this.serialize(async () => {
-      if (this.connection?.state === 'Connected') await this.connection.invoke('Unsubscribe', alias, scope, seasonId);
+      if (!this.activeSubscriptions.delete(key) || this.connection?.state !== 'Connected') return;
+      await this.connection.invoke('Unsubscribe', alias, scope, seasonId);
     });
   }
 
@@ -68,6 +66,7 @@ export class RealtimeService {
       if (this.connection === existing) {
         this.connection = undefined;
         this.starting = undefined;
+        this.activeSubscriptions.clear();
       }
     }
     if (this.subscriptions.size > 0) await this.start();
@@ -84,6 +83,7 @@ export class RealtimeService {
     this.connection.on('leaderboardEntryChanged', (event: LeaderboardEntryChanged) => this.entryChangesSubject.next(event));
     this.connection.on('leaderboardChanged', (event: LeaderboardChanged) => this.changesSubject.next(event));
     this.connection.on('leaderboardAccessRevoked', (event: LeaderboardChanged) => this.changesSubject.next(event));
+    this.connection.onreconnecting(() => this.activeSubscriptions.clear());
     this.connection.onreconnected(() => { void this.serialize(() => this.resubscribe()); });
     this.starting = this.connection.start().then(() => this.resubscribe()).finally(() => this.starting = undefined);
     return this.starting;
@@ -91,12 +91,18 @@ export class RealtimeService {
 
   private async resubscribe(): Promise<void> {
     if (this.connection?.state !== 'Connected') return;
-    for (const subscription of [...this.subscriptions.values()]) {
-      try {
-        await this.connection.invoke('Subscribe', subscription.alias, subscription.scope, subscription.seasonId);
-      } catch {
-        this.subscriptions.delete(this.key(subscription.alias, subscription.scope, subscription.seasonId));
-      }
+    for (const subscription of [...this.subscriptions.values()]) await this.subscribeActive(this.key(subscription.alias, subscription.scope, subscription.seasonId));
+  }
+
+  private async subscribeActive(key: string): Promise<void> {
+    const subscription = this.subscriptions.get(key);
+    if (!subscription || this.activeSubscriptions.has(key) || this.connection?.state !== 'Connected') return;
+    try {
+      await this.connection.invoke('Subscribe', subscription.alias, subscription.scope, subscription.seasonId);
+      this.activeSubscriptions.add(key);
+    } catch {
+      // The HTTP request remains authoritative for the initial access decision.
+      this.subscriptions.delete(key);
     }
   }
 

@@ -21,7 +21,7 @@ public sealed class LeaderboardController(LeaderboardService leaderboard, ILeade
 {
     [AllowAnonymous]
     [HttpGet("{alias}")]
-    public async Task<IActionResult> Page(string alias, [FromQuery] SeasonLeaderboardScope scope = SeasonLeaderboardScope.Lifetime, [FromQuery] string? seasonId = null, [FromQuery] string? cursor = null, [FromQuery] int take = 25, [FromQuery] bool aroundMe = false)
+    public async Task<IActionResult> Page(string alias, [FromQuery] SeasonLeaderboardScope? scope = null, [FromQuery] string? seasonId = null, [FromQuery] string? cursor = null, [FromQuery] int take = 25, [FromQuery] bool aroundMe = false)
     {
         var settings = await leaderboard.FindSettingsAsync(alias, HttpContext.RequestAborted);
         if (settings == null) return NotFound();
@@ -31,7 +31,8 @@ public sealed class LeaderboardController(LeaderboardService leaderboard, ILeade
         var userId = authorization.GetDiscordUserId(User);
         try
         {
-            return Ok(await leaderboard.GetScopedPageAsync(settings, isMember, userId, scope, seasonId, cursor, take, aroundMe && isMember, HttpContext.RequestAborted));
+            var resolvedScope = await leaderboard.ResolveScopeAsync(settings, scope, seasonId, HttpContext.RequestAborted);
+            return Ok(await leaderboard.GetScopedPageAsync(settings, isMember, userId, resolvedScope, seasonId, cursor, take, aroundMe && isMember, HttpContext.RequestAborted));
         }
         catch (FormatException)
         {

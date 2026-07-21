@@ -16,15 +16,18 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly FrontendSettings _frontendSettings;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         IAuthService authService,
         IOptions<FrontendSettings> frontendSettings,
+        TimeProvider timeProvider,
         ILogger<AuthController> logger)
     {
         _authService = authService;
         _frontendSettings = frontendSettings.Value;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -38,7 +41,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var loginUrl = _authService.GetLoginUrl(returnUrl);
+            var loginUrl = _authService.GetLoginUrl(IsSafeReturnUrl(returnUrl) ? returnUrl : null);
             return Ok(new { loginUrl });
         }
         catch (Exception ex)
@@ -64,22 +67,13 @@ public class AuthController : ControllerBase
                 return OAuthFailureRedirect();
             }
 
-            string? cached_state = null;
-            string? returnUrl = null;
-            if (state?.Contains('|') ?? false)
-            {
-                var parts = state?.Split('|');
-                state = parts?[0]; // The actual state
-                returnUrl = parts?.Length > 1 ? parts[1] : null;
-            }
-
-            cached_state = await CacheManager.GetOrSetAsync<string>(
+            var cachedState = await CacheManager.GetOrSetAsync<string>(
                 $"auth_state_{state}",
                 static () => Task.FromResult(string.Empty),
-                DateTimeOffset.UtcNow.AddMinutes(1)
+                _timeProvider.GetUtcNow().AddMinutes(1)
             );
 
-            if (string.IsNullOrEmpty(cached_state))
+            if (string.IsNullOrEmpty(cachedState))
             {
                 _logger.LogWarning("Invalid or expired state parameter for Discord OAuth callback");
                 throw new InvalidOperationException("Invalid or expired state parameter");
@@ -88,11 +82,17 @@ public class AuthController : ControllerBase
             CacheManager.Remove($"auth_state_{state}");
 
 
-            if (cached_state != state)
+            if (cachedState != state)
             {
-                _logger.LogWarning("State parameter mismatch: expected {ExpectedState}, got {ActualState}", cached_state, state);
+                _logger.LogWarning("State parameter mismatch during Discord OAuth callback");
                 throw new InvalidOperationException("State parameter mismatch");
             }
+
+            var returnUrl = await CacheManager.GetOrSetAsync<string>(
+                $"auth_return_{state}",
+                static () => Task.FromResult(string.Empty),
+                _timeProvider.GetUtcNow().AddMinutes(1));
+            CacheManager.Remove($"auth_return_{state}");
 
 
             var tokenResponse = await _authService.HandleCallbackAsync(code);
@@ -111,7 +111,7 @@ public class AuthController : ControllerBase
                 $"expires_at={Uri.EscapeDataString(tokenResponse.ExpiresAt.ToString("O"))}"
             };
 
-            if (!string.IsNullOrEmpty(returnUrl))
+            if (IsSafeReturnUrl(returnUrl))
             {
                 parameters.Add($"return_url={Uri.EscapeDataString(returnUrl)}");
             }
@@ -122,9 +122,9 @@ public class AuthController : ControllerBase
 
             return Redirect(finalUrl);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _logger.LogError(ex, "Error handling OAuth callback");
+            _logger.LogError("Error handling OAuth callback");
 
             // Redirect to frontend with error
             return OAuthFailureRedirect();
@@ -342,5 +342,12 @@ public class AuthController : ControllerBase
         var errorUrl = $"{_frontendSettings.BaseUrl}{_frontendSettings.CallbackPath}?errorKey={Uri.EscapeDataString(error.Key)}&message={Uri.EscapeDataString(error.Message)}";
         return Redirect(errorUrl);
     }
+
+    private static bool IsSafeReturnUrl(string? returnUrl) =>
+        !string.IsNullOrWhiteSpace(returnUrl)
+        && returnUrl.StartsWith('/')
+        && !returnUrl.StartsWith("//")
+        && !returnUrl.Contains('\\')
+        && Uri.TryCreate(returnUrl, UriKind.Relative, out _);
 
 }

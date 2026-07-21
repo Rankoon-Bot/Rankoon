@@ -17,7 +17,7 @@ public sealed record LeaderboardEntryDto(long Rank, string UserId, string Displa
 public sealed record SeasonLeaderboardOption(string Id, string Name, DateTime StartsAtUtc, DateTime EndsAtUtc);
 public sealed record LeaderboardPageDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardEntryDto> Items, string? NextCursor, bool HasMore, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope = SeasonLeaderboardScope.Lifetime, string? SeasonId = null, string? SeasonName = null, IReadOnlyList<SeasonLeaderboardOption>? HistoricalSeasons = null, SeasonLeaderboardOption? CurrentSeason = null, bool SeasonsEnabled = false);
 
-public sealed class LeaderboardService(RankoonDbContext database, DiscordShardedClient discord, GuildMembershipService memberships, IOptions<JwtSettings> jwtSettings)
+public sealed class LeaderboardService(RankoonDbContext database, DiscordShardedClient discord, GuildMembershipService memberships, IOptions<JwtSettings> jwtSettings, TimeProvider timeProvider)
 {
     private sealed record Cursor(string Xp, string UserId, long Rank, SeasonLeaderboardScope Scope, string? SeasonId);
     private readonly byte[] cursorKey = Encoding.UTF8.GetBytes(jwtSettings.Value.SecretKey);
@@ -62,7 +62,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         var settings = await GetOrCreateSettingsAsync(guildId, guildName, cancellationToken);
         settings.Alias = NormalizeAlias(alias);
         settings.Visibility = visibility;
-        settings.UpdatedAt = DateTime.UtcNow;
+        settings.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
         await database.GuildLeaderboardSettings.ReplaceOneAsync(x => x.GuildId == guildId, settings, cancellationToken: cancellationToken);
         return settings;
     }
@@ -181,6 +181,15 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         return (await GetPublicHistoryAsync(settings.GuildId, cancellationToken)).Any(x => x.Id == seasonId);
     }
 
+    public async Task<SeasonLeaderboardScope> ResolveScopeAsync(GuildLeaderboardSettings settings, SeasonLeaderboardScope? requestedScope, string? seasonId, CancellationToken cancellationToken = default)
+    {
+        if (requestedScope != null) return requestedScope.Value;
+        var configured = (await database.GuildSeasonSettings.Find(x => x.GuildId == settings.GuildId).FirstOrDefaultAsync(cancellationToken))?.DefaultLeaderboardScope ?? SeasonLeaderboardScope.Lifetime;
+        if (configured == SeasonLeaderboardScope.CurrentSeason && await IsScopeAvailableAsync(settings, configured, null, cancellationToken)) return configured;
+        // A historical scope has no meaningful default without a selected season.
+        return SeasonLeaderboardScope.Lifetime;
+    }
+
     private async Task<IReadOnlyList<SeasonLeaderboardOption>> GetPublicHistoryAsync(ulong guildId, CancellationToken cancellationToken)
     {
         var settings = await database.GuildSeasonSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
@@ -259,7 +268,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
 
     public async Task SetPublicVisibilityAsync(ulong guildId, ulong userId, bool visible, CancellationToken cancellationToken = default)
     {
-        var now = DateTime.UtcNow;
+        var now = timeProvider.GetUtcNow().UtcDateTime;
         await database.MemberXp.UpdateOneAsync(x => x.GuildId == guildId && x.UserId == userId,
             Builders<MemberXp>.Update.Set(x => x.PublicLeaderboardVisible, visible).Set(x => x.UpdatedAt, now), cancellationToken: cancellationToken);
         await database.MemberLeaderboardPreferences.UpdateOneAsync(

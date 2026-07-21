@@ -70,11 +70,11 @@ export class GuildService {
   deleteSeason(guildId: string, seasonId: string): Observable<void> { return this.http.delete<void>(this.url(guildId, `xp/seasons/${seasonId}`)); }
   leaderboardSettings(guildId: string): Observable<LeaderboardSettings> { return this.http.get<LeaderboardSettings>(this.url(guildId, 'leaderboard-settings')); }
   saveLeaderboardSettings(guildId: string, settings: Pick<LeaderboardSettings, 'alias' | 'visibility'>): Observable<LeaderboardSettings> { return this.http.put<LeaderboardSettings>(this.url(guildId, 'leaderboard-settings'), settings); }
-  publicLeaderboard(alias: string, cursor?: string, aroundMe = false, scope: SeasonLeaderboardScope = 'Lifetime', seasonId?: string): Observable<LeaderboardPage> {
+  publicLeaderboard(alias: string, cursor?: string, aroundMe = false, scope?: SeasonLeaderboardScope, seasonId?: string): Observable<LeaderboardPage> {
     const params: Record<string, string> = { take: '25' };
     if (cursor) params['cursor'] = cursor;
     if (aroundMe) params['aroundMe'] = 'true';
-    if (scope !== 'Lifetime') params['scope'] = scope;
+    if (scope) params['scope'] = scope;
     if (seasonId) params['seasonId'] = seasonId;
     return this.http.get<LeaderboardPage>(`${environment.apiBaseUrl}/rankings/${encodeURIComponent(alias)}`, { params });
   }

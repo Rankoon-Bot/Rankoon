@@ -40,25 +40,24 @@ export class AuthService {
     private readonly API_BASE_URL = environment.apiBaseUrl;
     private readonly TOKEN_REFRESH_BUFFER_MS = 60_000;
     private refreshInFlight$: Observable<boolean> | null = null;
+    private authGeneration = 0;
 
     /**
      * Initiates Discord OAuth2 login flow - gets login URL from backend
      */
     login(returnUrl?: string): void {
         const url = new URL(`${this.API_BASE_URL}/auth/login`, window.location.origin);
-        if (returnUrl) {
+        if (this.isSafeReturnUrl(returnUrl)) {
             url.searchParams.set('returnUrl', returnUrl);
         }
         this.http.get<{ loginUrl: string }>(url.toString()).subscribe({
             next: (res) => {
                 if (res?.loginUrl) {
-                    console.log(res.loginUrl)
                     window.location.href = res.loginUrl;
                 }
             },
             error: (err) => {
                 this.authStore.setError(this.apiErrors.resolve(err, 'errors.loginStart').message);
-                console.error('Login URL fetch error:', err);
             }
         });
     }
@@ -82,7 +81,6 @@ export class AuthService {
             }),
             map(() => true),
             catchError(error => {
-                console.error('Token validation error:', error);
                 this.clearLocalAuth();
                 this.authStore.setError(this.apiErrors.resolve(error, 'errors.signIn').message);
                 this.authStore.setLoading(false);
@@ -112,21 +110,27 @@ export class AuthService {
             return of(false);
         }
 
+        const authGeneration = this.authGeneration;
         this.refreshInFlight$ = this.http.post<BackendRefreshResponse>(`${this.API_BASE_URL}/auth/refresh`, {
             refreshToken
         }).pipe(
-            tap(response => {
+            map(response => {
+                if (authGeneration !== this.authGeneration) {
+                    return false;
+                }
+
                 this.saveTokenToStorage(response.accessToken);
                 this.saveTokenExpirationToStorage(response.expiresAt);
                 this.saveRefreshTokenToStorage(response.refreshToken);
                 this.authStore.setToken(response.accessToken);
                 this.authStore.setUser(response.user);
+                return true;
             }),
-            map(() => true),
             catchError(error => {
-                console.error('Token refresh failed:', error);
-                this.clearLocalAuth();
-                void this.router.navigate(['/login']);
+                if (authGeneration === this.authGeneration) {
+                    this.clearLocalAuth();
+                    void this.router.navigate(['/login']);
+                }
                 return of(false);
             }),
             finalize(() => this.refreshInFlight$ = null),
@@ -336,7 +340,15 @@ export class AuthService {
         }
     }
 
+    private isSafeReturnUrl(returnUrl?: string): returnUrl is string {
+        return !!returnUrl
+            && returnUrl.startsWith('/')
+            && !returnUrl.startsWith('//')
+            && !returnUrl.includes('\\');
+    }
+
     clearLocalAuth(): void {
+        this.authGeneration++;
         this.clearTokenFromStorage();
         this.clearTokenExpirationFromStorage();
         this.clearRefreshTokenFromStorage();

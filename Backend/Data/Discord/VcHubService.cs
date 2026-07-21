@@ -8,11 +8,14 @@ using Rankoon.Data.Reporting;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext database, IReportWriter reports, ILogger<VcHubService> logger) : BackgroundService
+public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext database, IReportWriter reports, TimeProvider timeProvider, ILogger<VcHubService> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _gates = new();
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _ownerGates = new();
+    private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _temporaryChannelGates = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _hubReconciliationGates = new();
     private readonly ConcurrentDictionary<ulong, byte> _deletingHubChannels = new();
+    private readonly ConcurrentDictionary<ulong, byte> _deletingTemporaryChannels = new();
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         client.UserVoiceStateUpdated += OnVoiceStateChangedAsync;
@@ -36,7 +39,7 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
                     logger.LogError(exception, "Temporary voice channel cleanup failed; retrying in one minute");
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromMinutes(1), timeProvider, stoppingToken);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
@@ -56,9 +59,28 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
 
     private async Task OnChannelDestroyedAsync(SocketChannel channel)
     {
-        if (channel is not SocketVoiceChannel voiceChannel || _deletingHubChannels.ContainsKey(voiceChannel.Id)) return;
+        if (channel is not SocketVoiceChannel voiceChannel) return;
         try
         {
+            if (!_deletingTemporaryChannels.ContainsKey(voiceChannel.Id))
+            {
+                var temporary = await database.TemporaryVoiceChannels.Find(x => x.GuildId == voiceChannel.Guild.Id && x.ChannelId == voiceChannel.Id).FirstOrDefaultAsync();
+                if (temporary != null)
+                {
+                    var gate = _temporaryChannelGates.GetOrAdd(temporary.ChannelId, _ => new SemaphoreSlim(1, 1));
+                    await gate.WaitAsync();
+                    try
+                    {
+                        var result = await database.TemporaryVoiceChannels.DeleteOneAsync(x => x.Id == temporary.Id);
+                        if (result.DeletedCount == 1)
+                            await WriteReportAsync(new(voiceChannel.Guild.Id, ReportCategories.Activity, ReportNames.VoiceChannelDeleted, ReportOutcomes.Succeeded,
+                                Metadata: new Dictionary<string, object?> { ["channelId"] = temporary.ChannelId, ["hubId"] = temporary.HubId }));
+                    }
+                    finally { gate.Release(); }
+                }
+            }
+
+            if (_deletingHubChannels.ContainsKey(voiceChannel.Id)) return;
             var hub = await database.VcHubs.Find(x => x.GuildId == voiceChannel.Guild.Id && x.JoinChannelId == voiceChannel.Id).FirstOrDefaultAsync();
             if (hub != null) await ReconcileHubAsync(voiceChannel.Guild, hub);
         }
@@ -74,7 +96,7 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
         catch (Exception exception)
         {
             logger.LogError(exception, "Temporary voice channel event failed for user {UserId}", user.Id);
-            if (user is SocketGuildUser member) await reports.WriteErrorAsync(member.Guild.Id, "voice.channel.lifecycle", exception, user.Id, new Dictionary<string, object?> { ["userId"] = user.Id });
+            if (user is SocketGuildUser member) await WriteErrorAsync(member.Guild.Id, "voice.channel.lifecycle", exception, member.Id, new Dictionary<string, object?> { ["userId"] = member.Id });
         }
     }
 
@@ -85,21 +107,100 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
         if (after.VoiceChannel == null) return;
         var hub = await database.VcHubs.Find(x => x.GuildId == member.Guild.Id && x.JoinChannelId == after.VoiceChannel.Id && x.Enabled).FirstOrDefaultAsync();
         if (hub == null) return;
+        var ownerGate = _ownerGates.GetOrAdd($"{member.Guild.Id}:{member.Id}", _ => new SemaphoreSlim(1, 1));
+        await ownerGate.WaitAsync();
         var gate = _gates.GetOrAdd(hub.JoinChannelId, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync();
         try
         {
+            if (member.VoiceChannel?.Id != hub.JoinChannelId || member.Guild.GetVoiceChannel(hub.JoinChannelId) == null) return;
+            var currentHub = await database.VcHubs.Find(x => x.Id == hub.Id && x.Enabled && x.JoinChannelId == hub.JoinChannelId).FirstOrDefaultAsync();
+            if (currentHub == null) return;
+            hub = currentHub;
             var owned = await database.TemporaryVoiceChannels.CountDocumentsAsync(x => x.GuildId == member.Guild.Id && x.OwnerId == member.Id);
             if (owned >= hub.MaxChannelsPerOwner) return;
             var name = hub.NameTemplate.Replace("{username}", member.DisplayName, StringComparison.OrdinalIgnoreCase).Replace("{user}", member.Username, StringComparison.OrdinalIgnoreCase);
             var channel = await member.Guild.CreateVoiceChannelAsync(name, properties => { properties.CategoryId = hub.CategoryId; properties.UserLimit = hub.UserLimit; properties.Bitrate = hub.Bitrate; });
-            await database.TemporaryVoiceChannels.InsertOneAsync(new TemporaryVoiceChannel { GuildId = member.Guild.Id, ChannelId = channel.Id, HubId = hub.Id!, OwnerId = member.Id });
-            await member.ModifyAsync(properties => properties.Channel = channel);
-            await database.GuildStats.UpdateOneAsync(x => x.GuildId == member.Guild.Id, Builders<GuildStats>.Update.SetOnInsert(x => x.GuildId, member.Guild.Id).Inc(x => x.TemporaryChannelsCreated, 1), new UpdateOptions { IsUpsert = true });
-            await reports.WriteAsync(new(member.Guild.Id, ReportCategories.Activity, ReportNames.VoiceChannelCreated, ReportOutcomes.Succeeded, ActorId: member.Id, Metadata: new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = hub.Id }));
+            var record = new TemporaryVoiceChannel { GuildId = member.Guild.Id, ChannelId = channel.Id, HubId = hub.Id!, OwnerId = member.Id, CreatedAt = timeProvider.GetUtcNow().UtcDateTime };
+            try
+            {
+                await database.TemporaryVoiceChannels.InsertOneAsync(record);
+            }
+            catch (Exception exception)
+            {
+                await CompensateTemporaryChannelAsync(member.Guild, channel, null, exception);
+                throw;
+            }
+
+            if (member.VoiceChannel?.Id != hub.JoinChannelId)
+            {
+                var exception = new InvalidOperationException("The user left the VC hub before the temporary channel could be joined.");
+                await CompensateTemporaryChannelAsync(member.Guild, channel, record, exception);
+                throw exception;
+            }
+
+            try
+            {
+                await member.ModifyAsync(properties => properties.Channel = channel);
+            }
+            catch (Exception exception) when (!IsMemberInChannel(member, channel))
+            {
+                await CompensateTemporaryChannelAsync(member.Guild, channel, record, exception);
+                throw;
+            }
+
+            try
+            {
+                await database.GuildStats.UpdateOneAsync(x => x.GuildId == member.Guild.Id, Builders<GuildStats>.Update.SetOnInsert(x => x.GuildId, member.Guild.Id).Inc(x => x.TemporaryChannelsCreated, 1), new UpdateOptions { IsUpsert = true });
+            }
+            catch (Exception exception) { await WriteErrorAsync(member.Guild.Id, "voice.channel.stats", exception, member.Id, new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = hub.Id }); }
+            await WriteReportAsync(new(member.Guild.Id, ReportCategories.Activity, ReportNames.VoiceChannelCreated, ReportOutcomes.Succeeded, ActorId: member.Id, Metadata: new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = hub.Id }));
         }
-        catch (Exception exception) { logger.LogError(exception, "Unable to create temporary voice channel for {UserId}", member.Id); await reports.WriteErrorAsync(member.Guild.Id, "voice.channel.create", exception, member.Id, new Dictionary<string, object?> { ["userId"] = member.Id, ["hubId"] = hub.Id }); }
-        finally { gate.Release(); }
+        catch (Exception exception) { logger.LogError(exception, "Unable to create temporary voice channel for {UserId}", member.Id); await WriteErrorAsync(member.Guild.Id, "voice.channel.create", exception, member.Id, new Dictionary<string, object?> { ["userId"] = member.Id, ["hubId"] = hub.Id }); }
+        finally { gate.Release(); ownerGate.Release(); }
+    }
+
+    private static bool IsMemberInChannel(SocketGuildUser member, IVoiceChannel channel) => member.VoiceChannel?.Id == channel.Id;
+
+    private async Task CompensateTemporaryChannelAsync(SocketGuild guild, IVoiceChannel channel, TemporaryVoiceChannel? record, Exception cause)
+    {
+        var deleted = false;
+        _deletingTemporaryChannels.TryAdd(channel.Id, 0);
+        try
+        {
+            await channel.DeleteAsync();
+            deleted = true;
+        }
+        catch (global::Discord.Net.HttpException exception) when (exception.HttpCode == System.Net.HttpStatusCode.NotFound) { deleted = true; }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Unable to delete orphaned temporary voice channel {ChannelId}", channel.Id);
+            await WriteErrorAsync(guild.Id, "voice.channel.compensate.discord", exception, record?.OwnerId, new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = record?.HubId, ["cause"] = cause.GetType().Name });
+        }
+        finally { _deletingTemporaryChannels.TryRemove(channel.Id, out _); }
+        if (!deleted) return;
+
+        try
+        {
+            await database.TemporaryVoiceChannels.DeleteOneAsync(x => x.GuildId == guild.Id && x.ChannelId == channel.Id);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Unable to remove partial temporary voice channel record {ChannelId}", channel.Id);
+            await WriteErrorAsync(guild.Id, "voice.channel.compensate.database", exception, record?.OwnerId, new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = record?.HubId, ["cause"] = cause.GetType().Name });
+        }
+    }
+
+    private async Task WriteReportAsync(ReportWrite report)
+    {
+        try { await reports.WriteAsync(report); }
+        catch (Exception exception) { logger.LogError(exception, "Unable to write voice hub report {ReportName} for guild {GuildId}", report.Name, report.GuildId); }
+    }
+
+    private async Task WriteErrorAsync(ulong guildId, string source, Exception exception, ulong? actorId = null, IReadOnlyDictionary<string, object?>? metadata = null)
+    {
+        try { await reports.WriteErrorAsync(guildId, source, exception, actorId, metadata); }
+        catch (Exception reportException) { logger.LogError(reportException, "Unable to write voice hub error report {Source} for guild {GuildId}", source, guildId); }
     }
 
     public async Task<bool> IsOwnerAsync(ulong guildId, ulong channelId, ulong userId) => await database.TemporaryVoiceChannels.Find(x => x.GuildId == guildId && x.ChannelId == channelId && x.OwnerId == userId).AnyAsync();
@@ -107,7 +208,7 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
     {
         var result = await database.TemporaryVoiceChannels.UpdateOneAsync(x => x.GuildId == guildId && x.ChannelId == channelId && x.OwnerId == actorId, Builders<TemporaryVoiceChannel>.Update.Set(x => x.OwnerId, ownerId));
         if (result.MatchedCount != 1) throw new InvalidOperationException("The temporary voice channel no longer exists.");
-        await reports.WriteAsync(new(guildId, ReportCategories.Activity, ReportNames.VoiceOwnershipTransferred, ReportOutcomes.Succeeded, ActorId: actorId,
+        await WriteReportAsync(new(guildId, ReportCategories.Activity, ReportNames.VoiceOwnershipTransferred, ReportOutcomes.Succeeded, ActorId: actorId,
             Metadata: new Dictionary<string, object?> { ["channelId"] = channelId, ["targetId"] = ownerId }, SubjectId: ownerId, ChannelId: channelId));
     }
     public async Task DeleteHubAsync(SocketGuild guild, VcHub hub, CancellationToken cancellationToken)
@@ -197,25 +298,44 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
     private async Task CleanupAsync(CancellationToken cancellationToken) { foreach (var guild in client.Guilds) foreach (var channel in await database.TemporaryVoiceChannels.Find(x => x.GuildId == guild.Id).ToListAsync(cancellationToken)) { var socketChannel = guild.GetVoiceChannel(channel.ChannelId); if (socketChannel == null || socketChannel.ConnectedUsers.Count == 0) await DeleteIfEmptyAsync(guild, socketChannel, channel); } }
     private async Task DeleteIfEmptyAsync(SocketGuild guild, SocketVoiceChannel? channel, TemporaryVoiceChannel? record = null)
     {
-        if (channel != null && channel.ConnectedUsers.Count > 0) return;
         record ??= channel == null
             ? null
             : await database.TemporaryVoiceChannels.Find(x => x.GuildId == guild.Id && x.ChannelId == channel.Id).FirstOrDefaultAsync();
         if (record == null) return;
 
-        if (channel != null)
+        var gate = _temporaryChannelGates.GetOrAdd(record.ChannelId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync();
+        try
         {
-            try
-            {
-                await channel.DeleteAsync();
-            }
-            catch (global::Discord.Net.HttpException exception) when (exception.HttpCode is System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.Forbidden)
-            {
-                logger.LogWarning(exception, "Temporary voice channel {ChannelId} is no longer accessible; removing its database record", record.ChannelId);
-            }
-        }
+            channel ??= guild.GetVoiceChannel(record.ChannelId);
+            if (channel != null && channel.ConnectedUsers.Count > 0) return;
 
-        await database.TemporaryVoiceChannels.DeleteOneAsync(x => x.Id == record.Id);
-        await reports.WriteAsync(new(guild.Id, ReportCategories.Activity, ReportNames.VoiceChannelDeleted, ReportOutcomes.Succeeded, Metadata: new Dictionary<string, object?> { ["channelId"] = record.ChannelId, ["hubId"] = record.HubId }));
+            var deleted = channel == null;
+            if (channel != null)
+            {
+                _deletingTemporaryChannels.TryAdd(channel.Id, 0);
+                try
+                {
+                    await channel.DeleteAsync();
+                    deleted = true;
+                }
+                catch (global::Discord.Net.HttpException exception) when (exception.HttpCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    logger.LogWarning(exception, "Temporary voice channel {ChannelId} is no longer accessible; removing its database record", record.ChannelId);
+                    deleted = true;
+                }
+                catch (global::Discord.Net.HttpException exception) when (exception.HttpCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    logger.LogWarning(exception, "Temporary voice channel {ChannelId} cannot be deleted because permissions are missing", record.ChannelId);
+                    await WriteErrorAsync(guild.Id, "voice.channel.delete", exception, record.OwnerId, new Dictionary<string, object?> { ["channelId"] = record.ChannelId, ["hubId"] = record.HubId });
+                }
+                finally { _deletingTemporaryChannels.TryRemove(channel.Id, out _); }
+            }
+
+            if (!deleted) return;
+            await database.TemporaryVoiceChannels.DeleteOneAsync(x => x.Id == record.Id);
+            await WriteReportAsync(new(guild.Id, ReportCategories.Activity, ReportNames.VoiceChannelDeleted, ReportOutcomes.Succeeded, Metadata: new Dictionary<string, object?> { ["channelId"] = record.ChannelId, ["hubId"] = record.HubId }));
+        }
+        finally { gate.Release(); }
     }
 }

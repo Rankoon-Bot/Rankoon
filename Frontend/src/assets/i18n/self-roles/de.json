@@ -39,7 +39,21 @@
     "removeMapping": "Zuordnung entfernen",
     "save": "Panel speichern",
     "saved": "Selbstrollen-Panel gespeichert.",
+    "repair": "Reparieren",
+    "confirm": "Bestätigen",
+    "repairAria": "{{title}} reparieren",
+    "repairConfirm": "Dieses Panel reparieren? Rankoon erstellt seine Discord-Nachricht neu, falls sie fehlt.",
+    "repaired": "Panel repariert.",
+    "panelError": "Panelfehler: {{error}}",
+    "health": {
+      "pending": "Ausstehend",
+      "published": "Veröffentlicht",
+      "disabled": "Deaktiviert",
+      "degraded": "Beeinträchtigt"
+    },
     "deleteConfirm": "Dieses Selbstrollen-Panel löschen?",
+    "deleteTitle": "Selbstrollen-Panel löschen",
+    "repairTitle": "Selbstrollen-Panel reparieren",
     "maxMappings": "Ein Panel kann maximal 20 Rollenzuordnungen enthalten.",
     "validation": {
       "channel": "Wähle einen Textkanal aus.",

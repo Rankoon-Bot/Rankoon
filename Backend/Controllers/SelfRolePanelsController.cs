@@ -53,6 +53,19 @@ public sealed class SelfRolePanelsController(IGuildAuthorizationService authoriz
         return await selfRoles.DeleteAsync(guild!, panelId, HttpContext.RequestAborted) ? NoContent() : NotFound();
     }
 
+    [HttpPost("{panelId}/repair")]
+    public async Task<IActionResult> Repair(string guildId, string panelId, [FromBody] SelfRolePanel panel)
+    {
+        var (_, guild, error) = await AuthorizeGuildAsync(guildId);
+        if (error != null) return error;
+        try
+        {
+            var repaired = await selfRoles.RepairAsync(guild!, panelId, panel.Revision, HttpContext.RequestAborted);
+            return repaired == null ? NotFound() : Ok(repaired);
+        }
+        catch (SelfRoleValidationException exception) { return this.ApiError(exception.ErrorKey); }
+    }
+
     [HttpGet("/api/guilds/{guildId}/self-role-resources")]
     public async Task<IActionResult> Resources(string guildId)
     {

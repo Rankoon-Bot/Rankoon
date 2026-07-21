@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 namespace Rankoon.Data.Model;
 
 public enum SelfRoleEmojiKind { Unicode, Custom }
+public enum SelfRolePanelState { Pending, Published, Disabled, Degraded }
 
 public sealed class SelfRolePanel
 {
@@ -21,6 +22,11 @@ public sealed class SelfRolePanel
     [BsonElement("revision")] public long Revision { get; set; } = 1;
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     [BsonElement("status")] public string? Status { get; set; }
+    [BsonElement("state"), BsonRepresentation(BsonType.String)] public SelfRolePanelState State { get; set; } = SelfRolePanelState.Pending;
+    [BsonElement("last_published_at")] public DateTime? LastPublishedAt { get; set; }
+    [BsonElement("last_health_check_at")] public DateTime? LastHealthCheckAt { get; set; }
+    [BsonElement("last_error")] public string? LastError { get; set; }
+    [BsonElement("last_error_at")] public DateTime? LastErrorAt { get; set; }
 }
 
 public sealed class SelfRoleMapping

@@ -18,7 +18,7 @@ public interface IXpService
     Task RecalculateTotalAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default);
 }
 
-public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null);
+public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null, int? CooldownSeconds = null);
 
 public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IReportWriter reports, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
 {
@@ -59,23 +59,37 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         var occurredAtUtc = DateTime.SpecifyKind(request.OccurredAtUtc, DateTimeKind.Utc);
         var season = await seasons.ResolveAsync(request.GuildId, occurredAtUtc, cancellationToken);
         XpLedgerEntry ledger;
+        var inserted = false;
         try
         {
             ledger = new XpLedgerEntry
             {
                 GrantKey = request.GrantKey, GuildId = request.GuildId, UserId = request.UserId, DisplayName = request.DisplayName, Source = request.Source,
                 Amount = request.Amount, ChannelId = request.ChannelId, OccurredAtUtc = occurredAtUtc, CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
-                SeasonId = season?.Id, PeriodStartsAtUtc = request.PeriodStartsAtUtc, PeriodEndsAtUtc = request.PeriodEndsAtUtc, ReversesGrantKey = request.ReversesGrantKey
+                SeasonId = season?.Id, PeriodStartsAtUtc = request.PeriodStartsAtUtc, PeriodEndsAtUtc = request.PeriodEndsAtUtc, ReversesGrantKey = request.ReversesGrantKey,
+                CooldownSource = request.CooldownSeconds.HasValue ? request.Source : null, CooldownSeconds = request.CooldownSeconds
             };
             await database.XpLedger.InsertOneAsync(ledger, cancellationToken: cancellationToken);
+            inserted = true;
         }
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey)
         {
             ledger = await database.XpLedger.Find(x => x.GrantKey == request.GrantKey).FirstOrDefaultAsync(cancellationToken) ?? throw new InvalidOperationException("Duplicate ledger entry could not be read.");
-            if (ledger.ProjectionStatus == SeasonProjectionStatus.Applied) return false;
+            if (ledger.ProjectionStatus == SeasonProjectionStatus.Applied || ledger.CooldownDenied) return false;
+        }
+        if (ledger.CooldownSeconds is > 0 && !ledger.CooldownAcquired)
+        {
+            if (!await AcquireCooldownAsync(ledger, cancellationToken))
+            {
+                await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && !x.CooldownAcquired,
+                    Builders<XpLedgerEntry>.Update.Set(x => x.CooldownDenied, true).Set(x => x.ProjectionStatus, SeasonProjectionStatus.Applied).Set(x => x.ProjectedAtUtc, timeProvider.GetUtcNow().UtcDateTime), cancellationToken: cancellationToken);
+                return false;
+            }
+            ledger.CooldownAcquired = true;
+            await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id, Builders<XpLedgerEntry>.Update.Set(x => x.CooldownAcquired, true), cancellationToken: cancellationToken);
         }
         await ProjectAsync(ledger, cancellationToken);
-        await reports.WriteAsync(new(request.GuildId, ReportCategories.Activity, ReportNames.XpGranted, ReportOutcomes.Succeeded, request.Source, request.UserId, Metadata: new Dictionary<string, object?>
+        if (inserted) await reports.WriteAsync(new(request.GuildId, ReportCategories.Activity, ReportNames.XpGranted, ReportOutcomes.Succeeded, request.Source, request.UserId, Metadata: new Dictionary<string, object?>
         {
             ["source"] = request.Source,
             ["amount"] = request.Amount,
@@ -102,95 +116,180 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         return true;
     }
 
+    private async Task<bool> AcquireCooldownAsync(XpLedgerEntry ledger, CancellationToken cancellationToken)
+    {
+        var fields = ledger.CooldownSource switch
+        {
+            "message" => ("last_message_xp_at", "last_message_xp_grant_key"),
+            "reaction" => ("last_reaction_xp_at", "last_reaction_xp_grant_key"),
+            "thread_message" => ("last_thread_xp_at", "last_thread_xp_grant_key"),
+            _ => throw new InvalidOperationException($"Unsupported XP cooldown source '{ledger.CooldownSource}'.")
+        };
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var filter = Builders<MemberXp>.Filter.And(
+            Builders<MemberXp>.Filter.Eq(x => x.GuildId, ledger.GuildId),
+            Builders<MemberXp>.Filter.Eq(x => x.UserId, ledger.UserId),
+            new BsonDocument("$or", new BsonArray { new BsonDocument(fields.Item1, new BsonDocument("$exists", false)), new BsonDocument(fields.Item1, null), new BsonDocument(fields.Item1, new BsonDocument("$lte", now.AddSeconds(-ledger.CooldownSeconds!.Value))) }));
+        try
+        {
+            var result = await database.MemberXp.UpdateOneAsync(filter, new BsonDocument("$set", new BsonDocument { { fields.Item1, now }, { fields.Item2, ledger.GrantKey } }), new UpdateOptions { IsUpsert = true }, cancellationToken);
+            if (result.MatchedCount != 0 || result.UpsertedId != null) return true;
+        }
+        catch (MongoWriteException exception) when (exception.WriteError.Category != ServerErrorCategory.DuplicateKey) { throw; }
+
+        // A process can fail after the member CAS and before setting CooldownAcquired on the ledger.
+        var member = await database.MemberXp.Find(Builders<MemberXp>.Filter.And(
+            Builders<MemberXp>.Filter.Eq(x => x.GuildId, ledger.GuildId),
+            Builders<MemberXp>.Filter.Eq(x => x.UserId, ledger.UserId),
+            new BsonDocument(fields.Item2, ledger.GrantKey))).FirstOrDefaultAsync(cancellationToken);
+        return member != null;
+    }
+
     internal async Task ProjectAsync(XpLedgerEntry ledger, CancellationToken cancellationToken)
     {
+        if (ledger.CooldownDenied || ledger.ProjectionStatus == SeasonProjectionStatus.Applied) return;
         var now = timeProvider.GetUtcNow().UtcDateTime;
-        var entries = await database.XpLedger.Find(x => x.GuildId == ledger.GuildId && x.UserId == ledger.UserId).ToListAsync(cancellationToken);
-        var earned = entries.Sum(x => x.Amount);
-        var messageCount = entries.LongCount(x => x.Source == "message");
-        var voiceSeconds = entries.Where(x => x.Source == "voice" && x.PeriodStartsAtUtc != null && x.PeriodEndsAtUtc != null).Sum(x => (long)(x.PeriodEndsAtUtc!.Value - x.PeriodStartsAtUtc!.Value).TotalSeconds);
-        var member = await GetMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken) ?? new MemberXp { GuildId = ledger.GuildId, UserId = ledger.UserId };
-        var preference = await database.MemberLeaderboardPreferences.Find(x => x.GuildId == ledger.GuildId && x.UserId == ledger.UserId).FirstOrDefaultAsync(cancellationToken);
-        member.DisplayName = ledger.DisplayName;
-        member.EarnedXp = earned;
-        member.TotalXp = member.ImportedMee6Xp + earned + member.ManualAdjustment;
-        member.MessageCount = Math.Max(member.MessageCount, messageCount);
-        member.VoiceSeconds = Math.Max(member.VoiceSeconds, voiceSeconds);
-        member.IsCurrentMember = true;
-        member.PublicLeaderboardVisible = preference?.PublicVisible ?? member.PublicLeaderboardVisible;
-        member.UpdatedAt = now;
-        await database.MemberXp.UpdateOneAsync(x => x.GuildId == ledger.GuildId && x.UserId == ledger.UserId,
-            Builders<MemberXp>.Update
-                .SetOnInsert(x => x.GuildId, ledger.GuildId)
-                .SetOnInsert(x => x.UserId, ledger.UserId)
-                .Set(x => x.DisplayName, member.DisplayName)
-                .Set(x => x.EarnedXp, member.EarnedXp)
-                .Set(x => x.TotalXp, member.TotalXp)
-                .Set(x => x.MessageCount, member.MessageCount)
-                .Set(x => x.VoiceSeconds, member.VoiceSeconds)
-                .Set(x => x.IsCurrentMember, member.IsCurrentMember)
-                .Set(x => x.PublicLeaderboardVisible, member.PublicLeaderboardVisible)
-                .Set(x => x.UpdatedAt, member.UpdatedAt),
-            new UpdateOptions { IsUpsert = true }, cancellationToken);
+        var owner = Guid.NewGuid().ToString("N");
+        var claimed = await database.XpLedger.FindOneAndUpdateAsync(
+            Builders<XpLedgerEntry>.Filter.And(
+                Builders<XpLedgerEntry>.Filter.Eq(x => x.Id, ledger.Id),
+                Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, SeasonProjectionStatus.Pending),
+                Builders<XpLedgerEntry>.Filter.Or(
+                    Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionLeaseOwner, null),
+                    Builders<XpLedgerEntry>.Filter.Lte(x => x.ProjectionLeaseExpiresAtUtc, now))),
+            Builders<XpLedgerEntry>.Update.Set(x => x.ProjectionLeaseOwner, owner).Set(x => x.ProjectionLeaseExpiresAtUtc, now.AddMinutes(2)),
+            new FindOneAndUpdateOptions<XpLedgerEntry> { ReturnDocument = ReturnDocument.Before }, cancellationToken);
+        if (claimed == null) return;
+
+        var recovering = claimed.ProjectionLeaseOwner != null;
+        var locks = await AcquireProjectionLocksAsync(ledger, owner, cancellationToken);
+        if (locks == null)
+        {
+            await ReleaseLeaseAsync(ledger.GrantKey, owner, cancellationToken);
+            return;
+        }
+        try
+        {
+            if (recovering) await RebuildProjectionAsync(ledger, now, cancellationToken);
+            else await IncrementProjectionAsync(ledger, now, cancellationToken);
+            await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionStatus == SeasonProjectionStatus.Pending && x.ProjectionLeaseOwner == owner,
+                Builders<XpLedgerEntry>.Update.Set(x => x.ProjectionStatus, SeasonProjectionStatus.Applied).Set(x => x.ProjectedAtUtc, now).Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc), cancellationToken: cancellationToken);
+            await realtime.PublishMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken);
+        }
+        finally
+        {
+            foreach (var key in locks) await ReleaseLeaseAsync(key, owner, cancellationToken);
+        }
+    }
+
+    private async Task IncrementProjectionAsync(XpLedgerEntry ledger, DateTime now, CancellationToken cancellationToken)
+    {
+        var memberUpdate = Builders<MemberXp>.Update
+            .SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.UserId, ledger.UserId)
+            .Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAt, now)
+            .Inc(x => x.EarnedXp, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount);
+        if (ledger.Source == "message") memberUpdate = memberUpdate.Inc(x => x.MessageCount, 1);
+        var voiceSeconds = VoiceSeconds(ledger);
+        if (voiceSeconds != 0) memberUpdate = memberUpdate.Inc(x => x.VoiceSeconds, voiceSeconds);
+        await UpsertAsync(database.MemberXp, Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.GuildId, ledger.GuildId), Builders<MemberXp>.Filter.Eq(x => x.UserId, ledger.UserId)), memberUpdate, cancellationToken);
 
         if (ledger.SeasonId != null)
         {
             var season = await database.GuildSeasons.Find(x => x.Id == ledger.SeasonId).FirstOrDefaultAsync(cancellationToken);
             if (season != null && season.Status != SeasonStatus.Closed)
             {
-                var seasonEntries = entries.Where(x => x.SeasonId == ledger.SeasonId).ToList();
-                var seasonMember = await database.SeasonMemberXp.Find(x => x.SeasonId == ledger.SeasonId && x.UserId == ledger.UserId).FirstOrDefaultAsync(cancellationToken)
-                    ?? new SeasonMemberXp { GuildId = ledger.GuildId, SeasonId = ledger.SeasonId, UserId = ledger.UserId, StartingXp = InitialXp(season.SettingsSnapshot, member) };
-                seasonMember.DisplayName = ledger.DisplayName;
-                seasonMember.EarnedXp = seasonEntries.Sum(x => x.Amount);
-                seasonMember.TotalXp = seasonMember.StartingXp + seasonMember.EarnedXp + seasonMember.ManualAdjustment;
-                seasonMember.MessageCount = seasonEntries.LongCount(x => x.Source == "message");
-                seasonMember.VoiceSeconds = seasonEntries.Where(x => x.Source == "voice" && x.PeriodStartsAtUtc != null && x.PeriodEndsAtUtc != null).Sum(x => (long)(x.PeriodEndsAtUtc!.Value - x.PeriodStartsAtUtc!.Value).TotalSeconds);
-                seasonMember.IsCurrentMember = member.IsCurrentMember;
-                seasonMember.PublicLeaderboardVisible = member.PublicLeaderboardVisible;
-                seasonMember.UpdatedAtUtc = now;
-                await database.SeasonMemberXp.UpdateOneAsync(x => x.SeasonId == ledger.SeasonId && x.UserId == ledger.UserId,
-                    Builders<SeasonMemberXp>.Update
-                        .SetOnInsert(x => x.GuildId, ledger.GuildId)
-                        .SetOnInsert(x => x.SeasonId, ledger.SeasonId)
-                        .SetOnInsert(x => x.UserId, ledger.UserId)
-                        .SetOnInsert(x => x.StartingXp, seasonMember.StartingXp)
-                        .SetOnInsert(x => x.ManualAdjustment, seasonMember.ManualAdjustment)
-                        .Set(x => x.DisplayName, seasonMember.DisplayName)
-                        .Set(x => x.EarnedXp, seasonMember.EarnedXp)
-                        .Set(x => x.TotalXp, seasonMember.TotalXp)
-                        .Set(x => x.MessageCount, seasonMember.MessageCount)
-                        .Set(x => x.VoiceSeconds, seasonMember.VoiceSeconds)
-                        .Set(x => x.IsCurrentMember, seasonMember.IsCurrentMember)
-                        .Set(x => x.PublicLeaderboardVisible, seasonMember.PublicLeaderboardVisible)
-                        .Set(x => x.UpdatedAtUtc, seasonMember.UpdatedAtUtc),
-                    new UpdateOptions { IsUpsert = true }, cancellationToken);
+                var seasonUpdate = Builders<SeasonMemberXp>.Update
+                    .SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.SeasonId, ledger.SeasonId).SetOnInsert(x => x.UserId, ledger.UserId)
+                    .SetOnInsert(x => x.StartingXp, 0m).Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAtUtc, now)
+                    .Inc(x => x.EarnedXp, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount);
+                if (ledger.Source == "message") seasonUpdate = seasonUpdate.Inc(x => x.MessageCount, 1);
+                if (voiceSeconds != 0) seasonUpdate = seasonUpdate.Inc(x => x.VoiceSeconds, voiceSeconds);
+                await UpsertAsync(database.SeasonMemberXp, Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.SeasonId, ledger.SeasonId), Builders<SeasonMemberXp>.Filter.Eq(x => x.UserId, ledger.UserId)), seasonUpdate, cancellationToken);
             }
         }
-        var guildEntries = await database.XpLedger.Find(x => x.GuildId == ledger.GuildId).ToListAsync(cancellationToken);
-        var stats = await database.GuildStats.Find(x => x.GuildId == ledger.GuildId).FirstOrDefaultAsync(cancellationToken) ?? new GuildStats { GuildId = ledger.GuildId };
-        stats.XpAwarded = guildEntries.Sum(x => x.Amount);
-        stats.Messages = guildEntries.LongCount(x => x.Source == "message"); stats.Reactions = guildEntries.LongCount(x => x.Source == "reaction");
-        stats.Threads = guildEntries.LongCount(x => x.Source.StartsWith("thread", StringComparison.Ordinal)); stats.EventInterests = guildEntries.LongCount(x => x.Source == "event_interest");
-        await database.GuildStats.UpdateOneAsync(x => x.GuildId == ledger.GuildId,
-            Builders<GuildStats>.Update
-                .SetOnInsert(x => x.GuildId, ledger.GuildId)
-                .Set(x => x.XpAwarded, stats.XpAwarded)
-                .Set(x => x.Messages, stats.Messages)
-                .Set(x => x.Reactions, stats.Reactions)
-                .Set(x => x.Threads, stats.Threads)
-                .Set(x => x.EventInterests, stats.EventInterests),
-            new UpdateOptions { IsUpsert = true }, cancellationToken);
-        await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionStatus == SeasonProjectionStatus.Pending, Builders<XpLedgerEntry>.Update.Set(x => x.ProjectionStatus, SeasonProjectionStatus.Applied).Set(x => x.ProjectedAtUtc, now), cancellationToken: cancellationToken);
-        await realtime.PublishMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken);
+        var statsUpdate = Builders<GuildStats>.Update.SetOnInsert(x => x.GuildId, ledger.GuildId).Inc(x => x.XpAwarded, ledger.Amount);
+        if (ledger.Source == "message") statsUpdate = statsUpdate.Inc(x => x.Messages, 1);
+        if (ledger.Source == "reaction") statsUpdate = statsUpdate.Inc(x => x.Reactions, 1);
+        if (ledger.Source.StartsWith("thread", StringComparison.Ordinal)) statsUpdate = statsUpdate.Inc(x => x.Threads, 1);
+        if (ledger.Source == "event_interest") statsUpdate = statsUpdate.Inc(x => x.EventInterests, 1);
+        await UpsertAsync(database.GuildStats, Builders<GuildStats>.Filter.Eq(x => x.GuildId, ledger.GuildId), statsUpdate, cancellationToken);
     }
 
-    private static decimal InitialXp(GuildSeasonSettings settings, MemberXp member) => settings.InitialXpMode switch
+    private static long VoiceSeconds(XpLedgerEntry ledger) => ledger.Source == "voice" && ledger.PeriodStartsAtUtc != null && ledger.PeriodEndsAtUtc != null
+        ? (long)(ledger.PeriodEndsAtUtc.Value - ledger.PeriodStartsAtUtc.Value).TotalSeconds : 0;
+
+    private async Task RebuildProjectionAsync(XpLedgerEntry ledger, DateTime now, CancellationToken cancellationToken)
     {
-        SeasonInitialXpMode.Lifetime => member.TotalXp,
-        SeasonInitialXpMode.LifetimePercentage => decimal.Round(member.TotalXp * settings.InitialXpPercentage / 100m, 2, MidpointRounding.AwayFromZero),
-        _ => 0m
-    };
+        var included = Builders<XpLedgerEntry>.Filter.And(
+            Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true),
+            Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true),
+            Builders<XpLedgerEntry>.Filter.Or(Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, SeasonProjectionStatus.Applied), Builders<XpLedgerEntry>.Filter.Eq(x => x.Id, ledger.Id)));
+        var memberEntries = await database.XpLedger.Find(Builders<XpLedgerEntry>.Filter.And(included, Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, ledger.GuildId), Builders<XpLedgerEntry>.Filter.Eq(x => x.UserId, ledger.UserId))).ToListAsync(cancellationToken);
+        var member = await GetMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken) ?? new MemberXp { GuildId = ledger.GuildId, UserId = ledger.UserId };
+        var earned = memberEntries.Sum(x => x.Amount);
+        await database.MemberXp.UpdateOneAsync(x => x.GuildId == ledger.GuildId && x.UserId == ledger.UserId,
+            Builders<MemberXp>.Update.SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.UserId, ledger.UserId).Set(x => x.DisplayName, ledger.DisplayName)
+                .Set(x => x.EarnedXp, earned).Set(x => x.TotalXp, member.ImportedMee6Xp + earned + member.ManualAdjustment).Set(x => x.MessageCount, memberEntries.LongCount(x => x.Source == "message"))
+                .Set(x => x.VoiceSeconds, memberEntries.Sum(VoiceSeconds)).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAt, now), new UpdateOptions { IsUpsert = true }, cancellationToken);
+
+        if (ledger.SeasonId != null)
+        {
+            var season = await database.GuildSeasons.Find(x => x.Id == ledger.SeasonId).FirstOrDefaultAsync(cancellationToken);
+            if (season != null && season.Status != SeasonStatus.Closed)
+            {
+                var seasonEntries = memberEntries.Where(x => x.SeasonId == ledger.SeasonId).ToList();
+                var seasonMember = await database.SeasonMemberXp.Find(x => x.SeasonId == ledger.SeasonId && x.UserId == ledger.UserId).FirstOrDefaultAsync(cancellationToken) ?? new SeasonMemberXp();
+                var seasonEarned = seasonEntries.Sum(x => x.Amount);
+                await database.SeasonMemberXp.UpdateOneAsync(x => x.SeasonId == ledger.SeasonId && x.UserId == ledger.UserId,
+                    Builders<SeasonMemberXp>.Update.SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.SeasonId, ledger.SeasonId).SetOnInsert(x => x.UserId, ledger.UserId).SetOnInsert(x => x.StartingXp, 0m)
+                        .Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.EarnedXp, seasonEarned).Set(x => x.TotalXp, seasonMember.StartingXp + seasonEarned + seasonMember.ManualAdjustment)
+                        .Set(x => x.MessageCount, seasonEntries.LongCount(x => x.Source == "message")).Set(x => x.VoiceSeconds, seasonEntries.Sum(VoiceSeconds)).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAtUtc, now), new UpdateOptions { IsUpsert = true }, cancellationToken);
+            }
+        }
+
+        var guildEntries = await database.XpLedger.Find(Builders<XpLedgerEntry>.Filter.And(included, Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, ledger.GuildId))).ToListAsync(cancellationToken);
+        await database.GuildStats.UpdateOneAsync(x => x.GuildId == ledger.GuildId,
+            Builders<GuildStats>.Update.SetOnInsert(x => x.GuildId, ledger.GuildId).Set(x => x.XpAwarded, guildEntries.Sum(x => x.Amount))
+                .Set(x => x.Messages, guildEntries.LongCount(x => x.Source == "message")).Set(x => x.Reactions, guildEntries.LongCount(x => x.Source == "reaction"))
+                .Set(x => x.Threads, guildEntries.LongCount(x => x.Source.StartsWith("thread", StringComparison.Ordinal))).Set(x => x.EventInterests, guildEntries.LongCount(x => x.Source == "event_interest")), new UpdateOptions { IsUpsert = true }, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<string>?> AcquireProjectionLocksAsync(XpLedgerEntry ledger, string owner, CancellationToken cancellationToken)
+    {
+        var keys = new List<string> { $"projection-lock:guild:{ledger.GuildId}", $"projection-lock:member:{ledger.GuildId}:{ledger.UserId}" };
+        if (ledger.SeasonId != null) keys.Add($"projection-lock:season:{ledger.SeasonId}:{ledger.UserId}");
+        foreach (var key in keys)
+        {
+            if (await AcquireLeaseAsync(key, ledger.GuildId, ledger.UserId, owner, cancellationToken)) continue;
+            foreach (var acquired in keys.TakeWhile(x => x != key)) await ReleaseLeaseAsync(acquired, owner, cancellationToken);
+            return null;
+        }
+        return keys;
+    }
+
+    private async Task<bool> AcquireLeaseAsync(string key, ulong guildId, ulong userId, string owner, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var filter = Builders<XpLedgerEntry>.Filter.And(Builders<XpLedgerEntry>.Filter.Eq(x => x.GrantKey, key), Builders<XpLedgerEntry>.Filter.Or(Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionLeaseOwner, null), Builders<XpLedgerEntry>.Filter.Lte(x => x.ProjectionLeaseExpiresAtUtc, now)));
+        var update = Builders<XpLedgerEntry>.Update.SetOnInsert(x => x.GrantKey, key).SetOnInsert(x => x.GuildId, guildId).SetOnInsert(x => x.UserId, userId).SetOnInsert(x => x.Source, "projection_control").SetOnInsert(x => x.IsProjectionControl, true).SetOnInsert(x => x.ProjectionStatus, SeasonProjectionStatus.Applied).SetOnInsert(x => x.CreatedAt, now).Set(x => x.ProjectionLeaseOwner, owner).Set(x => x.ProjectionLeaseExpiresAtUtc, now.AddMinutes(2));
+        try
+        {
+            var result = await database.XpLedger.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
+            return result.MatchedCount != 0 || result.UpsertedId != null;
+        }
+        catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { return false; }
+    }
+
+    private Task ReleaseLeaseAsync(string key, string owner, CancellationToken cancellationToken) => database.XpLedger.UpdateOneAsync(
+        x => x.GrantKey == key && x.ProjectionLeaseOwner == owner,
+        Builders<XpLedgerEntry>.Update.Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc), cancellationToken: cancellationToken);
+
+    private static async Task UpsertAsync<T>(IMongoCollection<T> collection, FilterDefinition<T> filter, UpdateDefinition<T> update, CancellationToken cancellationToken)
+    {
+        try { await collection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true }, cancellationToken); }
+        catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { await collection.UpdateOneAsync(filter, update, cancellationToken: cancellationToken); }
+    }
+
 
     public async Task<IReadOnlyList<MemberXp>> GetLeaderboardAsync(ulong guildId, int take, CancellationToken cancellationToken = default) =>
         await database.MemberXp.Find(x => x.GuildId == guildId && x.IsCurrentMember)

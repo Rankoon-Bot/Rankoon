@@ -13,7 +13,7 @@ public sealed class SelfRoleValidationException(string errorKey) : Exception(err
     public string ErrorKey { get; } = errorKey;
 }
 
-public sealed class SelfRoleService(RankoonDbContext database, ILogger<SelfRoleService> logger)
+public sealed class SelfRoleService(RankoonDbContext database, TimeProvider timeProvider, ILogger<SelfRoleService> logger)
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> updateLocks = new();
     public async Task<SelfRolePanel> CreateAsync(SocketGuild guild, SelfRolePanel panel, CancellationToken cancellationToken = default)
@@ -23,8 +23,18 @@ public sealed class SelfRoleService(RankoonDbContext database, ILogger<SelfRoleS
         panel.Revision = 1;
         Prepare(panel);
         await ValidateAsync(guild, panel);
-        await PublishAsync(guild, panel, isNew: true);
-        await database.SelfRolePanels.InsertOneAsync(panel, cancellationToken: cancellationToken);
+        try
+        {
+            await PublishAsync(guild, panel, isNew: true);
+            MarkHealthy(panel);
+            await database.SelfRolePanels.InsertOneAsync(panel, cancellationToken: cancellationToken);
+        }
+        catch
+        {
+            // A failed persistence must not leave a newly-created Discord message orphaned.
+            if (panel.MessageId != 0) await DeleteMessageAsync(guild, panel);
+            throw;
+        }
         return panel;
     }
 
@@ -44,15 +54,36 @@ public sealed class SelfRoleService(RankoonDbContext database, ILogger<SelfRoleS
             panel.Revision++;
             Prepare(panel);
             await ValidateAsync(guild, panel);
-            if (panel.ChannelId != existing.ChannelId)
+            try
             {
-                await PublishAsync(guild, panel, isNew: true);
-                await DeleteMessageAsync(guild, existing);
+                await PublishAsync(guild, panel, isNew: panel.ChannelId != existing.ChannelId);
+                MarkHealthy(panel);
             }
-            else await PublishAsync(guild, panel, isNew: false);
-            var result = await database.SelfRolePanels.ReplaceOneAsync(x => x.Id == panelId && x.GuildId == guild.Id && x.Revision == existing.Revision, panel, cancellationToken: cancellationToken);
-            if (result.MatchedCount == 0) throw new SelfRoleValidationException("selfRoles.revisionConflict");
-            return panel;
+            catch (Exception exception)
+            {
+                try
+                {
+                    if (panel.ChannelId != existing.ChannelId) await DeleteMessageAsync(guild, panel);
+                    else await PublishAsync(guild, existing, isNew: false);
+                }
+                catch (Exception compensationException) { logger.LogWarning(compensationException, "Could not compensate failed self-role update for panel {PanelId}", panelId); }
+                await MarkFailureAsync(existing, exception, cancellationToken);
+                throw;
+            }
+            try
+            {
+                var result = await database.SelfRolePanels.ReplaceOneAsync(x => x.Id == panelId && x.GuildId == guild.Id && x.Revision == existing.Revision, panel, cancellationToken: cancellationToken);
+                if (result.MatchedCount == 0) throw new SelfRoleValidationException("selfRoles.revisionConflict");
+                if (panel.ChannelId != existing.ChannelId) await DeleteMessageAsync(guild, existing);
+                return panel;
+            }
+            catch
+            {
+                // Restore the previous published configuration when its persistence did not succeed.
+                if (panel.ChannelId != existing.ChannelId) await DeleteMessageAsync(guild, panel);
+                else await PublishAsync(guild, existing, isNew: false);
+                throw;
+            }
         }
         finally { updateLock.Release(); }
     }
@@ -68,6 +99,39 @@ public sealed class SelfRoleService(RankoonDbContext database, ILogger<SelfRoleS
         return true;
     }
 
+    public async Task<SelfRolePanel?> RepairAsync(SocketGuild guild, string panelId, long revision, CancellationToken cancellationToken = default)
+    {
+        var updateLock = updateLocks.GetOrAdd($"{guild.Id}:{panelId}", _ => new SemaphoreSlim(1, 1));
+        await updateLock.WaitAsync(cancellationToken);
+        try
+        {
+            var panel = await database.SelfRolePanels.Find(x => x.Id == panelId && x.GuildId == guild.Id).FirstOrDefaultAsync(cancellationToken);
+            if (panel == null) return null;
+            if (panel.Revision != revision) throw new SelfRoleValidationException("selfRoles.revisionConflict");
+
+            var recreated = false;
+            try
+            {
+                await ValidateAsync(guild, panel);
+                recreated = panel.MessageId == 0 || guild.GetChannel(panel.ChannelId) is not IMessageChannel channel || await channel.GetMessageAsync(panel.MessageId) is not IUserMessage;
+                await PublishAsync(guild, panel, recreated);
+                panel.Revision++;
+                Prepare(panel);
+                MarkHealthy(panel);
+                var result = await database.SelfRolePanels.ReplaceOneAsync(x => x.Id == panelId && x.GuildId == guild.Id && x.Revision == revision, panel, cancellationToken: cancellationToken);
+                if (result.MatchedCount == 0) throw new SelfRoleValidationException("selfRoles.revisionConflict");
+                return panel;
+            }
+            catch (Exception exception)
+            {
+                if (recreated && panel.MessageId != 0) await DeleteMessageAsync(guild, panel);
+                await MarkFailureAsync(panel, exception, cancellationToken);
+                throw;
+            }
+        }
+        finally { updateLock.Release(); }
+    }
+
     public async Task ReconcileAsync(IEnumerable<SocketGuild> guilds, CancellationToken cancellationToken = default)
     {
         foreach (var guild in guilds)
@@ -75,10 +139,19 @@ public sealed class SelfRoleService(RankoonDbContext database, ILogger<SelfRoleS
         {
             try
             {
-                if (guild.GetChannel(panel.ChannelId) is not IMessageChannel channel || await channel.GetMessageAsync(panel.MessageId) is not IUserMessage message) continue;
+                if (guild.GetChannel(panel.ChannelId) is not IMessageChannel channel || await channel.GetMessageAsync(panel.MessageId) is not IUserMessage message)
+                {
+                    await MarkFailureAsync(panel, new InvalidOperationException("The configured Discord message is unavailable."), cancellationToken);
+                    continue;
+                }
                 foreach (var mapping in panel.Mappings) await message.AddReactionAsync(ToEmote(mapping.Emoji));
+                await MarkHealthyAsync(panel, cancellationToken);
             }
-            catch (Exception exception) { logger.LogWarning(exception, "Could not reconcile self-role panel {PanelId}", panel.Id); }
+            catch (Exception exception)
+            {
+                await MarkFailureAsync(panel, exception, cancellationToken);
+                logger.LogWarning(exception, "Could not reconcile self-role panel {PanelId}", panel.Id);
+            }
         }
     }
 
@@ -86,15 +159,40 @@ public sealed class SelfRoleService(RankoonDbContext database, ILogger<SelfRoleS
         ? reaction is Emote custom && ulong.TryParse(emoji.Value, out var id) && custom.Id == id
         : reaction is Emoji unicode && unicode.Name == emoji.Value;
 
-    private static void Prepare(SelfRolePanel panel)
+    private void Prepare(SelfRolePanel panel)
     {
         panel.Title ??= string.Empty;
         panel.Description ??= string.Empty;
         panel.Color ??= string.Empty;
         panel.Mappings ??= [];
-        panel.UpdatedAt = DateTime.UtcNow;
-        panel.Status = panel.Enabled ? "Published" : "Disabled";
+        panel.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
         foreach (var mapping in panel.Mappings) mapping.Id ??= ObjectId.GenerateNewId().ToString();
+    }
+
+    private void MarkHealthy(SelfRolePanel panel)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        panel.State = panel.Enabled ? SelfRolePanelState.Published : SelfRolePanelState.Disabled;
+        panel.Status = panel.State.ToString();
+        panel.LastPublishedAt = now;
+        panel.LastHealthCheckAt = now;
+        panel.LastError = null;
+        panel.LastErrorAt = null;
+    }
+
+    private async Task MarkHealthyAsync(SelfRolePanel panel, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        await database.SelfRolePanels.UpdateOneAsync(x => x.Id == panel.Id && x.GuildId == panel.GuildId,
+            Builders<SelfRolePanel>.Update.Set(x => x.State, panel.Enabled ? SelfRolePanelState.Published : SelfRolePanelState.Disabled).Set(x => x.Status, panel.Enabled ? "Published" : "Disabled").Set(x => x.LastHealthCheckAt, now).Set(x => x.LastError, null).Set(x => x.LastErrorAt, null), cancellationToken: cancellationToken);
+    }
+
+    private async Task MarkFailureAsync(SelfRolePanel panel, Exception exception, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var error = exception is SelfRoleValidationException validation ? validation.ErrorKey : "selfRoles.publishFailed";
+        await database.SelfRolePanels.UpdateOneAsync(x => x.Id == panel.Id && x.GuildId == panel.GuildId,
+            Builders<SelfRolePanel>.Update.Set(x => x.State, SelfRolePanelState.Degraded).Set(x => x.Status, "Degraded").Set(x => x.LastHealthCheckAt, now).Set(x => x.LastError, error).Set(x => x.LastErrorAt, now), cancellationToken: cancellationToken);
     }
 
     private async Task ValidateAsync(SocketGuild guild, SelfRolePanel panel)

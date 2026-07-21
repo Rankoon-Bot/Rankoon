@@ -44,7 +44,11 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, TimeProvide
                 await database.XpLedger.Indexes.CreateOneAsync(new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.GrantKey), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
                 await database.XpLedger.Indexes.CreateManyAsync([
                     new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.ProjectionStatus).Ascending(x => x.CreatedAt), new CreateIndexOptions { Name = "open_projection" }),
-                    new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.SeasonId).Ascending(x => x.OccurredAtUtc), new CreateIndexOptions { Name = "guild_season_occurred" })
+                    new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.SeasonId).Ascending(x => x.OccurredAtUtc), new CreateIndexOptions { Name = "guild_season_occurred" }),
+                    // Bounds member recovery scans by the guild/member prefix and preserves occurred-time ordering.
+                    new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId).Ascending(x => x.OccurredAtUtc), new CreateIndexOptions { Name = "guild_user_occurred" }),
+                    // Supports deterministic repair of one member's projection in a single season.
+                    new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.SeasonId).Ascending(x => x.UserId), new CreateIndexOptions { Name = "guild_season_user" })
                 ], stoppingToken);
                 await database.VoiceSessions.Indexes.CreateOneAsync(new CreateIndexModel<VoiceSession>(Builders<VoiceSession>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
                 await database.TemporaryVoiceChannels.Indexes.CreateOneAsync(new CreateIndexModel<TemporaryVoiceChannel>(Builders<TemporaryVoiceChannel>.IndexKeys.Ascending(x => x.ChannelId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);

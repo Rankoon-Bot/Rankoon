@@ -6,6 +6,8 @@ using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Utils;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Rankoon.Data.Auth;
 
@@ -57,6 +59,7 @@ public class AuthService : IAuthService
     private readonly DiscordSettings _discordSettings;
     private readonly JwtSettings _jwtSettings;
     private readonly FrontendSettings _frontendSettings;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -67,6 +70,7 @@ public class AuthService : IAuthService
         IOptions<DiscordSettings> discordSettings,
         IOptions<JwtSettings> jwtSettings,
         IOptions<FrontendSettings> frontendSettings,
+        TimeProvider timeProvider,
         ILogger<AuthService> logger)
     {
         this.discord = discord;
@@ -76,23 +80,27 @@ public class AuthService : IAuthService
         _discordSettings = discordSettings.Value;
         _jwtSettings = jwtSettings.Value;
         _frontendSettings = frontendSettings.Value;
+        _timeProvider = timeProvider;
         _logger = logger;
     }
 
     public string GetLoginUrl(string? returnUrl = null)
     {
-        // Generate a random state parameter for CSRF protection
+        // Keep the OAuth state opaque; its associated return route is retained server-side.
         var state = Guid.NewGuid().ToString();
         CacheManager.GetOrSetAsync<string>(
             $"auth_state_{state}",
             () => Task.FromResult(state),
-            DateTimeOffset.UtcNow.AddMinutes(5) // Store state for 5 minutes
+            _timeProvider.GetUtcNow().AddMinutes(5)
         ).Wait();
 
-        // Optionally encode the return URL in the state
         if (!string.IsNullOrEmpty(returnUrl))
         {
-            state += $"|{returnUrl}";
+            CacheManager.GetOrSetAsync<string>(
+                $"auth_return_{state}",
+                () => Task.FromResult(returnUrl),
+                _timeProvider.GetUtcNow().AddMinutes(5)
+            ).Wait();
         }
 
         return _discordService.GetAuthorizationUrl(state);
@@ -130,9 +138,10 @@ public class AuthService : IAuthService
             // Store refresh token in database
             var refreshTokenEntity = new RefreshToken
             {
-                Token = refreshToken,
+                TokenHash = HashRefreshToken(refreshToken),
                 UserId = user.Id!,
-                ExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)
+                FamilyId = Guid.NewGuid().ToString("N"),
+                ExpiresAt = _timeProvider.GetUtcNow().UtcDateTime.AddDays(_jwtSettings.RefreshTokenExpirationDays)
             };
 
             await _dbContext.RefreshTokens.InsertOneAsync(refreshTokenEntity);
@@ -141,7 +150,7 @@ public class AuthService : IAuthService
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+                ExpiresAt = _timeProvider.GetUtcNow().UtcDateTime.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
                 User = new DiscordUserDto
                 {
                     Id = user.Id!,
@@ -154,9 +163,9 @@ public class AuthService : IAuthService
                 }
             };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _logger.LogError(ex, "Error handling Discord OAuth callback");
+            _logger.LogError("Error handling Discord OAuth callback");
             return null;
         }
     }
@@ -165,17 +174,43 @@ public class AuthService : IAuthService
     {
         try
         {
-            // Find refresh token in database
-            var tokenFilter = Builders<RefreshToken>.Filter.And(
-                Builders<RefreshToken>.Filter.Eq(t => t.Token, refreshToken),
-                Builders<RefreshToken>.Filter.Eq(t => t.Revoked, false),
-                Builders<RefreshToken>.Filter.Gt(t => t.ExpiresAt, DateTime.UtcNow)
-            );
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            var tokenHash = HashRefreshToken(refreshToken);
+            var tokenIdentityFilter = TokenIdentityFilter(refreshToken, tokenHash);
+            var candidate = await _dbContext.RefreshTokens.Find(tokenIdentityFilter).FirstOrDefaultAsync();
+            if (candidate == null)
+            {
+                return null;
+            }
 
-            var storedToken = await _dbContext.RefreshTokens.Find(tokenFilter).FirstOrDefaultAsync();
+            var familyId = candidate.FamilyId ?? Guid.NewGuid().ToString("N");
+            var consumeFilter = Builders<RefreshToken>.Filter.And(
+                Builders<RefreshToken>.Filter.Eq(t => t.Id, candidate.Id),
+                Builders<RefreshToken>.Filter.Eq(t => t.Revoked, false),
+                Builders<RefreshToken>.Filter.Gt(t => t.ExpiresAt, now),
+                tokenIdentityFilter);
+            var consumeUpdate = Builders<RefreshToken>.Update
+                .Set(t => t.TokenHash, tokenHash)
+                .Set(t => t.Token, string.Empty)
+                .Set(t => t.FamilyId, familyId)
+                .Set(t => t.Revoked, true)
+                .Set(t => t.RevokedAt, now)
+                .Set(t => t.RevokedReason, "Rotated")
+                .Set(t => t.LastUsedAt, now)
+                .Set(t => t.LastUsedIp, ipAddress);
+            var storedToken = await _dbContext.RefreshTokens.FindOneAndUpdateAsync(
+                consumeFilter,
+                consumeUpdate,
+                new FindOneAndUpdateOptions<RefreshToken> { ReturnDocument = ReturnDocument.Before });
             if (storedToken == null)
             {
-                _logger.LogWarning("Invalid or expired refresh token");
+                // A matching token that was already consumed is a replay attempt.
+                var replayedToken = await _dbContext.RefreshTokens.Find(tokenIdentityFilter).FirstOrDefaultAsync();
+                if (replayedToken is { Revoked: true, FamilyId: not null })
+                {
+                    await MarkReplayAndRevokeFamilyAsync(replayedToken, now);
+                }
+
                 return null;
             }
 
@@ -191,32 +226,30 @@ public class AuthService : IAuthService
             var newAccessToken = _jwtService.GenerateAccessToken(user);
             var newRefreshToken = _jwtService.GenerateRefreshToken();
 
-            // Update old refresh token as used
-            var updateOld = Builders<RefreshToken>.Update
-                .Set(t => t.LastUsedAt, DateTime.UtcNow)
-                .Set(t => t.LastUsedIp, ipAddress);
-
-            await _dbContext.RefreshTokens.UpdateOneAsync(
-                Builders<RefreshToken>.Filter.Eq(t => t.Id, storedToken.Id),
-                updateOld
-            );
-
-            // Create new refresh token
             var newRefreshTokenEntity = new RefreshToken
             {
-                Token = newRefreshToken,
+                TokenHash = HashRefreshToken(newRefreshToken),
                 UserId = user.Id!,
-                ExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
+                FamilyId = familyId,
+                ExpiresAt = now.AddDays(_jwtSettings.RefreshTokenExpirationDays),
                 IssuedIp = ipAddress
             };
 
             await _dbContext.RefreshTokens.InsertOneAsync(newRefreshTokenEntity);
 
+            // A replay can race with insertion on standalone MongoDB. The replay marker makes
+            // the family invalid even when it was observed before this child existed.
+            if (await IsFamilyReplayDetectedAsync(storedToken.Id))
+            {
+                await RevokeFamilyAsync(familyId, "Refresh token replay detected", now);
+                return null;
+            }
+
             return new TokenResponse
             {
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+                ExpiresAt = now.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
                 User = new DiscordUserDto
                 {
                     Id = user.Id!,
@@ -240,13 +273,25 @@ public class AuthService : IAuthService
     {
         try
         {
-            var filter = Builders<RefreshToken>.Filter.Eq(t => t.Token, refreshToken);
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            var tokenHash = HashRefreshToken(refreshToken);
+            var tokenIdentityFilter = TokenIdentityFilter(refreshToken, tokenHash);
+            var storedToken = await _dbContext.RefreshTokens.Find(tokenIdentityFilter).FirstOrDefaultAsync();
+            if (storedToken == null) return false;
+
+            if (!string.IsNullOrEmpty(storedToken.FamilyId))
+            {
+                return await RevokeFamilyAsync(storedToken.FamilyId, "User logout", now);
+            }
+
             var update = Builders<RefreshToken>.Update
+                .Set(t => t.TokenHash, tokenHash)
+                .Set(t => t.Token, string.Empty)
                 .Set(t => t.Revoked, true)
-                .Set(t => t.RevokedAt, DateTime.UtcNow)
+                .Set(t => t.RevokedAt, now)
                 .Set(t => t.RevokedReason, "User logout");
 
-            var result = await _dbContext.RefreshTokens.UpdateOneAsync(filter, update);
+            var result = await _dbContext.RefreshTokens.UpdateOneAsync(tokenIdentityFilter, update);
             return result.ModifiedCount > 0;
         }
         catch (Exception ex)
@@ -376,5 +421,45 @@ public class AuthService : IAuthService
         };
         var queryString = string.Join("&", parameters.Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value)}"));
         return $"https://discord.com/oauth2/authorize?{queryString}";
+    }
+
+    private static string HashRefreshToken(string refreshToken) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
+
+    private static FilterDefinition<RefreshToken> TokenIdentityFilter(string refreshToken, string tokenHash) =>
+        Builders<RefreshToken>.Filter.Or(
+            Builders<RefreshToken>.Filter.Eq(t => t.TokenHash, tokenHash),
+            Builders<RefreshToken>.Filter.Eq(t => t.Token, refreshToken));
+
+    private async Task<bool> RevokeFamilyAsync(string familyId, string reason, DateTime now)
+    {
+        var filter = Builders<RefreshToken>.Filter.And(
+            Builders<RefreshToken>.Filter.Eq(t => t.FamilyId, familyId),
+            Builders<RefreshToken>.Filter.Eq(t => t.Revoked, false));
+        var update = Builders<RefreshToken>.Update
+            .Set(t => t.Revoked, true)
+            .Set(t => t.RevokedAt, now)
+            .Set(t => t.RevokedReason, reason);
+        var result = await _dbContext.RefreshTokens.UpdateManyAsync(filter, update);
+        return result.ModifiedCount > 0;
+    }
+
+    private async Task MarkReplayAndRevokeFamilyAsync(RefreshToken token, DateTime now)
+    {
+        var filter = Builders<RefreshToken>.Filter.And(
+            Builders<RefreshToken>.Filter.Eq(t => t.Id, token.Id),
+            Builders<RefreshToken>.Filter.Eq(t => t.RevokedReason, "Rotated"));
+        await _dbContext.RefreshTokens.UpdateOneAsync(filter,
+            Builders<RefreshToken>.Update.Set(t => t.RevokedReason, "Refresh token replay detected"));
+        await RevokeFamilyAsync(token.FamilyId!, "Refresh token replay detected", now);
+    }
+
+    private async Task<bool> IsFamilyReplayDetectedAsync(string? tokenId)
+    {
+        if (string.IsNullOrEmpty(tokenId)) return false;
+        var filter = Builders<RefreshToken>.Filter.And(
+            Builders<RefreshToken>.Filter.Eq(t => t.Id, tokenId),
+            Builders<RefreshToken>.Filter.Eq(t => t.RevokedReason, "Refresh token replay detected"));
+        return await _dbContext.RefreshTokens.Find(filter).AnyAsync();
     }
 }

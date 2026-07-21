@@ -9,12 +9,13 @@ using MongoDB.Driver;
 namespace Rankoon.Data.Discord;
 
 /// <summary>Gateway adapters for non-voice XP sources. All awards use the idempotent ledger pipeline.</summary>
-public sealed class ActivityXpEventService(DiscordShardedClient client, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, RankoonDbContext database, ILogger<ActivityXpEventService> logger) : IHostedService
+public sealed class ActivityXpEventService(DiscordShardedClient client, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, RankoonDbContext database, TimeProvider timeProvider, ILogger<ActivityXpEventService> logger) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
         client.MessageReceived += OnMessageAsync;
         client.ReactionAdded += OnReactionAsync;
+        client.ReactionRemoved += OnReactionRemovedAsync;
         client.ThreadCreated += OnThreadAsync;
         client.GuildScheduledEventUserAdd += OnEventInterestAsync;
         client.GuildScheduledEventUserRemove += OnEventInterestRemovedAsync;
@@ -24,6 +25,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
     {
         client.MessageReceived -= OnMessageAsync;
         client.ReactionAdded -= OnReactionAsync;
+        client.ReactionRemoved -= OnReactionRemovedAsync;
         client.ThreadCreated -= OnThreadAsync;
         client.GuildScheduledEventUserAdd -= OnEventInterestAsync;
         client.GuildScheduledEventUserRemove -= OnEventInterestRemovedAsync;
@@ -43,10 +45,12 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
         var member = channel.Guild.GetUser(message.Author.Id); if (member == null || member.Roles.Any(role => settings.ExcludedRoleIds.Contains(role.Id))) return;
         var source = channel is SocketThreadChannel ? "thread_message" : "message";
         var rule = source == "message" ? settings.Message : null;
-        if (source == "message" && (!rule!.Enabled || (await xp.GetMemberAsync(channel.Guild.Id, member.Id))?.LastMessageXpAt is DateTime last && DateTime.UtcNow - last < TimeSpan.FromSeconds(rule.CooldownSeconds))) return;
-        if (source == "thread_message" && (!settings.Thread.Enabled || (await xp.GetMemberAsync(channel.Guild.Id, member.Id))?.LastThreadXpAt is DateTime threadLast && DateTime.UtcNow - threadLast < TimeSpan.FromSeconds(settings.Thread.CooldownSeconds))) return;
+        if (source == "message" && !rule!.Enabled) return;
+        if (source == "thread_message" && !settings.Thread.Enabled) return;
         var amount = source == "message" ? CalculateMessagePoints(message.Content.Length, rule!) : settings.Thread.MessagePoints;
-        if (await xp.GrantAsync(channel.Guild.Id, member.Id, member.DisplayName, source, amount, $"{source}:{message.Id}", channel.Id)) await levelRoles.SynchronizeAsync(channel.Guild.Id, member.Id);
+        var cooldown = source == "message" ? rule!.CooldownSeconds : settings.Thread.CooldownSeconds;
+        var request = new XpGrantRequest(channel.Guild.Id, member.Id, member.DisplayName, source, amount, $"{source}:{message.Id}", timeProvider.GetUtcNow().UtcDateTime, channel.Id, CooldownSeconds: cooldown);
+        if (await xp.GrantAsync(request)) await levelRoles.SynchronizeAsync(channel.Guild.Id, member.Id);
     }
 
     private async Task OnReactionAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
@@ -63,9 +67,24 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
         var settings = await xp.GetSettingsAsync(guildChannel.Guild.Id);
         if (!settings.Enabled || !settings.Reaction.Enabled || settings.ExcludedChannelIds.Contains(guildChannel.Id)) return;
         var member = guildChannel.Guild.GetUser(reaction.UserId); if (member == null || member.Roles.Any(role => settings.ExcludedRoleIds.Contains(role.Id))) return;
-        var last = (await xp.GetMemberAsync(guildChannel.Guild.Id, member.Id))?.LastReactionXpAt;
-        if (last.HasValue && DateTime.UtcNow - last < TimeSpan.FromSeconds(settings.Reaction.CooldownSeconds)) return;
-        if (await xp.GrantAsync(guildChannel.Guild.Id, member.Id, member.DisplayName, "reaction", settings.Reaction.Points, $"reaction:{message.Id}:{reaction.UserId}:{reaction.Emote}", guildChannel.Id)) await levelRoles.SynchronizeAsync(guildChannel.Guild.Id, member.Id);
+        var request = new XpGrantRequest(guildChannel.Guild.Id, member.Id, member.DisplayName, "reaction", settings.Reaction.Points, $"reaction:{message.Id}:{reaction.UserId}:{reaction.Emote}", timeProvider.GetUtcNow().UtcDateTime, guildChannel.Id, CooldownSeconds: settings.Reaction.CooldownSeconds);
+        if (await xp.GrantAsync(request)) await levelRoles.SynchronizeAsync(guildChannel.Guild.Id, member.Id);
+    }
+
+    private async Task OnReactionRemovedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
+    {
+        try { await HandleReactionRemovedAsync(message, channel, reaction); }
+        catch (Exception exception) { logger.LogError(exception, "Reaction XP removal failed for message {MessageId}", message.Id); }
+    }
+    private async Task HandleReactionRemovedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
+    {
+        var reactionChannel = await channel.GetOrDownloadAsync();
+        if (reactionChannel is not SocketGuildChannel guildChannel) return;
+        var settings = await xp.GetSettingsAsync(guildChannel.Guild.Id);
+        if (!settings.Reaction.ReverseOnRemove) return;
+        var originalKey = $"reaction:{message.Id}:{reaction.UserId}:{reaction.Emote}";
+        if (await xp.ReverseGrantAsync(originalKey, $"reaction-remove:{message.Id}:{reaction.UserId}:{reaction.Emote}"))
+            await levelRoles.SynchronizeAsync(guildChannel.Guild.Id, reaction.UserId);
     }
 
     private async Task OnThreadAsync(SocketThreadChannel thread)
@@ -103,7 +122,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
         var user = await cachedUser.GetOrDownloadAsync();
         if (user == null) return;
         var settings = await xp.GetSettingsAsync(guildEvent.Guild.Id);
-        if (settings.EventInterest.Enabled) await xp.GrantAsync(guildEvent.Guild.Id, user.Id, user.GlobalName ?? user.Username, "event_interest_reversal", -settings.EventInterest.Points, $"event-interest-remove:{guildEvent.Id}:{user.Id}");
+        if (settings.EventInterest.Enabled) await xp.ReverseGrantAsync($"event-interest:{guildEvent.Id}:{user.Id}", $"event-interest-remove:{guildEvent.Id}:{user.Id}");
     }
     private static decimal CalculateMessagePoints(int length, Data.Model.MessageXpSettings settings)
     {

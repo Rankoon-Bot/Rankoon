@@ -53,9 +53,11 @@ instructions below rather than trusting an unofficial invite link.
 
 ### XP and leveling
 
-Rankoon stores XP as a persistent guild/member total and calculates levels with
-the MEE6-compatible cumulative curve. XP grants use unique ledger keys to avoid
-crediting the same Discord event more than once.
+Rankoon records every non-zero XP grant in an additive MongoDB ledger before
+projecting it into member, season, and guild-stat totals. Unique grant keys and
+per-projection applied-key sets make retries idempotent. A background repair
+worker resumes pending projections after interruptions between writes. The
+MEE6-compatible cumulative curve calculates levels from the persistent total.
 
 The following sources are implemented and independently configurable:
 
@@ -80,6 +82,29 @@ Voice XP can be configured to:
 - exclude deafened members;
 - respect excluded roles, channels, and categories;
 - grant fractional XP according to eligible connected time.
+
+Message, reaction, and thread-message cooldowns are acquired atomically on the
+member record after a ledger entry is written. Cooldown-denied entries are retained
+without projection, so retries cannot later award them. Reaction removal can
+reverse its original award when enabled; scheduled-event interest removal also
+creates an idempotent reversal. Reversals retain the original season attribution.
+
+Voice sessions are reconciled every 30 seconds and settled when a member moves.
+Eligible intervals are split at persisted season boundaries, producing uniquely
+keyed ledger grants per segment. The first qualifying settlement includes time
+since joining, including the configured minimum-session interval.
+
+### Seasons
+
+Guilds can run manual or scheduled fixed-duration, monthly, quarterly,
+semiannual, or annual seasons. Scheduled guilds keep a configurable number of
+future seasons prepared. Each prepared season snapshots its settings so later
+configuration changes do not rewrite its rules.
+
+Activation initializes a baseline from zero, lifetime, or lifetime-percentage XP.
+Optional carry-over from previous frozen standings applies once. Closing writes
+immutable final standings with rank, total XP, level, message count, voice time,
+and public visibility. A per-guild MongoDB lease prevents concurrent automation.
 
 Level rewards are cumulative: Rankoon adds every configured reward role at or
 below a member's level and removes configured rewards above it. The Rankoon bot
@@ -352,8 +377,10 @@ dotnet restore Rankoon.sln
 dotnet run --project Rankoon.csproj
 ```
 
-MongoDB indexes are initialized by a hosted service at startup. There is no
-separate relational migration step.
+MongoDB indexes and small compatibility migrations are initialized by a hosted
+service at startup. There is no separate relational migration step. Existing
+member documents missing leaderboard fields receive compatible defaults and
+recalculated totals; legacy voice holdback settings are removed.
 
 ### 3. Start the dashboard
 
@@ -384,11 +411,25 @@ npm test
 npm run build
 ```
 
-The backend xUnit suite currently focuses on API error contracts, authentication
-challenges, rate limits, validation, and SPA fallback behavior. The frontend uses
-Jasmine and Karma. Existing GitHub workflows validate conventional commit
-messages and publish containers, but they do not currently run these test suites;
-the badges above must not be interpreted as test-status badges.
+The backend xUnit suite covers API contracts plus XP projection, season scheduling,
+and voice watchdog behavior. The frontend uses Jasmine and Karma. GitHub Actions
+`Build and test` runs on pull requests and every branch push with:
+
+```sh
+# Backend, in Backend/
+dotnet restore Rankoon.sln
+dotnet build Rankoon.sln --configuration Release --no-restore
+dotnet test Rankoon.sln --configuration Release --no-build --no-restore
+
+# Frontend, in Frontend/
+npm ci
+npm test -- --watch=false --browsers=ChromeHeadless
+npm run build
+```
+
+`Validate conventional commits` runs for opened, synchronized, and reopened pull
+requests. `Release and publish container` calls CI for every branch push, creates
+a semantic release only on `main`, and publishes only after successful validation.
 
 ## Architecture
 
@@ -465,12 +506,12 @@ this section describes the workflow enforced by the current repository.
   process memory; horizontal multi-instance deployment is not documented.
 - The configured level-up channel is stored in settings, but level-up
   notifications are not currently sent.
-- Reaction-removal reversal is represented in settings but is not currently
-  handled by the Discord event service.
 - Slash commands are global, guild-only in their handlers, and currently return
   English output except for `/voice`, whose responses are German.
 - There is no OpenAPI/Swagger UI or external metrics/tracing integration.
-- Automated workflows do not currently execute the repository's test suites.
+- OAuth callback tokens are returned in the frontend callback URL query string.
+  This is an implemented limitation; the frontend should consume and remove them
+  promptly, and deployments should avoid logging full URLs.
 
 ## Security
 

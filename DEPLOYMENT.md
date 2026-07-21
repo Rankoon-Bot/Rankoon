@@ -4,7 +4,12 @@ The published image contains the Angular frontend and the ASP.NET Core backend. 
 
 ## GitHub Container Registry
 
-The workflow in `.github/workflows/publish-container.yml` publishes `ghcr.io/<owner>/<repository>` for every push to `main` and for version tags beginning with `v`. The default-branch image additionally receives the `latest` tag. Semantic version tags also receive version and major/minor tags without the leading `v`.
+`.github/workflows/release.yml` validates every branch push by calling
+`.github/workflows/ci.yml`. On `main`, a successful semantic release creates the
+release and publishes `ghcr.io/<owner>/<repository>` from that release tag.
+Non-main branch pushes publish prerelease, sanitized branch, and commit-SHA tags
+after CI succeeds. Main images receive release-version, major, minor, latest, and
+commit-SHA tags.
 
 The workflow can also be started manually. The running application version is available without authentication at `GET /api/version`.
 
@@ -23,12 +28,27 @@ docker run -d \
   ghcr.io/<owner>/<repository>:latest
 ```
 
-`MongoDb__ConnectionString` must point to a reachable MongoDB instance. It can be another container, but Rankoon itself is delivered as exactly one container.
+`MONGODB_CONNECTION_STRING` must point to a reachable MongoDB instance. It can be
+another container, but Rankoon itself is delivered as exactly one container.
 
 ## Configuration
 
 The application follows ASP.NET Core environment-variable naming: nested configuration keys use a double underscore (`__`). The required variables are listed in `deploy/.env.example`.
 
-`Discord__RedirectUri` must be registered as the Discord OAuth redirect URL. `Frontend__BaseUrl` is the externally reachable URL of this container. If a reverse proxy terminates TLS, these values must still use the public `https` URL.
+`DISCORD_REDIRECT_URI` must be registered as the Discord OAuth redirect URL.
+`FRONTEND_BASE_URL` is the externally reachable URL of this container. If a
+reverse proxy terminates TLS, these values must still use the public `https` URL.
+OAuth callback tokens are returned in a URL query string; prevent proxies and
+logs from retaining full callback URLs.
 
 Optional settings from `Backend/appsettings.json` can be overridden using the same convention, for example `Jwt__Issuer`, `Jwt__Audience`, or `Serilog__MinimumLevel__Default`. The container listens on port `8080` by default; override `ASPNETCORE_URLS` only when a different in-container port is required.
+
+## MongoDB Startup
+
+At startup Rankoon retries index initialization until MongoDB is available. It
+creates unique identities for member XP, ledger grant keys, voice sessions, season
+settings and sequences, active seasons, final standings, and self-role assignments,
+plus ranking, projection, report-query, and TTL indexes. Compatible startup
+migrations remove the obsolete voice holdback setting,
+initialize missing member leaderboard fields and totals, and set missing
+final-standing visibility to public. There is no separate manual migration command.

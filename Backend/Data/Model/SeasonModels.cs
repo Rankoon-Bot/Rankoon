@@ -78,8 +78,15 @@ public sealed class GuildSeason
     [BsonElement("carry_over_applied")] public bool CarryOverApplied { get; set; }
     [BsonElement("finalized")] public bool Finalized { get; set; }
     [BsonElement("requires_final_standing_refresh")] public bool RequiresFinalStandingRefresh { get; set; }
+    [BsonElement("baseline_initialized")] public bool BaselineInitialized { get; set; }
+    [BsonElement("start_reported")] public bool StartReported { get; set; }
+    [BsonElement("start_realtime_published")] public bool StartRealtimePublished { get; set; }
+    [BsonElement("carry_over_reported")] public bool CarryOverReported { get; set; }
+    [BsonElement("close_reported")] public bool CloseReported { get; set; }
+    [BsonElement("close_realtime_published")] public bool CloseRealtimePublished { get; set; }
 }
 
+[BsonIgnoreExtraElements]
 public sealed class SeasonMemberXp
 {
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
@@ -96,6 +103,7 @@ public sealed class SeasonMemberXp
     [BsonElement("is_current_member")] public bool IsCurrentMember { get; set; } = true;
     [BsonElement("public_leaderboard_visible")] public bool PublicLeaderboardVisible { get; set; } = true;
     [BsonElement("updated_at_utc")] public DateTime UpdatedAtUtc { get; set; }
+    [BsonElement("carry_over_applied")] public bool CarryOverApplied { get; set; }
 }
 
 public sealed class SeasonFinalStanding

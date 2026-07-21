@@ -12,6 +12,13 @@
   <div class="notice error" *ngIf="error()" role="alert"><span>{{ error() }}</span><button type="button" (click)="load()">{{ 'common.retry' | transloco }}</button></div>
   <div class="notice error" *ngIf="validationErrors().length" role="alert"><p *ngFor="let validationError of validationErrors()">{{ validationError }}</p></div>
   <p class="loading" *ngIf="loading()" role="status">{{ 'selfRoles.loading' | transloco }}</p>
+  <div class="confirmation-backdrop" *ngIf="confirmation() as confirmation" role="presentation">
+    <section class="confirmation" role="dialog" aria-modal="true" aria-labelledby="self-role-confirmation-title">
+      <h2 id="self-role-confirmation-title">{{ confirmation.action === 'delete' ? ('selfRoles.deleteTitle' | transloco) : ('selfRoles.repairTitle' | transloco) }}</h2>
+      <p>{{ confirmation.action === 'delete' ? ('selfRoles.deleteConfirm' | transloco) : ('selfRoles.repairConfirm' | transloco) }}</p>
+      <footer><button type="button" class="secondary" (click)="cancelConfirmation()">{{ 'common.cancel' | transloco }}</button><button type="button" [class.danger]="confirmation.action === 'delete'" (click)="confirmAction()">{{ 'selfRoles.confirm' | transloco }}</button></footer>
+    </section>
+  </div>
 
   <div class="workspace" *ngIf="!loading()">
     <div class="panel-list" [class.empty-list]="!panels().length">
@@ -24,7 +31,9 @@
           <span class="color-dot" [style.background-color]="panel.color"></span>
           <span><strong>{{ panel.title }}</strong><small>#{{ channelLabel(panel.channelId) }}</small></span>
         </button>
-        <span class="state" [class.inactive]="!panel.enabled">{{ panel.enabled ? ('common.active' | transloco) : ('common.inactive' | transloco) }}</span>
+        <span class="state" [class.inactive]="!panel.enabled" [class.degraded]="panel.state === 'Degraded'">{{ healthLabel(panel) }}</span>
+        <span class="health-error" *ngIf="panel.lastError" [attr.title]="panel.lastError" role="img" [attr.aria-label]="'selfRoles.panelError' | transloco: { error: panel.lastError }">!</span>
+        <button type="button" class="icon-button repair" (click)="repair(panel)" [disabled]="repairing() === panel.id" [attr.aria-label]="'selfRoles.repairAria' | transloco: { title: panel.title }">{{ repairing() === panel.id ? '...' : ('selfRoles.repair' | transloco) }}</button>
         <button type="button" class="icon-button danger" (click)="remove(panel)" [attr.aria-label]="'common.delete' | transloco">×</button>
       </article>
     </div>

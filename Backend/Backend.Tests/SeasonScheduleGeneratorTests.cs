@@ -41,6 +41,18 @@ public sealed class SeasonScheduleGeneratorTests
     }
 
     [Fact]
+    public void Generates_half_open_calendar_intervals_with_sequence_based_names()
+    {
+        var settings = Settings(SeasonScheduleKind.Monthly, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        settings.GapDays = 2;
+        settings.NameTemplate = "Season {number}";
+        var seasons = new SeasonScheduleGenerator().Generate(settings, "Guild", 8, 2);
+        Assert.Equal("Season 8", seasons[0].Name);
+        Assert.Equal(seasons[0].EndsAtUtc, new DateTime(2027, 1, 30, 0, 0, 0, DateTimeKind.Utc));
+        Assert.True(seasons[0].EndsAtUtc <= seasons[1].StartsAtUtc);
+    }
+
+    [Fact]
     public void Rejects_unknown_tokens_and_empty_rotation()
     {
         var settings = Settings(SeasonScheduleKind.Monthly, "UTC", DateTime.UnixEpoch);

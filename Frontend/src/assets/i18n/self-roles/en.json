@@ -39,7 +39,21 @@
     "removeMapping": "Remove mapping",
     "save": "Save panel",
     "saved": "Self-role panel saved.",
+    "repair": "Repair",
+    "confirm": "Confirm",
+    "repairAria": "Repair {{title}}",
+    "repairConfirm": "Repair this panel? Rankoon will rebuild its Discord message if it is missing.",
+    "repaired": "Panel repaired.",
+    "panelError": "Panel error: {{error}}",
+    "health": {
+      "pending": "Pending",
+      "published": "Published",
+      "disabled": "Disabled",
+      "degraded": "Degraded"
+    },
     "deleteConfirm": "Delete this self-role panel?",
+    "deleteTitle": "Delete self-role panel",
+    "repairTitle": "Repair self-role panel",
     "maxMappings": "A panel can contain up to 20 role mappings.",
     "validation": {
       "channel": "Choose a text channel.",

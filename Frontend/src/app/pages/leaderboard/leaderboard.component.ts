@@ -8,7 +8,7 @@ import { AuthStore } from '../../store/auth.store';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { LocaleService } from '../../i18n/locale.service';
 import { ApiErrorService } from '../../services/api-error.service';
-import { RealtimeService, LeaderboardChanged, LeaderboardEntryChanged } from '../../services/realtime.service';
+import { RealtimeService, LeaderboardChanged } from '../../services/realtime.service';
 
 @Component({
   selector: 'app-leaderboard',
@@ -50,7 +50,6 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
   private realtimeSubscription?: { alias: string; scope: SeasonLeaderboardScope; seasonId?: string };
 
   ngOnInit(): void {
-    this.realtime.leaderboardEntryChanges$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => this.applyRealtimeEntry(event));
     this.realtime.leaderboardChanges$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => this.applyRealtimeChange(event));
     this.destroyRef.onDestroy(() => {
       if (this.realtimeSubscription) void this.realtime.unsubscribeLeaderboard(this.realtimeSubscription.alias, this.realtimeSubscription.scope, this.realtimeSubscription.seasonId);
@@ -68,9 +67,6 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
       this.loadingMore.set(false);
       this.jumping.set(false);
       this.privacyBusy.set(false);
-      const seasonId = this.scope() === 'Season' ? this.selectedSeasonId() ?? undefined : undefined;
-      this.realtimeSubscription = { alias: this.alias, scope: this.scope(), seasonId };
-      void this.realtime.subscribeLeaderboard(this.alias, this.scope(), seasonId);
       this.load(true);
     });
   }
@@ -85,12 +81,17 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
 
   load(initial = false): void {
     if (!this.alias || this.loadingMore()) return;
-    if (initial) this.initialLoading.set(true); else this.loadingMore.set(true);
+    if (initial) {
+      this.initialLoading.set(true);
+      this.entries.set([]);
+      this.page.set(null);
+    } else this.loadingMore.set(true);
     this.error.set('');
     const cursor = initial ? undefined : this.page()?.nextCursor ?? undefined;
     const requestedAlias = this.alias;
     const requestId = ++this.requestSequence;
-    this.api.publicLeaderboard(this.alias, cursor, false, this.scope(), this.scope() === 'Season' ? this.selectedSeasonId() ?? undefined : undefined)
+    const requestedScope = this.hasExplicitScope ? this.scope() : undefined;
+    this.api.publicLeaderboard(this.alias, cursor, false, requestedScope, requestedScope === 'Season' ? this.selectedSeasonId() ?? undefined : undefined)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .pipe(finalize(() => { if (requestId === this.requestSequence) { this.initialLoading.set(false); this.loadingMore.set(false); } }))
       .subscribe({
@@ -98,12 +99,17 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
           if (requestedAlias !== this.alias || requestId !== this.requestSequence) return;
           if (!this.hasExplicitScope && (response.seasonsEnabled || response.currentSeason))
           {
-            this.navigateScope('CurrentSeason', null);
-            return;
+            this.scope.set(response.scope ?? 'Lifetime');
+            this.selectedSeasonId.set(response.seasonId ?? null);
           }
           this.page.set(response);
-          const known = new Set(this.entries().map(entry => entry.userId));
-          this.entries.update(entries => [...entries, ...response.items.filter(entry => !known.has(entry.userId))]);
+          if (initial) {
+            this.entries.set(response.items);
+            this.updateRealtimeSubscription(response.scope ?? this.scope(), response.seasonId ?? undefined);
+          } else {
+            const known = new Set(this.entries().map(entry => entry.userId));
+            this.entries.update(entries => [...entries, ...response.items.filter(entry => !known.has(entry.userId))]);
+          }
         },
         error: response => {
           if (requestedAlias !== this.alias || requestId !== this.requestSequence) return;
@@ -165,31 +171,19 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
     void this.router.navigate([], { relativeTo: this.route, queryParams: { scope, seasonId }, queryParamsHandling: '' });
   }
 
-  private applyRealtimeEntry(event: LeaderboardEntryChanged): void {
+  private applyRealtimeChange(event: LeaderboardChanged): void {
     if (event.alias !== this.alias || event.scope !== this.scope() || event.seasonId !== (this.scope() === 'Season' ? this.selectedSeasonId() : null)) return;
-    if (event.operation === 'remove') {
-      this.entries.update(entries => entries.filter(entry => entry.userId !== event.userId));
-      return;
-    }
-    if (!event.entry) return;
-    const currentUserId = this.auth.user()?.discordId;
-    const entry = { ...event.entry, rank: Number(event.entry.rank), isCurrentUser: event.entry.userId === currentUserId };
-    this.entries.update(entries => {
-      const existing = entries.findIndex(item => item.userId === entry.userId);
-      const lastRank = Number(entries.at(-1)?.rank ?? 0);
-      if (existing < 0 && lastRank > 0 && entry.rank > lastRank) return entries;
-      const updated = existing < 0 ? [...entries, entry] : entries.map(item => item.userId === entry.userId ? entry : item);
-      return updated.sort((left, right) => Number(left.rank) - Number(right.rank) || left.userId.localeCompare(right.userId));
-    });
+    // The server remains authoritative for ranks, cursors, and pagination.
+    this.requestSequence++;
+    this.load(true);
   }
 
-  private applyRealtimeChange(event: LeaderboardChanged): void {
-    if (event.alias !== this.alias) return;
-    // Settings and season transitions can change the entire query shape.
-    this.requestSequence++;
-    this.entries.set([]);
-    this.page.set(null);
-    this.load(true);
+  private updateRealtimeSubscription(scope: SeasonLeaderboardScope, seasonId?: string): void {
+    const next = { alias: this.alias, scope, seasonId: scope === 'Season' ? seasonId : undefined };
+    if (this.realtimeSubscription?.alias === next.alias && this.realtimeSubscription.scope === next.scope && this.realtimeSubscription.seasonId === next.seasonId) return;
+    if (this.realtimeSubscription) void this.realtime.unsubscribeLeaderboard(this.realtimeSubscription.alias, this.realtimeSubscription.scope, this.realtimeSubscription.seasonId);
+    this.realtimeSubscription = next;
+    void this.realtime.subscribeLeaderboard(next.alias, next.scope, next.seasonId);
   }
 
   formatNumber(value: string | number): string { return this.locale.number(value); }
