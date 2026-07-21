@@ -105,6 +105,8 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
     {
         var original = await database.XpLedger.Find(x => x.GrantKey == originalGrantKey).FirstOrDefaultAsync(cancellationToken);
         if (original == null) return false;
+        // Cooldown-denied entries are retained for idempotency and auditability, but never awarded XP.
+        if (original.CooldownDenied) return false;
         var reversal = new XpGrantRequest(original.GuildId, original.UserId, original.DisplayName, $"{original.Source}_reversal", -original.Amount, reversalGrantKey,
             timeProvider.GetUtcNow().UtcDateTime, original.ChannelId, ReversesGrantKey: originalGrantKey);
         // Preserve the original immutable season attribution even if a different season is currently active.
@@ -130,13 +132,13 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         var filter = Builders<MemberXp>.Filter.And(
             Builders<MemberXp>.Filter.Eq(x => x.GuildId, ledger.GuildId),
             Builders<MemberXp>.Filter.Eq(x => x.UserId, ledger.UserId),
-            new BsonDocument("$or", new BsonArray { new BsonDocument(fields.Item1, new BsonDocument("$exists", false)), new BsonDocument(fields.Item1, null), new BsonDocument(fields.Item1, new BsonDocument("$lte", now.AddSeconds(-ledger.CooldownSeconds!.Value))) }));
+            new BsonDocument("$or", new BsonArray { new BsonDocument(fields.Item1, new BsonDocument("$exists", false)), new BsonDocument(fields.Item1, BsonNull.Value), new BsonDocument(fields.Item1, new BsonDocument("$lte", now.AddSeconds(-ledger.CooldownSeconds!.Value))) }));
         try
         {
             var result = await database.MemberXp.UpdateOneAsync(filter, new BsonDocument("$set", new BsonDocument { { fields.Item1, now }, { fields.Item2, ledger.GrantKey } }), new UpdateOptions { IsUpsert = true }, cancellationToken);
             if (result.MatchedCount != 0 || result.UpsertedId != null) return true;
         }
-        catch (MongoWriteException exception) when (exception.WriteError.Category != ServerErrorCategory.DuplicateKey) { throw; }
+        catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
 
         // A process can fail after the member CAS and before setting CooldownAcquired on the ledger.
         var member = await database.MemberXp.Find(Builders<MemberXp>.Filter.And(
