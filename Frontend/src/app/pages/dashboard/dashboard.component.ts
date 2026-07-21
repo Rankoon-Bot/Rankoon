@@ -27,6 +27,11 @@ import { finalize } from 'rxjs';
         <div class="load-error" role="alert"><span>{{ error() }}</span><button type="button" (click)="loadDashboardData()">{{ 'common.retry' | transloco }}</button></div>
       }
 
+      @if (loading()) {
+        <div class="stats-grid" aria-busy="true" [attr.aria-label]="'common.loading' | transloco">
+          @for (item of [1, 2, 3, 4]; track item) { <div class="stat-card stat-card--loading"><div class="rk-skeleton stat-skeleton"></div><div class="rk-skeleton stat-skeleton stat-skeleton--short"></div></div> }
+        </div>
+      } @else if (data()) {
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-icon">
@@ -117,20 +122,20 @@ import { finalize } from 'rxjs';
               <h3>{{ 'dashboard.quickActions' | transloco }}</h3>
             </div>
             <div class="action-grid">
-              <a class="action-btn" routerLink="/xp">
+              @if (canAccessModule('xp')) { <a class="action-btn" routerLink="/xp">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 </svg>
                 <span>{{ 'dashboard.configureXp' | transloco }}</span>
-              </a>
+              </a> }
               
-              <a class="action-btn" routerLink="/vc-hubs">
+              @if (canAccessModule('voice-hubs')) { <a class="action-btn" routerLink="/vc-hubs">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="12" y1="1" x2="12" y2="23"/>
                   <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                 </svg>
                 <span>{{ 'dashboard.setupHub' | transloco }}</span>
-              </a>
+              </a> }
               
               <div class="action-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -154,6 +159,7 @@ import { finalize } from 'rxjs';
           </div>
         </div>
       </div>
+      }
     </div>
   `,
   styleUrls: ['./dashboard.component.scss']
@@ -189,4 +195,8 @@ export class DashboardComponent implements OnInit {
 
   format(value: string | number | null | undefined): string { return value == null ? '-' : this.locale.number(value); }
   watchdogState(value: string | null | undefined): string { return this.domain.watchdogState(value); }
+  canAccessModule(moduleId: string): boolean {
+    const capabilities = this.appStore.guildCapabilities();
+    return !!capabilities && (capabilities.isOwner || capabilities.moduleIds.includes(moduleId as never));
+  }
 }

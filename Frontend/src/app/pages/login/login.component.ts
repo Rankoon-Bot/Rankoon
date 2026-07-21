@@ -13,7 +13,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
     <div class="login-container">
       <div class="login-card">
         <div class="login-header">
-          <img src="/favicon.ico" [alt]="'login.logoAlt' | transloco" class="logo">
+          <img src="/rankoon/icon/favicon.ico" [alt]="'login.logoAlt' | transloco" class="logo">
           <h1>{{ 'app.dashboard' | transloco }}</h1>
           <p>{{ 'login.subtitle' | transloco }}</p>
         </div>

@@ -30,6 +30,8 @@
   white-space: nowrap;
 }
 
+.guild-picker { position: relative; min-width: 0; }
+
 .guild-info {
   position: relative;
   display: flex;
@@ -41,6 +43,7 @@
   border: 1px solid var(--rk-border-subtle);
   border-radius: var(--rk-radius-md);
   cursor: pointer;
+  text-align: left;
   transition: border-color var(--rk-motion-fast), background-color var(--rk-motion-fast);
 
   &:focus-visible {
@@ -106,7 +109,7 @@
   background: var(--rk-surface-1);
   border-radius: var(--rk-radius-lg);
   box-shadow: var(--rk-shadow-float);
-  z-index: 1001;
+  z-index: var(--rk-z-dialog);
   overflow: hidden;
   border: 1px solid var(--rk-border-strong);
 
@@ -149,6 +152,9 @@
   }
 
   .guild-item {
+    width: 100%;
+    border: 0;
+    border-radius: 0;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -331,6 +337,21 @@
   }
 }
 
+.guild-dropdown > .dropdown-content .invite-btn {
+  display: flex;
+  align-items: center;
+  min-height: var(--rk-control-height);
+  margin: 0 var(--rk-space-3) var(--rk-space-2);
+  padding: var(--rk-space-2) var(--rk-space-3);
+  color: var(--rk-text-strong);
+  background: var(--rk-discord);
+  border: 1px solid var(--rk-discord);
+  border-radius: var(--rk-radius-md);
+  font-weight: 700;
+}
+
+.guild-dropdown > .dropdown-content .invite-btn:hover { box-shadow: var(--rk-shadow-discord); }
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -380,6 +401,11 @@
 
 .menu-btn { display: none; }
 
+@media (max-width: 480px) {
+  .header-right app-language-switcher { display: none; }
+  .guild-info .guild-name span { max-width: 72px; }
+}
+
 @media (max-width: 768px) {
   .header {
     padding: 0 var(--rk-space-3);
@@ -416,5 +442,13 @@
     background: transparent;
     border: 1px solid var(--rk-border-subtle);
     border-radius: var(--rk-radius-md);
+  }
+
+  .guild-dropdown {
+    position: fixed;
+    right: var(--rk-space-3);
+    left: var(--rk-space-3);
+    min-width: 0;
+    max-width: none;
   }
 }

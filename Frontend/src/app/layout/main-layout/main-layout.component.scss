@@ -22,7 +22,19 @@
   }
 }
 
+.navigation-backdrop { display: none; }
+
 @media (max-width: 768px) {
+  .navigation-backdrop {
+    position: fixed;
+    inset: var(--rk-header-height) 0 0;
+    z-index: var(--rk-z-navigation);
+    display: block;
+    padding: 0;
+    background: var(--rk-overlay);
+    border: 0;
+  }
+
   .main-content {
     padding: var(--rk-space-4);
   }

@@ -52,6 +52,7 @@
   },
   "header": {
     "toggleNavigation": "Toggle navigation",
+    "closeNavigation": "Close navigation",
     "switchServer": "Switch server",
     "allServers": "View all servers",
     "logout": "Log out"

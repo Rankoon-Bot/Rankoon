@@ -8,6 +8,9 @@
 .load-error button:hover { background: var(--rk-surface-3); border-color: var(--rk-info); }
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--rk-space-4); margin-bottom: var(--rk-space-6); }
 .stat-card { min-height: 132px; padding: var(--rk-space-5); display: flex; align-items: center; gap: var(--rk-space-4); border-radius: var(--rk-radius-lg); transition: border-color var(--rk-motion-base), transform var(--rk-motion-fast); }
+.stat-card--loading { display: grid; align-content: center; }
+.stat-skeleton { width: 100%; min-height: var(--rk-space-5); }
+.stat-skeleton--short { width: 60%; }
 .stat-card:hover { border-color: var(--rk-border-strong); transform: translateY(-2px); }
 .stat-icon { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; color: var(--rk-brand); background: var(--rk-brand-subtle); border: 1px solid color-mix(in srgb, var(--rk-brand) 45%, transparent); border-radius: var(--rk-radius-md); }
 .stat-info h3 { margin-bottom: var(--rk-space-1); color: var(--rk-text-muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }

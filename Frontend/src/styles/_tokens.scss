@@ -34,6 +34,18 @@
   --rk-radius-xl: 16px;
   --rk-header-height: 64px;
   --rk-sidebar-width: 250px;
+  --rk-page-max: 1280px;
+  --rk-page-max-narrow: 960px;
+  --rk-control-height: 44px;
+  --rk-control-height-compact: 36px;
+  --rk-overlay: rgb(0 0 0 / 58%);
+  --rk-surface-hover: var(--rk-surface-2);
+  --rk-surface-selected: var(--rk-brand-subtle);
+  --rk-surface-disabled: var(--rk-canvas-deep);
+  --rk-z-navigation: 900;
+  --rk-z-header: 1000;
+  --rk-z-overlay: 1100;
+  --rk-z-dialog: 1200;
   --rk-space-1: 4px;
   --rk-space-2: 8px;
   --rk-space-3: 12px;

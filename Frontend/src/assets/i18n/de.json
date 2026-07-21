@@ -52,6 +52,7 @@
   },
   "header": {
     "toggleNavigation": "Navigation umschalten",
+    "closeNavigation": "Navigation schließen",
     "switchServer": "Server wechseln",
     "allServers": "Alle Server anzeigen",
     "logout": "Abmelden"

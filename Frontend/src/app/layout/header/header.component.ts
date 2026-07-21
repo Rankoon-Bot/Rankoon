@@ -1,6 +1,6 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthStore } from '../../store/auth.store';
 import { AppStore, Guild } from '../../store/app.store';
 import { AuthService } from '../../services/auth.service';
@@ -13,15 +13,16 @@ import { ApiErrorService } from '../../services/api-error.service';
 @Component({
     selector: 'app-header',
     standalone: true,
-    imports: [CommonModule, TranslocoPipe, LanguageSwitcherComponent],
+    imports: [CommonModule, RouterLink, TranslocoPipe, LanguageSwitcherComponent],
     template: `
         <header class="header">
             <div class="header-left">
-                <button class="menu-btn" type="button" [attr.aria-label]="'header.toggleNavigation' | transloco" (click)="layoutState.toggleMobileNavigation()">
+                <button *ngIf="authStore.isAuthenticated()" class="menu-btn" type="button" [attr.aria-label]="'header.toggleNavigation' | transloco" [attr.aria-expanded]="layoutState.mobileNavigationOpen()" aria-controls="primary-navigation" (click)="layoutState.toggleMobileNavigation()">
                     <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
                 </button>
-                <h1 class="logo">{{ 'app.dashboard' | transloco }}</h1>
-                <div *ngIf="appStore.hasSelectedGuild()" class="guild-info" role="button" tabindex="0" aria-haspopup="menu" [attr.aria-expanded]="isGuildDropdownOpen" (click)="toggleGuildDropdown()" (keydown.enter)="toggleGuildDropdown()" (keydown.space)="toggleGuildDropdown(); $event.preventDefault()">
+                <a class="logo" routerLink="/">Rankoon</a>
+                <div *ngIf="appStore.hasSelectedGuild()" class="guild-picker">
+                  <button #guildTrigger class="guild-info" type="button" aria-haspopup="menu" [attr.aria-expanded]="isGuildDropdownOpen" (click)="toggleGuildDropdown()">
                     <div class="guild-icon">
                         <img 
                             *ngIf="appStore.selectedGuild()?.icon" 
@@ -40,6 +41,7 @@ import { ApiErrorService } from '../../services/api-error.service';
                         </svg>
                     </div>
 
+                  </button>
                     <!-- Guild Dropdown -->
                     <div *ngIf="isGuildDropdownOpen" class="guild-dropdown">
                         <div class="dropdown-header">
@@ -52,16 +54,14 @@ import { ApiErrorService } from '../../services/api-error.service';
                             </div>
                             
                             <div *ngIf="!appStore.isLoading() && appStore.hasGuilds()" class="guild-list">
-                                <div 
-                                    *ngFor="let guild of appStore.guilds()" 
-                                 class="guild-item"
-                                    [attr.role]="guild.botInstalled === true ? 'menuitem' : null"
-                                    [attr.tabindex]="guild.botInstalled === true ? 0 : null"
-                                    [class.selected]="guild.id === appStore.selectedGuild()?.id"
-                                    [class.missing]="guild.botInstalled !== true"
-                                    (click)="selectGuild(guild); $event.stopPropagation()"
-                                    (keydown.enter)="selectGuild(guild); $event.stopPropagation()"
-                                    (keydown.space)="selectGuild(guild); $event.stopPropagation(); $event.preventDefault()"
+                                <button
+                                    *ngFor="let guild of appStore.guilds()"
+                                  class="guild-item"
+                                     type="button"
+                                     [disabled]="guild.botInstalled !== true"
+                                     [class.selected]="guild.id === appStore.selectedGuild()?.id"
+                                     [class.missing]="guild.botInstalled !== true"
+                                     (click)="selectGuild(guild)"
                                 >
                                     <div class="guild-item-icon">
                                         <img 
@@ -82,22 +82,12 @@ import { ApiErrorService } from '../../services/api-error.service';
                                              <span *ngIf="guild.botInstalled !== true" class="badge missing-badge">{{ 'common.botMissing' | transloco }}</span>
                                         </div>
                                     </div>
-                                    <a
-                                        *ngIf="guild.botInstalled !== true && guild.inviteUrl && canInviteBot(guild)"
-                                        class="invite-btn"
-                                        [href]="guild.inviteUrl"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        (click)="inviteBot($event)"
-                                    >
-                                         {{ 'common.invite' | transloco }}
-                                    </a>
                                     <div *ngIf="guild.id === appStore.selectedGuild()?.id" class="selected-indicator">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <polyline points="20,6 9,17 4,12"/>
                                         </svg>
                                     </div>
-                                </div>
+                                </button>
                             </div>
 
                             <div *ngIf="!appStore.isLoading() && !appStore.hasGuilds()" class="dropdown-empty">
@@ -106,12 +96,12 @@ import { ApiErrorService } from '../../services/api-error.service';
 
                             <div *ngIf="appStore.hasError()" class="dropdown-error">
                                 <span>{{ appStore.error() }}</span>
-                                 <button class="retry-btn" (click)="loadGuilds(); $event.stopPropagation()">{{ 'common.retry' | transloco }}</button>
+                                  <button class="retry-btn" type="button" (click)="loadGuilds()">{{ 'common.retry' | transloco }}</button>
                             </div>
                         </div>
                         
                         <div class="dropdown-footer">
-                            <button class="view-all-btn" (click)="goToServerSelection(); $event.stopPropagation()">
+                            <button class="view-all-btn" type="button" (click)="goToServerSelection()">
                                  {{ 'header.allServers' | transloco }}
                             </button>
                         </div>
@@ -141,6 +131,7 @@ import { ApiErrorService } from '../../services/api-error.service';
     styleUrls: ['./header.component.scss']
 })
 export class HeaderComponent implements OnInit {
+    @ViewChild('guildTrigger') private guildTrigger?: ElementRef<HTMLButtonElement>;
     isGuildDropdownOpen = false;
     private refreshAfterInvite = false;
 
@@ -168,8 +159,14 @@ export class HeaderComponent implements OnInit {
         const guildDropdown = target.closest('.guild-info, .guild-dropdown');
         
         if (!guildDropdown) {
-            this.isGuildDropdownOpen = false;
+            this.closeGuildDropdown();
         }
+    }
+
+    @HostListener('document:keydown.escape')
+    onEscape(): void {
+        if (this.isGuildDropdownOpen) this.closeGuildDropdown(true);
+        if (this.layoutState.mobileNavigationOpen()) this.layoutState.closeMobileNavigation();
     }
 
     @HostListener('window:focus')
@@ -188,22 +185,9 @@ export class HeaderComponent implements OnInit {
     }
 
     goToServerSelection(): void {
-        console.log('Navigating to server selection...');
-        this.isGuildDropdownOpen = false; // Close dropdown first
-        
-        // Clear any current error state
+        this.closeGuildDropdown();
         this.appStore.setError(null);
-        
-        // Navigate to server selection
-        this.router.navigate(['/server-selection']).then(success => {
-            if (success) {
-                console.log('Navigation to server-selection successful');
-            } else {
-                console.error('Navigation to server-selection failed');
-            }
-        }).catch(error => {
-            console.error('Navigation error:', error);
-        });
+        void this.router.navigate(['/server-selection']);
     }
 
     toggleGuildDropdown(): void {
@@ -217,7 +201,7 @@ export class HeaderComponent implements OnInit {
 
     selectGuild(guild: Guild): void {
         if (!guild.botInstalled) return;
-        this.isGuildDropdownOpen = false;
+        this.closeGuildDropdown();
         this.appStore.setLoading(true);
         this.appStore.setError(null);
         this.guildAccess.selectAndNavigate(guild).subscribe({
@@ -236,8 +220,7 @@ export class HeaderComponent implements OnInit {
         });
     }
 
-    inviteBot(event: Event): void {
-        event.stopPropagation();
+    inviteBot(): void {
         this.refreshAfterInvite = true;
     }
 
@@ -253,7 +236,6 @@ export class HeaderComponent implements OnInit {
                 this.appStore.setLoading(false);
             },
             error: (error) => {
-                console.error('Error loading guilds in header:', error);
                  this.appStore.setError(this.apiErrors.resolve(error, 'errors.guildsLoad').message);
                 this.appStore.setLoading(false);
             }
@@ -279,6 +261,11 @@ export class HeaderComponent implements OnInit {
                 .toUpperCase();
         }
         return '';
+    }
+
+    private closeGuildDropdown(restoreFocus = false): void {
+        this.isGuildDropdownOpen = false;
+        if (restoreFocus) queueMicrotask(() => this.guildTrigger?.nativeElement.focus());
     }
 
     hasAdminPermissions(guild: Guild): boolean {

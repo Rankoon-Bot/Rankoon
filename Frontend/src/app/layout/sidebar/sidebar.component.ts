@@ -6,6 +6,7 @@ import { AppStore } from '../../store/app.store';
 import { GuildModuleId } from '../../models/guild-permissions.models';
 import { TranslocoService } from '@jsverse/transloco';
 import { LocaleService } from '../../i18n/locale.service';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 interface MenuItem {
   label: string;
@@ -17,10 +18,10 @@ interface MenuItem {
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, TranslocoPipe],
   template: `
-    <aside class="sidebar" [class.mobile-open]="layoutState.mobileNavigationOpen()">
-      <nav class="sidebar-nav">
+    <aside id="primary-navigation" class="sidebar" [class.mobile-open]="layoutState.mobileNavigationOpen()">
+      <nav class="sidebar-nav" [attr.aria-label]="'nav.dashboard' | transloco">
         <ul class="nav-list">
           <li *ngFor="let item of menuItems()" class="nav-item" routerLinkActive="active">
             <a 
