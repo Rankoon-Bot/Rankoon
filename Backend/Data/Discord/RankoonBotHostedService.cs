@@ -6,6 +6,10 @@ namespace Rankoon.Data.Discord;
 /// <summary>Owns the Discord gateway lifecycle so module event handlers live with the web host.</summary>
 public sealed class RankoonBotHostedService(DiscordShardedClient client, Microsoft.Extensions.Options.IOptions<Rankoon.Data.Auth.DiscordSettings> settings, ILogger<RankoonBotHostedService> logger) : IHostedLifecycleService
 {
+    private readonly TaskCompletionSource<bool> startup = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public Task<bool> Startup => startup.Task;
+
     private Task OnLogAsync(LogMessage message)
     {
         if (message.Exception != null)
@@ -61,19 +65,23 @@ public sealed class RankoonBotHostedService(DiscordShardedClient client, Microso
             if (string.IsNullOrWhiteSpace(settings.Value.BotToken))
             {
                 logger.LogError("Discord bot was not started because Discord:BotToken is empty");
+                startup.TrySetResult(false);
                 return;
             }
 
             await client.LoginAsync(TokenType.Bot, settings.Value.BotToken);
             await client.StartAsync();
+            startup.TrySetResult(true);
             logger.LogInformation("Discord bot started");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            startup.TrySetResult(false);
             UnsubscribeEvents();
         }
         catch (Exception exception)
         {
+            startup.TrySetResult(false);
             UnsubscribeEvents();
             logger.LogError(exception, "Discord bot could not be started; the HTTP backend remains available");
         }

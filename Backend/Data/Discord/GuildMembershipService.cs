@@ -9,7 +9,7 @@ using System.Threading.Channels;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class GuildMembershipService(DiscordShardedClient discord, RankoonDbContext database, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<GuildMembershipService> logger) : BackgroundService
+public sealed class GuildMembershipService(DiscordShardedClient discord, RankoonBotHostedService bot, RankoonDbContext database, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<GuildMembershipService> logger) : BackgroundService
 {
     private readonly SemaphoreSlim reconciliationLock = new(1, 1);
     private readonly Channel<ulong> reconciliationQueue = Channel.CreateUnbounded<ulong>();
@@ -31,6 +31,12 @@ public sealed class GuildMembershipService(DiscordShardedClient discord, Rankoon
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!await bot.Startup.WaitAsync(stoppingToken))
+        {
+            logger.LogWarning("Guild membership reconciliation is disabled because the Discord bot did not start");
+            return;
+        }
+
         var nextFullReconciliation = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {

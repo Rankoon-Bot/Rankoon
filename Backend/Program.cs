@@ -146,6 +146,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.ILeaderboardRealtimePublisher, Ran
 builder.Services.AddSingleton<VoiceXpWatchdog>();
 builder.Services.AddSingleton<VcHubService>();
 builder.Services.AddSingleton<GuildMembershipService>();
+builder.Services.AddSingleton<RankoonBotHostedService>();
 builder.Services.AddSingleton<SelfRoleService>();
 builder.Services.AddSingleton<SelfRoleReactionService>();
 
@@ -155,7 +156,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService<MongoIndexInitializer>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LedgerProjectionRepairService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
-    builder.Services.AddHostedService<RankoonBotHostedService>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<RankoonBotHostedService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VcHubService>());
     builder.Services.AddHostedService<ActivityXpEventService>();
