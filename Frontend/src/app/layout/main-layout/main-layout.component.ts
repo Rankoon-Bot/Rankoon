@@ -1,6 +1,15 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, DestroyRef, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import {
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  NavigationSkipped,
+  NavigationStart,
+  Router,
+  RouterOutlet,
+} from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { AuthStore } from '../../store/auth.store';
@@ -32,6 +41,11 @@ import { TranslocoPipe } from '@jsverse/transloco';
           [class.with-sidebar]="authStore.isAuthenticated()"
         >
           <router-outlet></router-outlet>
+          @if (isNavigating()) {
+            <div class="navigation-loading-overlay" aria-live="polite">
+              <div class="navigation-loading-spinner" role="status" [attr.aria-label]="'common.loading' | transloco"></div>
+            </div>
+          }
         </main>
       </div>
     </div>
@@ -42,10 +56,26 @@ export class MainLayoutComponent {
   readonly authStore = inject(AuthStore);
   readonly translations = inject(ModuleTranslationService);
   readonly layoutState = inject(LayoutStateService);
+  readonly isNavigating = signal(false);
   private readonly appStore = inject(AppStore);
   private readonly guildAccess = inject(GuildAccessService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
+    this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
+      if (event instanceof NavigationStart) {
+        this.isNavigating.set(true);
+      } else if (
+        event instanceof NavigationEnd ||
+        event instanceof NavigationCancel ||
+        event instanceof NavigationError ||
+        event instanceof NavigationSkipped
+      ) {
+        this.isNavigating.set(false);
+      }
+    });
+
     effect(() => {
       if (!this.authStore.isAuthenticated()) return;
 

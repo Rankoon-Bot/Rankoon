@@ -51,13 +51,20 @@ jobs:
             echo "version=${after#v}" >> "$GITHUB_OUTPUT"
           fi
 
+  validate_release:
+    needs: release
+    if: github.ref_name == 'main' && needs.release.result == 'success' && needs.release.outputs.version != ''
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: v${{ needs.release.outputs.version }}
+
   publish:
-    needs: [validate, release]
+    needs: [validate, release, validate_release]
     if: >-
       always() && (
         needs.validate.result == 'success' && (
         github.ref_name != 'main' ||
-        (needs.release.result == 'success' && needs.release.outputs.version != '')
+        (needs.release.result == 'success' && needs.release.outputs.version != '' && needs.validate_release.result == 'success')
         )
       )
     runs-on: ubuntu-latest

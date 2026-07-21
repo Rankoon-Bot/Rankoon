@@ -12,6 +12,7 @@
 }
 
 .main-content {
+  position: relative;
   flex: 1;
   padding: var(--rk-space-6);
   overflow-y: auto;
@@ -20,6 +21,28 @@
   &.with-sidebar {
     margin-left: 0;
   }
+}
+
+.navigation-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: var(--rk-z-overlay);
+  display: grid;
+  place-items: center;
+  background: var(--rk-overlay);
+}
+
+.navigation-loading-spinner {
+  width: var(--rk-spinner-size);
+  height: var(--rk-spinner-size);
+  border: var(--rk-spinner-stroke) solid var(--rk-border-strong);
+  border-top-color: var(--rk-brand);
+  border-radius: var(--rk-spinner-radius);
+  animation: navigation-spin var(--rk-motion-spinner) infinite;
+}
+
+@keyframes navigation-spin {
+  to { transform: rotate(1turn); }
 }
 
 .navigation-backdrop { display: none; }

@@ -21,4 +21,22 @@ describe('DashboardComponent', () => {
     expect(alert.textContent).toContain('Dashboard unavailable');
     expect(alert.querySelector('button')).toBeTruthy();
   });
+
+  it('reloads when the selected guild changes', () => {
+    const firstGuild: Guild = { id: 'guild-1', name: 'Guild One', icon: null, owner: true, permissions: '8', features: [], botInstalled: true, inviteUrl: '' };
+    const secondGuild: Guild = { ...firstGuild, id: 'guild-2', name: 'Guild Two' };
+    TestBed.configureTestingModule({ imports: [DashboardComponent, testI18n], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])] });
+    const store = TestBed.inject(AppStore);
+    const http = TestBed.inject(HttpTestingController);
+    store.setSelectedGuild(firstGuild);
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.detectChanges();
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/dashboard`).flush({ guildName: 'Guild One' });
+
+    store.setSelectedGuild(secondGuild);
+    fixture.detectChanges();
+
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-2/dashboard`).flush({ guildName: 'Guild Two' });
+    expect(fixture.componentInstance.data()?.guildName).toBe('Guild Two');
+  });
 });

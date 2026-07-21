@@ -38,6 +38,9 @@
   --rk-page-max-narrow: 960px;
   --rk-control-height: 44px;
   --rk-control-height-compact: 36px;
+  --rk-spinner-size: 40px;
+  --rk-spinner-stroke: 3px;
+  --rk-spinner-radius: 50%;
   --rk-overlay: rgb(0 0 0 / 58%);
   --rk-surface-hover: var(--rk-surface-2);
   --rk-surface-selected: var(--rk-brand-subtle);
@@ -56,4 +59,5 @@
   --rk-space-10: 40px;
   --rk-motion-fast: 120ms ease;
   --rk-motion-base: 180ms ease;
+  --rk-motion-spinner: 800ms linear;
 }

@@ -119,7 +119,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         if (firstRankHint == null && members.Count > 0)
             firstRank += await database.MemberXp.CountDocumentsAsync(rankFilter & AheadOf(members[0].TotalXp, members[0].UserId), cancellationToken: cancellationToken);
 
-        var items = members.Select((member, index) => new LeaderboardEntryDto(
+        var items = UniqueUsers(members.Select((member, index) => new LeaderboardEntryDto(
             firstRank + index,
             member.UserId.ToString(),
             member.DisplayName,
@@ -127,7 +127,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             Mee6LevelCurve.GetLevel(member.TotalXp),
             member.MessageCount,
             member.VoiceSeconds,
-            currentUserId == member.UserId)).ToList();
+            currentUserId == member.UserId)).ToList());
         var nextCursor = hasMore && members.Count > 0 ? EncodeCursor(members[^1].TotalXp, members[^1].UserId, firstRank + members.Count - 1, SeasonLeaderboardScope.Lifetime, null) : null;
         bool? publicVisible = null;
         if (currentUserId != null)
@@ -252,8 +252,11 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
     private async Task<LeaderboardPageDto> CreateSeasonPageAsync(GuildLeaderboardSettings settings, GuildSeason season, bool isMember, ulong? currentUserId, IReadOnlyList<LeaderboardEntryDto> items, bool hasMore, string? nextCursor, SeasonLeaderboardScope scope, IReadOnlyList<SeasonLeaderboardOption> history, SeasonLeaderboardOption? current, bool seasonsEnabled, CancellationToken cancellationToken)
     {
         var publicVisible = await GetPublicVisibilityAsync(settings.GuildId, currentUserId, cancellationToken);
-        return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, items, nextCursor, hasMore, isMember, publicVisible, scope, season.Id, season.Name, history, current, seasonsEnabled);
+        return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, UniqueUsers(items), nextCursor, hasMore, isMember, publicVisible, scope, season.Id, season.Name, history, current, seasonsEnabled);
     }
+
+    internal static IReadOnlyList<LeaderboardEntryDto> UniqueUsers(IEnumerable<LeaderboardEntryDto> items) =>
+        items.DistinctBy(item => item.UserId).ToList();
 
     private LeaderboardPageDto EmptyScopedPage(GuildLeaderboardSettings settings, bool isMember, ulong? currentUserId, SeasonLeaderboardScope scope, string? seasonId, string? seasonName, IReadOnlyList<SeasonLeaderboardOption> history, SeasonLeaderboardOption? current, bool seasonsEnabled) =>
         new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, [], null, false, isMember, currentUserId == null ? null : true, scope, seasonId, seasonName, history, current, seasonsEnabled);

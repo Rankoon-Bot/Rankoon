@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthStore } from '../../store/auth.store';
@@ -164,7 +164,7 @@ import { finalize } from 'rxjs';
   `,
   styleUrls: ['./dashboard.component.scss']
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent {
   public readonly authStore = inject(AuthStore);
   public readonly appStore = inject(AppStore);
   private readonly guildService = inject(GuildService);
@@ -174,19 +174,38 @@ export class DashboardComponent implements OnInit {
   public readonly data = signal<DashboardData | null>(null);
   public readonly loading = signal(false);
   public readonly error = signal('');
+  private selectedGuildId: string | null = null;
+  private requestId = 0;
 
-  ngOnInit(): void {
-    this.loadDashboardData();
+  constructor() {
+    effect(() => {
+      const guildId = this.appStore.selectedGuild()?.id ?? null;
+      if (guildId === this.selectedGuildId) return;
+
+      this.selectedGuildId = guildId;
+      if (!guildId) {
+        this.data.set(null);
+        this.loading.set(false);
+        return;
+      }
+
+      this.loadDashboardData(guildId);
+    });
   }
 
-  loadDashboardData(): void {
-    const guild = this.appStore.selectedGuild();
-    if (!guild) return;
+  loadDashboardData(guildId = this.appStore.selectedGuild()?.id): void {
+    if (!guildId) return;
+    const requestId = ++this.requestId;
     this.loading.set(true);
     this.error.set('');
-    this.guildService.dashboard(guild.id).pipe(finalize(() => this.loading.set(false))).subscribe({
-      next: data => this.data.set(data),
+    this.guildService.dashboard(guildId).pipe(finalize(() => {
+      if (requestId === this.requestId) this.loading.set(false);
+    })).subscribe({
+      next: data => {
+        if (requestId === this.requestId) this.data.set(data);
+      },
       error: error => {
+        if (requestId !== this.requestId) return;
         this.data.set(null);
         this.error.set(this.apiErrors.resolve(error, 'errors.dashboardLoad').message);
       }
