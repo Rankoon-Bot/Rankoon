@@ -19,7 +19,7 @@ public sealed record LeaderboardPageDto(string GuildName, string Alias, Leaderbo
 
 public sealed class LeaderboardService(RankoonDbContext database, DiscordShardedClient discord, GuildMembershipService memberships, IOptions<JwtSettings> jwtSettings, TimeProvider timeProvider)
 {
-    private sealed record Cursor(string Xp, string UserId, long Rank, SeasonLeaderboardScope Scope, string? SeasonId);
+    private sealed record Cursor(string Xp, string DisplayName, string UserId, long Rank, SeasonLeaderboardScope Scope, string? SeasonId);
     private readonly byte[] cursorKey = Encoding.UTF8.GetBytes(jwtSettings.Value.SecretKey);
 
     public async Task<GuildLeaderboardSettings> GetOrCreateSettingsAsync(ulong guildId, string guildName, CancellationToken cancellationToken = default)
@@ -71,7 +71,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
     {
         take = Math.Clamp(take, 10, 50);
         var filter = BaseFilter(settings.GuildId, isMember);
-        IFindFluent<MemberXp, MemberXp> query = database.MemberXp.Find(filter).SortByDescending(x => x.TotalXp).ThenBy(x => x.UserId);
+        IFindFluent<MemberXp, MemberXp> query = database.MemberXp.Find(filter).SortByDescending(x => x.TotalXp).ThenBy(x => x.DisplayName).ThenBy(x => x.UserId);
         List<MemberXp> members;
         var hasMore = false;
         long? firstRankHint = cursor == null && !aroundCurrentUser ? 1 : null;
@@ -81,12 +81,12 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             var member = await database.MemberXp.Find(filter & Builders<MemberXp>.Filter.Eq(x => x.UserId, currentUserId.Value)).FirstOrDefaultAsync(cancellationToken);
             if (member != null)
             {
-                var before = await database.MemberXp.Find(filter & AheadOf(member.TotalXp, member.UserId))
-                    .SortBy(x => x.TotalXp).ThenByDescending(x => x.UserId).Limit(take / 3).ToListAsync(cancellationToken);
+                var before = await database.MemberXp.Find(filter & AheadOf(member.TotalXp, member.DisplayName, member.UserId))
+                    .SortBy(x => x.TotalXp).ThenByDescending(x => x.DisplayName).ThenByDescending(x => x.UserId).Limit(take / 3).ToListAsync(cancellationToken);
                 before.Reverse();
                 var remaining = take - before.Count - 1;
-                var after = await database.MemberXp.Find(filter & Behind(member.TotalXp, member.UserId))
-                    .SortByDescending(x => x.TotalXp).ThenBy(x => x.UserId).Limit(remaining + 1).ToListAsync(cancellationToken);
+                var after = await database.MemberXp.Find(filter & Behind(member.TotalXp, member.DisplayName, member.UserId))
+                    .SortByDescending(x => x.TotalXp).ThenBy(x => x.DisplayName).ThenBy(x => x.UserId).Limit(remaining + 1).ToListAsync(cancellationToken);
                 hasMore = after.Count > remaining;
                 if (hasMore) after.RemoveAt(after.Count - 1);
                 members = [.. before, member, .. after];
@@ -102,8 +102,8 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
                 throw new FormatException("Invalid leaderboard cursor.");
             filter &= Builders<MemberXp>.Filter.Or(
                 Builders<MemberXp>.Filter.Lt(x => x.TotalXp, xp),
-                Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.TotalXp, xp), Builders<MemberXp>.Filter.Gt(x => x.UserId, userId)));
-            query = database.MemberXp.Find(filter).SortByDescending(x => x.TotalXp).ThenBy(x => x.UserId);
+                Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.TotalXp, xp), BehindName(decoded.DisplayName, userId)));
+            query = database.MemberXp.Find(filter).SortByDescending(x => x.TotalXp).ThenBy(x => x.DisplayName).ThenBy(x => x.UserId);
             firstRankHint = decoded.Rank + 1;
         }
 
@@ -117,7 +117,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
     {
         long firstRank = firstRankHint ?? 1;
         if (firstRankHint == null && members.Count > 0)
-            firstRank += await database.MemberXp.CountDocumentsAsync(rankFilter & AheadOf(members[0].TotalXp, members[0].UserId), cancellationToken: cancellationToken);
+            firstRank += await database.MemberXp.CountDocumentsAsync(rankFilter & AheadOf(members[0].TotalXp, members[0].DisplayName, members[0].UserId), cancellationToken: cancellationToken);
 
         var items = UniqueUsers(members.Select((member, index) => new LeaderboardEntryDto(
             firstRank + index,
@@ -128,7 +128,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             member.MessageCount,
             member.VoiceSeconds,
             currentUserId == member.UserId)).ToList());
-        var nextCursor = hasMore && members.Count > 0 ? EncodeCursor(members[^1].TotalXp, members[^1].UserId, firstRank + members.Count - 1, SeasonLeaderboardScope.Lifetime, null) : null;
+        var nextCursor = hasMore && members.Count > 0 ? EncodeCursor(members[^1].TotalXp, members[^1].DisplayName, members[^1].UserId, firstRank + members.Count - 1, SeasonLeaderboardScope.Lifetime, null) : null;
         bool? publicVisible = null;
         if (currentUserId != null)
         {
@@ -210,10 +210,10 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             var member = await database.SeasonMemberXp.Find(baseFilter & Builders<SeasonMemberXp>.Filter.Eq(x => x.UserId, currentUserId.Value)).FirstOrDefaultAsync(cancellationToken);
             if (member != null)
             {
-                var before = await database.SeasonMemberXp.Find(baseFilter & SeasonAheadOf(member.TotalXp, member.UserId)).SortBy(x => x.TotalXp).ThenByDescending(x => x.UserId).Limit(take / 3).ToListAsync(cancellationToken);
+                var before = await database.SeasonMemberXp.Find(baseFilter & SeasonAheadOf(member.TotalXp, member.DisplayName, member.UserId)).SortBy(x => x.TotalXp).ThenByDescending(x => x.DisplayName).ThenByDescending(x => x.UserId).Limit(take / 3).ToListAsync(cancellationToken);
                 before.Reverse();
-                var after = await database.SeasonMemberXp.Find(baseFilter & SeasonBehind(member.TotalXp, member.UserId)).SortByDescending(x => x.TotalXp).ThenBy(x => x.UserId).Limit(take - before.Count).ToListAsync(cancellationToken);
-                var centeredFirstRank = 1 + await database.SeasonMemberXp.CountDocumentsAsync(baseFilter & SeasonAheadOf(member.TotalXp, member.UserId), cancellationToken: cancellationToken);
+                var after = await database.SeasonMemberXp.Find(baseFilter & SeasonBehind(member.TotalXp, member.DisplayName, member.UserId)).SortByDescending(x => x.TotalXp).ThenBy(x => x.DisplayName).ThenBy(x => x.UserId).Limit(take - before.Count).ToListAsync(cancellationToken);
+                var centeredFirstRank = 1 + await database.SeasonMemberXp.CountDocumentsAsync(baseFilter & SeasonAheadOf(member.TotalXp, member.DisplayName, member.UserId), cancellationToken: cancellationToken);
                 var rows = before.Append(member).Concat(after).Select((x, index) => new LeaderboardEntryDto(centeredFirstRank - before.Count + index, x.UserId.ToString(), x.DisplayName, decimal.Truncate(x.TotalXp), Mee6LevelCurve.GetLevel(x.TotalXp), x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList();
                 return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, rows, false, null, SeasonLeaderboardScope.CurrentSeason, history, current, seasonsEnabled, cancellationToken);
             }
@@ -222,15 +222,15 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         {
             var decoded = DecodeCursor(cursor);
             if (decoded.Scope != SeasonLeaderboardScope.CurrentSeason || decoded.SeasonId != season.Id || !decimal.TryParse(decoded.Xp, NumberStyles.Number, CultureInfo.InvariantCulture, out var xp) || !ulong.TryParse(decoded.UserId, out var userId)) throw new FormatException("Invalid leaderboard cursor.");
-            filter &= Builders<SeasonMemberXp>.Filter.Or(Builders<SeasonMemberXp>.Filter.Lt(x => x.TotalXp, xp), Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.TotalXp, xp), Builders<SeasonMemberXp>.Filter.Gt(x => x.UserId, userId)));
+            filter &= Builders<SeasonMemberXp>.Filter.Or(Builders<SeasonMemberXp>.Filter.Lt(x => x.TotalXp, xp), Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.TotalXp, xp), SeasonBehindName(decoded.DisplayName, userId)));
             firstRankHint = decoded.Rank + 1;
         }
-        var members = await database.SeasonMemberXp.Find(filter).SortByDescending(x => x.TotalXp).ThenBy(x => x.UserId).Limit(take + 1).ToListAsync(cancellationToken);
+        var members = await database.SeasonMemberXp.Find(filter).SortByDescending(x => x.TotalXp).ThenBy(x => x.DisplayName).ThenBy(x => x.UserId).Limit(take + 1).ToListAsync(cancellationToken);
         var hasMore = members.Count > take;
         if (hasMore) members.RemoveAt(members.Count - 1);
         var firstRank = firstRankHint ?? 1;
-        if (firstRankHint == null && members.Count > 0) firstRank += await database.SeasonMemberXp.CountDocumentsAsync(baseFilter & SeasonAheadOf(members[0].TotalXp, members[0].UserId), cancellationToken: cancellationToken);
-        return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, members.Select((x, index) => new LeaderboardEntryDto(firstRank + index, x.UserId.ToString(), x.DisplayName, decimal.Truncate(x.TotalXp), Mee6LevelCurve.GetLevel(x.TotalXp), x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList(), hasMore, members.Count == 0 ? null : EncodeCursor(members[^1].TotalXp, members[^1].UserId, firstRank + members.Count - 1, SeasonLeaderboardScope.CurrentSeason, season.Id), SeasonLeaderboardScope.CurrentSeason, history, current, seasonsEnabled, cancellationToken);
+        if (firstRankHint == null && members.Count > 0) firstRank += await database.SeasonMemberXp.CountDocumentsAsync(baseFilter & SeasonAheadOf(members[0].TotalXp, members[0].DisplayName, members[0].UserId), cancellationToken: cancellationToken);
+        return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, members.Select((x, index) => new LeaderboardEntryDto(firstRank + index, x.UserId.ToString(), x.DisplayName, decimal.Truncate(x.TotalXp), Mee6LevelCurve.GetLevel(x.TotalXp), x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList(), hasMore, members.Count == 0 ? null : EncodeCursor(members[^1].TotalXp, members[^1].DisplayName, members[^1].UserId, firstRank + members.Count - 1, SeasonLeaderboardScope.CurrentSeason, season.Id), SeasonLeaderboardScope.CurrentSeason, history, current, seasonsEnabled, cancellationToken);
     }
 
     private async Task<LeaderboardPageDto> GetHistoricalSeasonPageAsync(GuildLeaderboardSettings settings, GuildSeason season, bool isMember, ulong? currentUserId, string? cursor, int take, bool aroundCurrentUser, IReadOnlyList<SeasonLeaderboardOption> history, SeasonLeaderboardOption? current, bool seasonsEnabled, CancellationToken cancellationToken)
@@ -246,7 +246,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         var standings = await database.SeasonFinalStandings.Find(filter).SortBy(x => x.Rank).Limit(take + 1).ToListAsync(cancellationToken);
         var hasMore = standings.Count > take;
         if (hasMore) standings.RemoveAt(standings.Count - 1);
-        return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, standings.Select(x => new LeaderboardEntryDto(x.Rank, x.UserId.ToString(), x.DisplayName, decimal.Truncate(x.TotalXp), x.Level, x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList(), hasMore, standings.Count == 0 ? null : EncodeCursor(standings[^1].TotalXp, standings[^1].UserId, standings[^1].Rank, SeasonLeaderboardScope.Season, season.Id), SeasonLeaderboardScope.Season, history, current, seasonsEnabled, cancellationToken);
+        return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, standings.Select(x => new LeaderboardEntryDto(x.Rank, x.UserId.ToString(), x.DisplayName, decimal.Truncate(x.TotalXp), x.Level, x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList(), hasMore, standings.Count == 0 ? null : EncodeCursor(standings[^1].TotalXp, standings[^1].DisplayName, standings[^1].UserId, standings[^1].Rank, SeasonLeaderboardScope.Season, season.Id), SeasonLeaderboardScope.Season, history, current, seasonsEnabled, cancellationToken);
     }
 
     private async Task<LeaderboardPageDto> CreateSeasonPageAsync(GuildLeaderboardSettings settings, GuildSeason season, bool isMember, ulong? currentUserId, IReadOnlyList<LeaderboardEntryDto> items, bool hasMore, string? nextCursor, SeasonLeaderboardScope scope, IReadOnlyList<SeasonLeaderboardOption> history, SeasonLeaderboardOption? current, bool seasonsEnabled, CancellationToken cancellationToken)
@@ -301,28 +301,32 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         Builders<MemberXp>.Filter.Eq(x => x.GuildId, guildId) &
         Builders<MemberXp>.Filter.Eq(x => x.IsCurrentMember, true) &
         (isMember ? Builders<MemberXp>.Filter.Empty : Builders<MemberXp>.Filter.Eq(x => x.PublicLeaderboardVisible, true));
-    private static FilterDefinition<MemberXp> AheadOf(decimal xp, ulong userId) => Builders<MemberXp>.Filter.Or(
+    private static FilterDefinition<MemberXp> AheadOf(decimal xp, string displayName, ulong userId) => Builders<MemberXp>.Filter.Or(
         Builders<MemberXp>.Filter.Gt(x => x.TotalXp, xp),
-        Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.TotalXp, xp), Builders<MemberXp>.Filter.Lt(x => x.UserId, userId)));
-    private static FilterDefinition<MemberXp> Behind(decimal xp, ulong userId) => Builders<MemberXp>.Filter.Or(
+        Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.TotalXp, xp), AheadName(displayName, userId)));
+    private static FilterDefinition<MemberXp> Behind(decimal xp, string displayName, ulong userId) => Builders<MemberXp>.Filter.Or(
         Builders<MemberXp>.Filter.Lt(x => x.TotalXp, xp),
-        Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.TotalXp, xp), Builders<MemberXp>.Filter.Gt(x => x.UserId, userId)));
+        Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.TotalXp, xp), BehindName(displayName, userId)));
     private static FilterDefinition<SeasonMemberXp> SeasonMemberFilter(string seasonId, bool isMember) =>
         Builders<SeasonMemberXp>.Filter.Eq(x => x.SeasonId, seasonId) &
         Builders<SeasonMemberXp>.Filter.Eq(x => x.IsCurrentMember, true) &
         (isMember ? Builders<SeasonMemberXp>.Filter.Empty : Builders<SeasonMemberXp>.Filter.Eq(x => x.PublicLeaderboardVisible, true));
-    private static FilterDefinition<SeasonMemberXp> SeasonAheadOf(decimal xp, ulong userId) => Builders<SeasonMemberXp>.Filter.Or(
+    private static FilterDefinition<SeasonMemberXp> SeasonAheadOf(decimal xp, string displayName, ulong userId) => Builders<SeasonMemberXp>.Filter.Or(
         Builders<SeasonMemberXp>.Filter.Gt(x => x.TotalXp, xp),
-        Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.TotalXp, xp), Builders<SeasonMemberXp>.Filter.Lt(x => x.UserId, userId)));
-    private static FilterDefinition<SeasonMemberXp> SeasonBehind(decimal xp, ulong userId) => Builders<SeasonMemberXp>.Filter.Or(
+        Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.TotalXp, xp), SeasonAheadName(displayName, userId)));
+    private static FilterDefinition<SeasonMemberXp> SeasonBehind(decimal xp, string displayName, ulong userId) => Builders<SeasonMemberXp>.Filter.Or(
         Builders<SeasonMemberXp>.Filter.Lt(x => x.TotalXp, xp),
-        Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.TotalXp, xp), Builders<SeasonMemberXp>.Filter.Gt(x => x.UserId, userId)));
+        Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.TotalXp, xp), SeasonBehindName(displayName, userId)));
     private static FilterDefinition<SeasonFinalStanding> FinalStandingFilter(string seasonId, bool isMember) =>
         Builders<SeasonFinalStanding>.Filter.Eq(x => x.SeasonId, seasonId) &
         (isMember ? Builders<SeasonFinalStanding>.Filter.Empty : Builders<SeasonFinalStanding>.Filter.Eq(x => x.PublicLeaderboardVisible, true));
-    private string EncodeCursor(decimal xp, ulong userId, long rank, SeasonLeaderboardScope scope, string? seasonId)
+    private static FilterDefinition<MemberXp> AheadName(string displayName, ulong userId) => Builders<MemberXp>.Filter.Or(Builders<MemberXp>.Filter.Lt(x => x.DisplayName, displayName), Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.DisplayName, displayName), Builders<MemberXp>.Filter.Lt(x => x.UserId, userId)));
+    private static FilterDefinition<MemberXp> BehindName(string displayName, ulong userId) => Builders<MemberXp>.Filter.Or(Builders<MemberXp>.Filter.Gt(x => x.DisplayName, displayName), Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.DisplayName, displayName), Builders<MemberXp>.Filter.Gt(x => x.UserId, userId)));
+    private static FilterDefinition<SeasonMemberXp> SeasonAheadName(string displayName, ulong userId) => Builders<SeasonMemberXp>.Filter.Or(Builders<SeasonMemberXp>.Filter.Lt(x => x.DisplayName, displayName), Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.DisplayName, displayName), Builders<SeasonMemberXp>.Filter.Lt(x => x.UserId, userId)));
+    private static FilterDefinition<SeasonMemberXp> SeasonBehindName(string displayName, ulong userId) => Builders<SeasonMemberXp>.Filter.Or(Builders<SeasonMemberXp>.Filter.Gt(x => x.DisplayName, displayName), Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.DisplayName, displayName), Builders<SeasonMemberXp>.Filter.Gt(x => x.UserId, userId)));
+    private string EncodeCursor(decimal xp, string displayName, ulong userId, long rank, SeasonLeaderboardScope scope, string? seasonId)
     {
-        var payload = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Cursor(xp.ToString(CultureInfo.InvariantCulture), userId.ToString(), rank, scope, seasonId)));
+        var payload = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Cursor(xp.ToString(CultureInfo.InvariantCulture), displayName, userId.ToString(), rank, scope, seasonId)));
         var signature = HMACSHA256.HashData(cursorKey, payload);
         return $"{Convert.ToBase64String(payload)}.{Convert.ToBase64String(signature)}";
     }

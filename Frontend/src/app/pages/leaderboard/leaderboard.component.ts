@@ -8,7 +8,7 @@ import { AuthStore } from '../../store/auth.store';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { LocaleService } from '../../i18n/locale.service';
 import { ApiErrorService } from '../../services/api-error.service';
-import { RealtimeService, LeaderboardChanged } from '../../services/realtime.service';
+import { RealtimeService, LeaderboardChanged, LeaderboardEntryChanged } from '../../services/realtime.service';
 
 @Component({
   selector: 'app-leaderboard',
@@ -50,6 +50,7 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
   private realtimeSubscription?: { alias: string; scope: SeasonLeaderboardScope; seasonId?: string };
 
   ngOnInit(): void {
+    this.realtime.leaderboardEntryChanges$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => this.applyRealtimeEntryChange(event));
     this.realtime.leaderboardChanges$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => this.applyRealtimeChange(event));
     this.destroyRef.onDestroy(() => {
       if (this.realtimeSubscription) void this.realtime.unsubscribeLeaderboard(this.realtimeSubscription.alias, this.realtimeSubscription.scope, this.realtimeSubscription.seasonId);
@@ -173,9 +174,35 @@ export class LeaderboardComponent implements OnInit, AfterViewInit {
 
   private applyRealtimeChange(event: LeaderboardChanged): void {
     if (event.alias !== this.alias || event.scope !== this.scope() || event.seasonId !== (this.scope() === 'Season' ? this.selectedSeasonId() : null)) return;
-    // The server remains authoritative for ranks, cursors, and pagination.
-    this.requestSequence++;
-    this.load(true);
+    // This event represents a structural change (for example a season transition).
+    // XP changes are applied through leaderboardEntryChanged without another HTTP request.
+    if (event.visibility !== this.page()?.visibility) this.load(true);
+  }
+
+  private applyRealtimeEntryChange(event: LeaderboardEntryChanged): void {
+    if (event.alias !== this.alias || event.scope !== this.scope() || event.seasonId !== (this.scope() === 'Season' ? this.selectedSeasonId() : null)) return;
+    const current = this.entries();
+    const existing = current.find(entry => entry.userId === event.userId);
+    const next = event.entry ? { ...event.entry, isCurrentUser: existing?.isCurrentUser ?? event.entry.isCurrentUser } : undefined;
+    const highestRank = current.at(-1)?.rank ?? 0;
+
+    if (!existing && (!next || next.rank > highestRank + 1)) return;
+
+    this.entries.set(current
+      .filter(entry => entry.userId !== event.userId)
+      .map(entry => this.shiftRank(entry, existing?.rank, next?.rank))
+      .concat(next ? [next] : [])
+      .sort((left, right) => left.rank - right.rank || left.userId.localeCompare(right.userId)));
+  }
+
+  private shiftRank(entry: LeaderboardEntry, previousRank?: number, nextRank?: number): LeaderboardEntry {
+    if (previousRank === undefined && nextRank !== undefined) return entry.rank >= nextRank ? { ...entry, rank: entry.rank + 1 } : entry;
+    if (previousRank !== undefined && nextRank === undefined) return entry.rank > previousRank ? { ...entry, rank: entry.rank - 1 } : entry;
+    if (previousRank !== undefined && nextRank !== undefined && nextRank < previousRank && entry.rank >= nextRank && entry.rank < previousRank)
+      return { ...entry, rank: entry.rank + 1 };
+    if (previousRank !== undefined && nextRank !== undefined && nextRank > previousRank && entry.rank > previousRank && entry.rank <= nextRank)
+      return { ...entry, rank: entry.rank - 1 };
+    return entry;
   }
 
   private updateRealtimeSubscription(scope: SeasonLeaderboardScope, seasonId?: string): void {

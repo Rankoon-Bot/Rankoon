@@ -303,7 +303,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
 
     public async Task<IReadOnlyList<MemberXp>> GetLeaderboardAsync(ulong guildId, int take, CancellationToken cancellationToken = default) =>
         await database.MemberXp.Find(x => x.GuildId == guildId && x.IsCurrentMember)
-            .SortByDescending(x => x.TotalXp).ThenBy(x => x.UserId)
+            .SortByDescending(x => x.TotalXp).ThenBy(x => x.DisplayName).ThenBy(x => x.UserId)
             .Limit(Math.Clamp(take, 1, 100)).ToListAsync(cancellationToken);
 
     public async Task<MemberXp?> GetMemberAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default) => await database.MemberXp.Find(x => x.GuildId == guildId && x.UserId == userId).FirstOrDefaultAsync(cancellationToken);

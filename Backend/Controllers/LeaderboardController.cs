@@ -54,8 +54,6 @@ public sealed class LeaderboardController(LeaderboardService leaderboard, ILeade
         if (!await authorization.IsMemberAsync(User, settings.GuildId, HttpContext.RequestAborted)) return Forbid();
         await leaderboard.SetPublicVisibilityAsync(settings.GuildId, userId.Value, request.PublicVisible, HttpContext.RequestAborted);
         await realtime.PublishMemberAsync(settings.GuildId, userId.Value, HttpContext.RequestAborted);
-        // A privacy change shifts every following public rank, so a complete page refresh is required.
-        await realtime.PublishGuildAsync(settings.GuildId, HttpContext.RequestAborted);
         await reports.WriteAsync(new(settings.GuildId, ReportCategories.Activity, ReportNames.LeaderboardPrivacyChanged, ReportOutcomes.Succeeded, ActorId: userId, Metadata: new Dictionary<string, object?> { ["enabled"] = request.PublicVisible }), HttpContext.RequestAborted);
         return Ok(new { request.PublicVisible });
     }

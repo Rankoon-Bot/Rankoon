@@ -8,6 +8,7 @@ using Rankoon.Hubs;
 namespace Rankoon.Data.Xp;
 
 public sealed record LeaderboardChanged(string Alias, SeasonLeaderboardScope Scope, string? SeasonId, LeaderboardVisibility Visibility);
+public sealed record LeaderboardEntryChanged(string Alias, SeasonLeaderboardScope Scope, string? SeasonId, string Operation, string UserId, LeaderboardEntryDto? Entry);
 
 public interface ILeaderboardRealtimePublisher
 {
@@ -16,7 +17,7 @@ public interface ILeaderboardRealtimePublisher
     Task PublishSettingsAsync(GuildLeaderboardSettings settings, string? previousAlias = null, CancellationToken cancellationToken = default);
 }
 
-public sealed class LeaderboardRealtimePublisher(RankoonDbContext database, IHubContext<LeaderboardHub> hub, LeaderboardSubscriptionRegistry subscriptions, TimeProvider timeProvider) : ILeaderboardRealtimePublisher
+public sealed class LeaderboardRealtimePublisher(RankoonDbContext database, IServiceProvider services, IHubContext<LeaderboardHub> hub, LeaderboardSubscriptionRegistry subscriptions, TimeProvider timeProvider) : ILeaderboardRealtimePublisher
 {
     private readonly ConcurrentDictionary<(ulong GuildId, string Alias, SeasonLeaderboardScope Scope, string? SeasonId), CancellationTokenSource> pending = new();
 
@@ -37,9 +38,9 @@ public sealed class LeaderboardRealtimePublisher(RankoonDbContext database, IHub
             }
         }
 
-        Queue(settings, SeasonLeaderboardScope.Lifetime, null);
+        await PublishEntryAsync(settings, userId, SeasonLeaderboardScope.Lifetime, null, cancellationToken);
         if (await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Status == SeasonStatus.Active).AnyAsync(cancellationToken))
-            Queue(settings, SeasonLeaderboardScope.CurrentSeason, null);
+            await PublishEntryAsync(settings, userId, SeasonLeaderboardScope.CurrentSeason, null, cancellationToken);
     }
 
     public async Task PublishGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
@@ -52,6 +53,23 @@ public sealed class LeaderboardRealtimePublisher(RankoonDbContext database, IHub
             Queue(settings, SeasonLeaderboardScope.CurrentSeason, null);
         foreach (var subscription in subscriptions.GetGuildSubscriptions(guildId))
             Queue(settings, subscription.Scope, subscription.SeasonId);
+    }
+
+    private async Task PublishEntryAsync(GuildLeaderboardSettings settings, ulong userId, SeasonLeaderboardScope scope, string? seasonId, CancellationToken cancellationToken)
+    {
+        await PublishEntryForAudienceAsync("members", true);
+        await PublishEntryForAudienceAsync("public", false);
+
+        async Task PublishEntryForAudienceAsync(string audience, bool isMember)
+        {
+            var page = await services.GetRequiredService<LeaderboardService>().GetScopedPageAsync(settings, isMember, userId, scope, seasonId, null, 10, true, cancellationToken);
+            var entry = page.Items.FirstOrDefault(item => item.UserId == userId.ToString()) is { } item
+                ? item with { IsCurrentUser = false }
+                : null;
+            var operation = entry == null ? "remove" : "upsert";
+            await hub.Clients.Group(HubGroupNames.Leaderboard(audience, settings.Alias, scope, seasonId))
+                .SendAsync("leaderboardEntryChanged", new LeaderboardEntryChanged(settings.Alias, scope, seasonId, operation, userId.ToString(), entry), cancellationToken);
+        }
     }
 
     public Task PublishSettingsAsync(GuildLeaderboardSettings settings, string? previousAlias = null, CancellationToken cancellationToken = default)
