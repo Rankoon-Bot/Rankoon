@@ -1,9 +1,134 @@
-<main class="audit-page">
-  <header><p class="eyebrow">XP</p><h1>{{ 'xpAudit.title' | transloco }}</h1><p>{{ 'xpAudit.subtitle' | transloco }}</p></header>
-  <section class="panel search"><input [value]="query()" (input)="search($any($event.target).value)" [placeholder]="'xpAudit.search' | transloco"><label><input type="checkbox" [checked]="former()" (change)="toggleFormer()"> {{ 'xpAudit.former' | transloco }}</label></section>
-  <section class="panel" *ngIf="!details()"><button class="member" *ngFor="let member of members()" (click)="select(member)">{{member.displayName}} <small>{{member.userId}} · L{{member.level}} · {{member.totalXp | number}} XP</small></button><button *ngIf="memberCursor()" (click)="loadMembers(true)">{{ 'xpAudit.more' | transloco }}</button></section>
-  <section class="panel detail" *ngIf="details() as d"><button (click)="details.set(null)">{{ 'xpAudit.back' | transloco }}</button><h2>{{d.displayName}}</h2><p>{{d.userId}} · {{d.isCurrentMember ? ('xpAudit.current' | transloco) : ('xpAudit.formerMember' | transloco)}}</p><div class="totals"><div><b>{{ 'xpAudit.lifetime' | transloco }}</b><span>{{d.lifetime.totalXp | number}} XP · L{{d.lifetime.level}} · #{{d.lifetime.rank}}</span><small>{{ 'xpAudit.imported' | transloco }}: {{d.lifetime.importedXp | number}} · {{ 'xpAudit.automatic' | transloco }}: {{d.lifetime.earnedXp | number}} · {{ 'xpAudit.manual' | transloco }}: {{d.lifetime.manualAdjustment | number}}</small></div><div *ngIf="d.activeSeason"><b>{{d.activeSeason.name}}</b><span>{{d.activeSeason.totalXp | number}} XP · L{{d.activeSeason.level}}</span></div></div>
-    <form *ngIf="d.permissions.canAdjust" (ngSubmit)="submit()"><h3>{{ 'xpAudit.adjust' | transloco }}</h3><input type="number" step="0.0001" [(ngModel)]="amount" name="amount"><select [(ngModel)]="scope" name="scope"><option value="LifetimeAndSeason">{{ 'xpAudit.scopeSeason' | transloco }}</option><option value="LifetimeOnly">{{ 'xpAudit.scopeLifetime' | transloco }}</option></select><textarea [(ngModel)]="reason" name="reason" minlength="10" required [placeholder]="'xpAudit.reason' | transloco"></textarea><input [(ngModel)]="reference" name="reference" [placeholder]="'xpAudit.reference' | transloco"><button type="submit" [disabled]="saving()">{{ 'xpAudit.book' | transloco }}</button></form>
-    <h3>{{ 'xpAudit.timeline' | transloco }}</h3><article *ngFor="let entry of entries()"><b [class.manual]="entry.kind.startsWith('Manual')">{{+entry.amount > 0 ? '+' : ''}}{{entry.amount | number}} XP</b> {{entry.source}} · {{entry.kind}} · {{entry.occurredAtUtc | date:'short'}} <small>{{entry.actorDisplayName || ''}} {{entry.reason || ''}}</small><button *ngIf="entry.kind === 'ManualAdjustment' && !entry.reversedByLedgerEntryId && d.permissions.canAdjust" (click)="reverse(entry)">{{ 'xpAudit.reverse' | transloco }}</button></article><button *ngIf="entryCursor()" (click)="moreEntries()">{{ 'xpAudit.more' | transloco }}</button>
-  </section>
+<main class="rk-page audit-page">
+  <header class="rk-page-header">
+    <div>
+      <p class="rk-page-header__eyebrow">XP</p>
+      <h1>{{ 'xpAudit.title' | transloco }}</h1>
+      <p class="rk-page-header__description">{{ 'xpAudit.subtitle' | transloco }}</p>
+    </div>
+  </header>
+
+  <div class="audit-workspace" [class.audit-workspace--detail-open]="selectedMember()">
+    <aside class="rk-panel member-browser" [class.member-browser--hidden]="selectedMember()">
+      <div class="panel-heading">
+        <h2>{{ 'xpAudit.members' | transloco }}</h2>
+      </div>
+      <label for="member-search">{{ 'xpAudit.searchLabel' | transloco }}</label>
+      <input id="member-search" type="search" [value]="query()" (input)="search($any($event.target).value)" [placeholder]="'xpAudit.search' | transloco">
+      <label class="check-control" for="include-former">
+        <input id="include-former" type="checkbox" [checked]="former()" (change)="toggleFormer()">
+        <span>{{ 'xpAudit.former' | transloco }}</span>
+      </label>
+
+      @if (membersError()) {
+        <div class="rk-notice rk-notice--danger compact-notice" role="alert">
+          <span>{{ membersError() }}</span>
+          <button class="rk-button rk-button--ghost" type="button" (click)="loadMembers()">{{ 'common.retry' | transloco }}</button>
+        </div>
+      }
+
+      <div class="member-list" [attr.aria-busy]="membersLoading()">
+        @if (membersLoading()) {
+          @for (row of [1, 2, 3, 4]; track row) {
+            <div class="member-skeleton"><span class="rk-skeleton avatar"></span><span class="rk-skeleton skeleton-line"></span></div>
+          }
+        } @else {
+          @for (member of members(); track member.userId) {
+            <button class="member-item" type="button" [class.member-item--selected]="selectedMember()?.userId === member.userId" (click)="select(member)">
+              <span class="avatar" aria-hidden="true">{{ initials(member.displayName) }}</span>
+              <span class="member-item__body">
+                <span class="member-item__top"><strong>{{ member.displayName }}</strong><span class="status-badge">{{ (member.isCurrentMember ? 'xpAudit.current' : 'xpAudit.formerMember') | transloco }}</span></span>
+                <span class="member-item__stats">{{ 'xpAudit.level' | transloco }} {{ formatXp(member.level) }} · {{ formatXp(member.totalXp) }} XP</span>
+                <span class="member-item__id">{{ member.userId }}</span>
+              </span>
+            </button>
+          } @empty {
+            <p class="empty-state">{{ 'xpAudit.membersEmpty' | transloco }}</p>
+          }
+        }
+      </div>
+      @if (memberCursor()) {
+        <button class="rk-button rk-button--ghost load-more" type="button" [disabled]="moreMembersLoading()" (click)="loadMembers(true)">
+          {{ moreMembersLoading() ? ('xpAudit.loadingMoreMembers' | transloco) : ('xpAudit.more' | transloco) }}
+        </button>
+      }
+    </aside>
+
+    <section class="audit-detail" [class.audit-detail--hidden]="!selectedMember()">
+      @if (!selectedMember()) {
+        <div class="rk-panel empty-detail"><h2>{{ 'xpAudit.selectMember' | transloco }}</h2><p>{{ 'xpAudit.selectMemberDescription' | transloco }}</p></div>
+      } @else {
+        <button class="rk-button rk-button--ghost back-button" type="button" (click)="clearSelection()">{{ 'xpAudit.back' | transloco }}</button>
+        @if (successMessage()) { <div class="rk-notice rk-notice--success" role="status" aria-live="polite">{{ successMessage() }}</div> }
+        @if (detailsError()) {
+          <div class="rk-notice rk-notice--danger" role="alert"><span>{{ detailsError() }}</span><button class="rk-button rk-button--ghost" type="button" (click)="select(selectedMember()!)">{{ 'common.retry' | transloco }}</button></div>
+        }
+        @if (detailsLoading()) {
+          <div class="rk-panel profile-card" aria-busy="true"><div class="rk-skeleton profile-skeleton"></div><div class="rk-skeleton profile-skeleton"></div></div>
+        } @else {
+          @if (details(); as d) {
+          <section class="rk-panel profile-card">
+            <div class="profile-card__identity">
+              <span class="avatar avatar--large" aria-hidden="true">{{ initials(d.displayName) }}</span>
+              <div><h2>{{ d.displayName }}</h2><span class="status-badge">{{ (d.isCurrentMember ? 'xpAudit.current' : 'xpAudit.formerMember') | transloco }}</span><p class="discord-id">{{ d.userId }} <button class="copy-button" type="button" (click)="copyDiscordId(d.userId)" [attr.aria-label]="'xpAudit.copyDiscordId' | transloco">{{ 'xpAudit.copy' | transloco }}</button></p></div>
+            </div>
+            <p class="activity-line">{{ 'xpAudit.lastActivity' | transloco }}: {{ formatDate(d.lastXpActivityAtUtc) }}</p>
+            <div class="kpi-grid">
+              <div><span>{{ 'xpAudit.lifetime' | transloco }}</span><strong>{{ formatXp(d.lifetime.totalXp) }} XP</strong></div>
+              <div><span>{{ 'xpAudit.lifetimeLevel' | transloco }}</span><strong>{{ formatXp(d.lifetime.level) }}</strong></div>
+              <div><span>{{ 'xpAudit.lifetimeRank' | transloco }}</span><strong>#{{ formatXp(d.lifetime.rank) }}</strong></div>
+              @if (d.activeSeason; as season) { <div><span>{{ season.name }}</span><strong>{{ formatXp(season.totalXp) }} XP</strong></div> }
+            </div>
+            <div class="breakdown-grid">
+              <section><h3>{{ 'xpAudit.lifetimeBreakdown' | transloco }}</h3><dl><dt>{{ 'xpAudit.imported' | transloco }}</dt><dd>{{ formatXp(d.lifetime.importedXp ?? 0) }} XP</dd><dt>{{ 'xpAudit.automatic' | transloco }}</dt><dd>{{ formatXp(d.lifetime.earnedXp) }} XP</dd><dt>{{ 'xpAudit.manual' | transloco }}</dt><dd>{{ formatXp(d.lifetime.manualAdjustment) }} XP</dd><dt>{{ 'xpAudit.total' | transloco }}</dt><dd>{{ formatXp(d.lifetime.totalXp) }} XP</dd></dl></section>
+              @if (d.activeSeason; as season) { <section><h3>{{ season.name }}</h3><dl><dt>{{ 'xpAudit.startingXp' | transloco }}</dt><dd>{{ formatXp(season.startingXp ?? 0) }} XP</dd><dt>{{ 'xpAudit.automatic' | transloco }}</dt><dd>{{ formatXp(season.earnedXp) }} XP</dd><dt>{{ 'xpAudit.manual' | transloco }}</dt><dd>{{ formatXp(season.manualAdjustment) }} XP</dd><dt>{{ 'xpAudit.total' | transloco }}</dt><dd>{{ formatXp(season.totalXp) }} XP</dd><dt>{{ 'xpAudit.level' | transloco }} / {{ 'xpAudit.rank' | transloco }}</dt><dd>{{ formatXp(season.level) }} / #{{ formatXp(season.rank) }}</dd></dl></section> }
+            </div>
+            @if (!d.activeSeason) { <div class="rk-notice rk-notice--info">{{ 'xpAudit.noActiveSeason' | transloco }}</div> }
+          </section>
+
+          <div class="detail-columns">
+            <section class="rk-panel timeline-panel">
+              <div class="panel-heading"><div><h2>{{ 'xpAudit.timeline' | transloco }}</h2><p>{{ 'xpAudit.timelineDescription' | transloco }}</p></div></div>
+              <fieldset class="timeline-filters"><legend>{{ 'xpAudit.filters' | transloco }}</legend>
+                <label>{{ 'xpAudit.kindFilter' | transloco }}<select [value]="filters().kind ?? ''" (change)="updateFilter('kind', $any($event.target).value)"><option value="">{{ 'xpAudit.all' | transloco }}</option><option value="AutomaticGrant">{{ 'xpAudit.kinds.AutomaticGrant' | transloco }}</option><option value="AutomaticReversal">{{ 'xpAudit.kinds.AutomaticReversal' | transloco }}</option><option value="ManualAdjustment">{{ 'xpAudit.kinds.ManualAdjustment' | transloco }}</option><option value="ManualAdjustmentReversal">{{ 'xpAudit.kinds.ManualAdjustmentReversal' | transloco }}</option><option value="SystemMigration">{{ 'xpAudit.kinds.SystemMigration' | transloco }}</option></select></label>
+                <label>{{ 'xpAudit.directionFilter' | transloco }}<select [value]="filters().direction ?? ''" (change)="updateFilter('direction', $any($event.target).value)"><option value="">{{ 'xpAudit.all' | transloco }}</option><option value="Positive">{{ 'xpAudit.positive' | transloco }}</option><option value="Negative">{{ 'xpAudit.negative' | transloco }}</option></select></label>
+                <label>{{ 'xpAudit.scopeFilter' | transloco }}<select [value]="filters().scope ?? ''" (change)="updateFilter('scope', $any($event.target).value)"><option value="">{{ 'xpAudit.all' | transloco }}</option><option value="LifetimeOnly">{{ 'xpAudit.scopes.LifetimeOnly' | transloco }}</option><option value="LifetimeAndSeason">{{ 'xpAudit.scopes.LifetimeAndSeason' | transloco }}</option><option value="SeasonOnly">{{ 'xpAudit.scopes.SeasonOnly' | transloco }}</option></select></label>
+                <label>{{ 'xpAudit.from' | transloco }}<input type="date" (change)="updateDateFilter('from', $any($event.target).value)"></label><label>{{ 'xpAudit.to' | transloco }}<input type="date" (change)="updateDateFilter('to', $any($event.target).value)"></label><button class="rk-button rk-button--ghost" type="button" (click)="resetFilters()">{{ 'xpAudit.resetFilters' | transloco }}</button>
+              </fieldset>
+              @if (entriesError()) { <div class="rk-notice rk-notice--danger" role="alert"><span>{{ entriesError() }}</span><button class="rk-button rk-button--ghost" type="button" (click)="loadEntries()">{{ 'common.retry' | transloco }}</button></div> }
+              <div class="timeline" [attr.aria-busy]="entriesLoading()">
+                @if (entriesLoading()) { @for (row of [1, 2, 3]; track row) { <div class="rk-skeleton entry-skeleton"></div> } }
+                @else { @for (entry of entries(); track entry.id) {
+                  <article class="timeline-entry" [class.timeline-entry--positive]="+entry.amount > 0" [class.timeline-entry--negative]="+entry.amount < 0"><div class="entry-main"><strong>{{ formatSignedXp(entry.amount) }}</strong><div><h3>{{ kindLabel(entry.kind) }}</h3><p>{{ sourceLabel(entry.source) }} · {{ formatDate(entry.occurredAtUtc) }}</p></div><span class="scope-badge">{{ scopeLabel(entry.scope) }}</span></div><div class="entry-meta">@if (entry.seasonName) { <span>{{ entry.seasonName }}</span> } @if (entry.actorDisplayName) { <span>{{ 'xpAudit.actor' | transloco }}: {{ entry.actorDisplayName }}</span> } @if (entry.kind === 'ManualAdjustmentReversal') { <span class="status-badge">{{ 'xpAudit.reversed' | transloco }}</span> } @if (entry.reversedByLedgerEntryId) { <span class="status-badge">{{ 'xpAudit.reversed' | transloco }}</span> }</div>
+                    @if (isReversible(entry, d)) { <button class="rk-button rk-button--danger reversal-action" type="button" (click)="openReversal(entry, $event)">{{ 'xpAudit.reverse' | transloco }}</button> }
+                    <details><summary>{{ 'xpAudit.details' | transloco }}</summary><dl><dt>{{ 'xpAudit.kindFilter' | transloco }}</dt><dd>{{ kindLabel(entry.kind) }}</dd><dt>{{ 'xpAudit.source' | transloco }}</dt><dd>{{ sourceLabel(entry.source) }}</dd><dt>{{ 'xpAudit.scopeFilter' | transloco }}</dt><dd>{{ scopeLabel(entry.scope) }}</dd>@if (entry.seasonName) { <dt>{{ 'xpAudit.season' | transloco }}</dt><dd>{{ entry.seasonName }}</dd> } @if (entry.actorDisplayName) { <dt>{{ 'xpAudit.actor' | transloco }}</dt><dd>{{ entry.actorDisplayName }}</dd> } @if (entry.reason) { <dt>{{ 'xpAudit.reasonLabel' | transloco }}</dt><dd>{{ entry.reason }}</dd> } @if (entry.reference) { <dt>{{ 'xpAudit.referenceLabel' | transloco }}</dt><dd>{{ entry.reference }}</dd> }</dl><h4>{{ 'xpAudit.technicalDetails' | transloco }}</h4><dl><dt>{{ 'xpAudit.channelId' | transloco }}</dt><dd>{{ entry.channelId || '—' }}</dd><dt>{{ 'xpAudit.projectionStatus' | transloco }}</dt><dd>{{ entry.projectionStatus }}</dd><dt>{{ 'xpAudit.ledgerId' | transloco }}</dt><dd>{{ entry.id }}</dd><dt>{{ 'xpAudit.grantKey' | transloco }}</dt><dd>{{ entry.grantKey }}</dd>@if (entry.reversedByLedgerEntryId) { <dt>{{ 'xpAudit.reversalId' | transloco }}</dt><dd>{{ entry.reversedByLedgerEntryId }}</dd> } @if (entry.reversesLedgerEntryId) { <dt>{{ 'xpAudit.reversedEntryId' | transloco }}</dt><dd>{{ entry.reversesLedgerEntryId }}</dd> }</dl></details>
+                  </article>
+                } @empty { <p class="empty-state">{{ 'xpAudit.entriesEmpty' | transloco }}</p> } }
+              </div>
+              @if (entryCursor()) { <button class="rk-button rk-button--ghost load-more" type="button" [disabled]="moreEntriesLoading()" (click)="loadEntries(true)">{{ moreEntriesLoading() ? ('xpAudit.loadingMoreEntries' | transloco) : ('xpAudit.more' | transloco) }}</button> }
+            </section>
+
+            <aside class="rk-panel adjustment-panel">
+              <h2>{{ 'xpAudit.adjust' | transloco }}</h2>
+              @if (d.permissions.canAdjust) {
+                <form (ngSubmit)="reviewAdjustment($event)">
+                  <fieldset><legend>{{ 'xpAudit.direction' | transloco }}</legend><label class="radio-card"><input type="radio" name="direction" value="add" [(ngModel)]="direction">{{ 'xpAudit.addXp' | transloco }}</label><label class="radio-card"><input type="radio" name="direction" value="subtract" [(ngModel)]="direction">{{ 'xpAudit.subtractXp' | transloco }}</label></fieldset>
+                  <label for="adjustment-amount">{{ 'xpAudit.amount' | transloco }}<input id="adjustment-amount" type="number" min="0.0001" max="1000000" step="0.0001" inputmode="decimal" [(ngModel)]="amount" name="amount" required></label>@if (amountError) { <p class="field-error">{{ amountError }}</p> }
+                  <fieldset><legend>{{ 'xpAudit.scope' | transloco }}</legend><label class="radio-card"><input type="radio" name="scope" value="LifetimeOnly" [(ngModel)]="scope">{{ 'xpAudit.scopes.LifetimeOnly' | transloco }}</label><label class="radio-card" [class.radio-card--disabled]="!d.activeSeason"><input type="radio" name="scope" value="LifetimeAndSeason" [(ngModel)]="scope" [disabled]="!d.activeSeason">{{ 'xpAudit.scopes.LifetimeAndSeason' | transloco }}@if (d.activeSeason) { ({{ d.activeSeason.name }}) }</label></fieldset>
+                  @if (!d.activeSeason) { <p class="help-text">{{ 'xpAudit.seasonUnavailable' | transloco }}</p> }
+                  <label for="adjustment-reason">{{ 'xpAudit.reasonLabel' | transloco }}<textarea id="adjustment-reason" [(ngModel)]="reason" name="reason" minlength="10" maxlength="1000" required [placeholder]="'xpAudit.reasonHelp' | transloco"></textarea></label><p class="character-count">{{ reason.length }} / 1000</p>@if (reasonError) { <p class="field-error">{{ reasonError }}</p> }
+                  <label for="adjustment-reference">{{ 'xpAudit.referenceLabel' | transloco }}<input id="adjustment-reference" [(ngModel)]="reference" name="reference" maxlength="250" [placeholder]="'xpAudit.referenceHelp' | transloco"></label><p class="character-count">{{ reference.length }} / 250</p>
+                  <section class="adjustment-preview"><h3>{{ 'xpAudit.preview' | transloco }}</h3><p><strong>{{ formatSignedXp(signedAmount()) }}</strong></p><p>{{ 'xpAudit.currentTotal' | transloco }}: {{ formatXp(d.lifetime.totalXp) }} XP</p><p>{{ 'xpAudit.projectedTotal' | transloco }}: {{ formatXp(projectedTotal(d.lifetime.totalXp)) }} XP</p>@if (scope === 'LifetimeAndSeason' && d.activeSeason) { <p>{{ d.activeSeason.name }}: {{ formatXp(d.activeSeason.totalXp) }} XP → {{ formatXp(projectedTotal(d.activeSeason.totalXp)) }} XP</p> }<small>{{ 'xpAudit.serverCalculation' | transloco }}</small></section>
+                  @if (adjustmentError()) { <div class="rk-notice rk-notice--danger" role="alert">{{ adjustmentError() }}</div> }<button class="rk-button rk-button--primary" type="submit" [disabled]="!canReviewAdjustment || adjustmentSaving()">{{ 'xpAudit.reviewAdjustment' | transloco }}</button>
+                </form>
+              } @else { <div class="rk-notice rk-notice--info">{{ (d.permissions.isSelf && !d.permissions.isOwner ? 'xpAudit.noSelfAdjustPermission' : 'xpAudit.noAdjustPermission') | transloco }}</div> }
+            </aside>
+          </div>
+          }
+        }
+      }
+    </section>
+  </div>
+
+  <dialog #adjustmentDialog aria-labelledby="adjustment-dialog-title" aria-describedby="adjustment-dialog-description"><section class="dialog-content"><h2 id="adjustment-dialog-title">{{ 'xpAudit.confirmAdjustment' | transloco }}</h2><p id="adjustment-dialog-description">{{ 'xpAudit.adjustmentPermanentNotice' | transloco }}</p>@if (details(); as d) { <dl><dt>{{ 'xpAudit.member' | transloco }}</dt><dd>{{ d.displayName }}</dd><dt>{{ 'xpAudit.amount' | transloco }}</dt><dd>{{ formatSignedXp(signedAmount()) }}</dd><dt>{{ 'xpAudit.scope' | transloco }}</dt><dd>{{ scopeLabel(scope) }}</dd>@if (scope === 'LifetimeAndSeason' && d.activeSeason) { <dt>{{ 'xpAudit.season' | transloco }}</dt><dd>{{ d.activeSeason.name }}</dd> }<dt>{{ 'xpAudit.reasonLabel' | transloco }}</dt><dd>{{ reason }}</dd>@if (reference) { <dt>{{ 'xpAudit.referenceLabel' | transloco }}</dt><dd>{{ reference }}</dd> }<dt>{{ 'xpAudit.projectedTotal' | transloco }}</dt><dd>{{ formatXp(projectedTotal(d.lifetime.totalXp)) }} XP</dd></dl> }<div class="dialog-actions"><button class="rk-button rk-button--ghost" type="button" [disabled]="adjustmentSaving()" (click)="closeAdjustmentDialog()">{{ 'xpAudit.backDialog' | transloco }}</button><button class="rk-button rk-button--primary" type="button" [disabled]="adjustmentSaving()" (click)="adjust()">{{ adjustmentSaving() ? ('xpAudit.saving' | transloco) : ('xpAudit.confirmAdjustment' | transloco) }}</button></div></section></dialog>
+  <dialog #reversalDialog aria-labelledby="reversal-dialog-title" aria-describedby="reversal-dialog-description"><section class="dialog-content"><h2 id="reversal-dialog-title">{{ 'xpAudit.reverse' | transloco }}</h2><p id="reversal-dialog-description">{{ 'xpAudit.reversalPermanentNotice' | transloco }}</p>@if (reversalEntry(); as entry) { <dl><dt>{{ 'xpAudit.amount' | transloco }}</dt><dd>{{ formatSignedXp(entry.amount) }}</dd><dt>{{ 'xpAudit.date' | transloco }}</dt><dd>{{ formatDate(entry.occurredAtUtc) }}</dd><dt>{{ 'xpAudit.actor' | transloco }}</dt><dd>{{ entry.actorDisplayName || '—' }}</dd><dt>{{ 'xpAudit.reasonLabel' | transloco }}</dt><dd>{{ entry.reason || '—' }}</dd>@if (entry.reference) { <dt>{{ 'xpAudit.referenceLabel' | transloco }}</dt><dd>{{ entry.reference }}</dd> }</dl><label for="reversal-reason">{{ 'xpAudit.reversalReason' | transloco }}<textarea id="reversal-reason" [(ngModel)]="reversalReason" maxlength="1000" required></textarea></label><p class="character-count">{{ reversalReason.length }} / 1000</p>@if (reversalReasonError) { <p class="field-error">{{ reversalReasonError }}</p> }<label for="reversal-reference">{{ 'xpAudit.reversalReference' | transloco }}<input id="reversal-reference" [(ngModel)]="reversalReference" maxlength="250"></label><p class="character-count">{{ reversalReference.length }} / 250</p> }@if (reversalError()) { <div class="rk-notice rk-notice--danger" role="alert">{{ reversalError() }}</div> }<div class="dialog-actions"><button class="rk-button rk-button--ghost" type="button" [disabled]="reversalSaving()" (click)="closeReversalDialog()">{{ 'xpAudit.cancel' | transloco }}</button><button class="rk-button rk-button--danger" type="button" [disabled]="!canConfirmReversal || reversalSaving()" (click)="reverse()">{{ reversalSaving() ? ('xpAudit.saving' | transloco) : ('xpAudit.confirmReversal' | transloco) }}</button></div></section></dialog>
 </main>

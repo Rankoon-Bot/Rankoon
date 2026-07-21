@@ -89,6 +89,11 @@ export class SidebarComponent {
           ...(hasModule('leaderboard') ? [{ label: this.i18n.translate('nav.leaderboardSettings'), route: '/server-config/leaderboard', icon: '' }] : [])
         ]
     });
+    else if (hasModule('xp-audit')) items.push({
+      label: this.i18n.translate('nav.xpAudit'),
+      route: '/xp/audit',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 15 3-3 3 2 4-5"/></svg>`
+    });
     if (hasModule('voice-hubs')) items.push({
        label: this.i18n.translate('nav.voiceHubs'),
       route: '/vc-hubs',

@@ -65,7 +65,12 @@
     "capabilitiesLoad": "Could not load server permissions.",
     "settingsForbidden": "Access to the server settings was denied.",
     "capabilitiesCheck": "Could not verify server permissions. Please try again.",
-    "noServer": "No server is selected."
+    "noServer": "No server is selected.",
+    "xpAuditMembersLoad": "Could not load members.",
+    "xpAuditDetailsLoad": "Could not load member details.",
+    "xpAuditEntriesLoad": "Could not load XP history.",
+    "xpAdjustmentSave": "Could not save the XP adjustment.",
+    "xpAdjustmentReverse": "Could not create the reversal."
   },
   "apiErrors": {
     "request": {

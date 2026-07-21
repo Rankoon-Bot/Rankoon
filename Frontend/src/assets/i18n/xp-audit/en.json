@@ -1,25 +1,12 @@
 {
   "xpAudit": {
     "title": "XP History & Adjustments",
-    "subtitle": "Review XP entries and create auditable corrections.",
-    "search": "Search Discord ID or display name",
-    "former": "Include former members",
-    "more": "Load more",
-    "back": "Back to search",
-    "current": "Current member",
-    "formerMember": "Former member",
-    "lifetime": "Lifetime XP",
-    "imported": "MEE6 import",
-    "automatic": "Automatically earned",
-    "manual": "Manual adjustments",
-    "adjust": "Book XP adjustment",
-    "scopeSeason": "Lifetime XP and active season",
-    "scopeLifetime": "Lifetime XP only",
-    "reason": "Reason (at least 10 characters)",
-    "reference": "Optional reference",
-    "book": "Book irreversible adjustment",
-    "timeline": "XP history",
-    "reverse": "Create reversal",
-    "loadFailed": "The XP audit data could not be loaded."
+    "subtitle": "Review how XP was earned and record traceable adjustments.",
+    "members": "Members", "searchLabel": "Find a member", "search": "Search Discord ID or display name", "former": "Include former members", "more": "Load more", "loadingMoreMembers": "Loading more members", "loadingMoreEntries": "Loading more entries", "back": "Back to member search", "current": "Active", "formerMember": "Former", "membersEmpty": "No members match this search.", "selectMember": "Select a member", "selectMemberDescription": "Choose a member to review XP totals and entries.", "level": "Level", "rank": "Rank", "lifetime": "Lifetime XP", "lifetimeLevel": "Lifetime level", "lifetimeRank": "Lifetime rank", "lastActivity": "Last XP activity", "noActivity": "No XP activity recorded", "copy": "Copy", "copyDiscordId": "Copy Discord ID", "lifetimeBreakdown": "Lifetime XP breakdown", "imported": "MEE6 import", "startingXp": "Starting XP", "automatic": "Automatically earned XP", "manual": "Manual adjustments", "total": "Total", "noActiveSeason": "There is no active season right now.",
+    "timeline": "XP history", "timelineDescription": "Every entry remains traceable.", "filters": "Filter history", "kindFilter": "Entry type", "directionFilter": "Direction", "scopeFilter": "Scope", "all": "All", "positive": "Credits", "negative": "Deductions", "from": "From", "to": "To", "resetFilters": "Reset filters", "entriesEmpty": "There are no XP entries for these filters.", "actor": "Actor", "season": "Season", "source": "Source", "details": "Details", "technicalDetails": "Technical details", "channelId": "Channel ID", "projectionStatus": "Projection status", "ledgerId": "Ledger ID", "grantKey": "Grant key", "reversalId": "Reversal ID", "reversedEntryId": "Original entry ID", "reversed": "Reversed",
+    "adjust": "XP adjustment", "direction": "Direction", "addXp": "Add XP", "subtractXp": "Deduct XP", "amount": "Amount in XP", "amountRequired": "Enter an amount greater than 0 XP.", "amountMaximum": "The amount cannot exceed 1,000,000 XP.", "amountPrecision": "The amount can have at most four decimal places.", "scope": "Scope", "seasonUnavailable": "Without an active season, the adjustment can only apply to lifetime XP.", "reasonLabel": "Reason", "reasonHelp": "Describe clearly why this adjustment is required.", "reasonMinimum": "The reason must contain at least 10 characters.", "referenceLabel": "Reference", "referenceHelp": "Optional, for example a ticket, moderation, or case number.", "preview": "Adjustment preview", "currentTotal": "Current lifetime XP", "projectedTotal": "Expected lifetime XP", "serverCalculation": "Level and rank are recalculated by the server.", "reviewAdjustment": "Review adjustment", "confirmAdjustment": "Confirm adjustment", "adjustmentPermanentNotice": "The entry is permanently recorded in XP history. It cannot be deleted and can only be corrected through an auditable reversal.", "member": "Member", "backDialog": "Back", "saving": "Saving…", "adjustmentSaved": "The XP adjustment was saved.", "noSelfAdjustPermission": "You cannot adjust your own XP unless you are an owner.", "noAdjustPermission": "You can review history, but do not have permission to adjust XP.", "reverse": "Create reversal", "reversalReason": "Reason for reversal", "reversalReference": "Optional reversal reference", "reversalPermanentNotice": "The original entry remains intact. Rankoon creates an opposing entry and links both entries in an auditable way.", "confirmReversal": "Create reversal", "cancel": "Cancel", "reversalSaved": "The reversal was saved.",
+    "kinds": { "AutomaticGrant": "Automatic grant", "AutomaticReversal": "Automatic reversal", "ManualAdjustment": "Manual adjustment", "ManualAdjustmentReversal": "Manual reversal", "SystemMigration": "System migration" },
+    "scopes": { "LifetimeOnly": "Lifetime XP only", "LifetimeAndSeason": "Lifetime XP and active season", "SeasonOnly": "Season only" },
+    "sources": { "message": "Messages", "voice": "Voice activity", "reaction": "Reactions", "thread_creation": "Thread creation", "thread_message": "Thread messages", "event_interest": "Event interest", "mee6_import": "MEE6 import", "manual_adjustment": "Manual adjustment", "manual_adjustment_reversal": "Manual reversal", "legacy_manual_adjustment": "Legacy migration", "legacy_season_manual_adjustment": "Legacy season migration", "system_migration": "System migration", "other": "Other XP entry" }
   }
 }

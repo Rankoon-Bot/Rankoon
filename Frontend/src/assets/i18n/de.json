@@ -65,7 +65,12 @@
     "capabilitiesLoad": "Die Server-Berechtigungen konnten nicht geladen werden.",
     "settingsForbidden": "Dein Zugriff auf die Server-Einstellungen wurde abgelehnt.",
     "capabilitiesCheck": "Die Server-Berechtigungen konnten nicht geprüft werden. Bitte versuche es erneut.",
-    "noServer": "Es ist kein Server ausgewählt."
+    "noServer": "Es ist kein Server ausgewählt.",
+    "xpAuditMembersLoad": "Mitglieder konnten nicht geladen werden.",
+    "xpAuditDetailsLoad": "Mitgliedsdetails konnten nicht geladen werden.",
+    "xpAuditEntriesLoad": "XP-Verlauf konnte nicht geladen werden.",
+    "xpAdjustmentSave": "Die XP-Korrektur konnte nicht gespeichert werden.",
+    "xpAdjustmentReverse": "Die Gegenbuchung konnte nicht erstellt werden."
   },
   "apiErrors": {
     "request": {
