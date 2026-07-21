@@ -9,7 +9,6 @@ management instead of trying to be an all-in-one moderation bot.
 
 [![License: AGPL v3](https://img.shields.io/github/license/Rankoon-Bot/Rankoon)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/Rankoon-Bot/Rankoon)](https://github.com/Rankoon-Bot/Rankoon/releases/latest)
-[![Conventional commits](https://github.com/Rankoon-Bot/Rankoon/actions/workflows/commitlint.yml/badge.svg)](https://github.com/Rankoon-Bot/Rankoon/actions/workflows/commitlint.yml)
 [![Release and publish container](https://github.com/Rankoon-Bot/Rankoon/actions/workflows/release.yml/badge.svg)](https://github.com/Rankoon-Bot/Rankoon/actions/workflows/release.yml)
 
 > Reward real participation, in text and voice.
@@ -422,8 +421,8 @@ npm run build
 ```
 
 The backend xUnit suite covers API contracts plus XP projection, season scheduling,
-and voice watchdog behavior. The frontend uses Jasmine and Karma. GitHub Actions
-`Build and test` runs on pull requests and every branch push with:
+and voice watchdog behavior. The frontend uses Jasmine and Karma. On pushes to
+`main`, the release workflow runs `Build and test` once with:
 
 ```sh
 # Backend, in Backend/
@@ -437,9 +436,8 @@ npm test -- --watch=false --browsers=ChromeHeadless
 npm run build
 ```
 
-`Validate conventional commits` runs for opened, synchronized, and reopened pull
-requests. `Release and publish container` calls CI for every branch push, creates
-a semantic release only on `main`, and publishes only after successful validation.
+`Release and publish container` runs only on `main`, creates a semantic release,
+and builds and publishes the container only after the validation succeeds.
 
 ## Architecture
 
@@ -499,8 +497,8 @@ activity, rankings, and community voice management.
 1. Open an issue or review existing issues before starting a large behavioral
    change.
 2. Create a focused branch and keep unrelated changes separate.
-3. Use [Conventional Commits](https://www.conventionalcommits.org/); pull-request
-   commits are checked by `commitlint`.
+3. Use [Conventional Commits](https://www.conventionalcommits.org/) so semantic
+   release can determine the next release version.
 4. Run the relevant backend and frontend tests and builds documented above.
 5. Open a pull request describing the user-visible behavior, configuration or
    persistence impact, and verification performed.

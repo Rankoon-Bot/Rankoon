@@ -2,8 +2,7 @@ name: Release and publish container
 
 on:
   push:
-    branches: ['**']
-  workflow_dispatch:
+    branches: [main]
 
 concurrency:
   group: release-and-publish-${{ github.ref }}
@@ -19,7 +18,6 @@ jobs:
 
   release:
     needs: validate
-    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -51,44 +49,24 @@ jobs:
             echo "version=${after#v}" >> "$GITHUB_OUTPUT"
           fi
 
-  validate_release:
-    needs: release
-    if: github.ref_name == 'main' && needs.release.result == 'success' && needs.release.outputs.version != ''
-    uses: ./.github/workflows/ci.yml
-    with:
-      ref: v${{ needs.release.outputs.version }}
-
   publish:
-    needs: [validate, release, validate_release]
-    if: >-
-      always() && (
-        needs.validate.result == 'success' && (
-        github.ref_name != 'main' ||
-        (needs.release.result == 'success' && needs.release.outputs.version != '' && needs.validate_release.result == 'success')
-        )
-      )
+    needs: [validate, release]
+    if: needs.release.outputs.version != ''
     runs-on: ubuntu-latest
     steps:
       - name: Check out release source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name == 'main' && format('v{0}', needs.release.outputs.version) || github.sha }}
+          ref: v${{ needs.release.outputs.version }}
 
       - name: Determine image version tags
         id: version
         env:
           RELEASE_VERSION: ${{ needs.release.outputs.version }}
         run: |
-          if [ "$GITHUB_REF_NAME" = 'main' ]; then
-            version="$RELEASE_VERSION"
-            major="${version%%.*}"
-            minor="${version%.*}"
-          else
-            branch="$(printf '%s' "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^0-9a-z-]+/-/g; s/^-+|-+$//g')"
-            version="0.0.0-${branch:-branch}.${GITHUB_RUN_NUMBER}"
-            major=''
-            minor=''
-          fi
+          version="$RELEASE_VERSION"
+          major="${version%%.*}"
+          minor="${version%.*}"
 
           echo "value=$version" >> "$GITHUB_OUTPUT"
           echo "major=$major" >> "$GITHUB_OUTPUT"
@@ -111,10 +89,9 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=${{ steps.version.outputs.value }}
-            type=raw,value=${{ steps.version.outputs.major }},enable=${{ github.ref_name == 'main' }}
-            type=raw,value=${{ steps.version.outputs.minor }},enable=${{ github.ref_name == 'main' }}
-            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
-            type=ref,event=branch,enable=${{ github.ref_name != 'main' }}
+            type=raw,value=${{ steps.version.outputs.major }}
+            type=raw,value=${{ steps.version.outputs.minor }}
+            type=raw,value=latest
             type=sha
 
       - name: Build and publish container
