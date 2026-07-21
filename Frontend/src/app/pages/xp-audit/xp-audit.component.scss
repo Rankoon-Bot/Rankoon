@@ -75,10 +75,11 @@ dd {
   color: var(--rk-text);
   text-align: left;
 }
-.member-item:hover, .member-item--selected { border-color: var(--rk-info); background: var(--rk-info-subtle); }
+.member-item:hover { border-color: var(--rk-info); background: var(--rk-info-subtle); }
 .member-item__body { display: grid; width: 100%; }
 .member-item__stats, .member-item__id, .discord-id, .activity-line, .panel-heading p, .help-text, .character-count, .adjustment-preview small { color: var(--rk-text-muted); }
 .member-item__id, dd { overflow-wrap: anywhere; }
+.member-item--selected { border-color: var(--rk-brand); background: var(--rk-brand-subtle); }
 
 .avatar {
   display: inline-flex;
@@ -158,14 +159,14 @@ details h4 { margin-top: var(--rk-space-4); }
 
 @media (min-width: 769px) {
   .member-item__body {
-    grid-template-columns: minmax(0, 1fr) max-content max-content;
+    grid-template-columns: minmax(0, 1fr) max-content;
     align-items: center;
     gap: var(--rk-space-3);
   }
 
   .member-item__top { grid-column: 1; }
-  .member-item__stats { grid-column: 2; grid-row: 1; white-space: nowrap; }
-  .member-item__id { grid-column: 3; grid-row: 1; white-space: nowrap; }
+  .member-item__stats { display: flex; grid-column: 2; grid-row: 1; flex-wrap: wrap; justify-content: end; gap: var(--rk-space-2); }
+  .member-item__id { grid-column: 1 / -1; padding-top: var(--rk-space-2); border-top: 1px solid var(--rk-border-subtle); letter-spacing: .04em; }
 
   .adjustment-panel form {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

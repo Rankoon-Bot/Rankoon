@@ -37,7 +37,7 @@
               <span class="avatar" aria-hidden="true">{{ initials(member.displayName) }}</span>
               <span class="member-item__body">
                 <span class="member-item__top"><strong>{{ member.displayName }}</strong><span class="status-badge">{{ (member.isCurrentMember ? 'xpAudit.current' : 'xpAudit.formerMember') | transloco }}</span></span>
-                <span class="member-item__stats">{{ 'xpAudit.level' | transloco }} {{ formatXp(member.level) }} · {{ formatXp(member.totalXp) }} XP</span>
+                <span class="member-item__stats"><span class="status-badge">{{ 'xpAudit.level' | transloco }} {{ formatXp(member.level) }}</span><span class="status-badge">{{ formatXp(member.totalXp) }} XP</span></span>
                 <span class="member-item__id">{{ member.userId }}</span>
               </span>
             </button>

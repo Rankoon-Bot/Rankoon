@@ -299,7 +299,7 @@ export class XpAuditComponent {
   }
 
   formatXp(value: string | number): string {
-    return this.locale.number(value, { maximumFractionDigits: 4 });
+    return this.locale.number(value, { maximumFractionDigits: 0 });
   }
 
   formatSignedXp(value: string | number): string {
