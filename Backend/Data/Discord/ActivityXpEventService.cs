@@ -121,8 +121,8 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
     {
         var user = await cachedUser.GetOrDownloadAsync();
         if (user == null) return;
-        var settings = await xp.GetSettingsAsync(guildEvent.Guild.Id);
-        if (settings.EventInterest.Enabled) await xp.ReverseGrantAsync($"event-interest:{guildEvent.Id}:{user.Id}", $"event-interest-remove:{guildEvent.Id}:{user.Id}");
+        if (await xp.ReverseGrantAsync($"event-interest:{guildEvent.Id}:{user.Id}", $"event-interest-remove:{guildEvent.Id}:{user.Id}", "event_interest"))
+            await levelRoles.SynchronizeAsync(guildEvent.Guild.Id, user.Id);
     }
     private static decimal CalculateMessagePoints(int length, Data.Model.MessageXpSettings settings)
     {

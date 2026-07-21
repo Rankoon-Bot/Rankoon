@@ -13,6 +13,7 @@ public interface IXpService
     Task<bool> GrantAsync(ulong guildId, ulong userId, string displayName, string source, decimal amount, string key, ulong? channelId = null, CancellationToken cancellationToken = default);
     Task<bool> GrantAsync(XpGrantRequest request, CancellationToken cancellationToken = default);
     Task<bool> ReverseGrantAsync(string originalGrantKey, string reversalGrantKey, CancellationToken cancellationToken = default);
+    Task<bool> ReverseGrantAsync(string originalGrantKey, string reversalGrantKey, string expectedSource, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<MemberXp>> GetLeaderboardAsync(ulong guildId, int take, CancellationToken cancellationToken = default);
     Task<MemberXp?> GetMemberAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default);
     Task RecalculateTotalAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default);
@@ -101,10 +102,14 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         return true;
     }
 
-    public async Task<bool> ReverseGrantAsync(string originalGrantKey, string reversalGrantKey, CancellationToken cancellationToken = default)
+    public Task<bool> ReverseGrantAsync(string originalGrantKey, string reversalGrantKey, CancellationToken cancellationToken = default) =>
+        ReverseGrantAsync(originalGrantKey, reversalGrantKey, null, cancellationToken);
+
+    public async Task<bool> ReverseGrantAsync(string originalGrantKey, string reversalGrantKey, string? expectedSource, CancellationToken cancellationToken = default)
     {
         var original = await database.XpLedger.Find(x => x.GrantKey == originalGrantKey).FirstOrDefaultAsync(cancellationToken);
         if (original == null) return false;
+        if (expectedSource != null && !MatchesAutomaticGrant(original, expectedSource)) return false;
         // Cooldown-denied entries are retained for idempotency and auditability, but never awarded XP.
         if (original.CooldownDenied) return false;
         var reversal = new XpGrantRequest(original.GuildId, original.UserId, original.DisplayName, $"{original.Source}_reversal", -original.Amount, reversalGrantKey,
@@ -118,6 +123,9 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         await ProjectAsync(entry, cancellationToken);
         return true;
     }
+
+    internal static bool MatchesAutomaticGrant(XpLedgerEntry entry, string source) =>
+        entry.Source == source && XpLedgerSemantics.GetEffectiveKind(entry) == XpLedgerEntryKind.AutomaticGrant;
 
     private async Task<bool> AcquireCooldownAsync(XpLedgerEntry ledger, CancellationToken cancellationToken)
     {

@@ -49,6 +49,18 @@ public sealed class XpProjectionTests
         Assert.Equal("reaction:1:2:a", memberDocument["last_reaction_xp_grant_key"].AsString);
     }
 
+    [Fact]
+    public void Only_automatic_event_interest_grants_can_be_reversed_as_event_interest()
+    {
+        var automaticGrant = new XpLedgerEntry { Source = "event_interest", Kind = XpLedgerEntryKind.AutomaticGrant };
+        var manualAdjustment = new XpLedgerEntry { Source = "event_interest", Kind = XpLedgerEntryKind.ManualAdjustment };
+        var otherAutomaticGrant = new XpLedgerEntry { Source = "reaction", Kind = XpLedgerEntryKind.AutomaticGrant };
+
+        Assert.True(XpService.MatchesAutomaticGrant(automaticGrant, "event_interest"));
+        Assert.False(XpService.MatchesAutomaticGrant(manualAdjustment, "event_interest"));
+        Assert.False(XpService.MatchesAutomaticGrant(otherAutomaticGrant, "event_interest"));
+    }
+
     private static object? Invoke(string name, params object[] arguments) => typeof(XpService)
         .GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!
         .Invoke(null, arguments);
