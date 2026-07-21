@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Discord;
 using Discord.WebSocket;
 using MongoDB.Driver;
+using Microsoft.Extensions.Options;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Xp;
@@ -10,14 +11,15 @@ using Rankoon.Data.Reporting;
 namespace Rankoon.Data.Discord;
 
 public enum VoiceWatchdogState { Starting, Healthy, Degraded, Stale, Restarting, Faulted, Stopped }
-public sealed record VoiceWatchdogStatus(ulong GuildId, VoiceWatchdogState State, DateTimeOffset? LastRunAt, DateTimeOffset? LastPersistenceAt, int ConnectedUsers, int EligibleUsers, int ExcludedUsers, string? LastError);
+public sealed record VoiceWatchdogStatus(ulong GuildId, VoiceWatchdogState State, DateTimeOffset? LastRunAt, DateTimeOffset? LastPersistenceAt, int ConnectedUsers, int EligibleUsers, int ExcludedUsers, string? LastError, int IntervalSeconds);
 
 /// <summary>Rankoon-owned, per-guild voice reconciliation worker inspired by SharedVcWatchdog.</summary>
-public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContext database, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, TimeProvider timeProvider, ILogger<VoiceXpWatchdog> logger) : BackgroundService
+public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContext database, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, TimeProvider timeProvider, IOptions<VoiceWatchdogOptions> options, ILogger<VoiceXpWatchdog> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<ulong, VoiceWatchdogStatus> _statuses = new();
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _guildGates = new();
-    public VoiceWatchdogStatus GetStatus(ulong guildId) => _statuses.TryGetValue(guildId, out var status) ? status : new(guildId, VoiceWatchdogState.Stopped, null, null, 0, 0, 0, null);
+    private readonly TimeSpan _interval = TimeSpan.FromSeconds(options.Value.IntervalSeconds);
+    public VoiceWatchdogStatus GetStatus(ulong guildId) => _statuses.TryGetValue(guildId, out var status) ? status : new(guildId, VoiceWatchdogState.Stopped, null, null, 0, 0, 0, null, (int)_interval.TotalSeconds);
 
     public async Task ReconcileNowAsync(ulong guildId, CancellationToken cancellationToken)
     {
@@ -33,7 +35,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
             while (!stoppingToken.IsCancellationRequested)
             {
                 foreach (var guild in client.Guilds) await ReconcileGuildAsync(guild, stoppingToken);
-                await Task.Delay(TimeSpan.FromSeconds(30), timeProvider, stoppingToken);
+                await Task.Delay(_interval, timeProvider, stoppingToken);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
@@ -97,7 +99,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
             if (!settings.Enabled || !settings.Voice.Enabled)
             {
                 await database.VoiceSessions.DeleteManyAsync(x => x.GuildId == guild.Id, cancellationToken);
-                _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Stopped, timeProvider.GetUtcNow(), null, 0, 0, 0, null);
+                _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Stopped, timeProvider.GetUtcNow(), null, 0, 0, 0, null, (int)_interval.TotalSeconds);
                 return;
             }
             var connected = guild.VoiceChannels.SelectMany(x => x.ConnectedUsers).Where(x => !x.IsBot).DistinctBy(x => x.Id).ToArray();
@@ -113,7 +115,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
             }
             var liveIds = connected.Select(x => x.Id).ToHashSet();
             await database.VoiceSessions.DeleteManyAsync(x => x.GuildId == guild.Id && !liveIds.Contains(x.UserId), cancellationToken);
-            _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Healthy, timeProvider.GetUtcNow(), timeProvider.GetUtcNow(), connected.Length, 0, 0, null);
+            _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Healthy, timeProvider.GetUtcNow(), timeProvider.GetUtcNow(), connected.Length, 0, 0, null, (int)_interval.TotalSeconds);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -123,7 +125,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
         {
             logger.LogError(exception, "Voice watchdog failed for guild {GuildId}", guild.Id);
             await reports.WriteErrorAsync(guild.Id, "voice.watchdog", exception, metadata: new Dictionary<string, object?> { ["state"] = VoiceWatchdogState.Degraded });
-            _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Degraded, timeProvider.GetUtcNow(), null, 0, 0, 0, exception.GetBaseException().GetType().Name);
+            _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Degraded, timeProvider.GetUtcNow(), null, 0, 0, 0, exception.GetBaseException().GetType().Name, (int)_interval.TotalSeconds);
         }
     }
 

@@ -71,7 +71,6 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
             return this.ApiError("xp.settingsInvalid", errors: errors);
         }
         settings.GuildId = id;
-        settings.Voice.CheckIntervalSeconds = Math.Clamp(settings.Voice.CheckIntervalSeconds, 15, 300);
         settings.Voice.MinimumSessionSeconds = Math.Clamp(settings.Voice.MinimumSessionSeconds, 0, 86400);
         await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted);
         await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
@@ -213,7 +212,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         if (settings.Message.MinimumCharacters < 0 || settings.Message.MaximumCharacters < settings.Message.MinimumCharacters) errors.Add(("message.characters", "xp.settings.messageCharacters"));
         if (settings.Message.CooldownSeconds < 0) errors.Add(("message.cooldownSeconds", "xp.settings.messageCooldown"));
         if (settings.Voice.PointsPerMinute < 0) errors.Add(("voice.pointsPerMinute", "xp.settings.voicePoints"));
-        if (settings.Voice.MinimumSessionSeconds is < 0 or > 86400 || settings.Voice.CheckIntervalSeconds is < 15 or > 300) errors.Add(("voice.timing", "xp.settings.voiceTiming"));
+        if (settings.Voice.MinimumSessionSeconds is < 0 or > 86400) errors.Add(("voice.timing", "xp.settings.voiceTiming"));
         if (settings.Reaction.Points < 0 || settings.Reaction.CooldownSeconds < 0) errors.Add(("reaction", "xp.settings.reaction"));
         if (settings.EventInterest.Points < 0) errors.Add(("eventInterest.points", "xp.settings.eventInterest"));
         if (settings.Thread.CreatePoints < 0 || settings.Thread.MessagePoints < 0 || settings.Thread.CooldownSeconds < 0) errors.Add(("thread", "xp.settings.thread"));

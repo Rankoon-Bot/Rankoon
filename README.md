@@ -99,7 +99,7 @@ without projection, so retries cannot later award them. Reaction removal can
 reverse its original award when enabled; scheduled-event interest removal also
 creates an idempotent reversal. Reversals retain the original season attribution.
 
-Voice sessions are reconciled every 30 seconds and settled when a member moves.
+Voice sessions are reconciled every 5 seconds by default and settled when a member moves. Self-hosters can set the global `VOICEWATCHDOG__INTERVALSECONDS` environment variable; this is intentionally not configurable per guild.
 Eligible intervals are split at persisted season boundaries, producing uniquely
 keyed ledger grants per segment. The first qualifying settlement includes time
 since joining, including the configured minimum-session interval.

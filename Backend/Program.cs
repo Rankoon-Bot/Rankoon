@@ -262,6 +262,10 @@ catch (IOException exception) when (exception.GetBaseException() is SocketExcept
 
 static void ConfigureAppSettings(WebApplicationBuilder builder)
 {
+    builder.Services.AddOptions<VoiceWatchdogOptions>()
+        .Bind(builder.Configuration.GetSection(VoiceWatchdogOptions.SectionName))
+        .Validate(options => options.IntervalSeconds > 0, "VoiceWatchdog:IntervalSeconds must be greater than zero.")
+        .ValidateOnStart();
     builder.Services.Configure<MongoDbSettings>(
         builder.Configuration.GetSection(MongoDbSettings.SectionName));
     builder.Services.Configure<DiscordSettings>(
