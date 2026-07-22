@@ -7,6 +7,7 @@ import { GuildService, LeaderboardSettings, LeaderboardVisibility } from '../../
 import { AppStore } from '../../store/app.store';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ApiErrorService } from '../../services/api-error.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({ selector: 'app-leaderboard-settings', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslocoPipe], templateUrl: './leaderboard-settings.component.html', styleUrls: ['./leaderboard-settings.component.scss'] })
 export class LeaderboardSettingsComponent implements OnInit {
@@ -14,10 +15,10 @@ export class LeaderboardSettingsComponent implements OnInit {
   private readonly api = inject(GuildService);
   private readonly i18n = inject(TranslocoService);
   private readonly apiErrors = inject(ApiErrorService);
+  private readonly toast = inject(ToastService);
   readonly settings = signal<LeaderboardSettings | null>(null);
   readonly loading = signal(true);
   readonly saving = signal(false);
-  readonly message = signal('');
   readonly error = signal('');
   alias = '';
   visibility: LeaderboardVisibility = 'MembersOnly';
@@ -32,10 +33,10 @@ export class LeaderboardSettingsComponent implements OnInit {
   save(): void {
     const guildId = this.app.selectedGuild()?.id;
     if (!guildId || !this.alias.trim() || this.saving()) return;
-    this.saving.set(true); this.error.set(''); this.message.set('');
+    this.saving.set(true);
     this.api.saveLeaderboardSettings(guildId, { alias: this.alias, visibility: this.visibility }).pipe(finalize(() => this.saving.set(false))).subscribe({
-      next: settings => { this.apply(settings); this.message.set(this.i18n.translate('leaderboardSettings.saved')); },
-      error: response => this.error.set(response.status === 409 ? this.i18n.translate('errors.aliasTaken') : this.apiErrors.resolve(response, 'errors.save').message),
+      next: settings => { this.apply(settings); this.toast.success(this.i18n.translate('leaderboardSettings.saved')); },
+      error: response => this.toast.error(response.status === 409 ? this.i18n.translate('errors.aliasTaken') : this.apiErrors.resolve(response, 'errors.save').message),
     });
   }
   private apply(settings: LeaderboardSettings): void { this.settings.set(settings); this.alias = settings.alias; this.visibility = settings.visibility; }

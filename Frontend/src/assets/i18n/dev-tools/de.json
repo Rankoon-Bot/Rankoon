@@ -1,0 +1,18 @@
+{
+  "devTools": {
+    "eyebrow": "NUR LOKAL",
+    "title": "DEV-Werkzeuge",
+    "subtitle": "Erzeuge serverseitige Testdaten und pruefe die Rangliste ueber die echten API- und Realtime-Pfade.",
+    "warningTitle": "Entwicklungsmodus",
+    "warning": "Diese Werkzeuge sind nur lokal verfuegbar. Das Erzeugen ersetzt bestehende Mock-Nutzer dieses Servers.",
+    "openLeaderboard": "Rangliste oeffnen",
+    "loading": "Mock-Status wird geladen ...",
+    "removeConfirm": "Alle Mock-Nutzer und ihre XP-Ereignisse entfernen?",
+    "status": { "label": "Aktiver Server", "users": "Mock-Nutzer", "events": "XP-Ereignisse", "xp": "Mock-XP gesamt" },
+    "generate": { "title": "Rangliste fuellen", "hint": "Erzeugt markierte Nutzer mit zufaelligen Start-XP ueber den echten XP-Service.", "count": "Anzahl Nutzer", "action": "Mock-Liste erzeugen" },
+    "events": { "title": "Realtime testen", "hint": "Vergibt zufaellige XP an bestehende Mock-Nutzer und sendet regulaere SignalR-Updates.", "count": "Ereignisse", "minimum": "Minimale XP", "maximum": "Maximale XP", "action": "XP-Ereignisse ausloesen" },
+    "remove": { "title": "Testdaten bereinigen", "hint": "Bucht Mock-XP gegen, entfernt Projektionen und sendet Realtime-Entfernungen.", "action": "Mock-Daten entfernen" },
+    "messages": { "generated": "Mock-Rangliste wurde erzeugt.", "events": "{{count}} XP-Ereignisse wurden verarbeitet.", "removed": "Mock-Daten wurden entfernt." },
+    "errors": { "load": "Mock-Status konnte nicht geladen werden.", "events": "XP-Ereignisse konnten nicht ausgeloest werden.", "operation": "Die DEV-Aktion ist fehlgeschlagen." }
+  }
+}

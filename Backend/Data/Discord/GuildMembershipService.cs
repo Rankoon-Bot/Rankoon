@@ -81,7 +81,7 @@ public sealed class GuildMembershipService(DiscordShardedClient discord, Rankoon
         await reconciliationLock.WaitAsync(cancellationToken);
         try
         {
-            var userIds = await database.MemberXp.Find(x => x.GuildId == guildId).Project(x => x.UserId).ToListAsync(cancellationToken);
+            var userIds = await database.MemberXp.Find(x => x.GuildId == guildId && !x.IsDevelopmentMock).Project(x => x.UserId).ToListAsync(cancellationToken);
             var currentMembers = new HashSet<ulong>();
             foreach (var userId in userIds)
             {

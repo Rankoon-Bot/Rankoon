@@ -8,6 +8,7 @@ import { AppStore } from '../../store/app.store';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ApiErrorService } from '../../services/api-error.service';
 import { LocaleService } from '../../i18n/locale.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-role-permissions',
@@ -23,6 +24,7 @@ export class RolePermissionsComponent implements OnInit {
   private readonly i18n = inject(TranslocoService);
   private readonly apiErrors = inject(ApiErrorService);
   private readonly locale = inject(LocaleService);
+  private readonly toast = inject(ToastService);
   private readonly baseline = signal('');
 
   readonly loading = signal(true);
@@ -31,7 +33,6 @@ export class RolePermissionsComponent implements OnInit {
   readonly assignments = signal<Record<string, GuildModuleId[]>>({});
   readonly search = signal('');
   readonly error = signal('');
-  readonly success = signal('');
   readonly forbidden = signal(false);
   readonly dirty = computed(() => this.serialize(this.assignments()) !== this.baseline());
   readonly filteredRoles = computed(() => {
@@ -82,7 +83,6 @@ export class RolePermissionsComponent implements OnInit {
       checked ? modules.add(moduleId) : modules.delete(moduleId);
       return { ...current, [role.id]: [...modules] };
     });
-    this.success.set('');
   }
 
   hasAllModules(role: RolePermission): boolean {
@@ -99,7 +99,6 @@ export class RolePermissionsComponent implements OnInit {
       ...current,
       [role.id]: checked ? (this.data()?.modules.map(module => module.id) ?? []) : []
     }));
-    this.success.set('');
   }
 
   save(): void {
@@ -108,7 +107,6 @@ export class RolePermissionsComponent implements OnInit {
     if (!guildId || !data || !this.dirty()) return;
     this.saving.set(true);
     this.error.set('');
-    this.success.set('');
     this.api.saveRolePermissions(guildId, {
       revision: data.revision,
       roles: data.roles.map(role => ({
@@ -119,16 +117,16 @@ export class RolePermissionsComponent implements OnInit {
       next: response => {
         if (this.appStore.selectedGuild()?.id !== guildId) return;
         this.applyResponse(response);
-         this.success.set(this.i18n.translate('rolePermissions.saved'));
+          this.toast.success(this.i18n.translate('rolePermissions.saved'));
         this.saving.set(false);
       },
       error: error => {
         this.forbidden.set(error?.status === 403);
-         this.error.set(error?.status === 403
-           ? this.i18n.translate('errors.permissionDenied')
-           : error?.status === 409
-             ? this.i18n.translate('errors.permissionConflict')
-             : this.apiErrors.resolve(error, 'errors.save').message);
+          this.toast.error(error?.status === 403
+            ? this.i18n.translate('errors.permissionDenied')
+            : error?.status === 409
+              ? this.i18n.translate('errors.permissionConflict')
+              : this.apiErrors.resolve(error, 'errors.save').message);
         this.saving.set(false);
       }
     });

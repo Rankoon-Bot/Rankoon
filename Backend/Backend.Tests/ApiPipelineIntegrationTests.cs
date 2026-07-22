@@ -87,6 +87,23 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
     }
 
     [Fact]
+    public async Task Development_mock_endpoints_are_not_available_outside_development()
+    {
+        using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/dev/guilds/1/leaderboard-mocks");
+        using var response = await _client.SendAsync(request);
+
+        await AssertCanonicalErrorAsync(response, HttpStatusCode.NotFound, "resource.notFound");
+    }
+
+    [Fact]
+    public async Task Development_mock_endpoints_are_hidden_from_anonymous_clients_outside_development()
+    {
+        using var response = await _client.GetAsync("/api/dev/guilds/1/leaderboard-mocks");
+
+        await AssertCanonicalErrorAsync(response, HttpStatusCode.NotFound, "resource.notFound");
+    }
+
+    [Fact]
     public async Task Unhandled_exception_returns_safe_canonical_error()
     {
         using var request = CreateAuthenticatedRequest(HttpMethod.Post, "/api/guilds/1/xp/import/mee6");

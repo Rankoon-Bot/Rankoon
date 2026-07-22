@@ -7,6 +7,7 @@ import { GuildModuleId } from '../../models/guild-permissions.models';
 import { TranslocoService } from '@jsverse/transloco';
 import { LocaleService } from '../../i18n/locale.service';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { environment } from '../../../environments/environment';
 
 interface MenuItem {
   label: string;
@@ -125,6 +126,12 @@ export class SidebarComponent {
          { label: this.i18n.translate('nav.commands'), route: '/logs/commands', icon: '' },
          { label: this.i18n.translate('nav.errors'), route: '/logs/errors', icon: '' }
       ]
+    });
+    if (!environment.production && capabilities.isOwner) items.push({
+      label: this.i18n.translate('nav.dev'),
+      route: '/dev',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3"/><path d="m16 9 4 3-4 3"/><path d="m14 5-4 14"/></svg>`,
+      children: [{ label: this.i18n.translate('nav.devLeaderboard'), route: '/dev', icon: '' }]
     });
     return items;
   });

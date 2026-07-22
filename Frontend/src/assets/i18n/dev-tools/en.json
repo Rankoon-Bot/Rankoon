@@ -1,0 +1,18 @@
+{
+  "devTools": {
+    "eyebrow": "LOCAL ONLY",
+    "title": "DEV tools",
+    "subtitle": "Generate server-side test data and exercise the leaderboard through the real API and realtime paths.",
+    "warningTitle": "Development mode",
+    "warning": "These tools are available locally only. Generating replaces this server's existing mock users.",
+    "openLeaderboard": "Open leaderboard",
+    "loading": "Loading mock status ...",
+    "removeConfirm": "Remove all mock users and their XP events?",
+    "status": { "label": "Active server", "users": "Mock users", "events": "XP events", "xp": "Total mock XP" },
+    "generate": { "title": "Populate leaderboard", "hint": "Creates marked users with random initial XP through the real XP service.", "count": "User count", "action": "Generate mock list" },
+    "events": { "title": "Test realtime", "hint": "Awards random XP to existing mock users and emits regular SignalR updates.", "count": "Events", "minimum": "Minimum XP", "maximum": "Maximum XP", "action": "Trigger XP events" },
+    "remove": { "title": "Clean up test data", "hint": "Reverses mock XP, removes projections and emits realtime removals.", "action": "Remove mock data" },
+    "messages": { "generated": "Mock leaderboard generated.", "events": "{{count}} XP events processed.", "removed": "Mock data removed." },
+    "errors": { "load": "Could not load mock status.", "events": "Could not trigger XP events.", "operation": "The DEV operation failed." }
+  }
+}

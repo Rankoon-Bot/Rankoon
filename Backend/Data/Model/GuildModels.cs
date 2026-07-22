@@ -45,6 +45,7 @@ public sealed class MemberXp
     [BsonElement("total_xp")] public decimal TotalXp { get; set; }
     [BsonElement("is_current_member")] public bool IsCurrentMember { get; set; } = true;
     [BsonElement("public_leaderboard_visible")] public bool PublicLeaderboardVisible { get; set; } = true;
+    [BsonElement("is_development_mock"), BsonIgnoreIfDefault] public bool IsDevelopmentMock { get; set; }
     [BsonElement("message_count")] public long MessageCount { get; set; }
     [BsonElement("voice_seconds")] public long VoiceSeconds { get; set; }
     [BsonElement("last_message_xp_at")] public DateTime? LastMessageXpAt { get; set; }

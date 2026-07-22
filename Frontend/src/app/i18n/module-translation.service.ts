@@ -9,6 +9,7 @@ export type TranslationScope =
   | 'navigation'
   | 'server-selection'
   | 'dashboard'
+  | 'dev-tools'
   | 'voice-hubs'
   | 'leaderboard'
   | 'leaderboard-settings'

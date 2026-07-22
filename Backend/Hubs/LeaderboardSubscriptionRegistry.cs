@@ -22,6 +22,9 @@ public sealed class LeaderboardSubscriptionRegistry
     public bool HasAudience(string connectionId, string audienceGroup) =>
         connections.TryGetValue(connectionId, out var subscriptions) && subscriptions.Values.Any(x => x.AudienceGroup == audienceGroup);
 
+    public LeaderboardSubscription? Get(string connectionId, string group) =>
+        connections.TryGetValue(connectionId, out var values) && values.TryGetValue(group, out var subscription) ? subscription : null;
+
     public IReadOnlyList<LeaderboardSubscription> GetGuildSubscriptions(ulong guildId) =>
         connections.Values.SelectMany(x => x.Values).Where(x => x.GuildId == guildId).DistinctBy(x => x.Group).ToList();
 
@@ -37,5 +40,8 @@ public sealed class LeaderboardSubscriptionRegistry
         return removed;
     }
 
-    public void RemoveConnection(string connectionId) => connections.TryRemove(connectionId, out _);
+    public void RemoveConnection(string connectionId)
+    {
+        connections.TryRemove(connectionId, out _);
+    }
 }

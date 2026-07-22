@@ -7,6 +7,7 @@ import { ApiErrorService } from '../../services/api-error.service';
 import { GuildService, Season, SeasonPreview, SeasonSettings } from '../../services/guild.service';
 import { LocaleService } from '../../i18n/locale.service';
 import { AppStore } from '../../store/app.store';
+import { ToastService } from '../../services/toast.service';
 
 type SeasonAction = 'start' | 'close' | 'cancel' | 'resume' | 'delete';
 type PendingAction = { action: SeasonAction; season: Season } | { action: 'disable'; season: null };
@@ -34,6 +35,7 @@ export class SeasonConfigComponent implements OnInit {
   private readonly i18n = inject(TranslocoService);
   private readonly locale = inject(LocaleService);
   private readonly apiErrors = inject(ApiErrorService);
+  private readonly toast = inject(ToastService);
   @ViewChild('confirmDialog') private readonly confirmDialog?: ElementRef<HTMLDialogElement>;
 
   readonly settings = signal<SeasonSettings | null>(null);
@@ -45,7 +47,6 @@ export class SeasonConfigComponent implements OnInit {
   readonly planning = signal(false);
   readonly actionBusy = signal(false);
   readonly error = signal('');
-  readonly message = signal('');
   readonly advanced = signal(false);
   readonly pending = signal<PendingAction | null>(null);
   rotationInput = '';
@@ -76,13 +77,13 @@ export class SeasonConfigComponent implements OnInit {
     const guildId = this.store.selectedGuild()?.id;
     const settings = this.settings();
     if (!guildId || !settings || !this.valid(settings)) return;
-    this.saving.set(true); this.error.set(''); this.message.set('');
+    this.saving.set(true); this.error.set('');
     this.api.saveSeasonConfig(guildId, this.toRequest(settings)).pipe(finalize(() => this.saving.set(false))).subscribe({
       next: saved => {
-        this.settings.set(this.fromApi(saved)); this.message.set(this.i18n.translate('seasons.saved')); this.refreshPreview();
+        this.settings.set(this.fromApi(saved)); this.toast.success(this.i18n.translate('seasons.saved')); this.refreshPreview();
         this.api.seasons(guildId).subscribe(items => this.seasons.set(items));
       },
-      error: error => this.error.set(this.apiErrors.resolve(error, 'errors.seasonSave').message),
+      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.seasonSave').message),
     });
   }
 
@@ -109,10 +110,10 @@ export class SeasonConfigComponent implements OnInit {
     const guildId = this.store.selectedGuild()?.id;
     const settings = this.settings();
     if (!guildId || !settings || settings.scheduleKind === 'Manual' || !this.valid(settings)) return;
-    this.planning.set(true); this.error.set(''); this.message.set('');
+    this.planning.set(true); this.error.set('');
     this.api.planSeasons(guildId, settings.preparedSeasonCount).pipe(finalize(() => this.planning.set(false))).subscribe({
-      next: planned => { this.seasons.update(items => [...planned, ...items]); this.message.set(this.i18n.translate('seasons.planSucceeded', { count: planned.length })); },
-      error: error => this.error.set(this.apiErrors.resolve(error, 'errors.seasonPlan').message),
+      next: planned => { this.seasons.update(items => [...planned, ...items]); this.toast.success(this.i18n.translate('seasons.planSucceeded', { count: planned.length })); },
+      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.seasonPlan').message),
     });
   }
 
@@ -137,8 +138,8 @@ export class SeasonConfigComponent implements OnInit {
       : this.api.cancelSeason(guildId, pending.season.id);
     this.actionBusy.set(true); this.error.set('');
     request.pipe(finalize(() => this.actionBusy.set(false))).subscribe({
-      next: () => { this.confirmDialog?.nativeElement.close(); this.pending.set(null); this.message.set(this.i18n.translate(`seasons.${pending.action}Succeeded`)); this.load(); },
-      error: error => { this.confirmDialog?.nativeElement.close(); this.pending.set(null); this.error.set(this.apiErrors.resolve(error, 'errors.seasonAction').message); },
+      next: () => { this.confirmDialog?.nativeElement.close(); this.pending.set(null); this.toast.success(this.i18n.translate(`seasons.${pending.action}Succeeded`)); this.load(); },
+      error: error => { this.confirmDialog?.nativeElement.close(); this.pending.set(null); this.toast.error(this.apiErrors.resolve(error, 'errors.seasonAction').message); },
     });
   }
 

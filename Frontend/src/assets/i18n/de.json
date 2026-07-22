@@ -48,6 +48,8 @@
     "warning": "Warnung",
     "critical": "Kritisch",
     "closeDetails": "Details schließen",
+    "dismissNotification": "Benachrichtigung schließen",
+    "notifications": "Benachrichtigungen",
     "serverConfiguration": "SERVERKONFIGURATION"
   },
   "header": {

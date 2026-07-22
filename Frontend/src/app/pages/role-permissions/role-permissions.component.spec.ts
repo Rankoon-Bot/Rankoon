@@ -7,6 +7,7 @@ import { AppStore, Guild } from '../../store/app.store';
 import { RolePermissionsComponent } from './role-permissions.component';
 import { testI18n } from '../../testing/i18n-testing';
 import { LOCALE_STORAGE_KEY } from '../../i18n/locale.service';
+import { ToastService } from '../../services/toast.service';
 
 describe('RolePermissionsComponent', () => {
   const guild: Guild = {
@@ -73,6 +74,6 @@ describe('RolePermissionsComponent', () => {
     request.flush(response);
 
     expect(component.dirty()).toBeFalse();
-    expect(component.success()).toBe('Role permissions saved.');
+    expect(TestBed.inject(ToastService).toasts()).toEqual([jasmine.objectContaining({ message: 'Role permissions saved.', type: 'success' })]);
   });
 });

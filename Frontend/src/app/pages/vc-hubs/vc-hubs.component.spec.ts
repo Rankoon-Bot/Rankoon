@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { AppStore, Guild } from '../../store/app.store';
 import { testI18n } from '../../testing/i18n-testing';
 import { VcHubsComponent } from './vc-hubs.component';
+import { ToastService } from '../../services/toast.service';
 
 describe('VcHubsComponent', () => {
   const guild: Guild = { id: 'guild-1', name: 'Guild', icon: null, owner: true, permissions: '8', features: [], botInstalled: true, inviteUrl: '' };
@@ -48,7 +49,7 @@ describe('VcHubsComponent', () => {
     component.hubs.set([hub]);
     component.remove(hub);
     http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/vc-hubs/hub-1`).flush({ message: 'Delete denied' }, { status: 403, statusText: 'Forbidden' });
-    expect(component.error()).toBe('Delete denied');
+    expect(TestBed.inject(ToastService).toasts()).toEqual([jasmine.objectContaining({ message: 'Delete denied', type: 'error' })]);
     expect(component.hubs()).toEqual([hub]);
   });
 });

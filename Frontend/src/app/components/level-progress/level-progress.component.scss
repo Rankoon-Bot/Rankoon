@@ -1,0 +1,6 @@
+.progress { display: block; width: var(--rk-control-height); height: var(--rk-control-height); overflow: visible; }
+.track, .value { fill: none; }
+.track { stroke: var(--rk-border-strong); }
+.value { stroke: var(--rk-info); stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset var(--rk-motion-base); }
+text { fill: var(--rk-text-strong); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .value { transition: none; } }

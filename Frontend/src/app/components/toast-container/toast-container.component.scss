@@ -1,0 +1,42 @@
+.toast-container {
+  position: fixed;
+  right: var(--rk-space-5);
+  bottom: var(--rk-space-5);
+  z-index: var(--rk-z-toast);
+  display: grid;
+  width: min(calc(100% - var(--rk-space-8)), 400px);
+  gap: var(--rk-space-3);
+  pointer-events: none;
+}
+
+.toast {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr var(--rk-control-height);
+  overflow: hidden;
+  background: var(--rk-surface-raised);
+  border: 1px solid var(--rk-border-strong);
+  border-radius: var(--rk-radius-md);
+  box-shadow: var(--rk-shadow-float);
+  animation: toast-enter var(--rk-motion-base);
+  pointer-events: auto;
+}
+
+.toast__content { display: flex; align-items: start; gap: var(--rk-space-3); padding: var(--rk-space-4); }
+.toast__icon { display: grid; flex: 0 0 var(--rk-space-5); width: var(--rk-space-5); height: var(--rk-space-5); place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: .75rem; font-weight: 700; line-height: 1; }
+.toast__content p { color: var(--rk-text-strong); }
+.toast__close { display: grid; width: var(--rk-control-height); height: var(--rk-control-height); place-items: center; padding: 0; color: var(--rk-text-muted); background: transparent; border: 0; }
+.toast__close:hover { color: var(--rk-text-strong); background: var(--rk-surface-2); }
+.toast__close:focus-visible { outline: 0; box-shadow: var(--rk-focus-ring); }
+.toast__close svg { width: var(--rk-space-5); height: var(--rk-space-5); }
+.toast__progress { position: absolute; right: 0; bottom: 0; left: 0; height: var(--rk-space-1); background: currentColor; transform-origin: left; animation: toast-progress var(--rk-toast-duration) linear forwards; }
+.toast--success { color: var(--rk-success); border-color: var(--rk-success); }
+.toast--error { color: var(--rk-danger); border-color: var(--rk-danger); }
+.toast--warning { color: var(--rk-warning); border-color: var(--rk-warning); }
+.toast--info { color: var(--rk-info); border-color: var(--rk-info); }
+
+@keyframes toast-enter { from { opacity: 0; transform: translateY(var(--rk-space-3)); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toast-progress { to { transform: scaleX(0); } }
+
+@media (max-width: 768px) { .toast-container { right: var(--rk-space-4); bottom: var(--rk-space-4); width: calc(100% - var(--rk-space-8)); } }
+@media (prefers-reduced-motion: reduce) { .toast, .toast__progress { animation: none; } }

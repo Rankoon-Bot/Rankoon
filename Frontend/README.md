@@ -82,6 +82,10 @@ npm start
 
 Die Anwendung ist dann unter `http://localhost:4200/` erreichbar.
 
+### Lokale Ranglisten-Demo
+
+Im lokalen Development-Build steht Server-Eigentuemern in der Navigation der Bereich `DEV` zur Verfuegung. Dort koennen bis zu 500 serverseitige Mock-Nutzer erzeugt, zufaellige XP-Ereignisse ueber den regulaeren XP- und SignalR-Pfad ausgeloest und alle Mock-Daten wieder bereinigt werden. Die Backend-Endpunkte antworten ausserhalb von `Development` mit `404`.
+
 ## 🏗️ Architektur
 
 ### Store Management mit Angular Signals

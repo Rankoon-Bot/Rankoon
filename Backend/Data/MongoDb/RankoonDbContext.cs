@@ -39,6 +39,7 @@ public class RankoonDbContext
     public IMongoCollection<SeasonCoordinatorLease> SeasonCoordinatorLeases => _database.GetCollection<SeasonCoordinatorLease>("season_coordinator_leases");
     public IMongoCollection<SeasonAnnouncementDelivery> SeasonAnnouncementDeliveries => _database.GetCollection<SeasonAnnouncementDelivery>("season_announcement_deliveries");
     public IMongoCollection<MemberXp> MemberXp => _database.GetCollection<MemberXp>("member_xp");
+    public IMongoCollection<DevelopmentMockMember> DevelopmentMockMembers => _database.GetCollection<DevelopmentMockMember>("development_mock_members");
     public IMongoCollection<GuildLeaderboardSettings> GuildLeaderboardSettings => _database.GetCollection<GuildLeaderboardSettings>("guild_leaderboard_settings");
     public IMongoCollection<MemberLeaderboardPreference> MemberLeaderboardPreferences => _database.GetCollection<MemberLeaderboardPreference>("member_leaderboard_preferences");
     public IMongoCollection<XpLedgerEntry> XpLedger => _database.GetCollection<XpLedgerEntry>("xp_ledger");
