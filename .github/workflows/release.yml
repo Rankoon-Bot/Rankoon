@@ -1,8 +1,7 @@
 name: Release and publish container
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: release-and-publish-${{ github.ref }}
