@@ -45,6 +45,18 @@ public sealed class LeaderboardSubscriptionRegistryTests
         Assert.Single(registry.GetGuildSubscriptions(1));
     }
 
+    [Fact]
+    public void Get_returns_only_the_exact_connection_group_subscription()
+    {
+        var registry = new LeaderboardSubscriptionRegistry();
+        var expected = Subscription("connection", "lifetime", "audience", SeasonLeaderboardScope.Lifetime);
+        registry.Add(expected);
+        registry.Add(Subscription("other", "lifetime", "audience", SeasonLeaderboardScope.Lifetime));
+
+        Assert.Same(expected, registry.Get("connection", "lifetime"));
+        Assert.Null(registry.Get("connection", "missing"));
+    }
+
     private static LeaderboardSubscription Subscription(string connectionId, string group, string audienceGroup, SeasonLeaderboardScope scope, ulong? userId = null, string audience = "public") =>
         new(connectionId, 1, userId, audience, group, audienceGroup, scope, null);
 }

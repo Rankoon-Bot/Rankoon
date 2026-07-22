@@ -7,6 +7,7 @@ describe('translation catalogs', () => {
     'navigation',
     'server-selection',
     'dashboard',
+    'dev-tools',
     'voice-hubs',
     'leaderboard',
     'leaderboard-settings',

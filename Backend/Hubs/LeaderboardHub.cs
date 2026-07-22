@@ -6,6 +6,8 @@ using Rankoon.Data.Xp;
 
 namespace Rankoon.Hubs;
 
+public sealed record LeaderboardWindowRequest(string Alias, SeasonLeaderboardScope? Scope, string? SeasonId, int Offset, int Take, bool AroundCurrentUser, IReadOnlyList<string>? CachedUserIds);
+
 [AllowAnonymous]
 public sealed class LeaderboardHub(LeaderboardService leaderboard, IGuildAuthorizationService authorization, LeaderboardSubscriptionRegistry subscriptions) : Hub
 {
@@ -43,6 +45,27 @@ public sealed class LeaderboardHub(LeaderboardService leaderboard, IGuildAuthori
             if (!subscriptions.HasAudience(Context.ConnectionId, subscription.AudienceGroup))
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, subscription.AudienceGroup, Context.ConnectionAborted);
         }
+    }
+
+    public async Task<LeaderboardWindowDto> GetWindow(LeaderboardWindowRequest request)
+    {
+        if (request.Take is < 10 or > 100 || request.Offset < 0 || request.CachedUserIds?.Count > 100)
+            throw new HubException("Invalid leaderboard window.");
+        var settings = await leaderboard.FindSettingsAsync(request.Alias, Context.ConnectionAborted)
+            ?? throw new HubException("Leaderboard not found.");
+        var isMember = Context.User?.Identity?.IsAuthenticated == true &&
+            await authorization.IsMemberAsync(Context.User, settings.GuildId, Context.ConnectionAborted);
+        if (settings.Visibility == LeaderboardVisibility.MembersOnly && !isMember)
+            throw new HubException("Leaderboard access denied.");
+        var scope = await leaderboard.ResolveScopeAsync(settings, request.Scope, request.SeasonId, Context.ConnectionAborted);
+        if (!await leaderboard.IsScopeAvailableAsync(settings, scope, request.SeasonId, Context.ConnectionAborted))
+            throw new HubException("Leaderboard scope is unavailable.");
+        var audience = isMember ? "members" : "public";
+        var group = HubGroupNames.Leaderboard(audience, settings.Alias, scope, request.SeasonId);
+        if (subscriptions.Get(Context.ConnectionId, group) == null) throw new HubException("Leaderboard subscription is required.");
+        var userId = Context.User == null ? null : authorization.GetDiscordUserId(Context.User);
+        var cachedIds = request.CachedUserIds?.Select(value => ulong.TryParse(value, out var id) ? id : 0).Where(id => id != 0).Distinct().ToArray() ?? [];
+        return await leaderboard.GetWindowAsync(settings, isMember, userId, scope, request.SeasonId, request.Offset, request.Take, request.AroundCurrentUser && isMember, cachedIds, Context.ConnectionAborted);
     }
 
     public override Task OnDisconnectedAsync(Exception? exception)

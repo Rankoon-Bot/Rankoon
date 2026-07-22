@@ -17,7 +17,7 @@ public interface ILeaderboardRealtimePublisher
     Task PublishSettingsAsync(GuildLeaderboardSettings settings, string? previousAlias = null, CancellationToken cancellationToken = default);
 }
 
-public sealed class LeaderboardRealtimePublisher(RankoonDbContext database, IServiceProvider services, IHubContext<LeaderboardHub> hub, LeaderboardSubscriptionRegistry subscriptions, TimeProvider timeProvider) : ILeaderboardRealtimePublisher
+public sealed class LeaderboardRealtimePublisher(RankoonDbContext database, IHubContext<LeaderboardHub> hub, LeaderboardSubscriptionRegistry subscriptions, TimeProvider timeProvider) : ILeaderboardRealtimePublisher
 {
     private readonly ConcurrentDictionary<(ulong GuildId, string Alias, SeasonLeaderboardScope Scope, string? SeasonId), CancellationTokenSource> pending = new();
 
@@ -38,9 +38,10 @@ public sealed class LeaderboardRealtimePublisher(RankoonDbContext database, ISer
             }
         }
 
-        await PublishEntryAsync(settings, userId, SeasonLeaderboardScope.Lifetime, null, cancellationToken);
-        if (await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Status == SeasonStatus.Active).AnyAsync(cancellationToken))
-            await PublishEntryAsync(settings, userId, SeasonLeaderboardScope.CurrentSeason, null, cancellationToken);
+        var scopes = new List<(SeasonLeaderboardScope Scope, string? SeasonId)> { (SeasonLeaderboardScope.Lifetime, null) };
+        if (await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Status == SeasonStatus.Active).AnyAsync(cancellationToken)) scopes.Add((SeasonLeaderboardScope.CurrentSeason, null));
+        scopes.AddRange(subscriptions.GetGuildSubscriptions(guildId).Select(subscription => (subscription.Scope, subscription.SeasonId)));
+        foreach (var scope in scopes.Distinct()) await PublishInvalidationAsync(settings, scope.Scope, scope.SeasonId, cancellationToken);
     }
 
     public async Task PublishGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
@@ -55,21 +56,11 @@ public sealed class LeaderboardRealtimePublisher(RankoonDbContext database, ISer
             Queue(settings, subscription.Scope, subscription.SeasonId);
     }
 
-    private async Task PublishEntryAsync(GuildLeaderboardSettings settings, ulong userId, SeasonLeaderboardScope scope, string? seasonId, CancellationToken cancellationToken)
+    private async Task PublishInvalidationAsync(GuildLeaderboardSettings settings, SeasonLeaderboardScope scope, string? seasonId, CancellationToken cancellationToken)
     {
-        await PublishEntryForAudienceAsync("members", true);
-        await PublishEntryForAudienceAsync("public", false);
-
-        async Task PublishEntryForAudienceAsync(string audience, bool isMember)
-        {
-            var page = await services.GetRequiredService<LeaderboardService>().GetScopedPageAsync(settings, isMember, userId, scope, seasonId, null, 10, true, cancellationToken);
-            var entry = page.Items.FirstOrDefault(item => item.UserId == userId.ToString()) is { } item
-                ? item with { IsCurrentUser = false }
-                : null;
-            var operation = entry == null ? "remove" : "upsert";
-            await hub.Clients.Group(HubGroupNames.Leaderboard(audience, settings.Alias, scope, seasonId))
-                .SendAsync("leaderboardEntryChanged", new LeaderboardEntryChanged(settings.Alias, scope, seasonId, operation, userId.ToString(), entry), cancellationToken);
-        }
+        var change = new LeaderboardChanged(settings.Alias, scope, seasonId, settings.Visibility);
+        await hub.Clients.Group(HubGroupNames.Leaderboard("members", settings.Alias, scope, seasonId)).SendAsync("leaderboardInvalidated", change, cancellationToken);
+        await hub.Clients.Group(HubGroupNames.Leaderboard("public", settings.Alias, scope, seasonId)).SendAsync("leaderboardInvalidated", change, cancellationToken);
     }
 
     public Task PublishSettingsAsync(GuildLeaderboardSettings settings, string? previousAlias = null, CancellationToken cancellationToken = default)

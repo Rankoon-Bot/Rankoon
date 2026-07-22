@@ -12,6 +12,8 @@
     "reports": "Logs & analytics",
     "activity": "Activity logs",
     "commands": "Command usage",
-    "errors": "Error logs"
+    "errors": "Error logs",
+    "dev": "DEV",
+    "devLeaderboard": "Mock leaderboards"
   }
 }

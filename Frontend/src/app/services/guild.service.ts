@@ -24,6 +24,9 @@ export interface LeaderboardSettings { guildId: string; alias: string; visibilit
 export interface LeaderboardEntry extends RankEntry { rank: number; isCurrentUser: boolean; }
 export interface SeasonLeaderboardOption { id: string; name: string; startsAtUtc: string; endsAtUtc: string; }
 export interface LeaderboardPage { guildName: string; alias: string; visibility: LeaderboardVisibility; items: LeaderboardEntry[]; nextCursor: string | null; hasMore: boolean; isMember: boolean; publicVisible: boolean | null; scope?: SeasonLeaderboardScope; seasonId?: string | null; seasonName?: string | null; historicalSeasons?: SeasonLeaderboardOption[]; currentSeason?: SeasonLeaderboardOption | null; seasonsEnabled?: boolean; }
+export interface LeaderboardWindowRow { index: number; entry: LeaderboardEntry; }
+export interface LeaderboardWindowRequest { alias: string; scope: SeasonLeaderboardScope; seasonId?: string; offset: number; take: number; aroundCurrentUser: boolean; cachedUserIds: string[]; }
+export interface LeaderboardWindow { guildName: string; alias: string; visibility: LeaderboardVisibility; items: LeaderboardWindowRow[]; cachedItems: LeaderboardWindowRow[]; removedCachedUserIds: string[]; offset: number; totalCount: number; isMember: boolean; publicVisible: boolean | null; scope: SeasonLeaderboardScope; seasonId: string | null; seasonName: string | null; historicalSeasons: SeasonLeaderboardOption[]; currentSeason: SeasonLeaderboardOption | null; seasonsEnabled: boolean; }
 export type SeasonScheduleKind = 'Manual' | 'FixedDuration' | 'Monthly' | 'Quarterly' | 'SemiAnnual' | 'Annual';
 export type SeasonStatus = 'Scheduled' | 'Active' | 'Closing' | 'Closed' | 'Cancelled';
 export type SeasonLeaderboardScope = 'Lifetime' | 'CurrentSeason' | 'Season';

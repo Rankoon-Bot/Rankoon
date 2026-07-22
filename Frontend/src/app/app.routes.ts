@@ -9,6 +9,7 @@ import {
 } from './guards/auth.guard';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
 import { translationScope } from './i18n/module-translation.resolver';
+import { environment } from '../environments/environment';
 
 export const routes: Routes = [
   {
@@ -148,6 +149,12 @@ export const routes: Routes = [
         canActivate: [guildGuard, ownerGuard],
         resolve: { translations: translationScope('role-permissions') },
       },
+      ...(!environment.production ? [{
+        path: 'dev',
+        loadComponent: () => import('./pages/dev-tools/dev-tools.component').then((c) => c.DevToolsComponent),
+        canActivate: [guildGuard, ownerGuard],
+        resolve: { translations: translationScope('dev-tools') },
+      }] : []),
       { path: 'logs', redirectTo: '/logs/activity', pathMatch: 'full' },
       {
         path: 'logs/activity',

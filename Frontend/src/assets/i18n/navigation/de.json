@@ -12,6 +12,8 @@
     "reports": "Logs & Analytics",
     "activity": "Aktivitätslogs",
     "commands": "Command-Nutzung",
-    "errors": "Fehlerlogs"
+    "errors": "Fehlerlogs",
+    "dev": "DEV",
+    "devLeaderboard": "Mock-Ranglisten"
   }
 }

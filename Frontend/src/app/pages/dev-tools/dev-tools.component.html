@@ -1,0 +1,15 @@
+<section class="page">
+  <header class="page-header">
+    <div><p class="eyebrow">{{ 'devTools.eyebrow' | transloco }}</p><h1>{{ 'devTools.title' | transloco }}</h1><p>{{ 'devTools.subtitle' | transloco }}</p></div>
+    <a *ngIf="status()?.leaderboardAlias as alias" class="secondary" [routerLink]="['/rankings', alias]">{{ 'devTools.openLeaderboard' | transloco }}</a>
+  </header>
+  <div class="warning" role="status"><strong>{{ 'devTools.warningTitle' | transloco }}</strong><span>{{ 'devTools.warning' | transloco }}</span></div>
+  <div class="notice" *ngIf="message()">{{ message() }}</div><div class="notice error" *ngIf="error()" role="alert">{{ error() }}</div>
+  <div class="state-card" *ngIf="loading()">{{ 'devTools.loading' | transloco }}</div>
+  <div class="grid" *ngIf="!loading()">
+    <article class="card status-card"><div><p class="eyebrow">{{ 'devTools.status.label' | transloco }}</p><h2>{{ app.selectedGuild()?.name }}</h2></div><dl><div><dt>{{ 'devTools.status.users' | transloco }}</dt><dd>{{ status()?.mockUserCount || 0 }}</dd></div><div><dt>{{ 'devTools.status.events' | transloco }}</dt><dd>{{ status()?.xpEventCount || 0 }}</dd></div><div><dt>{{ 'devTools.status.xp' | transloco }}</dt><dd>{{ status()?.totalMockXp || 0 }}</dd></div></dl><button class="secondary" type="button" (click)="refresh()" [disabled]="busy()">{{ 'common.refresh' | transloco }}</button></article>
+    <article class="card"><div><h2>{{ 'devTools.generate.title' | transloco }}</h2><p>{{ 'devTools.generate.hint' | transloco }}</p></div><label>{{ 'devTools.generate.count' | transloco }}<input type="number" min="1" max="500" [(ngModel)]="userCount"></label><button type="button" (click)="generate()" [disabled]="busy() || userCount < 1 || userCount > 500">{{ 'devTools.generate.action' | transloco }}</button></article>
+    <article class="card"><div><h2>{{ 'devTools.events.title' | transloco }}</h2><p>{{ 'devTools.events.hint' | transloco }}</p></div><div class="fields"><label>{{ 'devTools.events.count' | transloco }}<input type="number" min="1" max="200" [(ngModel)]="eventCount"></label><label>{{ 'devTools.events.minimum' | transloco }}<input type="number" min="1" max="100000" [(ngModel)]="minimumXp"></label><label>{{ 'devTools.events.maximum' | transloco }}<input type="number" min="1" max="100000" [(ngModel)]="maximumXp"></label></div><button type="button" (click)="triggerEvents()" [disabled]="busy() || !status()?.mockUserCount || eventCount < 1 || eventCount > 200 || minimumXp < 1 || maximumXp > 100000 || minimumXp > maximumXp">{{ 'devTools.events.action' | transloco }}</button></article>
+    <article class="card danger-card"><div><h2>{{ 'devTools.remove.title' | transloco }}</h2><p>{{ 'devTools.remove.hint' | transloco }}</p></div><button class="danger" type="button" (click)="remove()" [disabled]="busy() || !status()?.mockUserCount">{{ 'devTools.remove.action' | transloco }}</button></article>
+  </div>
+</section>

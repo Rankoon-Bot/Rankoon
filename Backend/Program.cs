@@ -36,7 +36,11 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 ConfigurationHelper.ExpandEnvironmentVariables(builder.Configuration);
 
 // Add services to the container.
-builder.Services.AddControllers(options => options.Filters.Add<ApiErrorResultFilter>()).AddJsonOptions(options =>
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ApiErrorResultFilter>();
+    options.Conventions.Add(new DevelopmentOnlyControllerConvention(builder.Environment));
+}).AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString | System.Text.Json.Serialization.JsonNumberHandling.WriteAsString;
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
@@ -64,7 +68,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.Configure<RouteOptions>(options =>
     options.ConstraintMap["nonApi"] = typeof(NonApiPathRouteConstraint));
 builder.Services.AddAuthorization();
-builder.Services.AddSignalR().AddJsonProtocol(options =>
+builder.Services.AddSignalR(options => options.MaximumParallelInvocationsPerClient = 1).AddJsonProtocol(options =>
     options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddSingleton<LeaderboardSubscriptionRegistry>();
 var leaderboardPermitLimit = builder.Configuration.GetValue("RateLimiting:LeaderboardPermitLimit", 90);
@@ -143,6 +147,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonCoordinator>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILeaderboardRealtimePublisher, Rankoon.Data.Xp.LeaderboardRealtimePublisher>();
+builder.Services.AddSingleton<Rankoon.Data.Development.DevelopmentLeaderboardService>();
 builder.Services.AddSingleton<VoiceXpWatchdog>();
 builder.Services.AddSingleton<VcHubService>();
 builder.Services.AddSingleton<GuildMembershipService>();

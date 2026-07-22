@@ -16,6 +16,8 @@ namespace Rankoon.Data.Xp;
 public sealed record LeaderboardEntryDto(long Rank, string UserId, string DisplayName, decimal TotalXp, int Level, long MessageCount, long VoiceSeconds, bool IsCurrentUser);
 public sealed record SeasonLeaderboardOption(string Id, string Name, DateTime StartsAtUtc, DateTime EndsAtUtc);
 public sealed record LeaderboardPageDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardEntryDto> Items, string? NextCursor, bool HasMore, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope = SeasonLeaderboardScope.Lifetime, string? SeasonId = null, string? SeasonName = null, IReadOnlyList<SeasonLeaderboardOption>? HistoricalSeasons = null, SeasonLeaderboardOption? CurrentSeason = null, bool SeasonsEnabled = false);
+public sealed record LeaderboardWindowRowDto(long Index, LeaderboardEntryDto Entry);
+public sealed record LeaderboardWindowDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardWindowRowDto> Items, IReadOnlyList<LeaderboardWindowRowDto> CachedItems, IReadOnlyList<string> RemovedCachedUserIds, long Offset, long TotalCount, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope, string? SeasonId, string? SeasonName, IReadOnlyList<SeasonLeaderboardOption> HistoricalSeasons, SeasonLeaderboardOption? CurrentSeason, bool SeasonsEnabled);
 
 public sealed class LeaderboardService(RankoonDbContext database, DiscordShardedClient discord, GuildMembershipService memberships, IOptions<JwtSettings> jwtSettings, TimeProvider timeProvider)
 {
@@ -254,6 +256,117 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         var publicVisible = await GetPublicVisibilityAsync(settings.GuildId, currentUserId, cancellationToken);
         return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, UniqueUsers(items), nextCursor, hasMore, isMember, publicVisible, scope, season.Id, season.Name, history, current, seasonsEnabled);
     }
+
+    public async Task<LeaderboardWindowDto> GetWindowAsync(GuildLeaderboardSettings settings, bool isMember, ulong? currentUserId, SeasonLeaderboardScope scope, string? seasonId, int offset, int take, bool aroundCurrentUser, IReadOnlyCollection<ulong> cachedUserIds, CancellationToken cancellationToken = default)
+    {
+        offset = Math.Max(0, offset);
+        take = Math.Clamp(take, 10, 100);
+        cachedUserIds = cachedUserIds.Distinct().Take(100).ToArray();
+        var seasonSettings = await database.GuildSeasonSettings.Find(x => x.GuildId == settings.GuildId).FirstOrDefaultAsync(cancellationToken);
+        var history = await GetPublicHistoryAsync(settings.GuildId, cancellationToken);
+        var current = await database.GuildSeasons.Find(x => x.GuildId == settings.GuildId && x.Status == SeasonStatus.Active).FirstOrDefaultAsync(cancellationToken);
+        var currentOption = current == null ? null : new SeasonLeaderboardOption(current.Id!, current.Name, current.StartsAtUtc, current.EndsAtUtc);
+        var publicVisible = await GetPublicVisibilityAsync(settings.GuildId, currentUserId, cancellationToken);
+
+        IReadOnlyList<LeaderboardWindowRowDto> rows;
+        IReadOnlyList<LeaderboardWindowRowDto> cachedRows;
+        long totalCount;
+        string? resolvedSeasonId = null;
+        string? seasonName = null;
+        if (scope == SeasonLeaderboardScope.Lifetime)
+        {
+            var filter = BaseFilter(settings.GuildId, isMember);
+            totalCount = await database.MemberXp.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
+            if (aroundCurrentUser && currentUserId != null)
+            {
+                var member = await database.MemberXp.Find(filter & Builders<MemberXp>.Filter.Eq(x => x.UserId, currentUserId.Value)).FirstOrDefaultAsync(cancellationToken);
+                if (member != null) offset = CenterOffset(await database.MemberXp.CountDocumentsAsync(filter & AheadOf(member.TotalXp, member.DisplayName, member.UserId), cancellationToken: cancellationToken), totalCount, take);
+            }
+            offset = ClampWindowOffset(offset, totalCount);
+            var members = await database.MemberXp.Find(filter).SortByDescending(x => x.TotalXp).ThenBy(x => x.DisplayName).ThenBy(x => x.UserId).Skip(offset).Limit(take).ToListAsync(cancellationToken);
+            rows = members.Select((member, index) => new LeaderboardWindowRowDto(offset + index, ToEntry(offset + index + 1, member, currentUserId))).ToArray();
+            cachedRows = await GetCachedLifetimeRowsAsync(filter, cachedUserIds.Except(members.Select(x => x.UserId)).ToArray(), currentUserId, cancellationToken);
+        }
+        else if (scope == SeasonLeaderboardScope.CurrentSeason)
+        {
+            if (current == null) throw new ArgumentException("Current season is unavailable.", nameof(scope));
+            resolvedSeasonId = current.Id;
+            seasonName = current.Name;
+            var filter = SeasonMemberFilter(current.Id!, isMember);
+            totalCount = await database.SeasonMemberXp.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
+            if (aroundCurrentUser && currentUserId != null)
+            {
+                var member = await database.SeasonMemberXp.Find(filter & Builders<SeasonMemberXp>.Filter.Eq(x => x.UserId, currentUserId.Value)).FirstOrDefaultAsync(cancellationToken);
+                if (member != null) offset = CenterOffset(await database.SeasonMemberXp.CountDocumentsAsync(filter & SeasonAheadOf(member.TotalXp, member.DisplayName, member.UserId), cancellationToken: cancellationToken), totalCount, take);
+            }
+            offset = ClampWindowOffset(offset, totalCount);
+            var members = await database.SeasonMemberXp.Find(filter).SortByDescending(x => x.TotalXp).ThenBy(x => x.DisplayName).ThenBy(x => x.UserId).Skip(offset).Limit(take).ToListAsync(cancellationToken);
+            rows = members.Select((member, index) => new LeaderboardWindowRowDto(offset + index, ToEntry(offset + index + 1, member, currentUserId))).ToArray();
+            cachedRows = await GetCachedSeasonRowsAsync(filter, cachedUserIds.Except(members.Select(x => x.UserId)).ToArray(), currentUserId, cancellationToken);
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(seasonId) || !history.Any(x => x.Id == seasonId)) throw new ArgumentException("Season is unavailable.", nameof(seasonId));
+            var season = await database.GuildSeasons.Find(x => x.Id == seasonId && x.GuildId == settings.GuildId && x.Status == SeasonStatus.Closed).FirstOrDefaultAsync(cancellationToken) ?? throw new ArgumentException("Season is unavailable.", nameof(seasonId));
+            resolvedSeasonId = season.Id;
+            seasonName = season.Name;
+            var filter = FinalStandingFilter(season.Id!, isMember);
+            totalCount = await database.SeasonFinalStandings.CountDocumentsAsync(filter, cancellationToken: cancellationToken);
+            offset = ClampWindowOffset(offset, totalCount);
+            var standings = await database.SeasonFinalStandings.Find(filter).SortBy(x => x.Rank).Skip(offset).Limit(take).ToListAsync(cancellationToken);
+            rows = standings.Select((standing, index) => new LeaderboardWindowRowDto(offset + index, ToEntry(standing, currentUserId))).ToArray();
+            cachedRows = await GetCachedStandingRowsAsync(filter, cachedUserIds.Except(standings.Select(x => x.UserId)).ToArray(), currentUserId, cancellationToken);
+        }
+
+        var returnedIds = rows.Concat(cachedRows).Select(x => x.Entry.UserId).ToHashSet(StringComparer.Ordinal);
+        var removed = cachedUserIds.Select(x => x.ToString()).Where(id => !returnedIds.Contains(id)).ToArray();
+        return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, rows, cachedRows, removed, offset, totalCount, isMember, publicVisible, scope, resolvedSeasonId, seasonName, history, currentOption, seasonSettings?.Enabled == true);
+    }
+
+    private async Task<IReadOnlyList<LeaderboardWindowRowDto>> GetCachedLifetimeRowsAsync(FilterDefinition<MemberXp> filter, IReadOnlyCollection<ulong> ids, ulong? currentUserId, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0) return [];
+        var members = await database.MemberXp.Find(filter & Builders<MemberXp>.Filter.In(x => x.UserId, ids)).ToListAsync(cancellationToken);
+        var rows = new List<LeaderboardWindowRowDto>(members.Count);
+        foreach (var member in members)
+        {
+            var index = await database.MemberXp.CountDocumentsAsync(filter & AheadOf(member.TotalXp, member.DisplayName, member.UserId), cancellationToken: cancellationToken);
+            rows.Add(new(index, ToEntry(index + 1, member, currentUserId)));
+        }
+        return rows;
+    }
+
+    private async Task<IReadOnlyList<LeaderboardWindowRowDto>> GetCachedSeasonRowsAsync(FilterDefinition<SeasonMemberXp> filter, IReadOnlyCollection<ulong> ids, ulong? currentUserId, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0) return [];
+        var members = await database.SeasonMemberXp.Find(filter & Builders<SeasonMemberXp>.Filter.In(x => x.UserId, ids)).ToListAsync(cancellationToken);
+        var rows = new List<LeaderboardWindowRowDto>(members.Count);
+        foreach (var member in members)
+        {
+            var index = await database.SeasonMemberXp.CountDocumentsAsync(filter & SeasonAheadOf(member.TotalXp, member.DisplayName, member.UserId), cancellationToken: cancellationToken);
+            rows.Add(new(index, ToEntry(index + 1, member, currentUserId)));
+        }
+        return rows;
+    }
+
+    private async Task<IReadOnlyList<LeaderboardWindowRowDto>> GetCachedStandingRowsAsync(FilterDefinition<SeasonFinalStanding> filter, IReadOnlyCollection<ulong> ids, ulong? currentUserId, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0) return [];
+        var standings = await database.SeasonFinalStandings.Find(filter & Builders<SeasonFinalStanding>.Filter.In(x => x.UserId, ids)).ToListAsync(cancellationToken);
+        var rows = new List<LeaderboardWindowRowDto>(standings.Count);
+        foreach (var standing in standings)
+        {
+            var index = await database.SeasonFinalStandings.CountDocumentsAsync(filter & Builders<SeasonFinalStanding>.Filter.Lt(x => x.Rank, standing.Rank), cancellationToken: cancellationToken);
+            rows.Add(new(index, ToEntry(standing, currentUserId)));
+        }
+        return rows;
+    }
+
+    private static LeaderboardEntryDto ToEntry(long rank, MemberXp member, ulong? currentUserId) => new(rank, member.UserId.ToString(), member.DisplayName, decimal.Truncate(member.TotalXp), Mee6LevelCurve.GetLevel(member.TotalXp), member.MessageCount, member.VoiceSeconds, currentUserId == member.UserId);
+    private static LeaderboardEntryDto ToEntry(long rank, SeasonMemberXp member, ulong? currentUserId) => new(rank, member.UserId.ToString(), member.DisplayName, decimal.Truncate(member.TotalXp), Mee6LevelCurve.GetLevel(member.TotalXp), member.MessageCount, member.VoiceSeconds, currentUserId == member.UserId);
+    private static LeaderboardEntryDto ToEntry(SeasonFinalStanding standing, ulong? currentUserId) => new(standing.Rank, standing.UserId.ToString(), standing.DisplayName, decimal.Truncate(standing.TotalXp), standing.Level, standing.MessageCount, standing.VoiceSeconds, currentUserId == standing.UserId);
+    internal static int ClampWindowOffset(int offset, long totalCount) => (int)Math.Clamp(offset, 0, Math.Max(0, totalCount - 1));
+    internal static int CenterOffset(long index, long totalCount, int take) => (int)Math.Clamp(Math.Max(0, index - take / 3), 0, Math.Max(0, totalCount - take));
 
     internal static IReadOnlyList<LeaderboardEntryDto> UniqueUsers(IEnumerable<LeaderboardEntryDto> items) =>
         items.DistinctBy(item => item.UserId).ToList();

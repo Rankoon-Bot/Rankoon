@@ -19,7 +19,7 @@ public interface IXpService
     Task RecalculateTotalAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default);
 }
 
-public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null, int? CooldownSeconds = null);
+public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null, int? CooldownSeconds = null, bool SuppressReport = false);
 
 public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IReportWriter reports, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
 {
@@ -91,7 +91,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id, Builders<XpLedgerEntry>.Update.Set(x => x.CooldownAcquired, true), cancellationToken: cancellationToken);
         }
         await ProjectAsync(ledger, cancellationToken);
-        if (inserted) await reports.WriteAsync(new(request.GuildId, ReportCategories.Activity, ReportNames.XpGranted, ReportOutcomes.Succeeded, request.Source, request.UserId, Metadata: new Dictionary<string, object?>
+        if (inserted && !request.SuppressReport) await reports.WriteAsync(new(request.GuildId, ReportCategories.Activity, ReportNames.XpGranted, ReportOutcomes.Succeeded, request.Source, request.UserId, Metadata: new Dictionary<string, object?>
         {
             ["source"] = request.Source,
             ["amount"] = request.Amount,
@@ -197,6 +197,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
     {
         var memberUpdate = Builders<MemberXp>.Update
             .SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.UserId, ledger.UserId)
+            .SetOnInsert(x => x.PublicLeaderboardVisible, true)
             .Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.NormalizedDisplayName, NormalizeName(ledger.DisplayName)).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAt, now);
         if (XpLedgerSemantics.AffectsLifetime(ledger)) memberUpdate = XpLedgerSemantics.IsAutomatic(ledger)
             ? memberUpdate.Inc(x => x.EarnedXp, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount)
@@ -213,7 +214,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             {
                 var seasonUpdate = Builders<SeasonMemberXp>.Update
                     .SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.SeasonId, ledger.SeasonId).SetOnInsert(x => x.UserId, ledger.UserId)
-                    .SetOnInsert(x => x.StartingXp, 0m).Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAtUtc, now)
+                    .SetOnInsert(x => x.StartingXp, 0m).SetOnInsert(x => x.PublicLeaderboardVisible, true).Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAtUtc, now)
                     ;
                 seasonUpdate = XpLedgerSemantics.IsAutomatic(ledger) ? seasonUpdate.Inc(x => x.EarnedXp, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount) : seasonUpdate.Inc(x => x.ManualAdjustment, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount);
                 if (XpLedgerSemantics.IsAutomatic(ledger) && ledger.Source == "message") seasonUpdate = seasonUpdate.Inc(x => x.MessageCount, 1);

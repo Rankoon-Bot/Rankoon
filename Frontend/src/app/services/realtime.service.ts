@@ -3,7 +3,7 @@ import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signal
 import { Subject } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthStore } from '../store/auth.store';
-import { LeaderboardEntry, LeaderboardVisibility, SeasonLeaderboardScope } from './guild.service';
+import { LeaderboardEntry, LeaderboardVisibility, LeaderboardWindow, LeaderboardWindowRequest, SeasonLeaderboardScope } from './guild.service';
 
 // Retained for consumers outside the leaderboard page during the event-contract transition.
 export interface LeaderboardEntryChanged {
@@ -21,6 +21,9 @@ export class RealtimeService {
   private readonly auth = inject(AuthStore);
   private readonly entryChangesSubject = new Subject<LeaderboardEntryChanged>();
   private readonly changesSubject = new Subject<LeaderboardChanged>();
+  private readonly invalidationsSubject = new Subject<LeaderboardChanged>();
+  private readonly accessRevokedSubject = new Subject<LeaderboardChanged>();
+  private readonly connectionsSubject = new Subject<void>();
   private readonly subscriptions = new Map<string, { alias: string; scope: SeasonLeaderboardScope; seasonId?: string }>();
   private readonly activeSubscriptions = new Set<string>();
   private connection?: HubConnection;
@@ -30,6 +33,9 @@ export class RealtimeService {
 
   readonly leaderboardEntryChanges$ = this.entryChangesSubject.asObservable();
   readonly leaderboardChanges$ = this.changesSubject.asObservable();
+  readonly leaderboardInvalidations$ = this.invalidationsSubject.asObservable();
+  readonly leaderboardAccessRevoked$ = this.accessRevokedSubject.asObservable();
+  readonly leaderboardConnections$ = this.connectionsSubject.asObservable();
 
   constructor() {
     effect(() => {
@@ -59,6 +65,12 @@ export class RealtimeService {
     });
   }
 
+  async getLeaderboardWindow(request: LeaderboardWindowRequest): Promise<LeaderboardWindow> {
+    await this.start();
+    if (this.connection?.state !== 'Connected') throw new Error('Leaderboard connection is unavailable.');
+    return await this.connection.invoke<LeaderboardWindow>('GetWindow', request);
+  }
+
   private async restart(): Promise<void> {
     const existing = this.connection;
     if (existing) {
@@ -82,7 +94,8 @@ export class RealtimeService {
       .build();
     this.connection.on('leaderboardEntryChanged', (event: LeaderboardEntryChanged) => this.entryChangesSubject.next(event));
     this.connection.on('leaderboardChanged', (event: LeaderboardChanged) => this.changesSubject.next(event));
-    this.connection.on('leaderboardAccessRevoked', (event: LeaderboardChanged) => this.changesSubject.next(event));
+    this.connection.on('leaderboardInvalidated', (event: LeaderboardChanged) => this.invalidationsSubject.next(event));
+    this.connection.on('leaderboardAccessRevoked', (event: LeaderboardChanged) => this.accessRevokedSubject.next(event));
     this.connection.onreconnecting(() => this.activeSubscriptions.clear());
     this.connection.onreconnected(() => { void this.serialize(() => this.resubscribe()); });
     this.starting = this.connection.start().then(() => this.resubscribe()).finally(() => this.starting = undefined);
@@ -92,6 +105,7 @@ export class RealtimeService {
   private async resubscribe(): Promise<void> {
     if (this.connection?.state !== 'Connected') return;
     for (const subscription of [...this.subscriptions.values()]) await this.subscribeActive(this.key(subscription.alias, subscription.scope, subscription.seasonId));
+    this.connectionsSubject.next();
   }
 
   private async subscribeActive(key: string): Promise<void> {
