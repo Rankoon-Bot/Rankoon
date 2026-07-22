@@ -1,6 +1,5 @@
 <section class="page">
   <header class="page-header"><div><p class="eyebrow">{{ 'common.serverConfiguration' | transloco }}</p><h1>{{ 'leaderboard.title' | transloco }}</h1><p>{{ 'leaderboardSettings.subtitle' | transloco }}</p></div><a class="secondary" *ngIf="settings()" [routerLink]="['/rankings', settings()?.alias]">{{ 'leaderboardSettings.open' | transloco }}</a></header>
-  <div class="notice" *ngIf="message()" role="status">{{ message() }}</div>
   <div class="notice error" *ngIf="error()" role="alert">{{ error() }}</div>
   <div class="state-card" *ngIf="loading()"><span class="loader" aria-hidden="true"></span>{{ 'leaderboardSettings.loading' | transloco }}</div>
   <form *ngIf="!loading() && settings()" (ngSubmit)="save()">

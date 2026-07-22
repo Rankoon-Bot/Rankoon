@@ -49,6 +49,7 @@
   --rk-z-header: 1000;
   --rk-z-overlay: 1100;
   --rk-z-dialog: 1200;
+  --rk-z-toast: 1150;
   --rk-space-1: 4px;
   --rk-space-2: 8px;
   --rk-space-3: 12px;
@@ -60,4 +61,5 @@
   --rk-motion-fast: 120ms ease;
   --rk-motion-base: 180ms ease;
   --rk-motion-spinner: 800ms linear;
+  --rk-toast-duration: 6s;
 }

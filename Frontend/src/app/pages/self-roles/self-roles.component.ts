@@ -9,6 +9,7 @@ import { AppStore } from '../../store/app.store';
 import { ApiErrorService } from '../../services/api-error.service';
 import { GuildService, SelfRoleMapping, SelfRolePanel, SelfRoleResources } from '../../services/guild.service';
 import { environment } from '../../../environments/environment';
+import { ToastService } from '../../services/toast.service';
 
 type SelfRolePanelWithHealth = SelfRolePanel & { state?: 'Pending' | 'Published' | 'Disabled' | 'Degraded'; lastPublishedAt?: string; lastHealthCheckAt?: string; lastError?: string; lastErrorAt?: string; };
 
@@ -26,6 +27,7 @@ export class SelfRolesComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly i18n = inject(TranslocoService);
   private readonly apiErrors = inject(ApiErrorService);
+  private readonly toast = inject(ToastService);
 
   readonly panels = signal<SelfRolePanelWithHealth[]>([]);
   readonly resources = signal<SelfRoleResources | null>(null);
@@ -35,7 +37,6 @@ export class SelfRolesComponent implements OnInit {
   readonly repairing = signal<string | null>(null);
   readonly confirmation = signal<{ panel: SelfRolePanelWithHealth; action: 'delete' | 'repair' } | null>(null);
   readonly error = signal('');
-  readonly message = signal('');
   readonly validationErrors = signal<string[]>([]);
   readonly pickerIndex = signal<number | null>(null);
   readonly pickerTab = signal<'server' | 'unicode'>('server');
@@ -140,9 +141,9 @@ export class SelfRolesComponent implements OnInit {
       next: saved => {
         this.panels.update(items => panel.id ? items.map(item => item.id === saved.id ? saved : item) : [...items, saved]);
         this.editor.set(this.copyPanel(saved));
-        this.message.set(this.i18n.translate('selfRoles.saved'));
+        this.toast.success(this.i18n.translate('selfRoles.saved'));
       },
-      error: error => this.error.set(this.apiErrors.resolve(error, 'errors.save').message),
+      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message),
     });
   }
 
@@ -169,10 +170,9 @@ export class SelfRolesComponent implements OnInit {
     const panel = confirmation.panel;
     const guildId = this.appStore.selectedGuild()?.id;
     if (!guildId || !panel.id) return;
-    this.error.set('');
     this.api.deleteSelfRolePanel(guildId, panel.id).subscribe({
       next: () => { this.panels.update(items => items.filter(item => item.id !== panel.id)); if (this.editor()?.id === panel.id) this.cancel(); },
-      error: error => this.error.set(this.apiErrors.resolve(error, 'errors.selfRoleDelete').message),
+      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.selfRoleDelete').message),
     });
   }
 
@@ -180,16 +180,15 @@ export class SelfRolesComponent implements OnInit {
     const guildId = this.appStore.selectedGuild()?.id;
     if (!guildId || !panel.id || this.repairing()) return;
     this.repairing.set(panel.id);
-    this.error.set('');
     this.http.post<SelfRolePanelWithHealth>(`${environment.apiBaseUrl}/guilds/${guildId}/self-role-panels/${panel.id}/repair`, panel)
       .pipe(finalize(() => this.repairing.set(null)))
       .subscribe({
         next: repaired => {
           this.panels.update(items => items.map(item => item.id === repaired.id ? repaired : item));
           if (this.editor()?.id === repaired.id) this.editor.set(this.copyPanel(repaired));
-          this.message.set(this.i18n.translate('selfRoles.repaired'));
+          this.toast.success(this.i18n.translate('selfRoles.repaired'));
         },
-        error: error => this.error.set(this.apiErrors.resolve(error, 'errors.save').message),
+        error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message),
       });
   }
 
@@ -214,5 +213,5 @@ export class SelfRolesComponent implements OnInit {
   }
 
   private copyPanel(panel: SelfRolePanel): SelfRolePanel { return { ...panel, mappings: panel.mappings.map(mapping => ({ ...mapping, emoji: { ...mapping.emoji } })) }; }
-  private resetFeedback(): void { this.error.set(''); this.message.set(''); this.validationErrors.set([]); }
+  private resetFeedback(): void { this.error.set(''); this.validationErrors.set([]); }
 }

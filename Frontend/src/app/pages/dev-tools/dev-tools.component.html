@@ -4,7 +4,7 @@
     <a *ngIf="status()?.leaderboardAlias as alias" class="secondary" [routerLink]="['/rankings', alias]">{{ 'devTools.openLeaderboard' | transloco }}</a>
   </header>
   <div class="warning" role="status"><strong>{{ 'devTools.warningTitle' | transloco }}</strong><span>{{ 'devTools.warning' | transloco }}</span></div>
-  <div class="notice" *ngIf="message()">{{ message() }}</div><div class="notice error" *ngIf="error()" role="alert">{{ error() }}</div>
+  <div class="notice error" *ngIf="error()" role="alert">{{ error() }}</div>
   <div class="state-card" *ngIf="loading()">{{ 'devTools.loading' | transloco }}</div>
   <div class="grid" *ngIf="!loading()">
     <article class="card status-card"><div><p class="eyebrow">{{ 'devTools.status.label' | transloco }}</p><h2>{{ app.selectedGuild()?.name }}</h2></div><dl><div><dt>{{ 'devTools.status.users' | transloco }}</dt><dd>{{ status()?.mockUserCount || 0 }}</dd></div><div><dt>{{ 'devTools.status.events' | transloco }}</dt><dd>{{ status()?.xpEventCount || 0 }}</dd></div><div><dt>{{ 'devTools.status.xp' | transloco }}</dt><dd>{{ status()?.totalMockXp || 0 }}</dd></div></dl><button class="secondary" type="button" (click)="refresh()" [disabled]="busy()">{{ 'common.refresh' | transloco }}</button></article>

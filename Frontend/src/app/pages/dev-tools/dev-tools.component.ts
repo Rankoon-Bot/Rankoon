@@ -7,6 +7,7 @@ import { finalize, Observable } from 'rxjs';
 import { ApiErrorService } from '../../services/api-error.service';
 import { DevToolsService, DevelopmentLeaderboardStatus } from '../../services/dev-tools.service';
 import { AppStore } from '../../store/app.store';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-dev-tools',
@@ -19,11 +20,11 @@ export class DevToolsComponent implements OnInit {
   private readonly api = inject(DevToolsService);
   private readonly errors = inject(ApiErrorService);
   private readonly i18n = inject(TranslocoService);
+  private readonly toast = inject(ToastService);
   readonly app = inject(AppStore);
   readonly status = signal<DevelopmentLeaderboardStatus | null>(null);
   readonly loading = signal(true);
   readonly busy = signal(false);
-  readonly message = signal('');
   readonly error = signal('');
   userCount = 100;
   eventCount = 10;
@@ -42,10 +43,9 @@ export class DevToolsComponent implements OnInit {
   generate(): void { this.run(this.api.generate(this.guildId(), this.userCount), 'devTools.messages.generated'); }
   triggerEvents(): void {
     this.busy.set(true);
-    this.clearFeedback();
     this.api.triggerEvents(this.guildId(), this.eventCount, this.minimumXp, this.maximumXp).pipe(finalize(() => this.busy.set(false))).subscribe({
-      next: result => { this.status.set(result.status); this.message.set(this.i18n.translate('devTools.messages.events', { count: result.granted })); },
-      error: error => this.error.set(this.errors.resolve(error, 'devTools.errors.events').message),
+      next: result => { this.status.set(result.status); this.toast.success(this.i18n.translate('devTools.messages.events', { count: result.granted })); },
+      error: error => this.toast.error(this.errors.resolve(error, 'devTools.errors.events').message),
     });
   }
   remove(): void {
@@ -54,12 +54,10 @@ export class DevToolsComponent implements OnInit {
   }
   private run(request: Observable<DevelopmentLeaderboardStatus>, messageKey: string): void {
     this.busy.set(true);
-    this.clearFeedback();
     request.pipe(finalize(() => this.busy.set(false))).subscribe({
-      next: status => { this.status.set(status); this.message.set(this.i18n.translate(messageKey)); },
-      error: error => this.error.set(this.errors.resolve(error, 'devTools.errors.operation').message),
+      next: status => { this.status.set(status); this.toast.success(this.i18n.translate(messageKey)); },
+      error: error => this.toast.error(this.errors.resolve(error, 'devTools.errors.operation').message),
     });
   }
   private guildId(): string { return this.app.selectedGuild()?.id ?? ''; }
-  private clearFeedback(): void { this.message.set(''); this.error.set(''); }
 }

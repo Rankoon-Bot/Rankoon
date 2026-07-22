@@ -10,7 +10,6 @@
     </button>
   </header>
 
-  @if (success()) { <p class="notice success" role="status">{{ success() }}</p> }
   @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
 
   @if (loading()) {

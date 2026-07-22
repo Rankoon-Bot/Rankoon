@@ -48,6 +48,8 @@
     "warning": "Warning",
     "critical": "Critical",
     "closeDetails": "Close details",
+    "dismissNotification": "Dismiss notification",
+    "notifications": "Notifications",
     "serverConfiguration": "SERVER CONFIGURATION"
   },
   "header": {

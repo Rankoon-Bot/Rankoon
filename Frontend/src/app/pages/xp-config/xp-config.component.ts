@@ -13,6 +13,7 @@ import { AppStore } from '../../store/app.store';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { LocaleService } from '../../i18n/locale.service';
 import { ApiErrorService } from '../../services/api-error.service';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-xp-config',
@@ -27,6 +28,7 @@ export class XpConfigComponent implements OnInit {
   private readonly i18n = inject(TranslocoService);
   private readonly locale = inject(LocaleService);
   private readonly apiErrors = inject(ApiErrorService);
+  private readonly toast = inject(ToastService);
 
   readonly config = signal<XpConfig | null>(null);
   readonly resources = signal<GuildResources>({ roles: [], channels: [] });
@@ -36,8 +38,6 @@ export class XpConfigComponent implements OnInit {
   readonly loadError = signal('');
   readonly saving = signal(false);
   readonly watchdogBusy = signal(false);
-  readonly message = signal('');
-  readonly messageType = signal<'success' | 'error'>('success');
 
   selectedRole = '';
   selectedChannel = '';
@@ -81,16 +81,15 @@ export class XpConfigComponent implements OnInit {
     if (!id || !config || !this.isValid(config)) return;
 
     this.saving.set(true);
-    this.message.set('');
     this.api.saveConfig(id, config)
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: saved => {
           this.config.set(saved);
-          this.showMessage(this.i18n.translate('xp.saved'), 'success');
+          this.toast.success(this.i18n.translate('xp.saved'));
           this.refreshWatchdog();
         },
-        error: error => this.showMessage(this.apiErrors.resolve(error, 'errors.save').message, 'error'),
+        error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message),
       });
   }
 
@@ -104,7 +103,6 @@ export class XpConfigComponent implements OnInit {
     config.voice.enabled = enabled;
     if (enabled) config.enabled = true;
     this.watchdogBusy.set(true);
-    this.message.set('');
 
     this.api.setVoiceWatchdog(id, enabled)
       .pipe(finalize(() => this.watchdogBusy.set(false)))
@@ -112,15 +110,13 @@ export class XpConfigComponent implements OnInit {
         next: result => {
           this.watchdog.set(result.status);
           const running = this.watchdogIsRunning();
-          this.showMessage(
-             this.i18n.translate(enabled && !running ? 'xp.watchdogDegraded' : enabled ? 'xp.watchdogStarted' : 'xp.watchdogStopped'),
-            enabled && !running ? 'error' : 'success',
-          );
+           const message = this.i18n.translate(enabled && !running ? 'xp.watchdogDegraded' : enabled ? 'xp.watchdogStarted' : 'xp.watchdogStopped');
+           enabled && !running ? this.toast.error(message) : this.toast.success(message);
         },
          error: error => {
           config.enabled = previousEnabled;
           config.voice.enabled = previousVoiceEnabled;
-           this.showMessage(this.apiErrors.resolve(error, 'errors.watchdogToggle').message, 'error');
+            this.toast.error(this.apiErrors.resolve(error, 'errors.watchdogToggle').message);
           this.refreshWatchdog();
         },
       });
@@ -222,18 +218,13 @@ export class XpConfigComponent implements OnInit {
       .then(text => JSON.parse(text) as unknown)
       .then(payload => this.api.importMee6(id, payload).subscribe({
         next: result => {
-           this.showMessage(this.locale.plural(result.imported, 'xp.importedOne', 'xp.importedOther'), 'success');
+           this.toast.success(this.locale.plural(result.imported, 'xp.importedOne', 'xp.importedOther'));
           this.api.leaderboard(id).subscribe(entries => this.leaderboard.set(entries));
           input.value = '';
         },
-         error: error => this.showMessage(this.apiErrors.resolve(error, 'errors.importFailed').message, 'error'),
+          error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.importFailed').message),
       }))
-       .catch(() => this.showMessage(this.i18n.translate('errors.invalidJson'), 'error'));
-  }
-
-  private showMessage(message: string, type: 'success' | 'error'): void {
-    this.messageType.set(type);
-    this.message.set(message);
+       .catch(() => this.toast.error(this.i18n.translate('errors.invalidJson')));
   }
 
   formatDate(value: string): string { return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'medium' }); }

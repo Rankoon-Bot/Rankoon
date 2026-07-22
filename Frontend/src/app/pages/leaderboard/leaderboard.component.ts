@@ -11,6 +11,7 @@ import { ApiErrorService } from '../../services/api-error.service';
 import { GuildService, LeaderboardEntry, LeaderboardPage, LeaderboardWindow, SeasonLeaderboardScope } from '../../services/guild.service';
 import { LeaderboardChanged, RealtimeService } from '../../services/realtime.service';
 import { AuthStore } from '../../store/auth.store';
+import { ToastService } from '../../services/toast.service';
 
 interface VirtualLeaderboardRow { index: number; entry?: LeaderboardEntry; }
 
@@ -31,6 +32,7 @@ export class LeaderboardComponent implements OnInit {
   private readonly locale = inject(LocaleService);
   private readonly apiErrors = inject(ApiErrorService);
   private readonly realtime = inject(RealtimeService);
+  private readonly toast = inject(ToastService);
   @ViewChild(CdkVirtualScrollViewport) private viewport?: CdkVirtualScrollViewport;
 
   readonly page = signal<LeaderboardPage | null>(null);
@@ -136,7 +138,7 @@ export class LeaderboardComponent implements OnInit {
     const requestedAlias = this.alias;
     this.api.setLeaderboardPrivacy(this.alias, publicVisible).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => { if (requestedAlias === this.alias) this.privacyBusy.set(false); })).subscribe({
       next: () => { if (requestedAlias === this.alias) { this.page.update(page => page ? { ...page, publicVisible } : page); this.scheduleVisibleWindowRefresh(); } },
-      error: error => { if (requestedAlias === this.alias) this.error.set(this.apiErrors.resolve(error, 'errors.privacySave').message); },
+      error: error => { if (requestedAlias === this.alias) this.toast.error(this.apiErrors.resolve(error, 'errors.privacySave').message); },
     });
   }
 
@@ -235,7 +237,7 @@ export class LeaderboardComponent implements OnInit {
                 this.viewport?.scrollToIndex(current.index, 'auto');
               });
             }
-            else this.error.set(this.i18n.translate('errors.noXpEntry'));
+            else this.toast.info(this.i18n.translate('errors.noXpEntry'));
           }
         } catch (error) {
           if (alias === this.alias && requestSequence === this.requestSequence) this.error.set(this.apiErrors.resolve(error, 'errors.leaderboardLoad').message);

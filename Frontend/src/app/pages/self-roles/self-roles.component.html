@@ -8,7 +8,6 @@
     <button type="button" class="primary" (click)="create()">{{ 'selfRoles.create' | transloco }}</button>
   </header>
 
-  <p class="notice success" *ngIf="message()" role="status">{{ message() }}</p>
   <div class="notice error" *ngIf="error()" role="alert"><span>{{ error() }}</span><button type="button" (click)="load()">{{ 'common.retry' | transloco }}</button></div>
   <div class="notice error" *ngIf="validationErrors().length" role="alert"><p *ngFor="let validationError of validationErrors()">{{ validationError }}</p></div>
   <p class="loading" *ngIf="loading()" role="status">{{ 'selfRoles.loading' | transloco }}</p>

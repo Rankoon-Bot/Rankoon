@@ -9,6 +9,7 @@ import { AdjustmentRequest, XpAuditDetails, XpAuditEntryFilter, XpAuditMember, X
 import { ApiErrorService } from '../../services/api-error.service';
 import { XpAuditService } from '../../services/xp-audit.service';
 import { AppStore } from '../../store/app.store';
+import { ToastService } from '../../services/toast.service';
 
 type AdjustmentDirection = 'add' | 'subtract';
 
@@ -26,6 +27,7 @@ export class XpAuditComponent {
   private readonly locale = inject(LocaleService);
   private readonly apiErrors = inject(ApiErrorService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(ToastService);
   private readonly searchInput = new Subject<string>();
   private selectedGuildId: string | null = null;
   private membersGeneration = 0;
@@ -57,9 +59,6 @@ export class XpAuditComponent {
   readonly membersError = signal('');
   readonly detailsError = signal('');
   readonly entriesError = signal('');
-  readonly adjustmentError = signal('');
-  readonly reversalError = signal('');
-  readonly successMessage = signal('');
   readonly reversalEntry = signal<XpLedgerEntry | null>(null);
 
   amount: string | number | null = '';
@@ -129,7 +128,6 @@ export class XpAuditComponent {
     this.entryCursor.set(null);
     this.detailsError.set('');
     this.entriesError.set('');
-    this.successMessage.set('');
     this.detailsLoading.set(true);
     this.entriesLoading.set(true);
     this.api.details(guildId, member.userId).pipe(finalize(() => {
@@ -233,7 +231,6 @@ export class XpAuditComponent {
 
   reviewAdjustment(trigger: Event): void {
     if (!this.canReviewAdjustment || this.adjustmentSaving()) return;
-    this.adjustmentError.set('');
     this.adjustmentTrigger = trigger.currentTarget as HTMLElement;
     setTimeout(() => this.adjustmentDialog?.nativeElement.showModal());
   }
@@ -249,15 +246,14 @@ export class XpAuditComponent {
     if (!guildId || !details || !this.canReviewAdjustment || this.adjustmentSaving()) return;
     const body: AdjustmentRequest = { amount: this.signedAmount(), scope: details.activeSeason ? this.scope : 'LifetimeOnly', reason: this.reason.trim(), reference: this.reference.trim() || undefined, requestId: this.adjustmentRequestId };
     this.adjustmentSaving.set(true);
-    this.adjustmentError.set('');
     this.api.adjust(guildId, details.userId, body).pipe(finalize(() => this.adjustmentSaving.set(false)), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.closeAdjustmentDialog();
         this.resetAdjustmentForm();
         this.select(this.selectedMember()!);
-        this.successMessage.set(this.translate('adjustmentSaved'));
+        this.toast.success(this.translate('adjustmentSaved'));
       },
-      error: error => this.adjustmentError.set(this.apiErrors.resolve(error, 'errors.xpAdjustmentSave').message)
+      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.xpAdjustmentSave').message)
     });
   }
 
@@ -266,7 +262,6 @@ export class XpAuditComponent {
     this.reversalEntry.set(entry);
     this.reversalReason = '';
     this.reversalReference = '';
-    this.reversalError.set('');
     this.reversalRequestId = this.newRequestId();
     this.reversalTrigger = trigger.currentTarget as HTMLElement;
     setTimeout(() => this.reversalDialog?.nativeElement.showModal());
@@ -283,14 +278,13 @@ export class XpAuditComponent {
     const entry = this.reversalEntry();
     if (!guildId || !entry || !this.canConfirmReversal || this.reversalSaving()) return;
     this.reversalSaving.set(true);
-    this.reversalError.set('');
     this.api.reverse(guildId, entry.id, { reason: this.reversalReason.trim(), reference: this.reversalReference.trim() || undefined, requestId: this.reversalRequestId }).pipe(finalize(() => this.reversalSaving.set(false)), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.closeReversalDialog();
         this.select(this.selectedMember()!);
-        this.successMessage.set(this.translate('reversalSaved'));
+        this.toast.success(this.translate('reversalSaved'));
       },
-      error: error => this.reversalError.set(this.apiErrors.resolve(error, 'errors.xpAdjustmentReverse').message)
+      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.xpAdjustmentReverse').message)
     });
   }
 
@@ -335,7 +329,6 @@ export class XpAuditComponent {
     this.clearSelection();
     this.filters.set({});
     this.membersError.set('');
-    this.successMessage.set('');
     this.resetAdjustmentForm();
   }
 
