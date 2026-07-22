@@ -173,7 +173,7 @@ export class HeaderComponent implements OnInit {
     refreshGuildsAfterInvite(): void {
         if (!this.refreshAfterInvite) return;
         this.refreshAfterInvite = false;
-        this.loadGuilds();
+        this.loadGuilds(true);
     }
 
     getAvatarUrl(): string | undefined {
@@ -224,13 +224,13 @@ export class HeaderComponent implements OnInit {
         this.refreshAfterInvite = true;
     }
 
-    loadGuilds(): void {
+    loadGuilds(refresh = false): void {
         if (!this.authStore.isAuthenticated()) {
             return;
         }
 
         this.appStore.setLoading(true);
-        this.authService.getUserGuilds().subscribe({
+        this.authService.getUserGuilds(refresh).subscribe({
             next: (guilds) => {
                 this.appStore.setGuilds(guilds);
                 this.appStore.setLoading(false);

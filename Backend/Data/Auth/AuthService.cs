@@ -44,7 +44,7 @@ public interface IAuthService
     /// <summary>
     /// Get user's Discord guilds
     /// </summary>
-    Task<GuildDto[]?> GetUserGuildsAsync(string userId);
+    Task<GuildDto[]?> GetUserGuildsAsync(string userId, bool refresh = false);
 }
 
 public class AuthService : IAuthService
@@ -315,7 +315,7 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<GuildDto[]?> GetUserGuildsAsync(string userId)
+    public async Task<GuildDto[]?> GetUserGuildsAsync(string userId, bool refresh = false)
     {
         try
         {
@@ -369,10 +369,14 @@ public class AuthService : IAuthService
                 return null;
             }
 
+            var cacheKey = refresh
+                ? $"discord_user_guilds_refresh_{userId}"
+                : $"discord_user_guilds_{userId}";
+            var cacheDuration = refresh ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(1);
             var discordGuilds = await CacheManager.GetOrSetAsync<DiscordGuildInfo[]?>(
-                $"discord_user_guilds_{userId}",
+                cacheKey,
                 () => _discordService.GetUserGuildsAsync(user.AccessToken),
-                DateTimeOffset.UtcNow.AddMinutes(1));
+                DateTimeOffset.UtcNow.Add(cacheDuration));
             if (discordGuilds == null)
             {
                 _logger.LogError("Failed to fetch guilds from Discord for user: {UserId}", userId);

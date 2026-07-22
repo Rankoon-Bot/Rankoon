@@ -14,11 +14,24 @@ import { ApiErrorService } from '../../services/api-error.service';
   imports: [CommonModule, TranslocoPipe],
   template: `
     <div class="server-selection">
-      <div class="server-selection-header">
-        <div class="header-content">
-          <h1>{{ 'serverSelection.title' | transloco }}</h1>
-          <p>{{ 'serverSelection.subtitle' | transloco }}</p>
-        </div>
+       <div class="server-selection-header">
+          <div class="header-content">
+            <h1>{{ 'serverSelection.title' | transloco }}</h1>
+            <p>{{ 'serverSelection.subtitle' | transloco }}</p>
+          </div>
+          <button
+            class="refresh-btn"
+            type="button"
+            [disabled]="appStore.isLoading() || refreshCoolingDown()"
+            [attr.aria-label]="'serverSelection.refreshAria' | transloco"
+            (click)="refreshGuilds()"
+          >
+            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23,4 23,10 17,10"/>
+              <path d="M20.49,15A9,9,0,1,1,5.64,5.64L23,10"/>
+            </svg>
+            {{ 'serverSelection.refresh' | transloco }}
+          </button>
       </div>
 
       <p *ngIf="accessNotice()" class="access-notice" role="alert">{{ accessNotice() }}</p>
@@ -146,6 +159,7 @@ export class ServerSelectionComponent implements OnInit {
   private readonly apiErrors = inject(ApiErrorService);
   readonly appStore = inject(AppStore);
   readonly accessNotice = signal('');
+  readonly refreshCoolingDown = signal(false);
   private refreshAfterInvite = false;
 
   ngOnInit(): void {
@@ -166,6 +180,27 @@ export class ServerSelectionComponent implements OnInit {
       },
       error: (error) => {
         console.error('Error loading guilds:', error);
+        this.appStore.setError(this.apiErrors.resolve(error, 'errors.guildsLoad').message);
+        this.appStore.setLoading(false);
+      }
+    });
+  }
+
+  refreshGuilds(): void {
+    if (this.appStore.isLoading() || this.refreshCoolingDown()) return;
+
+    this.refreshCoolingDown.set(true);
+    setTimeout(() => this.refreshCoolingDown.set(false), 10_000);
+    this.appStore.setLoading(true);
+    this.appStore.setError(null);
+
+    this.authService.getUserGuilds(true).subscribe({
+      next: (guilds) => {
+        this.appStore.setGuilds(guilds);
+        this.appStore.setLoading(false);
+      },
+      error: (error) => {
+        console.error('Error refreshing guilds:', error);
         this.appStore.setError(this.apiErrors.resolve(error, 'errors.guildsLoad').message);
         this.appStore.setLoading(false);
       }
@@ -198,7 +233,7 @@ export class ServerSelectionComponent implements OnInit {
   refreshGuildsAfterInvite(): void {
     if (!this.refreshAfterInvite) return;
     this.refreshAfterInvite = false;
-    this.loadGuilds();
+    this.refreshGuilds();
   }
 
   getGuildIconUrl(guild: Guild): string {

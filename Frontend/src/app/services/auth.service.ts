@@ -29,6 +29,8 @@ export const ACCESS_TOKEN_EXPIRATION_STORAGE_KEY = 'rankoon_token_expires_at';
     providedIn: 'root'
 })
 export class AuthService {
+    private readonly GUILDS_CACHE_MS = 120_000;
+    private readonly GUILDS_REFRESH_COOLDOWN_MS = 10_000;
     private readonly http = inject(HttpClient);
     private readonly router = inject(Router);
     private readonly authStore = inject(AuthStore);
@@ -40,6 +42,9 @@ export class AuthService {
     private readonly API_BASE_URL = environment.apiBaseUrl;
     private readonly TOKEN_REFRESH_BUFFER_MS = 60_000;
     private refreshInFlight$: Observable<boolean> | null = null;
+    private guildsCache: { token: string; guilds: Guild[]; expiresAt: number } | null = null;
+    private guildsRequest$: Observable<Guild[]> | null = null;
+    private guildsRefreshAvailableAt = 0;
     private authGeneration = 0;
 
     /**
@@ -235,17 +240,39 @@ export class AuthService {
     /**
      * Gets user's Discord guilds from backend
      */
-    getUserGuilds(): Observable<Guild[]> {
+    getUserGuilds(refresh = false): Observable<Guild[]> {
         const token = this.authStore.token();
         if (!token) {
             return of([]);
         }
 
-        return this.http.get<Guild[]>(`${this.API_BASE_URL}/auth/guilds`, {
+        const now = Date.now();
+        const cachedGuilds = this.guildsCache;
+        const cacheValid = cachedGuilds?.token === token && cachedGuilds.expiresAt > now;
+        const refreshCoolingDown = refresh && this.guildsRefreshAvailableAt > now;
+        if (cacheValid && (!refresh || refreshCoolingDown)) {
+            return of(cachedGuilds.guilds);
+        }
+
+        if (this.guildsRequest$) {
+            return this.guildsRequest$;
+        }
+
+        if (refresh) {
+            this.guildsRefreshAvailableAt = now + this.GUILDS_REFRESH_COOLDOWN_MS;
+        }
+
+        this.guildsRequest$ = this.http.get<Guild[]>(`${this.API_BASE_URL}/auth/guilds`, {
             headers: {
                 'Authorization': `Bearer ${token}`
-            }
+            },
+            params: refresh ? { refresh: 'true' } : undefined
         }).pipe(
+            tap(guilds => this.guildsCache = {
+                token,
+                guilds,
+                expiresAt: Date.now() + this.GUILDS_CACHE_MS
+            }),
             catchError(error => {
                 console.error('Failed to fetch user guilds:', error);
                 if (error.status === 401) {
@@ -253,8 +280,12 @@ export class AuthService {
                     return of([]);
                 }
                 return throwError(() => error);
-            })
+            }),
+            finalize(() => this.guildsRequest$ = null),
+            shareReplay({ bufferSize: 1, refCount: false })
         );
+
+        return this.guildsRequest$;
     }
 
     /**
@@ -354,5 +385,8 @@ export class AuthService {
         this.clearRefreshTokenFromStorage();
         this.authStore.clearAuth();
         this.appStore.clearState();
+        this.guildsCache = null;
+        this.guildsRequest$ = null;
+        this.guildsRefreshAvailableAt = 0;
     }
 }
