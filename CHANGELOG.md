@@ -1,3 +1,11 @@
+# [0.2.0](https://github.com/Rankoon-Bot/Rankoon/compare/v0.1.0...v0.2.0) (2026-07-22)
+
+
+### Features
+
+* Add development tools for leaderboard mock data generation ([19d1450](https://github.com/Rankoon-Bot/Rankoon/commit/19d1450a81eec99ad9304e64236aeedd936a3502))
+* implement toast notification system ([bc88adf](https://github.com/Rankoon-Bot/Rankoon/commit/bc88adf445fe7c03d458878a42c0de06809f6d63))
+
 # [0.1.0](https://github.com/Rankoon-Bot/Rankoon/compare/v0.0.0...v0.1.0) (2026-07-22)
 
 
