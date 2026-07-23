@@ -1,5 +1,13 @@
 # Rankoon
 
+## Bot permission diagnostics
+
+Guild administrators can open **Bot diagnostics** in the server navigation and run a read-only permission scan. The report evaluates only enabled Rankoon features and their configured channels or roles, including effective Discord.Net channel permissions and role hierarchy.
+
+Rankoon does not require or recommend `Administrator`. Category and channel overrides can still restrict granular guild permissions. Role assignment additionally requires `ManageRoles` and a Rankoon role positioned strictly above every configured level or self-role. The scan explains missing permissions and configuration changes but never changes Discord permissions, overwrites, or role positions automatically.
+
+The first version uses the Discord socket cache and a short in-memory cache. If Discord is reconnecting or a configured resource cannot be resolved, it reports `Unknown` instead of assuming access.
+
 ## Level-up announcements
 
 Level-up announcements are disabled by default, including for guilds with a legacy XP level-up channel. Administrators can configure a text channel and safe templates in **Level-Up-Nachrichten**. Rendering supports only the allowlisted tokens exposed by the API; template text cannot execute code. Discord sends use restrictive allowed mentions, so manually typed mentions, roles, `@everyone`, and `@here` never ping. A transition outbox separates XP projection from Discord delivery and retries transient failures; this is best-effort deduplication, not an exactly-once Discord guarantee. The bot needs access to the target text channel and permission to send messages; role delivery is only claimed after a successful role assignment. MEE6 imports never create announcements.

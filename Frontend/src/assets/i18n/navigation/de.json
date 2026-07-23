@@ -15,6 +15,7 @@
     "commands": "Command-Nutzung",
     "errors": "Fehlerlogs",
     "dev": "DEV",
-    "devLeaderboard": "Mock-Ranglisten"
+    "devLeaderboard": "Mock-Ranglisten",
+    "diagnostics": "Bot-Diagnose"
   }
 }

@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Discord;
+using Rankoon.Data.Diagnostics;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Utils;
@@ -119,6 +120,7 @@ var dcConfig = new DiscordSocketConfig()
         | GatewayIntents.MessageContent
 };
 builder.Services.AddSingleton(new DiscordShardedClient(dcConfig));
+builder.Services.AddSingleton(new GatewayIntentState(dcConfig.GatewayIntents));
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
 // Register database context
@@ -160,6 +162,9 @@ builder.Services.AddSingleton<GuildMembershipService>();
 builder.Services.AddSingleton<RankoonBotHostedService>();
 builder.Services.AddSingleton<SelfRoleService>();
 builder.Services.AddSingleton<SelfRoleReactionService>();
+builder.Services.AddSingleton<IPermissionRequirementCatalog, PermissionRequirementCatalog>();
+builder.Services.AddSingleton<IDiagnosticReportCache, DiagnosticReportCache>();
+builder.Services.AddSingleton<IBotPermissionDiagnosticService, BotPermissionDiagnosticService>();
 
 if (!builder.Environment.IsEnvironment("Testing"))
 {

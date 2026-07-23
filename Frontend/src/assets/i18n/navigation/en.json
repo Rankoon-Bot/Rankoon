@@ -15,6 +15,7 @@
     "commands": "Command usage",
     "errors": "Error logs",
     "dev": "DEV",
-    "devLeaderboard": "Mock leaderboards"
+    "devLeaderboard": "Mock leaderboards",
+    "diagnostics": "Bot diagnostics"
   }
 }

@@ -8,6 +8,7 @@ import {
   SaveRolePermissions
 } from '../models/guild-permissions.models';
 import { LevelUpAnnouncementResponse, LevelUpAnnouncementSettings, LevelUpPreviewRequest, LevelUpPreviewResponse, TemplateSchema } from '../models/level-up-announcement.models';
+import { ChannelDiagnostic, PermissionDiagnosticReport, PermissionDiagnosticScope } from '../models/permission-diagnostics.models';
 
 export interface RankEntry { userId: string; displayName: string; totalXp: string | number; level: number; messageCount: string | number; voiceSeconds: string | number; }
 export interface DashboardData { guildName: string; leaderboardAlias: string; memberCount: string | number; botCount: string | number; activeVoiceMembers: number; activeXpMembers: string | number; stats: { xpAwarded: string | number; messages: string | number; reactions: string | number; threads: string | number; eventInterests: string | number; temporaryChannelsCreated: string | number }; activeTemporaryChannels: string | number; processUptimeSeconds: number; watchdog: { state: string; lastRunAt: string | null; lastError: string | null }; leaderboard: RankEntry[]; }
@@ -101,4 +102,7 @@ export class GuildService {
   createSelfRolePanel(guildId: string, panel: SelfRolePanel): Observable<SelfRolePanel> { return this.http.post<SelfRolePanel>(this.url(guildId, 'self-role-panels'), panel); }
   updateSelfRolePanel(guildId: string, panel: SelfRolePanel): Observable<SelfRolePanel> { return this.http.put<SelfRolePanel>(this.url(guildId, `self-role-panels/${panel.id}`), panel); }
   deleteSelfRolePanel(guildId: string, panelId: string): Observable<void> { return this.http.delete<void>(this.url(guildId, `self-role-panels/${panelId}`)); }
+  scanPermissionDiagnostics(guildId: string, scope: PermissionDiagnosticScope = 'ConfiguredFeatures', includePermissionTrace = true): Observable<PermissionDiagnosticReport> { return this.http.post<PermissionDiagnosticReport>(this.url(guildId, 'diagnostics/permissions/scan'), { scope, includePermissionTrace }); }
+  latestPermissionDiagnostics(guildId: string): Observable<PermissionDiagnosticReport> { return this.http.get<PermissionDiagnosticReport>(this.url(guildId, 'diagnostics/permissions/latest')); }
+  channelPermissionDiagnostics(guildId: string, channelId: string): Observable<ChannelDiagnostic> { return this.http.get<ChannelDiagnostic>(this.url(guildId, `diagnostics/permissions/channels/${channelId}`)); }
 }

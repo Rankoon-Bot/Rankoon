@@ -156,6 +156,12 @@ export const routes: Routes = [
         data: { module: 'xp-announcements' },
         resolve: { translations: translationScope('level-up-announcements') },
       },
+      {
+        path: 'diagnostics/permissions',
+        loadComponent: () => import('./pages/permission-diagnostics/permission-diagnostics.component').then((c) => c.PermissionDiagnosticsComponent),
+        canActivate: [guildGuard, moduleGuard], data: { module: 'diagnostics' },
+        resolve: { translations: translationScope('diagnostics') },
+      },
       ...(!environment.production ? [{
         path: 'dev',
         loadComponent: () => import('./pages/dev-tools/dev-tools.component').then((c) => c.DevToolsComponent),

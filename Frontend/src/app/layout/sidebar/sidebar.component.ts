@@ -128,6 +128,10 @@ export class SidebarComponent {
          { label: this.i18n.translate('nav.errors'), route: '/logs/errors', icon: '' }
       ]
     });
+    if (hasModule('diagnostics')) items.push({
+      label: this.i18n.translate('nav.diagnostics'), route: '/diagnostics/permissions',
+      icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="m12 8-3 5 5-3"/></svg>`
+    });
     else if (hasModule('xp-announcements')) items.push({ label: this.i18n.translate('nav.levelUpAnnouncements'), route: '/xp/level-up-announcements', icon: '' });
     if (!environment.production && capabilities.isOwner) items.push({
       label: this.i18n.translate('nav.dev'),
