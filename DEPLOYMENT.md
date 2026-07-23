@@ -4,12 +4,15 @@ The published image contains the Angular frontend and the ASP.NET Core backend. 
 
 ## GitHub Container Registry
 
-`.github/workflows/release.yml` validates every branch push by calling
-`.github/workflows/ci.yml`. On `main`, a successful semantic release creates the
-release and publishes `ghcr.io/<owner>/<repository>` from that release tag.
-Non-main branch pushes publish prerelease, sanitized branch, and commit-SHA tags
-after CI succeeds. Main images receive release-version, major, minor, latest, and
-commit-SHA tags.
+`.github/workflows/release.yml` runs for pushes to `main` and `dev`. It calls
+`.github/workflows/ci.yml`, which tests both applications and uploads their build
+artifacts. `Backend/Dockerfile.deploy` packages these artifacts without rebuilding
+the source.
+
+Successful `main` builds publish `latest` and the prospective semantic version.
+When semantic-release creates a release, major and minor tags are added. Successful
+`dev` builds use a prospective version plus the short commit SHA, for example
+`0.4.2-1a2b3c4d`, and publish the same image as both that version and `latest-dev`.
 
 The workflow can also be started manually. The running application version is available without authentication at `GET /api/version`.
 

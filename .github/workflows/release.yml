@@ -1,6 +1,10 @@
-name: Release and publish container
+name: Build, release and publish container
 
 on:
+  push:
+    branches:
+      - main
+      - dev
   workflow_dispatch:
 
 concurrency:
@@ -12,11 +16,70 @@ permissions:
   packages: write
 
 jobs:
+  prepare:
+    name: Determine version
+    if: github.ref_name == 'main' || github.ref_name == 'dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install release dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Determine build version
+        id: version
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          node --input-type=module <<'EOF'
+          import { appendFile } from 'node:fs/promises';
+          import { execFileSync } from 'node:child_process';
+          import semanticRelease from 'semantic-release';
+
+          const result = await semanticRelease({
+            branches: ['main', { name: 'dev', prerelease: 'dev' }],
+            ci: false,
+            dryRun: true,
+            plugins: ['@semantic-release/commit-analyzer']
+          });
+          const sha = process.env.COMMIT_SHA.slice(0, 8);
+          const latestTag = execFileSync('git', ['tag', '--list', 'v[0-9]*', '--sort=-v:refname'], { encoding: 'utf8' })
+            .trim()
+            .split('\n')[0]
+            ?.replace(/^v/, '') || '0.0.0';
+          let version = result?.nextRelease.version || `${latestTag}-${sha}`;
+
+          if (process.env.BRANCH_NAME === 'dev') {
+            version = `${version.split('-')[0]}-${sha}`;
+          }
+
+          await appendFile(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          EOF
+
   validate:
+    name: Validate and build artifacts
+    needs: prepare
     uses: ./.github/workflows/ci.yml
+    with:
+      app-version: ${{ needs.prepare.outputs.version }}
 
   release:
-    needs: validate
+    name: Create release
+    needs: [prepare, validate]
+    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -29,12 +92,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
+
+      - name: Install release dependencies
         run: npm ci --ignore-scripts
+
       - name: Create semantic release
         id: release
         env:
@@ -49,27 +115,25 @@ jobs:
           fi
 
   publish:
-    needs: [validate, release]
-    if: needs.release.outputs.version != ''
+    name: Publish container
+    needs: [prepare, validate, release]
+    if: always() && needs.validate.result == 'success' && (needs.release.result == 'success' || needs.release.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - name: Check out release source
+      - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
         with:
-          ref: v${{ needs.release.outputs.version }}
+          name: backend-publish
+          path: artifacts/backend
 
-      - name: Determine image version tags
-        id: version
-        env:
-          RELEASE_VERSION: ${{ needs.release.outputs.version }}
-        run: |
-          version="$RELEASE_VERSION"
-          major="${version%%.*}"
-          minor="${version%.*}"
-
-          echo "value=$version" >> "$GITHUB_OUTPUT"
-          echo "major=$major" >> "$GITHUB_OUTPUT"
-          echo "minor=$minor" >> "$GITHUB_OUTPUT"
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: artifacts/frontend
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -86,22 +150,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          flavor: latest=false
           tags: |
-            type=raw,value=${{ steps.version.outputs.value }}
-            type=raw,value=${{ steps.version.outputs.major }}
-            type=raw,value=${{ steps.version.outputs.minor }}
-            type=raw,value=latest
-            type=sha
+            type=raw,value=${{ needs.prepare.outputs.version }}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=raw,value=latest-dev,enable=${{ github.ref_name == 'dev' }}
+            type=semver,pattern={{major}},value=v${{ needs.release.outputs.version }},enable=${{ needs.release.outputs.version != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.release.outputs.version }},enable=${{ needs.release.outputs.version != '' }}
 
       - name: Build and publish container
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Backend/Dockerfile
+          file: Backend/Dockerfile.deploy
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            APP_VERSION=${{ steps.version.outputs.value }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max

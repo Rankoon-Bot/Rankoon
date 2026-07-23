@@ -2,6 +2,11 @@ name: Build and test
 
 on:
   workflow_call:
+    inputs:
+      app-version:
+        description: Version embedded in the backend artifact
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -32,12 +37,24 @@ jobs:
         working-directory: Backend
 
       - name: Build backend
-        run: dotnet build Rankoon.sln --configuration Release --no-restore
+        run: dotnet build Rankoon.sln --configuration Release --no-restore -p:Version=${{ inputs.app-version }} -p:InformationalVersion=${{ inputs.app-version }}
         working-directory: Backend
 
       - name: Test backend
         run: dotnet test Rankoon.sln --configuration Release --no-build --no-restore
         working-directory: Backend
+
+      - name: Publish backend artifact
+        run: dotnet publish Rankoon.csproj --configuration Release --no-build --no-restore --output ../artifacts/backend -p:Version=${{ inputs.app-version }} -p:InformationalVersion=${{ inputs.app-version }}
+        working-directory: Backend
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-publish
+          path: artifacts/backend
+          if-no-files-found: error
+          retention-days: 1
 
   frontend:
     name: Frontend
@@ -64,3 +81,11 @@ jobs:
       - name: Build frontend
         run: npm run build
         working-directory: Frontend
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: Frontend/dist/Rankoon_Frontend/browser
+          if-no-files-found: error
+          retention-days: 1
