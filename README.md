@@ -1,5 +1,9 @@
 # Rankoon
 
+## Level-up announcements
+
+Level-up announcements are disabled by default, including for guilds with a legacy XP level-up channel. Administrators can configure a text channel and safe templates in **Level-Up-Nachrichten**. Rendering supports only the allowlisted tokens exposed by the API; template text cannot execute code. Discord sends use restrictive allowed mentions, so manually typed mentions, roles, `@everyone`, and `@here` never ping. A transition outbox separates XP projection from Discord delivery and retries transient failures; this is best-effort deduplication, not an exactly-once Discord guarantee. The bot needs access to the target text channel and permission to send messages; role delivery is only claimed after a successful role assignment. MEE6 imports never create announcements.
+
 **Free, open-source leveling for communities that actually talk.**
 
 Rankoon is a configurable Discord bot that rewards meaningful text and voice

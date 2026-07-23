@@ -166,6 +166,7 @@
       "planConflict": "The requested seasons overlap with the existing plan."
       ,"notResumable": "This season can only be resumed during its original time range."
     },
+    "levelAnnouncements": { "channelUnavailable": "The configured channel is unavailable.", "revisionConflict": "Level-up messages changed since they were loaded.", "settingsInvalid": "Level-up announcement settings are invalid.", "templateInvalid": "The template cannot be rendered." },
     "selfRoles": {
       "invalidPanel": "The self-role panel is invalid.",
       "tooManyMappings": "A self-role panel supports at most 20 mappings.",

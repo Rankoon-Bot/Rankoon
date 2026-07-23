@@ -166,6 +166,7 @@
       "planConflict": "Die angeforderten Seasons überschneiden sich mit dem bestehenden Plan."
       ,"notResumable": "Diese Season kann nur innerhalb ihres ursprünglichen Zeitraums fortgesetzt werden."
     },
+    "levelAnnouncements": { "channelUnavailable": "Der konfigurierte Kanal ist nicht verfügbar.", "revisionConflict": "Die Level-Up-Nachrichten wurden zwischenzeitlich geändert.", "settingsInvalid": "Die Level-Up-Einstellungen sind ungültig.", "templateInvalid": "Die Vorlage kann nicht gerendert werden." },
     "selfRoles": {
       "invalidPanel": "Das Selbstrollen-Panel ist ungültig.",
       "tooManyMappings": "Ein Selbstrollen-Panel unterstützt maximal 20 Zuordnungen.",

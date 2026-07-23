@@ -14,7 +14,7 @@ public enum VoiceWatchdogState { Starting, Healthy, Degraded, Stale, Restarting,
 public sealed record VoiceWatchdogStatus(ulong GuildId, VoiceWatchdogState State, DateTimeOffset? LastRunAt, DateTimeOffset? LastPersistenceAt, int ConnectedUsers, int EligibleUsers, int ExcludedUsers, string? LastError, int IntervalSeconds);
 
 /// <summary>Rankoon-owned, per-guild voice reconciliation worker inspired by SharedVcWatchdog.</summary>
-public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContext database, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, TimeProvider timeProvider, IOptions<VoiceWatchdogOptions> options, ILogger<VoiceXpWatchdog> logger) : BackgroundService
+public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContext database, IXpService xp, IReportWriter reports, TimeProvider timeProvider, IOptions<VoiceWatchdogOptions> options, ILogger<VoiceXpWatchdog> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<ulong, VoiceWatchdogStatus> _statuses = new();
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _guildGates = new();
@@ -151,7 +151,7 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
                 var amount = decimal.Round(seconds / 60m * settings.Voice.PointsPerMinute * multiplier, 6, MidpointRounding.AwayFromZero);
                 var request = new XpGrantRequest(guild.Id, member.Id, member.DisplayName, "voice", amount,
                     VoiceGrantKey(guild.Id, member.Id, channel.Id, start, end), start, channel.Id, start, end);
-                if (await xp.GrantAsync(request, cancellationToken)) await levelRoles.SynchronizeAsync(guild.Id, member.Id, cancellationToken);
+                await xp.GrantAsync(request, cancellationToken);
             }
         }
         await database.VoiceSessions.UpdateOneAsync(x => x.GuildId == guild.Id && x.UserId == member.Id, Builders<VoiceSession>.Update.Set(x => x.LastAccruedAt, now).Inc(x => x.EligibleSeconds, eligible ? (long)(now - periodStart).TotalSeconds : 0), cancellationToken: cancellationToken);

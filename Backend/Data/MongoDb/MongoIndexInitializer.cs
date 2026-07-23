@@ -59,6 +59,12 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Kind).Ascending(x => x.ActorUserId).Descending(x => x.OccurredAtUtc).Descending("_id"), new CreateIndexOptions { Name = "guild_kind_actor_occurred" }),
                     new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.ReversesLedgerEntryId), new CreateIndexOptions { Name = "reverses_ledger_entry_unique", Unique = true, Sparse = true })
                 ], stoppingToken);
+                await database.GuildLevelUpAnnouncementSettings.Indexes.CreateOneAsync(new CreateIndexModel<GuildLevelUpAnnouncementSettings>(Builders<GuildLevelUpAnnouncementSettings>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }), cancellationToken: stoppingToken);
+                await database.LevelTransitionEvents.Indexes.CreateManyAsync([
+                    new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.EventKey), new CreateIndexOptions { Unique = true, Name = "event_key_unique" }),
+                    new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.NextAttemptAtUtc), new CreateIndexOptions { Name = "open_delivery" }),
+                    new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId).Descending(x => x.CreatedAtUtc), new CreateIndexOptions { Name = "guild_user_recent" })
+                ], stoppingToken);
                 await database.VoiceSessions.Indexes.CreateOneAsync(new CreateIndexModel<VoiceSession>(Builders<VoiceSession>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
                 await database.TemporaryVoiceChannels.Indexes.CreateOneAsync(new CreateIndexModel<TemporaryVoiceChannel>(Builders<TemporaryVoiceChannel>.IndexKeys.Ascending(x => x.ChannelId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
                 await database.GuildStats.Indexes.CreateOneAsync(new CreateIndexModel<GuildStats>(Builders<GuildStats>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);

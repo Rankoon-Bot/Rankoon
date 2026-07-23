@@ -149,6 +149,13 @@ export const routes: Routes = [
         canActivate: [guildGuard, ownerGuard],
         resolve: { translations: translationScope('role-permissions') },
       },
+      {
+        path: 'xp/level-up-announcements',
+        loadComponent: () => import('./pages/level-up-announcements/level-up-announcements.component').then((c) => c.LevelUpAnnouncementsComponent),
+        canActivate: [guildGuard, moduleGuard],
+        data: { module: 'xp-announcements' },
+        resolve: { translations: translationScope('level-up-announcements') },
+      },
       ...(!environment.production ? [{
         path: 'dev',
         loadComponent: () => import('./pages/dev-tools/dev-tools.component').then((c) => c.DevToolsComponent),

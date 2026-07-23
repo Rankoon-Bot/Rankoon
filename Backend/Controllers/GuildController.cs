@@ -19,7 +19,7 @@ public sealed record VoiceWatchdogControl(bool Enabled);
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}")]
-public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, GuildMembershipService memberships, VoiceXpWatchdog watchdog, VcHubService hubs, IReportWriter reports) : ControllerBase
+public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, GuildMembershipService memberships, VoiceXpWatchdog watchdog, VcHubService hubs, LevelRoleService levelRoles, IReportWriter reports) : ControllerBase
 {
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId, string? moduleId = null)
     {
@@ -140,6 +140,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
                 })))
             });
             await database.MemberXp.UpdateOneAsync(x => x.GuildId == id && x.UserId == userId, importUpdate, new UpdateOptions { IsUpsert = true }, HttpContext.RequestAborted);
+            await levelRoles.SynchronizeAsync(id, userId, HttpContext.RequestAborted);
             imported++;
         }
         memberships.QueueGuild(id);

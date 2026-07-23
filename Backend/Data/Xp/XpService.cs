@@ -21,7 +21,7 @@ public interface IXpService
 
 public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null, int? CooldownSeconds = null, bool SuppressReport = false);
 
-public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IReportWriter reports, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
+public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IReportWriter reports, ILeaderboardRealtimePublisher realtime, ILevelTransitionService transitions, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
 {
     public async Task<GuildXpSettings> GetSettingsAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
@@ -181,8 +181,19 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         }
         try
         {
+            var before = await GetMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken) ?? new MemberXp();
             if (recovering) await RebuildProjectionAsync(ledger, now, cancellationToken);
             else await IncrementProjectionAsync(ledger, now, cancellationToken);
+            var after = await GetMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken) ?? before;
+            var snapshot = ledger.LevelTransitionSnapshot ?? new LevelTransitionSnapshot
+            {
+                PreviousTotalXp = before.TotalXp,
+                NewTotalXp = after.TotalXp,
+                PreviousLevel = Mee6LevelCurve.GetLevel(before.TotalXp),
+                NewLevel = Mee6LevelCurve.GetLevel(after.TotalXp)
+            };
+            await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id, Builders<XpLedgerEntry>.Update.Set(x => x.LevelTransitionSnapshot, snapshot), cancellationToken: cancellationToken);
+            await transitions.EnsureAsync(ledger, snapshot, cancellationToken);
             await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionStatus == SeasonProjectionStatus.Pending && x.ProjectionLeaseOwner == owner,
                 Builders<XpLedgerEntry>.Update.Set(x => x.ProjectionStatus, SeasonProjectionStatus.Applied).Set(x => x.ProjectedAtUtc, now).Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc), cancellationToken: cancellationToken);
             await realtime.PublishMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken);

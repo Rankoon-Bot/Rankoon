@@ -7,6 +7,7 @@ import {
   RolePermissions,
   SaveRolePermissions
 } from '../models/guild-permissions.models';
+import { LevelUpAnnouncementResponse, LevelUpAnnouncementSettings, LevelUpPreviewRequest, LevelUpPreviewResponse, TemplateSchema } from '../models/level-up-announcement.models';
 
 export interface RankEntry { userId: string; displayName: string; totalXp: string | number; level: number; messageCount: string | number; voiceSeconds: string | number; }
 export interface DashboardData { guildName: string; leaderboardAlias: string; memberCount: string | number; botCount: string | number; activeVoiceMembers: number; activeXpMembers: string | number; stats: { xpAwarded: string | number; messages: string | number; reactions: string | number; threads: string | number; eventInterests: string | number; temporaryChannelsCreated: string | number }; activeTemporaryChannels: string | number; processUptimeSeconds: number; watchdog: { state: string; lastRunAt: string | null; lastError: string | null }; leaderboard: RankEntry[]; }
@@ -86,6 +87,11 @@ export class GuildService {
   }
   setLeaderboardPrivacy(alias: string, publicVisible: boolean): Observable<{ publicVisible: boolean }> { return this.http.put<{ publicVisible: boolean }>(`${environment.apiBaseUrl}/rankings/${encodeURIComponent(alias)}/me/privacy`, { publicVisible }); }
   importMee6(guildId: string, data: unknown): Observable<{ imported: number }> { return this.http.post<{ imported: number }>(this.url(guildId, 'xp/import/mee6'), data); }
+  levelUpAnnouncements(guildId: string): Observable<LevelUpAnnouncementResponse> { return this.http.get<LevelUpAnnouncementResponse>(this.url(guildId, 'xp/level-up-announcements')); }
+  saveLevelUpAnnouncements(guildId: string, settings: LevelUpAnnouncementSettings): Observable<LevelUpAnnouncementSettings> { return this.http.put<LevelUpAnnouncementSettings>(this.url(guildId, 'xp/level-up-announcements'), settings); }
+  levelUpTemplateSchema(guildId: string): Observable<TemplateSchema> { return this.http.get<TemplateSchema>(this.url(guildId, 'xp/level-up-announcements/template-schema')); }
+  previewLevelUpAnnouncement(guildId: string, request: LevelUpPreviewRequest): Observable<LevelUpPreviewResponse> { return this.http.post<LevelUpPreviewResponse>(this.url(guildId, 'xp/level-up-announcements/preview'), request); }
+  testLevelUpAnnouncement(guildId: string, request: LevelUpPreviewRequest): Observable<{ messageId: string }> { return this.http.post<{ messageId: string }>(this.url(guildId, 'xp/level-up-announcements/test'), request); }
   hubs(guildId: string): Observable<VcHub[]> { return this.http.get<VcHub[]>(this.url(guildId, 'vc-hubs')); }
   createHub(guildId: string, hub: VcHub): Observable<VcHub> { return this.http.post<VcHub>(this.url(guildId, 'vc-hubs'), hub); }
   updateHub(guildId: string, hub: VcHub): Observable<VcHub> { return this.http.put<VcHub>(this.url(guildId, `vc-hubs/${hub.id}`), hub); }

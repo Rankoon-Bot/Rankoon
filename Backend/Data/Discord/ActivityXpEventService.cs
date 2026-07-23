@@ -9,7 +9,7 @@ using MongoDB.Driver;
 namespace Rankoon.Data.Discord;
 
 /// <summary>Gateway adapters for non-voice XP sources. All awards use the idempotent ledger pipeline.</summary>
-public sealed class ActivityXpEventService(DiscordShardedClient client, IXpService xp, LevelRoleService levelRoles, IReportWriter reports, RankoonDbContext database, TimeProvider timeProvider, ILogger<ActivityXpEventService> logger) : IHostedService
+public sealed class ActivityXpEventService(DiscordShardedClient client, IXpService xp, IReportWriter reports, RankoonDbContext database, TimeProvider timeProvider, ILogger<ActivityXpEventService> logger) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -50,7 +50,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
         var amount = source == "message" ? CalculateMessagePoints(message.Content.Length, rule!) : settings.Thread.MessagePoints;
         var cooldown = source == "message" ? rule!.CooldownSeconds : settings.Thread.CooldownSeconds;
         var request = new XpGrantRequest(channel.Guild.Id, member.Id, member.DisplayName, source, amount, $"{source}:{message.Id}", timeProvider.GetUtcNow().UtcDateTime, channel.Id, CooldownSeconds: cooldown);
-        if (await xp.GrantAsync(request)) await levelRoles.SynchronizeAsync(channel.Guild.Id, member.Id);
+        await xp.GrantAsync(request);
     }
 
     private async Task OnReactionAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
@@ -68,7 +68,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
         if (!settings.Enabled || !settings.Reaction.Enabled || settings.ExcludedChannelIds.Contains(guildChannel.Id)) return;
         var member = guildChannel.Guild.GetUser(reaction.UserId); if (member == null || member.Roles.Any(role => settings.ExcludedRoleIds.Contains(role.Id))) return;
         var request = new XpGrantRequest(guildChannel.Guild.Id, member.Id, member.DisplayName, "reaction", settings.Reaction.Points, $"reaction:{message.Id}:{reaction.UserId}:{reaction.Emote}", timeProvider.GetUtcNow().UtcDateTime, guildChannel.Id, CooldownSeconds: settings.Reaction.CooldownSeconds);
-        if (await xp.GrantAsync(request)) await levelRoles.SynchronizeAsync(guildChannel.Guild.Id, member.Id);
+        await xp.GrantAsync(request);
     }
 
     private async Task OnReactionRemovedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
@@ -83,8 +83,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
         var settings = await xp.GetSettingsAsync(guildChannel.Guild.Id);
         if (!settings.Reaction.ReverseOnRemove) return;
         var originalKey = $"reaction:{message.Id}:{reaction.UserId}:{reaction.Emote}";
-        if (await xp.ReverseGrantAsync(originalKey, $"reaction-remove:{message.Id}:{reaction.UserId}:{reaction.Emote}"))
-            await levelRoles.SynchronizeAsync(guildChannel.Guild.Id, reaction.UserId);
+        await xp.ReverseGrantAsync(originalKey, $"reaction-remove:{message.Id}:{reaction.UserId}:{reaction.Emote}");
     }
 
     private async Task OnThreadAsync(SocketThreadChannel thread)
@@ -96,7 +95,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
     {
         var owner = thread.Owner; if (owner == null || owner.IsBot) return;
         var settings = await xp.GetSettingsAsync(thread.Guild.Id);
-        if (settings.Enabled && settings.Thread.Enabled && await xp.GrantAsync(thread.Guild.Id, owner.Id, owner.DisplayName, "thread_create", settings.Thread.CreatePoints, $"thread:{thread.Id}", thread.Id)) await levelRoles.SynchronizeAsync(thread.Guild.Id, owner.Id);
+        if (settings.Enabled && settings.Thread.Enabled) await xp.GrantAsync(thread.Guild.Id, owner.Id, owner.DisplayName, "thread_create", settings.Thread.CreatePoints, $"thread:{thread.Id}", thread.Id);
     }
 
     private async Task OnEventInterestAsync(Cacheable<SocketUser, RestUser, IUser, ulong> cachedUser, SocketGuildEvent guildEvent)
@@ -110,7 +109,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
         if (user == null) return;
         if (user.IsBot) return;
         var settings = await xp.GetSettingsAsync(guildEvent.Guild.Id);
-        if (settings.Enabled && settings.EventInterest.Enabled && await xp.GrantAsync(guildEvent.Guild.Id, user.Id, user.GlobalName ?? user.Username, "event_interest", settings.EventInterest.Points, $"event-interest:{guildEvent.Id}:{user.Id}")) await levelRoles.SynchronizeAsync(guildEvent.Guild.Id, user.Id);
+        if (settings.Enabled && settings.EventInterest.Enabled) await xp.GrantAsync(guildEvent.Guild.Id, user.Id, user.GlobalName ?? user.Username, "event_interest", settings.EventInterest.Points, $"event-interest:{guildEvent.Id}:{user.Id}");
     }
     private async Task OnEventInterestRemovedAsync(Cacheable<SocketUser, RestUser, IUser, ulong> cachedUser, SocketGuildEvent guildEvent)
     {
@@ -121,8 +120,7 @@ public sealed class ActivityXpEventService(DiscordShardedClient client, IXpServi
     {
         var user = await cachedUser.GetOrDownloadAsync();
         if (user == null) return;
-        if (await xp.ReverseGrantAsync($"event-interest:{guildEvent.Id}:{user.Id}", $"event-interest-remove:{guildEvent.Id}:{user.Id}", "event_interest"))
-            await levelRoles.SynchronizeAsync(guildEvent.Guild.Id, user.Id);
+        await xp.ReverseGrantAsync($"event-interest:{guildEvent.Id}:{user.Id}", $"event-interest-remove:{guildEvent.Id}:{user.Id}", "event_interest");
     }
     private static decimal CalculateMessagePoints(int length, Data.Model.MessageXpSettings settings)
     {

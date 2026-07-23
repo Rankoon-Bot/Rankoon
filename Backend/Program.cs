@@ -138,6 +138,10 @@ builder.Services.AddScoped<IGuildAuthorizationService, GuildAuthorizationService
 builder.Services.AddSingleton<IGuildModuleRegistry, GuildModuleRegistry>();
 builder.Services.AddSingleton<IGuildRolePermissionService, GuildRolePermissionService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.XpService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelTransitionService, Rankoon.Data.Xp.LevelTransitionService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelUpTemplateRenderer, Rankoon.Data.Xp.LevelUpTemplateRenderer>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelUpRandom, Rankoon.Data.Xp.LevelUpRandom>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.LevelUpTemplateSelector>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpService>(services => services.GetRequiredService<Rankoon.Data.Xp.XpService>());
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpAuditService, Rankoon.Data.Xp.XpAuditService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonService, Rankoon.Data.Xp.SeasonService>();
@@ -145,6 +149,8 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonLifecycleService, Rankoon.D
 builder.Services.AddSingleton<Rankoon.Data.Xp.LedgerProjectionRepairService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonCoordinator>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
+builder.Services.AddSingleton<IDiscordAnnouncementSender, DiscordAnnouncementSender>();
+builder.Services.AddSingleton<LevelProgressionWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILeaderboardRealtimePublisher, Rankoon.Data.Xp.LeaderboardRealtimePublisher>();
 builder.Services.AddSingleton<Rankoon.Data.Development.DevelopmentLeaderboardService>();
@@ -161,6 +167,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService<MongoIndexInitializer>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LedgerProjectionRepairService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<LevelProgressionWorker>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<RankoonBotHostedService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VcHubService>());
