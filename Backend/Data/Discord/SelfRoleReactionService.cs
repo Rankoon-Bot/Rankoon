@@ -6,33 +6,23 @@ using Rankoon.Data.MongoDb;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class SelfRoleReactionService(DiscordShardedClient client, RankoonDbContext database, SelfRoleService panels, TimeProvider timeProvider, ILogger<SelfRoleReactionService> logger) : BackgroundService
+public sealed class SelfRoleReactionService(RankoonDbContext database, SelfRoleService panels, TimeProvider timeProvider, ILogger<SelfRoleReactionService> logger)
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        client.ReactionAdded += OnReactionAddedAsync;
-        client.ReactionRemoved += OnReactionRemovedAsync;
-        client.ShardReady += OnShardReadyAsync;
-        try { await Task.Delay(Timeout.Infinite, stoppingToken); }
-        catch (OperationCanceledException) { }
-        finally
-        {
-            client.ReactionAdded -= OnReactionAddedAsync;
-            client.ReactionRemoved -= OnReactionRemovedAsync;
-            client.ShardReady -= OnShardReadyAsync;
-        }
-    }
-
-    private async Task OnShardReadyAsync(DiscordSocketClient shard)
+    public async Task OnShardReadyAsync(DiscordSocketClient shard)
     {
         try { await panels.ReconcileAsync(shard.Guilds); }
         catch (Exception exception) { logger.LogError(exception, "Self-role reconciliation failed for shard {ShardId}", shard.ShardId); }
     }
+    public async Task OnGuildReadyAsync(SocketGuild guild)
+    {
+        try { await panels.ReconcileAsync([guild]); }
+        catch (Exception exception) { logger.LogError(exception, "Self-role reconciliation failed for guild {GuildId}", guild.Id); }
+    }
 
-    private Task OnReactionAddedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) => HandleAsync(message.Id, channel, reaction, true);
-    private Task OnReactionRemovedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) => HandleAsync(message.Id, channel, reaction, false);
+    public Task OnReactionAddedAsync(DiscordShardedClient client, Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) => HandleAsync(client, message.Id, channel, reaction, true);
+    public Task OnReactionRemovedAsync(DiscordShardedClient client, Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) => HandleAsync(client, message.Id, channel, reaction, false);
 
-    private async Task HandleAsync(ulong messageId, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction, bool added)
+    private async Task HandleAsync(DiscordShardedClient client, ulong messageId, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction, bool added)
     {
         try
         {
@@ -41,9 +31,10 @@ public sealed class SelfRoleReactionService(DiscordShardedClient client, Rankoon
             var panel = await database.SelfRolePanels.Find(x => x.GuildId == guildChannel.Guild.Id && x.MessageId == messageId && x.Enabled).FirstOrDefaultAsync();
             var mapping = panel?.Mappings.FirstOrDefault(item => SelfRoleService.Matches(item.Emoji, reaction.Emote));
             if (panel == null || mapping == null) return;
-            IGuildUser member = (IGuildUser?)guildChannel.Guild.GetUser(reaction.UserId) ?? await client.Rest.GetGuildUserAsync(guildChannel.Guild.Id, reaction.UserId);
+            IGuildUser? member = reaction.User.IsSpecified ? reaction.User.Value as IGuildUser : guildChannel.Guild.GetUser(reaction.UserId);
+            member ??= await client.Rest.GetGuildUserAsync(guildChannel.Guild.Id, reaction.UserId);
             var role = guildChannel.Guild.GetRole(mapping.RoleId);
-            if (member.IsBot || role == null) return;
+            if (member == null || member.IsBot || role == null) return;
             if (added)
             {
                 if (role.Position >= guildChannel.Guild.CurrentUser.Hierarchy) return;

@@ -76,6 +76,7 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                 await database.GuildBotIdentities.Indexes.CreateManyAsync([
                     new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }),
                     new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.TokenFingerprint), new CreateIndexOptions { Unique = true, Sparse = true, Name = "token_fingerprint_unique" }),
+                    new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.ApplicationId), new CreateIndexOptions { Unique = true, Sparse = true, Name = "application_unique" }),
                     new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.Status).Descending(x => x.UpdatedAt), new CreateIndexOptions { Name = "status_updated" })
                 ], stoppingToken);
                 await database.CustomBotCapacityReservations.Indexes.CreateManyAsync([

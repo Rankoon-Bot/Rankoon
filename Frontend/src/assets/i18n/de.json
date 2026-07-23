@@ -144,7 +144,13 @@
         "eventInterest": "Die Event-Interesse-XP dürfen nicht negativ sein.",
         "thread": "Die Thread-XP-Werte sind ungültig.",
         "channelMultipliers": "Kanal-Multiplikatoren benötigen eindeutige Kanäle und nicht-negative Werte.",
-        "levelRoles": "Level-Rollen benötigen eindeutige Rollen und positive Level."
+        "levelRoles": "Level-Rollen benötigen eindeutige Rollen und positive Level.",
+        "serverBoosterRequired": "Server-Booster-Einstellungen und Stufen sind erforderlich.",
+        "serverBoosterTierCount": "Es sind höchstens 10 Server-Booster-Stufen erlaubt.",
+        "serverBoosterMonths": "Boost-Monate müssen eine nicht negative ganze Zahl sein.",
+        "serverBoosterMultiplier": "Booster-Multiplikatoren müssen zwischen 1,00 und 10,00 liegen und dürfen höchstens zwei Nachkommastellen haben.",
+        "serverBoosterDuplicateMonths": "Monatsschwellen für Server-Booster müssen eindeutig sein.",
+        "serverBoosterOrder": "Server-Booster-Multiplikatoren dürfen mit steigender Boost-Dauer nicht sinken."
       },
       "import": {
         "guildMismatch": "Der MEE6-Export gehört zu einem anderen Server.",
@@ -168,7 +174,7 @@
     },
     "levelAnnouncements": { "channelUnavailable": "Der konfigurierte Kanal ist nicht verfügbar.", "revisionConflict": "Die Level-Up-Nachrichten wurden zwischenzeitlich geändert.", "settingsInvalid": "Die Level-Up-Einstellungen sind ungültig.", "templateInvalid": "Die Vorlage kann nicht gerendert werden." },
     "customBotIdentity": {
-      "disabled": "Custom Bot Identity ist auf dieser Rankoon-Instanz deaktiviert.", "guildNotAllowed": "Dieser Server darf Custom Bot Identity nicht verwenden.", "capacityReached": "Custom Bot Identity ist derzeit vollstaendig belegt.", "tokenInvalid": "Der Bot-Token ist ungueltig oder widerrufen.", "tokenAlreadyAssigned": "Dieser Bot-Token ist bereits einem anderen Server zugeordnet.", "botNotInstalled": "Der Custom Bot ist nicht in diesem Server installiert.", "runtimeStartFailed": "Die Custom-Bot-Runtime konnte nicht gestartet werden.", "revisionConflict": "Die Bot-Identitaet wurde seit dem Laden geaendert. Bitte lade neu.", "ownerRequired": "Nur der Server-Owner kann Custom Bot Identity verwalten."
+      "disabled": "Custom Bot Identity ist auf dieser Rankoon-Instanz deaktiviert.", "guildNotAllowed": "Dieser Server darf Custom Bot Identity nicht verwenden.", "capacityReached": "Custom Bot Identity ist derzeit vollständig belegt.", "tokenInvalid": "Der Bot-Token ist ungültig oder widerrufen.", "tokenAlreadyAssigned": "Dieser Bot-Token ist bereits einem anderen Server zugeordnet.", "tokenApplicationMismatch": "Token einer aktiven Identität muss zur selben Discord-Anwendung gehören.", "botNotInstalled": "Der Custom Bot ist nicht in diesem Server installiert.", "missingIntents": "Aktiviere Server Members Intent und Message Content Intent im Discord Developer Portal.", "missingPermissions": "Erteile benötigte Berechtigungen und verschiebe die Bot-Rolle über verwaltete Rankoon-Rollen.", "roleHierarchyInvalid": "Verschiebe die Custom-Bot-Rolle über alle von Rankoon verwalteten Rollen.", "runtimeStartFailed": "Die Custom-Bot-Runtime konnte nicht gestartet werden.", "commandRegistrationFailed": "Rankoon-Commands konnten nicht registriert werden.", "selfRoleMigrationFailed": "Self-Role-Panels konnten nicht sicher migriert werden.", "revisionConflict": "Die Bot-Identität wurde seit dem Laden geändert. Bitte lade neu.", "ownerRequired": "Nur der Server-Owner kann Custom Bot Identity verwalten."
     },
     "selfRoles": {
       "invalidPanel": "Das Selbstrollen-Panel ist ungültig.",

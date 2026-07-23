@@ -6,6 +6,7 @@ using Rankoon.Data.Model;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Xp;
 using Rankoon.Api;
+using Rankoon.Data.Discord;
 
 namespace Rankoon.Controllers;
 
@@ -19,7 +20,7 @@ public sealed class GuildPermissionsController(
     IGuildAuthorizationService authorization,
     IGuildRolePermissionService permissions,
     IGuildModuleRegistry modules,
-    DiscordShardedClient discord,
+    IGuildDiscordContextResolver discord,
     LeaderboardService leaderboard,
     IReportWriter reports) : ControllerBase
 {
@@ -28,7 +29,7 @@ public sealed class GuildPermissionsController(
     {
         if (!ulong.TryParse(guildId, out var id)) return this.ApiError("guild.invalidId");
         if (!await authorization.IsMemberAsync(User, id, HttpContext.RequestAborted)) return Forbid();
-        var guild = discord.GetGuild(id);
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild;
         if (guild == null) return NotFound();
 
         var moduleIds = await authorization.GetAccessibleModuleIdsAsync(User, id, HttpContext.RequestAborted);
@@ -118,7 +119,7 @@ public sealed class GuildPermissionsController(
     {
         if (!ulong.TryParse(guildId, out var id)) return (null, this.ApiError("guild.invalidId"));
         if (!await authorization.IsOwnerAsync(User, id, HttpContext.RequestAborted)) return (null, Forbid());
-        var guild = discord.GetGuild(id);
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild;
         return guild == null ? (null, NotFound()) : (guild, null);
     }
 }

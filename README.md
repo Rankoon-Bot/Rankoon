@@ -116,7 +116,7 @@ Voice sessions are reconciled every 5 seconds by default and settled when a memb
 
 Custom Bot Identity is disabled by default. Set `CUSTOMBOTIDENTITY__ENABLED=true` and configure a separate, long random `CUSTOMBOTIDENTITY__FINGERPRINTKEY` to allow guild owners to connect one custom Discord bot application to one guild. `CUSTOMBOTIDENTITY__MAXACTIVEGUILDS` limits reserved identities; omit it for no limit. An empty `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS` allowlist permits every guild, while indexed values such as `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS__0=123456789012345678` restrict access.
 
-Custom bot tokens are encrypted using ASP.NET Core Data Protection and never returned by the API. Production deployments must persist and mount the Data Protection key ring across restarts; otherwise encrypted tokens cannot be recovered after a redeploy.
+Custom bot tokens are encrypted using ASP.NET Core Data Protection and never returned by the API. Production deployments must set `DATAPROTECTION__KEYRINGPATH` to a persistently mounted directory; otherwise encrypted tokens cannot be recovered after a redeploy. Keep `CUSTOMBOTIDENTITY__FINGERPRINTKEY` stable and separate from JWT and Discord secrets. `CUSTOMBOTIDENTITY__STARTUPPARALLELISM` controls staggered runtime restoration and must be between `1` and `4`.
 Eligible intervals are split at persisted season boundaries, producing uniquely
 keyed ledger grants per segment. The first qualifying settlement includes time
 since joining, including the configured minimum-session interval.

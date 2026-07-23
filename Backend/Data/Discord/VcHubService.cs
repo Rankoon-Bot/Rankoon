@@ -8,7 +8,7 @@ using Rankoon.Data.Reporting;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext database, IReportWriter reports, TimeProvider timeProvider, ILogger<VcHubService> logger) : BackgroundService
+public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDbContext database, IReportWriter reports, TimeProvider timeProvider, ILogger<VcHubService> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _gates = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _ownerGates = new();
@@ -18,9 +18,6 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
     private readonly ConcurrentDictionary<ulong, byte> _deletingTemporaryChannels = new();
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        client.UserVoiceStateUpdated += OnVoiceStateChangedAsync;
-        client.ChannelDestroyed += OnChannelDestroyedAsync;
-        client.ShardReady += OnShardReadyAsync;
         try
         {
             while (!stoppingToken.IsCancellationRequested)
@@ -43,21 +40,16 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
-        finally
-        {
-            client.UserVoiceStateUpdated -= OnVoiceStateChangedAsync;
-            client.ChannelDestroyed -= OnChannelDestroyedAsync;
-            client.ShardReady -= OnShardReadyAsync;
-        }
+        finally { }
     }
 
-    private async Task OnShardReadyAsync(DiscordSocketClient shard)
+    public async Task OnShardReadyAsync(DiscordSocketClient shard)
     {
         try { await ReconcileHubsAsync(shard.Guilds); }
         catch (Exception exception) { logger.LogError(exception, "VC hub reconciliation failed after Discord shard {ShardId} became ready", shard.ShardId); }
     }
 
-    private async Task OnChannelDestroyedAsync(SocketChannel channel)
+    public async Task OnChannelDestroyedAsync(SocketChannel channel)
     {
         if (channel is not SocketVoiceChannel voiceChannel) return;
         try
@@ -87,7 +79,7 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
         catch (Exception exception) { logger.LogError(exception, "VC hub reconciliation failed after channel {ChannelId} was deleted", voiceChannel.Id); }
     }
 
-    private async Task OnVoiceStateChangedAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)
+    public async Task OnVoiceStateChangedAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)
     {
         try
         {
@@ -272,7 +264,18 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
         finally { gate.Release(); }
     }
 
-    private async Task ReconcileAllHubsAsync(CancellationToken cancellationToken) => await ReconcileHubsAsync(client.Guilds, cancellationToken);
+    private async Task ReconcileAllHubsAsync(CancellationToken cancellationToken)
+    {
+        var guildIds = await database.VcHubs.Distinct(x => x.GuildId, Builders<VcHub>.Filter.Empty).ToListAsync(cancellationToken);
+        foreach (var guildId in guildIds)
+            if (await discord.ResolveAsync(guildId, cancellationToken) is { } context)
+                await ReconcileHubsAsync([context.Guild], cancellationToken);
+    }
+    public async Task OnGuildReadyAsync(SocketGuild guild)
+    {
+        try { await ReconcileHubsAsync([guild]); }
+        catch (Exception exception) { logger.LogError(exception, "VC hub reconciliation failed for guild {GuildId}", guild.Id); }
+    }
     private async Task ReconcileHubsAsync(IEnumerable<SocketGuild> guilds, CancellationToken cancellationToken = default)
     {
         foreach (var guild in guilds)
@@ -295,7 +298,19 @@ public sealed class VcHubService(DiscordShardedClient client, RankoonDbContext d
         finally { gate.Release(); }
     }
 
-    private async Task CleanupAsync(CancellationToken cancellationToken) { foreach (var guild in client.Guilds) foreach (var channel in await database.TemporaryVoiceChannels.Find(x => x.GuildId == guild.Id).ToListAsync(cancellationToken)) { var socketChannel = guild.GetVoiceChannel(channel.ChannelId); if (socketChannel == null || socketChannel.ConnectedUsers.Count == 0) await DeleteIfEmptyAsync(guild, socketChannel, channel); } }
+    private async Task CleanupAsync(CancellationToken cancellationToken)
+    {
+        var guildIds = await database.TemporaryVoiceChannels.Distinct(x => x.GuildId, Builders<TemporaryVoiceChannel>.Filter.Empty).ToListAsync(cancellationToken);
+        foreach (var guildId in guildIds)
+        {
+            if (await discord.ResolveAsync(guildId, cancellationToken) is not { } context) continue;
+            foreach (var channel in await database.TemporaryVoiceChannels.Find(x => x.GuildId == guildId).ToListAsync(cancellationToken))
+            {
+                var socketChannel = context.Guild.GetVoiceChannel(channel.ChannelId);
+                if (socketChannel == null || socketChannel.ConnectedUsers.Count == 0) await DeleteIfEmptyAsync(context.Guild, socketChannel, channel);
+            }
+        }
+    }
     private async Task DeleteIfEmptyAsync(SocketGuild guild, SocketVoiceChannel? channel, TemporaryVoiceChannel? record = null)
     {
         record ??= channel == null

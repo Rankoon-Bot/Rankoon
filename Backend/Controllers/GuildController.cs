@@ -19,7 +19,7 @@ public sealed record VoiceWatchdogControl(bool Enabled);
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}")]
-public sealed class GuildController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, GuildMembershipService memberships, VoiceXpWatchdog watchdog, VcHubService hubs, LevelRoleService levelRoles, IReportWriter reports) : ControllerBase
+public sealed class GuildController(IGuildAuthorizationService authorization, IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, GuildMembershipService memberships, VoiceXpWatchdog watchdog, VcHubService hubs, LevelRoleService levelRoles, IReportWriter reports) : ControllerBase
 {
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId, string? moduleId = null)
     {
@@ -35,7 +35,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     public async Task<IActionResult> Dashboard(string guildId)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
-        var guild = discord.GetGuild(id)!;
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild; if (guild == null) return NotFound();
         var stats = await database.GuildStats.Find(x => x.GuildId == id).FirstOrDefaultAsync() ?? new GuildStats { GuildId = id };
         var botCount = guild.Users.Count(user => user.IsBot);
         var activeVc = guild.VoiceChannels.Sum(x => x.ConnectedUsers.Count(user => !user.IsBot));
@@ -49,7 +49,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     public async Task<IActionResult> Resources(string guildId)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
-        var guild = discord.GetGuild(id)!;
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild; if (guild == null) return NotFound();
         return Ok(new { roles = guild.Roles.Where(x => !x.IsManaged && !x.IsEveryone).Select(x => new { id = x.Id, name = x.Name }), channels = guild.Channels.Select(x => new { id = x.Id, name = x.Name, type = x.GetType().Name }) });
     }
 
@@ -72,6 +72,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         }
         settings.GuildId = id;
         settings.Voice.MinimumSessionSeconds = Math.Clamp(settings.Voice.MinimumSessionSeconds, 0, 86400);
+        ServerBoosterXpSettingsValidator.Normalize(settings.ServerBooster);
         await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted);
         await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
         await WriteActivityAsync(id, ReportNames.XpSettingsChanged, metadata: new Dictionary<string, object?> { ["enabled"] = settings.Enabled });
@@ -157,7 +158,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         hub.Id = null; hub.GuildId = id;
         if (hub.JoinChannelId == 0)
         {
-            var guild = discord.GetGuild(id)!;
+            var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild; if (guild == null) return NotFound();
             var created = await guild.CreateVoiceChannelAsync(string.IsNullOrWhiteSpace(hub.HubChannelName) ? "VC erstellen" : hub.HubChannelName, options => options.CategoryId = hub.CategoryId);
             hub.JoinChannelId = created.Id;
             hub.IsManagedChannel = true;
@@ -176,7 +177,8 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
 
         hub.Id = hubId;
         hub.GuildId = id;
-        await hubs.UpdateHubAsync(discord.GetGuild(id)!, existingHub, hub, HttpContext.RequestAborted);
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild; if (guild == null) return NotFound();
+        await hubs.UpdateHubAsync(guild, existingHub, hub, HttpContext.RequestAborted);
         await WriteActivityAsync(id, ReportNames.VoiceHubUpdated, metadata: new Dictionary<string, object?> { ["hubId"] = hubId });
         return Ok(hub);
     }
@@ -186,7 +188,8 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.VoiceHubs); if (error != null) return error;
         var hub = await database.VcHubs.Find(x => x.GuildId == id && x.Id == hubId).FirstOrDefaultAsync(HttpContext.RequestAborted);
         if (hub == null) return NotFound();
-        await hubs.DeleteHubAsync(discord.GetGuild(id)!, hub, HttpContext.RequestAborted);
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild; if (guild == null) return NotFound();
+        await hubs.DeleteHubAsync(guild, hub, HttpContext.RequestAborted);
         await WriteActivityAsync(id, ReportNames.VoiceHubDeleted, metadata: new Dictionary<string, object?> { ["hubId"] = hubId, ["channelId"] = hub.JoinChannelId });
         return NoContent();
     }
@@ -199,7 +202,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
     private static List<(string Field, string ErrorKey)> ValidateXpSettings(GuildXpSettings settings)
     {
         var errors = new List<(string Field, string ErrorKey)>();
-        if (settings.Message == null || settings.Voice == null || settings.Reaction == null || settings.EventInterest == null || settings.Thread == null)
+        if (settings.Message == null || settings.Voice == null || settings.Reaction == null || settings.EventInterest == null || settings.Thread == null || settings.ServerBooster == null)
         {
             errors.Add(("settings", "xp.settings.groupsRequired"));
             return errors;
@@ -219,6 +222,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, Di
         if (settings.Thread.CreatePoints < 0 || settings.Thread.MessagePoints < 0 || settings.Thread.CooldownSeconds < 0) errors.Add(("thread", "xp.settings.thread"));
         if (settings.ChannelMultipliers.Any(x => x.ChannelId == 0 || x.Multiplier < 0) || settings.ChannelMultipliers.Select(x => x.ChannelId).Distinct().Count() != settings.ChannelMultipliers.Count) errors.Add(("channelMultipliers", "xp.settings.channelMultipliers"));
         if (settings.LevelRoles.Any(x => x.Level < 1 || x.RoleId == 0) || settings.LevelRoles.Select(x => x.RoleId).Distinct().Count() != settings.LevelRoles.Count) errors.Add(("levelRoles", "xp.settings.levelRoles"));
+        errors.AddRange(ServerBoosterXpSettingsValidator.Validate(settings.ServerBooster));
         return errors;
     }
 }

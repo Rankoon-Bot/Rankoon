@@ -1,4 +1,4 @@
-using Discord.WebSocket;
+using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 
 namespace Rankoon.Data.Xp;
@@ -7,12 +7,12 @@ public sealed record LevelRoleChange(ulong RoleId, string Name, int RequiredLeve
 public sealed record LevelRoleFailure(ulong RoleId, string Name, int RequiredLevel, string ErrorCode);
 public sealed record LevelRoleSynchronizationResult(IReadOnlyList<LevelRoleChange> Added, IReadOnlyList<LevelRoleChange> Removed, IReadOnlyList<LevelRoleFailure> Failed);
 
-public sealed class LevelRoleService(DiscordShardedClient client, IXpService xp)
+public sealed class LevelRoleService(IGuildDiscordContextResolver discord, IXpService xp)
 {
     public async Task<LevelRoleSynchronizationResult> SynchronizeAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default)
     {
         var added = new List<LevelRoleChange>(); var removed = new List<LevelRoleChange>(); var failed = new List<LevelRoleFailure>();
-        var guild = client.GetGuild(guildId); var member = guild?.GetUser(userId); if (guild == null || member == null) return new(added, removed, failed);
+        var guild = (await discord.ResolveAsync(guildId, cancellationToken))?.Guild; var member = guild?.GetUser(userId); if (guild == null || member == null) return new(added, removed, failed);
         var settings = await xp.GetSettingsAsync(guildId, cancellationToken); var stats = await xp.GetMemberAsync(guildId, userId, cancellationToken); if (stats == null) return new(added, removed, failed);
         var level = Mee6LevelCurve.GetLevel(stats.ImportedMee6Xp + stats.EarnedXp + stats.ManualAdjustment);
         var configured = settings.LevelRoles.ToDictionary(x => x.RoleId);

@@ -14,6 +14,7 @@ describe('translation catalogs', () => {
     'role-permissions',
     'reporting',
     'self-roles',
+    'custom-bot-identity',
     'xp',
   ];
   const flatten = (value: unknown, prefix = ''): string[] =>
@@ -48,6 +49,18 @@ describe('translation catalogs', () => {
       for (const errorKey of KNOWN_API_ERROR_KEYS)
         expect(keys).toContain(`apiErrors.${errorKey}`);
       expect(keys).not.toContain('auth.logoutSucceeded');
+    }
+  });
+
+  it('contains English and German server booster settings copy', async () => {
+    const requiredKeys = [
+      'xp.boosterTitle', 'xp.boosterDescription', 'xp.boosterAddTier', 'xp.boosterRemove',
+      'xp.boosterThresholdHint', 'xp.boosterLastTierHint', 'xp.boosterMonthsValidation',
+      'xp.boosterDuplicateValidation', 'xp.boosterMultiplierValidation', 'xp.boosterOrderValidation'
+    ];
+    for (const lang of ['en', 'de']) {
+      const keys = flatten(await catalog('xp', lang));
+      for (const key of requiredKeys) expect(keys).toContain(key);
     }
   });
 });

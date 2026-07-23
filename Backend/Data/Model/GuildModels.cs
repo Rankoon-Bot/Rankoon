@@ -18,6 +18,7 @@ public sealed class GuildXpSettings
     [BsonElement("excluded_category_ids")] public List<ulong> ExcludedCategoryIds { get; set; } = [];
     [BsonElement("excluded_role_ids")] public List<ulong> ExcludedRoleIds { get; set; } = [];
     [BsonElement("channel_multipliers")] public List<ChannelMultiplier> ChannelMultipliers { get; set; } = [];
+    [BsonElement("server_booster")] public ServerBoosterXpSettings ServerBooster { get; set; } = new();
     [BsonElement("level_roles")] public List<LevelRole> LevelRoles { get; set; } = [];
     [BsonElement("level_up_channel_id")] public ulong? LevelUpChannelId { get; set; }
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -30,6 +31,8 @@ public sealed class ReactionXpSettings { public bool Enabled { get; set; } = tru
 public sealed class EventInterestXpSettings { public bool Enabled { get; set; } = true; public int Points { get; set; } = 10; }
 public sealed class ThreadXpSettings { public bool Enabled { get; set; } = true; public int CreatePoints { get; set; } = 15; public int MessagePoints { get; set; } = 5; public int CooldownSeconds { get; set; } = 60; }
 public sealed class ChannelMultiplier { public ulong ChannelId { get; set; } public decimal Multiplier { get; set; } = 1; }
+public sealed class ServerBoosterXpSettings { public bool Enabled { get; set; } public List<ServerBoosterXpTier> Tiers { get; set; } = []; }
+public sealed class ServerBoosterXpTier { public int MinimumBoostMonths { get; set; } public decimal Multiplier { get; set; } = 1; }
 public sealed class LevelRole { public int Level { get; set; } public ulong RoleId { get; set; } }
 
 public sealed class MemberXp
@@ -105,6 +108,7 @@ public sealed class XpLedgerEntry
     [BsonElement("display_name")] public string DisplayName { get; set; } = string.Empty;
     [BsonElement("source")] public string Source { get; set; } = string.Empty;
     [BsonElement("amount")] public decimal Amount { get; set; }
+    [BsonElement("applied_server_booster_multiplier"), BsonIgnoreIfNull] public decimal? AppliedServerBoosterMultiplier { get; set; }
     [BsonElement("channel_id")] public ulong? ChannelId { get; set; }
     [BsonElement("created_at")] public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     [BsonElement("occurred_at_utc")] public DateTime OccurredAtUtc { get; set; }

@@ -3,3 +3,7 @@
 .settings-panel input { min-height: 44px; flex: 1 1 20rem; }
 .settings-panel button { min-height: 44px; }
 .danger, .error { color: var(--rk-danger); }
+.identity-heading { display: flex; align-items: center; gap: var(--rk-space-4); }
+.identity-heading img { width: calc(var(--rk-space-6) * 2 + var(--rk-space-4)); height: calc(var(--rk-space-6) * 2 + var(--rk-space-4)); border-radius: var(--rk-radius-lg); }
+.settings-panel dl { display: grid; grid-template-columns: minmax(10rem, auto) 1fr; gap: var(--rk-space-2) var(--rk-space-4); }
+.settings-panel dd { margin: 0; overflow-wrap: anywhere; }

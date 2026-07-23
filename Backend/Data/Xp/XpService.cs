@@ -19,14 +19,18 @@ public interface IXpService
     Task RecalculateTotalAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default);
 }
 
-public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null, int? CooldownSeconds = null, bool SuppressReport = false);
+public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null, int? CooldownSeconds = null, bool SuppressReport = false, decimal? AppliedServerBoosterMultiplier = null);
 
 public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IReportWriter reports, ILeaderboardRealtimePublisher realtime, ILevelTransitionService transitions, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
 {
     public async Task<GuildXpSettings> GetSettingsAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
         var settings = await database.GuildXpSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
-        return settings ?? new GuildXpSettings { GuildId = guildId };
+        settings ??= new GuildXpSettings { GuildId = guildId };
+        settings.ServerBooster ??= new ServerBoosterXpSettings();
+        settings.ServerBooster.Tiers ??= [];
+        ServerBoosterXpSettingsValidator.Normalize(settings.ServerBooster);
+        return settings;
     }
 
     public Task SaveSettingsAsync(GuildXpSettings settings, CancellationToken cancellationToken = default)
@@ -45,6 +49,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             .Set(x => x.ExcludedCategoryIds, settings.ExcludedCategoryIds)
             .Set(x => x.ExcludedRoleIds, settings.ExcludedRoleIds)
             .Set(x => x.ChannelMultipliers, settings.ChannelMultipliers)
+            .Set(x => x.ServerBooster, settings.ServerBooster)
             .Set(x => x.LevelRoles, settings.LevelRoles)
             .Set(x => x.LevelUpChannelId, settings.LevelUpChannelId)
             .Set(x => x.UpdatedAt, updatedAt);
@@ -66,7 +71,8 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             ledger = new XpLedgerEntry
             {
                 GrantKey = request.GrantKey, GuildId = request.GuildId, UserId = request.UserId, DisplayName = request.DisplayName, Source = request.Source,
-                Amount = request.Amount, ChannelId = request.ChannelId, OccurredAtUtc = occurredAtUtc, CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
+                Amount = request.Amount, AppliedServerBoosterMultiplier = request.AppliedServerBoosterMultiplier is > 1m ? request.AppliedServerBoosterMultiplier : null,
+                ChannelId = request.ChannelId, OccurredAtUtc = occurredAtUtc, CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
                 SeasonId = season?.Id, PeriodStartsAtUtc = request.PeriodStartsAtUtc, PeriodEndsAtUtc = request.PeriodEndsAtUtc, ReversesGrantKey = request.ReversesGrantKey,
                 CooldownSource = request.CooldownSeconds.HasValue ? request.Source : null, CooldownSeconds = request.CooldownSeconds,
                 Kind = XpLedgerEntryKind.AutomaticGrant, Scope = XpLedgerScope.LifetimeAndSeason
@@ -117,7 +123,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         // Preserve the original immutable season attribution even if a different season is currently active.
         var existing = await database.XpLedger.Find(x => x.GrantKey == reversalGrantKey).FirstOrDefaultAsync(cancellationToken);
         if (existing != null) { if (existing.ProjectionStatus == SeasonProjectionStatus.Pending) await ProjectAsync(existing, cancellationToken); return false; }
-        var entry = new XpLedgerEntry { GrantKey = reversal.GrantKey, GuildId = reversal.GuildId, UserId = reversal.UserId, DisplayName = reversal.DisplayName, Source = reversal.Source, Amount = reversal.Amount, ChannelId = reversal.ChannelId, OccurredAtUtc = reversal.OccurredAtUtc, CreatedAt = reversal.OccurredAtUtc, SeasonId = original.SeasonId, ReversesGrantKey = originalGrantKey, ReversesLedgerEntryId = original.Id, Kind = XpLedgerEntryKind.AutomaticReversal, Scope = XpLedgerSemantics.GetEffectiveScope(original) };
+        var entry = CreateAutomaticReversal(original, reversalGrantKey, reversal.OccurredAtUtc);
         try { await database.XpLedger.InsertOneAsync(entry, cancellationToken: cancellationToken); }
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { return false; }
         await ProjectAsync(entry, cancellationToken);
@@ -126,6 +132,15 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
 
     internal static bool MatchesAutomaticGrant(XpLedgerEntry entry, string source) =>
         entry.Source == source && XpLedgerSemantics.GetEffectiveKind(entry) == XpLedgerEntryKind.AutomaticGrant;
+
+    internal static XpLedgerEntry CreateAutomaticReversal(XpLedgerEntry original, string reversalGrantKey, DateTime occurredAtUtc) => new()
+    {
+        GrantKey = reversalGrantKey, GuildId = original.GuildId, UserId = original.UserId, DisplayName = original.DisplayName,
+        Source = $"{original.Source}_reversal", Amount = -original.Amount, ChannelId = original.ChannelId,
+        OccurredAtUtc = occurredAtUtc, CreatedAt = occurredAtUtc, SeasonId = original.SeasonId,
+        ReversesGrantKey = original.GrantKey, ReversesLedgerEntryId = original.Id,
+        Kind = XpLedgerEntryKind.AutomaticReversal, Scope = XpLedgerSemantics.GetEffectiveScope(original)
+    };
 
     private async Task<bool> AcquireCooldownAsync(XpLedgerEntry ledger, CancellationToken cancellationToken)
     {

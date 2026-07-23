@@ -16,7 +16,7 @@ namespace Rankoon.Controllers;
 public sealed record LevelUpPreviewRequest(LevelUpMessageTemplate Template, string? DisplayName, string? Username, int Level, int? PreviousLevel, decimal? TotalXp, decimal? GainedXp, string? Source, bool RewardRoleAwarded, int VariationIndex = 0);
 
 [ApiController, Authorize, Route("api/guilds/{guildId}/xp/level-up-announcements")]
-public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, ILevelUpTemplateRenderer renderer, LevelUpTemplateSelector selector, IDiscordAnnouncementSender sender, IReportWriter reports) : ControllerBase
+public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService authorization, IGuildDiscordContextResolver discord, RankoonDbContext database, ILevelUpTemplateRenderer renderer, LevelUpTemplateSelector selector, IDiscordAnnouncementSender sender, IReportWriter reports) : ControllerBase
 {
     private static readonly Regex UserMentionPattern = new("<@!?(?<id>\\d+)>", RegexOptions.Compiled);
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeAsync(string guildId)
@@ -29,7 +29,8 @@ public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService au
     public async Task<IActionResult> Get(string guildId)
     {
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
-        var settings = await GetOrMigrateAsync(id); var channel = settings.ChannelId.HasValue ? discord.GetGuild(id)?.GetTextChannel(settings.ChannelId.Value) : null;
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild;
+        var settings = await GetOrMigrateAsync(id); var channel = settings.ChannelId.HasValue ? guild?.GetTextChannel(settings.ChannelId.Value) : null;
         return Ok(new { settings, legacyChannelMigrated = settings.ChannelId.HasValue && settings.Revision == 0, channelStatus = new { exists = channel != null, canSend = channel != null } });
     }
 
@@ -38,7 +39,8 @@ public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService au
     {
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
         var errors = Validate(settings);
-        if (settings.ChannelId.HasValue && discord.GetGuild(id)?.GetTextChannel(settings.ChannelId.Value) == null) errors.Add(new("channelId", "channelInvalid"));
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild;
+        if (settings.ChannelId.HasValue && guild?.GetTextChannel(settings.ChannelId.Value) == null) errors.Add(new("channelId", "channelInvalid"));
         if (errors.Count > 0) return this.ApiError("levelAnnouncements.settingsInvalid", errors: errors.GroupBy(x => x.Field).ToDictionary(x => x.Key, x => (IReadOnlyList<ApiValidationError>)x.Select(e => ApiErrorFactory.Validation(e.Code)).ToArray()));
         settings.GuildId = id; settings.UpdatedAtUtc = DateTime.UtcNow;
         var update = Builders<GuildLevelUpAnnouncementSettings>.Update.Set(x => x.Enabled, settings.Enabled).Set(x => x.ChannelId, settings.ChannelId).Set(x => x.NotifyMentionedUser, settings.NotifyMentionedUser).Set(x => x.UseDefaultFallback, settings.UseDefaultFallback).Set(x => x.FallbackLocale, settings.FallbackLocale).Set(x => x.AnnounceManualAdjustments, settings.AnnounceManualAdjustments).Set(x => x.AvoidRecentTemplatesPerUser, settings.AvoidRecentTemplatesPerUser).Set(x => x.Templates, settings.Templates).Set(x => x.UpdatedAtUtc, settings.UpdatedAtUtc).Inc(x => x.Revision, 1);
@@ -64,7 +66,7 @@ public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService au
     {
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
         var validation = renderer.Validate(request.Template); if (validation.Count > 0) return Ok(new { content = (string?)null, tokens = Array.Empty<string>(), validationErrors = validation, userMentions = Array.Empty<object>() });
-        var guild = discord.GetGuild(id); var level = Math.Max(1, request.Level); var previous = request.PreviousLevel ?? Math.Max(1, level - 1);
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild; var level = Math.Max(1, request.Level); var previous = request.PreviousLevel ?? Math.Max(1, level - 1);
         var context = Context(request, authorization.GetDiscordUserId(User), guild, level, previous);
         var content = request.Template.EffectiveContents.ElementAtOrDefault(Math.Max(0, request.VariationIndex)) ?? request.Template.EffectiveContents.FirstOrDefault() ?? string.Empty;
         var result = renderer.Render(content, context);
@@ -75,9 +77,10 @@ public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService au
     public async Task<IActionResult> Test(string guildId, [FromBody] LevelUpPreviewRequest request)
     {
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
-        var settings = await GetOrMigrateAsync(id); var channel = settings.ChannelId.HasValue ? discord.GetGuild(id)?.GetTextChannel(settings.ChannelId.Value) : null;
+        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild;
+        var settings = await GetOrMigrateAsync(id); var channel = settings.ChannelId.HasValue ? guild?.GetTextChannel(settings.ChannelId.Value) : null;
         if (channel == null) return this.ApiError("levelAnnouncements.channelUnavailable");
-        var guild = discord.GetGuild(id)!; var context = Context(request, authorization.GetDiscordUserId(User), guild, Math.Max(1, request.Level), request.PreviousLevel ?? Math.Max(1, request.Level - 1));
+        var context = Context(request, authorization.GetDiscordUserId(User), guild, Math.Max(1, request.Level), request.PreviousLevel ?? Math.Max(1, request.Level - 1));
         // Test the currently edited template, but use the same selector as the worker for its variants.
         var testSettings = new GuildLevelUpAnnouncementSettings { Templates = [request.Template] };
         var selection = selector.Select(testSettings, context, []);

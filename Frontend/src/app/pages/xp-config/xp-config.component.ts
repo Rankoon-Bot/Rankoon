@@ -8,6 +8,7 @@ import {
   RankEntry,
   VoiceWatchdogStatus,
   XpConfig,
+  ServerBoosterXpTier,
 } from '../../services/guild.service';
 import { AppStore } from '../../store/app.store';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -38,6 +39,7 @@ export class XpConfigComponent implements OnInit {
   readonly loadError = signal('');
   readonly saving = signal(false);
   readonly watchdogBusy = signal(false);
+  private readonly baseline = signal('');
 
   selectedRole = '';
   selectedChannel = '';
@@ -66,7 +68,9 @@ export class XpConfigComponent implements OnInit {
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: result => {
+          this.normalizeConfig(result.config);
           this.config.set(result.config);
+          this.baseline.set(this.serialize(result.config));
           this.resources.set(result.resources);
           this.watchdog.set(result.watchdog);
           this.leaderboard.set(result.leaderboard);
@@ -78,14 +82,18 @@ export class XpConfigComponent implements OnInit {
   save(): void {
     const id = this.appStore.selectedGuild()?.id;
     const config = this.config();
-    if (!id || !config || !this.isValid(config)) return;
+    if (!id || !config || !this.dirty() || !this.isValid(config)) return;
+
+    this.sortBoosterTiers();
 
     this.saving.set(true);
     this.api.saveConfig(id, config)
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: saved => {
+          this.normalizeConfig(saved);
           this.config.set(saved);
+          this.baseline.set(this.serialize(saved));
           this.toast.success(this.i18n.translate('xp.saved'));
           this.refreshWatchdog();
         },
@@ -134,6 +142,49 @@ export class XpConfigComponent implements OnInit {
 
   addMultiplier(): void {
     this.config()?.channelMultipliers.push({ channelId: '', multiplier: 1 });
+  }
+
+  addBoosterTier(): void {
+    const tiers = this.config()?.serverBooster.tiers;
+    if (!tiers || tiers.length >= 10) return;
+    const minimumBoostMonths = tiers.length ? Math.max(...tiers.map(tier => Number(tier.minimumBoostMonths))) + 2 : 0;
+    const multiplier = tiers.length ? Number([...tiers].sort((a, b) => Number(a.minimumBoostMonths) - Number(b.minimumBoostMonths)).at(-1)!.multiplier) : 1.25;
+    tiers.push({ minimumBoostMonths, multiplier });
+    this.sortBoosterTiers();
+  }
+
+  removeBoosterTier(tier: ServerBoosterXpTier): void {
+    const tiers = this.config()?.serverBooster.tiers;
+    if (!tiers) return;
+    const index = tiers.indexOf(tier);
+    if (index >= 0) tiers.splice(index, 1);
+  }
+
+  sortBoosterTiers(): void {
+    this.config()?.serverBooster.tiers.sort((a, b) => Number(a.minimumBoostMonths) - Number(b.minimumBoostMonths));
+  }
+
+  boosterTierErrors(config: XpConfig, tier: ServerBoosterXpTier): string[] {
+    const errors: string[] = [];
+    const months = Number(tier.minimumBoostMonths);
+    const multiplier = Number(tier.multiplier);
+    if (!Number.isInteger(months) || months < 0) errors.push('xp.boosterMonthsValidation');
+    if (config.serverBooster.tiers.filter(item => Number(item.minimumBoostMonths) === months).length > 1) errors.push('xp.boosterDuplicateValidation');
+    if (!Number.isFinite(multiplier) || multiplier < 1 || multiplier > 10 || !/^\d+(\.\d{1,2})?$/.test(String(tier.multiplier))) errors.push('xp.boosterMultiplierValidation');
+    const sorted = [...config.serverBooster.tiers].sort((a, b) => Number(a.minimumBoostMonths) - Number(b.minimumBoostMonths));
+    const index = sorted.indexOf(tier);
+    if (index > 0 && multiplier < Number(sorted[index - 1].multiplier)) errors.push('xp.boosterOrderValidation');
+    return errors;
+  }
+
+  dirty(): boolean {
+    const config = this.config();
+    return !!config && this.serialize(config) !== this.baseline();
+  }
+
+  reset(): void {
+    if (!this.baseline()) return;
+    this.config.set(JSON.parse(this.baseline()) as XpConfig);
   }
 
   activeSources(config: XpConfig): number {
@@ -204,6 +255,8 @@ export class XpConfigComponent implements OnInit {
       && config.thread.cooldownSeconds >= 0
       && config.channelMultipliers.every(rule => !!rule.channelId && rule.multiplier >= 0)
       && new Set(config.channelMultipliers.map(rule => rule.channelId)).size === config.channelMultipliers.length
+      && config.serverBooster.tiers.length <= 10
+      && config.serverBooster.tiers.every(tier => this.boosterTierErrors(config, tier).length === 0)
       && config.levelRoles.every(role => !!role.roleId && role.level >= 1)
       && new Set(config.levelRoles.map(role => role.roleId)).size === config.levelRoles.length;
   }
@@ -231,5 +284,17 @@ export class XpConfigComponent implements OnInit {
   formatNumber(value: string | number): string { return this.locale.number(value); }
   lastCheck(value: string, connectedUsers: string | number): string {
     return this.locale.plural(connectedUsers, 'xp.lastCheckOne', 'xp.lastCheckOther', { date: this.formatDate(value) });
+  }
+
+  private normalizeConfig(config: XpConfig): void {
+    config.serverBooster ??= { enabled: false, tiers: [] };
+    config.serverBooster.tiers ??= [];
+    config.serverBooster.tiers.sort((a, b) => Number(a.minimumBoostMonths) - Number(b.minimumBoostMonths));
+  }
+
+  private serialize(config: XpConfig): string {
+    const clone = structuredClone(config);
+    clone.serverBooster.tiers.sort((a, b) => Number(a.minimumBoostMonths) - Number(b.minimumBoostMonths));
+    return JSON.stringify(clone);
   }
 }

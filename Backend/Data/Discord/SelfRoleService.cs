@@ -1,6 +1,7 @@
 using Discord;
 using Discord.WebSocket;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
@@ -162,6 +163,52 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
                 await MarkFailureAsync(panel, exception, cancellationToken);
                 logger.LogWarning(exception, "Could not reconcile self-role panel {PanelId}", panel.Id);
             }
+        }
+    }
+
+    public async Task MigrateIdentityAsync(SocketGuild sourceGuild, SocketGuild targetGuild, CancellationToken cancellationToken = default)
+    {
+        var originals = await database.SelfRolePanels.Find(x => x.GuildId == targetGuild.Id && x.Enabled).ToListAsync(cancellationToken);
+        var staged = new List<(SelfRolePanel Original, SelfRolePanel Replacement)>();
+        var persisted = new List<(SelfRolePanel Original, SelfRolePanel Replacement)>();
+        try
+        {
+            foreach (var original in originals)
+            {
+                var replacement = BsonSerializer.Deserialize<SelfRolePanel>(original.ToBson());
+                replacement.MessageId = 0;
+                replacement.Revision = original.Revision + 1;
+                Prepare(replacement);
+                await ValidateAsync(targetGuild, replacement);
+                await PublishAsync(targetGuild, replacement, isNew: true);
+                MarkHealthy(replacement);
+                staged.Add((original, replacement));
+            }
+
+            foreach (var item in staged)
+            {
+                var result = await database.SelfRolePanels.ReplaceOneAsync(
+                    x => x.Id == item.Original.Id && x.GuildId == item.Original.GuildId && x.Revision == item.Original.Revision && x.MessageId == item.Original.MessageId,
+                    item.Replacement, cancellationToken: cancellationToken);
+                if (result.MatchedCount != 1) throw new SelfRoleValidationException("customBotIdentity.selfRoleMigrationFailed");
+                persisted.Add(item);
+            }
+        }
+        catch
+        {
+            foreach (var item in staged)
+            {
+                try { await DeleteMessageAsync(targetGuild, item.Replacement); } catch { }
+            }
+            foreach (var item in persisted)
+                await database.SelfRolePanels.ReplaceOneAsync(x => x.Id == item.Replacement.Id && x.Revision == item.Replacement.Revision && x.MessageId == item.Replacement.MessageId, item.Original, cancellationToken: cancellationToken);
+            throw;
+        }
+
+        foreach (var item in staged)
+        {
+            try { await DeleteMessageAsync(sourceGuild, item.Original); }
+            catch (Exception exception) { logger.LogWarning(exception, "Old self-role message {MessageId} could not be removed after identity migration", item.Original.MessageId); }
         }
     }
 

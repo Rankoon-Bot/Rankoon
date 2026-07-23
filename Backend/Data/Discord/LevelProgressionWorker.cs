@@ -23,7 +23,7 @@ public sealed class DiscordAnnouncementSender : IDiscordAnnouncementSender
     }
 }
 
-public sealed class LevelProgressionWorker(RankoonDbContext database, DiscordShardedClient discord, LevelRoleService roles, ILevelUpTemplateRenderer renderer, LevelUpTemplateSelector selector, IDiscordAnnouncementSender sender, IReportWriter reports, TimeProvider timeProvider, ILogger<LevelProgressionWorker> logger) : BackgroundService
+public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDiscordContextResolver discord, LevelRoleService roles, ILevelUpTemplateRenderer renderer, LevelUpTemplateSelector selector, IDiscordAnnouncementSender sender, IReportWriter reports, TimeProvider timeProvider, ILogger<LevelProgressionWorker> logger) : BackgroundService
 {
     private readonly string owner = Guid.NewGuid().ToString("N");
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -59,7 +59,7 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, DiscordSha
                 XpLedgerSemantics.GetEffectiveKind(ledger) != XpLedgerEntryKind.SystemMigration;
             if (!canAnnounce) { await CompleteAsync(claimed, LevelTransitionStatus.CompletedWithoutAnnouncement, null, cancellationToken); return; }
             var announcementSettings = settings!; var sourceLedger = ledger!;
-            var guild = discord.GetGuild(claimed.GuildId); var user = guild?.GetUser(claimed.UserId); var channel = guild?.GetTextChannel(announcementSettings.ChannelId!.Value);
+            var guild = (await discord.ResolveAsync(claimed.GuildId, cancellationToken))?.Guild; var user = guild?.GetUser(claimed.UserId); var channel = guild?.GetTextChannel(announcementSettings.ChannelId!.Value);
             if (guild == null || user == null || channel == null) { await FailAsync(claimed, "channelUnavailable", true, cancellationToken); return; }
             var member = await database.MemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? new MemberXp();
             var context = new LevelUpRenderContext($"<@{claimed.UserId}>", user.DisplayName, user.Username, claimed.UserId, claimed.PreviousLevel, claimed.NewLevel, claimed.PreviousTotalXp, claimed.NewTotalXp, claimed.NewTotalXp - claimed.PreviousTotalXp, claimed.Source, sourceLedger.ChannelId is { } sourceChannel ? $"<#{sourceChannel}>" : null, guild.Name, guild.MemberCount, member.MessageCount, member.VoiceSeconds, null, roleResult.Added.OrderBy(x => x.RequiredLevel).ToArray());

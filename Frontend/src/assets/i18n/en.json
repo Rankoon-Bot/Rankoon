@@ -144,7 +144,13 @@
         "eventInterest": "Event interest XP must not be negative.",
         "thread": "Thread XP values are invalid.",
         "channelMultipliers": "Channel multipliers require unique channels and non-negative values.",
-        "levelRoles": "Level roles require unique roles and positive levels."
+        "levelRoles": "Level roles require unique roles and positive levels.",
+        "serverBoosterRequired": "Server booster settings and tiers are required.",
+        "serverBoosterTierCount": "At most 10 server booster tiers are allowed.",
+        "serverBoosterMonths": "Boost months must be a non-negative whole number.",
+        "serverBoosterMultiplier": "Booster multipliers must be between 1.00 and 10.00 with at most two decimal places.",
+        "serverBoosterDuplicateMonths": "Server booster month thresholds must be unique.",
+        "serverBoosterOrder": "Server booster multipliers must not decrease as boost duration increases."
       },
       "import": {
         "guildMismatch": "The MEE6 export belongs to another server.",
@@ -168,7 +174,7 @@
     },
     "levelAnnouncements": { "channelUnavailable": "The configured channel is unavailable.", "revisionConflict": "Level-up messages changed since they were loaded.", "settingsInvalid": "Level-up announcement settings are invalid.", "templateInvalid": "The template cannot be rendered." },
     "customBotIdentity": {
-      "disabled": "Custom Bot Identity is disabled on this Rankoon instance.", "guildNotAllowed": "This server is not allowed to use Custom Bot Identity.", "capacityReached": "Custom Bot Identity is currently at capacity.", "tokenInvalid": "The bot token is invalid or revoked.", "tokenAlreadyAssigned": "This bot token is already assigned to another server.", "botNotInstalled": "The custom bot is not installed in this server.", "runtimeStartFailed": "The custom bot runtime could not be started.", "revisionConflict": "The bot identity changed since it was loaded. Reload and try again.", "ownerRequired": "Only the server owner can manage Custom Bot Identity."
+      "disabled": "Custom Bot Identity is disabled on this Rankoon instance.", "guildNotAllowed": "This server is not allowed to use Custom Bot Identity.", "capacityReached": "Custom Bot Identity is currently at capacity.", "tokenInvalid": "The bot token is invalid or revoked.", "tokenAlreadyAssigned": "This bot token is already assigned to another server.", "tokenApplicationMismatch": "Active identity token must belong to the same Discord application.", "botNotInstalled": "The custom bot is not installed in this server.", "missingIntents": "Enable Server Members Intent and Message Content Intent in Discord Developer Portal.", "missingPermissions": "Grant required permissions and move bot role above managed Rankoon roles.", "roleHierarchyInvalid": "Move custom bot role above all Rankoon-managed roles.", "runtimeStartFailed": "The custom bot runtime could not be started.", "commandRegistrationFailed": "Rankoon commands could not be registered.", "selfRoleMigrationFailed": "Self-role panels could not be migrated safely.", "revisionConflict": "The bot identity changed since it was loaded. Reload and try again.", "ownerRequired": "Only the server owner can manage Custom Bot Identity."
     },
     "selfRoles": {
       "invalidPanel": "The self-role panel is invalid.",

@@ -9,6 +9,8 @@ using Discord.WebSocket;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 
@@ -36,11 +38,16 @@ public sealed class CustomBotIdentityAccessPolicy(RankoonDbContext database, IOp
         var identity = await database.GuildBotIdentities.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
         var reservation = await database.CustomBotCapacityReservations.Find(x => x.GuildId == guildId).AnyAsync(cancellationToken);
         var count = (int)await database.CustomBotCapacityReservations.CountDocumentsAsync(FilterDefinition<CustomBotCapacityReservation>.Empty, cancellationToken: cancellationToken);
-        if (!configuration.Enabled) return new(false, false, reservation, identity?.EncryptedBotToken != null, count, configuration.MaxActiveGuilds, CustomBotAccessReason.FeatureDisabled);
-        if (configuration.AllowedGuildIds.Count > 0 && !configuration.AllowedGuildIds.Contains(guildId)) return new(false, false, reservation, identity?.EncryptedBotToken != null, count, configuration.MaxActiveGuilds, CustomBotAccessReason.GuildNotAllowed);
-        if (reservation) return new(true, true, true, identity?.EncryptedBotToken != null, count, configuration.MaxActiveGuilds, CustomBotAccessReason.AlreadyReserved);
-        if (configuration.MaxActiveGuilds is int maximum && count >= maximum) return new(true, false, false, identity?.EncryptedBotToken != null, count, maximum, CustomBotAccessReason.CapacityReached);
-        return new(true, true, false, identity?.EncryptedBotToken != null, count, configuration.MaxActiveGuilds, CustomBotAccessReason.Available);
+        return Decide(configuration, guildId, identity?.EncryptedBotToken != null, reservation, count);
+    }
+
+    public static CustomBotAccessDecision Decide(CustomBotIdentityOptions configuration, ulong guildId, bool hasConfiguredIdentity, bool reservation, int count)
+    {
+        if (!configuration.Enabled) return new(false, false, reservation, hasConfiguredIdentity, count, configuration.MaxActiveGuilds, CustomBotAccessReason.FeatureDisabled);
+        if (configuration.AllowedGuildIds.Count > 0 && !configuration.AllowedGuildIds.Contains(guildId)) return new(false, false, reservation, hasConfiguredIdentity, count, configuration.MaxActiveGuilds, CustomBotAccessReason.GuildNotAllowed);
+        if (reservation) return new(true, true, true, hasConfiguredIdentity, count, configuration.MaxActiveGuilds, CustomBotAccessReason.AlreadyReserved);
+        if (configuration.MaxActiveGuilds is int maximum && count >= maximum) return new(true, false, false, hasConfiguredIdentity, count, maximum, CustomBotAccessReason.CapacityReached);
+        return new(true, true, false, hasConfiguredIdentity, count, configuration.MaxActiveGuilds, CustomBotAccessReason.Available);
     }
 }
 
@@ -78,23 +85,57 @@ public sealed class CustomBotIdentityValidator(RankoonDbContext database, ICusto
             using var user = JsonDocument.Parse(await userResponse.Content.ReadAsStringAsync(cancellationToken));
             using var application = JsonDocument.Parse(await applicationResponse.Content.ReadAsStringAsync(cancellationToken));
             var root = user.RootElement;
-            return new(true, null, ulong.Parse(application.RootElement.GetProperty("id").GetString()!), ulong.Parse(root.GetProperty("id").GetString()!), root.GetProperty("username").GetString(), root.TryGetProperty("global_name", out var name) ? name.GetString() : null, root.TryGetProperty("avatar", out var avatar) ? avatar.GetString() : null);
+            var applicationId = ulong.Parse(application.RootElement.GetProperty("id").GetString()!);
+            if (await database.GuildBotIdentities.Find(x => x.ApplicationId == applicationId && x.GuildId != guildId).AnyAsync(cancellationToken))
+                return new(false, "customBotIdentity.tokenAlreadyAssigned", null, null, null, null, null);
+            return new(true, null, applicationId, ulong.Parse(root.GetProperty("id").GetString()!), root.GetProperty("username").GetString(), root.TryGetProperty("global_name", out var name) ? name.GetString() : null, root.TryGetProperty("avatar", out var avatar) ? avatar.GetString() : null);
         }
         catch (HttpRequestException) { return new(false, "customBotIdentity.tokenInvalid", null, null, null, null, null); }
         catch (JsonException) { return new(false, "customBotIdentity.tokenInvalid", null, null, null, null, null); }
     }
     public async Task<CustomBotGuildValidationResult> ValidateGuildAsync(ulong guildId, string identityId, CancellationToken cancellationToken = default)
     {
-        var context = await runtimes.ResolveGuildAsync(guildId, cancellationToken);
-        var checks = new Dictionary<string, bool> { ["gatewayConnected"] = context != null, ["guildVisible"] = context != null, ["guildMembersIntent"] = context != null, ["messageContentIntent"] = context != null, ["channelsVisible"] = context != null, ["rolesManageable"] = context != null, ["voiceChannelsManageable"] = context != null, ["commandsRegisterable"] = context != null, ["selfRoleChannelsUsable"] = context != null };
-        return new(context != null, context == null ? "customBotIdentity.botNotInstalled" : null, checks);
+        var context = await runtimes.GetCustomRuntimeAsync(identityId, cancellationToken);
+        if (context == null || context.Guild.Id != guildId)
+            return new(false, "customBotIdentity.botNotInstalled", new Dictionary<string, bool> { ["gatewayConnected"] = false, ["guildVisible"] = false });
+
+        var guild = context.Guild;
+        // A successful Ready confirms Discord accepted both privileged intents requested by this runtime.
+        var memberIntent = true;
+        var contentIntent = true;
+        var xpSettings = await database.GuildXpSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
+        var panels = await database.SelfRolePanels.Find(x => x.GuildId == guildId && x.Enabled).ToListAsync(cancellationToken);
+        var hubs = await database.VcHubs.Find(x => x.GuildId == guildId && x.Enabled).ToListAsync(cancellationToken);
+        var roleIds = (xpSettings?.LevelRoles.Select(x => x.RoleId) ?? []).Concat(panels.SelectMany(x => x.Mappings).Select(x => x.RoleId)).Distinct();
+        var rolesManageable = guild.CurrentUser.GuildPermissions.ManageRoles && roleIds.All(id => guild.GetRole(id) is { IsManaged: false, IsEveryone: false } role && role.Position < guild.CurrentUser.Hierarchy);
+        var selfRoleChannelsUsable = panels.All(panel => guild.GetTextChannel(panel.ChannelId) is { } channel && HasPanelPermissions(guild.CurrentUser.GetPermissions(channel)));
+        var voiceChannelsManageable = hubs.All(hub => guild.GetVoiceChannel(hub.JoinChannelId) is { } channel && guild.CurrentUser.GetPermissions(channel).ManageChannel);
+        var configuredChannelIds = panels.Select(x => x.ChannelId).Concat(hubs.Select(x => x.JoinChannelId)).Distinct();
+        var channelsVisible = configuredChannelIds.All(id => guild.GetChannel(id) is SocketGuildChannel channel && guild.CurrentUser.GetPermissions(channel).ViewChannel);
+        var checks = new Dictionary<string, bool>
+        {
+            ["gatewayConnected"] = context.Client.ConnectionState == ConnectionState.Connected,
+            ["guildVisible"] = true,
+            ["guildMembersIntent"] = memberIntent,
+            ["messageContentIntent"] = contentIntent,
+            ["channelsVisible"] = channelsVisible,
+            ["rolesManageable"] = rolesManageable,
+            ["voiceChannelsManageable"] = voiceChannelsManageable,
+            ["commandsRegisterable"] = guild.CurrentUser.GuildPermissions.UseApplicationCommands,
+            ["selfRoleChannelsUsable"] = selfRoleChannelsUsable
+        };
+        var error = !memberIntent || !contentIntent ? "customBotIdentity.missingIntents" :
+            !rolesManageable || !voiceChannelsManageable || !channelsVisible || !selfRoleChannelsUsable ? "customBotIdentity.missingPermissions" : null;
+        return new(error == null, error, checks);
     }
+
+    private static bool HasPanelPermissions(ChannelPermissions permissions) => permissions.ViewChannel && permissions.SendMessages && permissions.EmbedLinks && permissions.AddReactions && permissions.ReadMessageHistory && permissions.ManageMessages;
 }
 
 public sealed record BotRuntimeSnapshot(string RuntimeId, BotIdentityMode Mode, ulong? GuildId, ulong? ApplicationId, ulong? BotUserId, BotIdentityStatus Status, DateTimeOffset? StartedAt, DateTimeOffset? LastReadyAt, DateTimeOffset? LastEventAt, string? LastErrorCode);
 public sealed record BotRuntimeContext(string RuntimeId, BotIdentityMode Mode, DiscordShardedClient Client, SocketGuild Guild);
 public sealed record CustomBotRuntimeStartResult(bool Succeeded, string? ErrorCode, BotRuntimeContext? Context);
-public interface IBotRuntimeManager { IReadOnlyCollection<BotRuntimeSnapshot> GetRuntimeSnapshots(); ValueTask<BotRuntimeContext?> ResolveGuildAsync(ulong guildId, CancellationToken cancellationToken = default); Task<CustomBotRuntimeStartResult> StartCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default); Task StopCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default); Task RestartCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default); }
+public interface IBotRuntimeManager { IReadOnlyCollection<BotRuntimeSnapshot> GetRuntimeSnapshots(); ValueTask<BotRuntimeContext?> ResolveGuildAsync(ulong guildId, CancellationToken cancellationToken = default); ValueTask<BotRuntimeContext?> GetPlatformRuntimeAsync(ulong guildId, CancellationToken cancellationToken = default); ValueTask<BotRuntimeContext?> GetCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default); Task<CustomBotRuntimeStartResult> StartCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default); Task StopCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default); Task<CustomBotRuntimeStartResult> RestartCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default); }
 public interface IGuildBotAuthority { bool IsAuthoritative(ulong guildId, string runtimeId); ValueTask<string?> GetAuthoritativeRuntimeIdAsync(ulong guildId, CancellationToken cancellationToken = default); Task SetCustomAuthorityAsync(ulong guildId, string runtimeId); Task RestorePlatformAuthorityAsync(ulong guildId); }
 
 public sealed class GuildBotAuthority(DiscordShardedClient platform) : IGuildBotAuthority
@@ -106,17 +147,33 @@ public sealed class GuildBotAuthority(DiscordShardedClient platform) : IGuildBot
     public Task RestorePlatformAuthorityAsync(ulong guildId) { custom.TryRemove(guildId, out _); return Task.CompletedTask; }
 }
 
-public sealed class BotRuntimeManager(RankoonDbContext database, ICustomBotTokenProtector tokens, DiscordShardedClient platform, IGuildBotAuthority authority, ILogger<BotRuntimeManager> logger) : IBotRuntimeManager
+public sealed class BotRuntimeManager(RankoonDbContext database, ICustomBotTokenProtector tokens, DiscordShardedClient platform, IGuildBotAuthority authority, IServiceProvider services, ILogger<BotRuntimeManager> logger) : IBotRuntimeManager
 {
     private sealed record Entry(DiscordShardedClient Client, GuildBotIdentity Identity, DateTimeOffset StartedAt, DateTimeOffset? ReadyAt);
     private readonly ConcurrentDictionary<string, Entry> entries = new();
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> startLocks = new();
     public IReadOnlyCollection<BotRuntimeSnapshot> GetRuntimeSnapshots() => entries.Select(x => new BotRuntimeSnapshot("custom:" + x.Key, BotIdentityMode.Custom, x.Value.Identity.GuildId, x.Value.Identity.ApplicationId, x.Value.Identity.BotUserId, x.Value.Identity.Status, x.Value.StartedAt, x.Value.ReadyAt, null, x.Value.Identity.LastErrorCode)).Append(new("platform", BotIdentityMode.Rankoon, null, platform.CurrentUser?.Id, platform.CurrentUser?.Id, BotIdentityStatus.Active, null, null, null, null)).ToArray();
     public ValueTask<BotRuntimeContext?> ResolveGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
         if (entries.Values.FirstOrDefault(x => x.Identity.GuildId == guildId) is { } custom && authority.IsAuthoritative(guildId, "custom:" + custom.Identity.Id) && custom.Client.GetGuild(guildId) is { } guild) return ValueTask.FromResult<BotRuntimeContext?>(new("custom:" + custom.Identity.Id, BotIdentityMode.Custom, custom.Client, guild));
         return ValueTask.FromResult<BotRuntimeContext?>(platform.GetGuild(guildId) is { } platformGuild ? new("platform", BotIdentityMode.Rankoon, platform, platformGuild) : null);
     }
+    public ValueTask<BotRuntimeContext?> GetCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default)
+    {
+        if (entries.TryGetValue(identityId, out var entry) && entry.Client.GetGuild(entry.Identity.GuildId) is { } guild)
+            return ValueTask.FromResult<BotRuntimeContext?>(new("custom:" + identityId, BotIdentityMode.Custom, entry.Client, guild));
+        return ValueTask.FromResult<BotRuntimeContext?>(null);
+    }
+    public ValueTask<BotRuntimeContext?> GetPlatformRuntimeAsync(ulong guildId, CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult<BotRuntimeContext?>(platform.GetGuild(guildId) is { } guild ? new("platform", BotIdentityMode.Rankoon, platform, guild) : null);
     public async Task<CustomBotRuntimeStartResult> StartCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default)
+    {
+        var gate = startLocks.GetOrAdd(identityId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try { return await StartCustomRuntimeCoreAsync(identityId, cancellationToken); }
+        finally { gate.Release(); }
+    }
+    private async Task<CustomBotRuntimeStartResult> StartCustomRuntimeCoreAsync(string identityId, CancellationToken cancellationToken)
     {
         if (entries.TryGetValue(identityId, out var existing) && existing.Client.GetGuild(existing.Identity.GuildId) is { } existingGuild) return new(true, null, new("custom:" + identityId, BotIdentityMode.Custom, existing.Client, existingGuild));
         var identity = await database.GuildBotIdentities.Find(x => x.Id == identityId).FirstOrDefaultAsync(cancellationToken);
@@ -131,10 +188,11 @@ public sealed class BotRuntimeManager(RankoonDbContext database, ICustomBotToken
             await client.StartAsync();
             await ready.Task.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);
             var guild = client.GetGuild(identity.GuildId);
-            if (guild == null) { await client.StopAsync(); await client.LogoutAsync(); return new(false, "customBotIdentity.botNotInstalled", null); }
+            if (guild == null) { await client.StopAsync(); await client.LogoutAsync(); client.Dispose(); return new(false, "customBotIdentity.botNotInstalled", null); }
             identity.LastConnectedAt = identity.LastReadyAt = DateTime.UtcNow; identity.Status = BotIdentityStatus.Starting; identity.LastErrorCode = null;
             await database.GuildBotIdentities.ReplaceOneAsync(x => x.Id == identity.Id, identity, cancellationToken: cancellationToken);
             entries[identityId] = new(client, identity, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+            services.GetRequiredService<IDiscordRuntimeEventDispatcher>().Attach("custom:" + identityId, BotIdentityMode.Custom, client, identity.GuildId);
             return new(true, null, new("custom:" + identityId, BotIdentityMode.Custom, client, guild));
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -143,16 +201,31 @@ public sealed class BotRuntimeManager(RankoonDbContext database, ICustomBotToken
             identity.Status = BotIdentityStatus.Degraded; identity.LastErrorCode = "customBotIdentity.runtimeStartFailed"; identity.LastErrorAt = DateTime.UtcNow;
             await database.GuildBotIdentities.ReplaceOneAsync(x => x.Id == identity.Id, identity, cancellationToken: cancellationToken);
             try { await client.StopAsync(); await client.LogoutAsync(); } catch { }
+            client.Dispose();
             return new(false, identity.LastErrorCode, null);
         }
         finally { client.ShardReady -= Handler; }
     }
     public async Task StopCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default)
     {
+        var gate = startLocks.GetOrAdd(identityId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try { await StopCustomRuntimeCoreAsync(identityId); }
+        finally { gate.Release(); }
+    }
+    private async Task StopCustomRuntimeCoreAsync(string identityId)
+    {
+        services.GetRequiredService<IDiscordRuntimeEventDispatcher>().Detach("custom:" + identityId);
         if (!entries.TryRemove(identityId, out var entry)) return;
         try { await entry.Client.StopAsync(); await entry.Client.LogoutAsync(); entry.Client.Dispose(); } catch (Exception exception) { logger.LogWarning(exception, "Custom bot runtime {IdentityId} could not stop cleanly", identityId); }
     }
-    public async Task RestartCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default) { await StopCustomRuntimeAsync(identityId, cancellationToken); await StartCustomRuntimeAsync(identityId, cancellationToken); }
+    public async Task<CustomBotRuntimeStartResult> RestartCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default)
+    {
+        var gate = startLocks.GetOrAdd(identityId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try { await StopCustomRuntimeCoreAsync(identityId); return await StartCustomRuntimeCoreAsync(identityId, cancellationToken); }
+        finally { gate.Release(); }
+    }
     private static DiscordSocketConfig CreateConfig() => new() { LogLevel = LogSeverity.Warning, MessageCacheSize = 0, AuditLogCacheSize = 0, AlwaysDownloadUsers = false, AlwaysDownloadDefaultStickers = false, TotalShards = 1, GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildVoiceStates | GatewayIntents.GuildMessages | GatewayIntents.GuildMessageReactions | GatewayIntents.GuildScheduledEvents | GatewayIntents.GuildMembers | GatewayIntents.MessageContent };
 }
 
@@ -169,11 +242,12 @@ public interface ICustomBotIdentityService
     Task<CustomBotOperationResult> GetInstallUrlAsync(ulong guildId, CancellationToken cancellationToken = default);
     Task<CustomBotOperationResult> ValidateAsync(ulong guildId, CancellationToken cancellationToken = default);
     Task<CustomBotOperationResult> ActivateAsync(ulong guildId, ulong userId, long? revision, CancellationToken cancellationToken = default);
+    Task<CustomBotOperationResult> RestartAsync(ulong guildId, CancellationToken cancellationToken = default);
     Task<CustomBotOperationResult> DeactivateAsync(ulong guildId, CancellationToken cancellationToken = default);
-    Task DeleteAsync(ulong guildId, CancellationToken cancellationToken = default);
+    Task<CustomBotOperationResult> DeleteAsync(ulong guildId, CancellationToken cancellationToken = default);
 }
 
-public sealed class CustomBotIdentityService(RankoonDbContext database, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityValidator validator, ICustomBotTokenProtector tokens, IBotRuntimeManager runtimes, IGuildBotAuthority authority, IOptions<Rankoon.Data.Auth.DiscordSettings> discord, TimeProvider timeProvider) : ICustomBotIdentityService
+public sealed class CustomBotIdentityService(RankoonDbContext database, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityValidator validator, ICustomBotTokenProtector tokens, IBotRuntimeManager runtimes, IGuildBotAuthority authority, ApplicationCommandRegistrar commands, SelfRoleService selfRoles, IOptions<Rankoon.Data.Auth.DiscordSettings> discord, TimeProvider timeProvider) : ICustomBotIdentityService
 {
     private static readonly SemaphoreSlim ActivationLock = new(1, 1);
     public async Task<CustomBotIdentityView?> GetAsync(ulong guildId, CancellationToken cancellationToken = default) => (await database.GuildBotIdentities.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken)) is { } identity ? ToView(identity) : null;
@@ -184,15 +258,33 @@ public sealed class CustomBotIdentityService(RankoonDbContext database, ICustomB
         var validation = await validator.ValidateTokenAsync(guildId, token, cancellationToken);
         if (!validation.IsValid) return new(false, validation.ErrorCode);
         var existing = await database.GuildBotIdentities.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
+        var previous = existing == null ? null : BsonSerializer.Deserialize<GuildBotIdentity>(existing.ToBson());
         if (revision.HasValue && existing != null && existing.Revision != revision.Value) return new(false, "customBotIdentity.revisionConflict");
+        if (access.HasReservation && existing?.ApplicationId != validation.ApplicationId) return new(false, "customBotIdentity.tokenApplicationMismatch");
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var identity = existing ?? new GuildBotIdentity { GuildId = guildId, CreatedByUserId = userId, CreatedAt = now };
         identity.Mode = BotIdentityMode.Custom; identity.Status = BotIdentityStatus.AwaitingInstallation; identity.ApplicationId = validation.ApplicationId; identity.BotUserId = validation.BotUserId; identity.BotUsername = validation.BotUsername; identity.BotGlobalName = validation.BotGlobalName; identity.BotAvatarHash = validation.BotAvatarHash; identity.EncryptedBotToken = tokens.Protect(token); identity.TokenFingerprint = tokens.CreateFingerprint(token); identity.LastValidatedAt = now; identity.LastErrorCode = null; identity.UpdatedAt = now; identity.Revision++;
         if (existing == null) await database.GuildBotIdentities.InsertOneAsync(identity, cancellationToken: cancellationToken); else await database.GuildBotIdentities.ReplaceOneAsync(x => x.Id == identity.Id, identity, cancellationToken: cancellationToken);
+        if (access.HasReservation && previous?.Id != null)
+        {
+            var restarted = await runtimes.RestartCustomRuntimeAsync(previous.Id, cancellationToken);
+            var runtimeValidation = restarted.Succeeded ? await validator.ValidateGuildAsync(guildId, previous.Id, cancellationToken) : null;
+            if (!restarted.Succeeded || runtimeValidation?.IsValid != true)
+            {
+                await database.GuildBotIdentities.ReplaceOneAsync(x => x.Id == previous.Id, previous, cancellationToken: cancellationToken);
+                await runtimes.RestartCustomRuntimeAsync(previous.Id, cancellationToken);
+                return new(false, restarted.ErrorCode ?? runtimeValidation?.ErrorCode ?? "customBotIdentity.runtimeStartFailed", ToView(previous), Diagnostics: runtimeValidation?.Checks);
+            }
+            await database.GuildBotIdentities.UpdateOneAsync(x => x.Id == previous.Id,
+                Builders<GuildBotIdentity>.Update.Set(x => x.Status, BotIdentityStatus.Active).Set(x => x.LastErrorCode, null).Set(x => x.UpdatedAt, now).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);
+            identity = await database.GuildBotIdentities.Find(x => x.Id == previous.Id).FirstAsync(cancellationToken);
+        }
         return new(true, null, ToView(identity));
     }
     public async Task<CustomBotOperationResult> GetInstallUrlAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
+        var access = await policy.EvaluateAsync(guildId, cancellationToken);
+        if (!access.IsEligible) return Fail(access.Reason);
         var identity = await database.GuildBotIdentities.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
         if (identity?.ApplicationId is not ulong applicationId) return new(false, "customBotIdentity.tokenInvalid");
         var permissions = discord.Value.BotInvitePermissions;
@@ -200,21 +292,27 @@ public sealed class CustomBotIdentityService(RankoonDbContext database, ICustomB
     }
     public async Task<CustomBotOperationResult> ValidateAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
+        var access = await policy.EvaluateAsync(guildId, cancellationToken);
+        if (!access.IsEligible) return Fail(access.Reason);
         var identity = await database.GuildBotIdentities.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
         if (identity?.Id == null || identity.EncryptedBotToken == null) return new(false, "customBotIdentity.tokenInvalid");
+        var alreadyRunning = await runtimes.GetCustomRuntimeAsync(identity.Id, cancellationToken) != null;
         var started = await runtimes.StartCustomRuntimeAsync(identity.Id, cancellationToken);
+        if (!started.Succeeded) return new(false, started.ErrorCode);
         var diagnostic = await validator.ValidateGuildAsync(guildId, identity.Id, cancellationToken);
-        identity.LastValidatedAt = timeProvider.GetUtcNow().UtcDateTime;
-        identity.Status = diagnostic.IsValid ? BotIdentityStatus.AwaitingInstallation : BotIdentityStatus.RemovedFromGuild;
-        identity.LastErrorCode = diagnostic.ErrorCode; identity.LastErrorAt = diagnostic.IsValid ? null : identity.LastValidatedAt; identity.UpdatedAt = identity.LastValidatedAt.Value; identity.Revision++;
-        await database.GuildBotIdentities.ReplaceOneAsync(x => x.Id == identity.Id, identity, cancellationToken: cancellationToken);
-        if (!diagnostic.IsValid && !started.Succeeded) await runtimes.StopCustomRuntimeAsync(identity.Id, cancellationToken);
+        var validatedAt = timeProvider.GetUtcNow().UtcDateTime;
+        var status = diagnostic.IsValid ? access.HasReservation ? BotIdentityStatus.Active : BotIdentityStatus.AwaitingInstallation : diagnostic.ErrorCode switch { "customBotIdentity.missingIntents" => BotIdentityStatus.MissingIntents, "customBotIdentity.missingPermissions" => BotIdentityStatus.MissingPermissions, _ => BotIdentityStatus.RemovedFromGuild };
+        var update = Builders<GuildBotIdentity>.Update.Set(x => x.LastValidatedAt, validatedAt).Set(x => x.Status, status).Set(x => x.LastErrorCode, diagnostic.ErrorCode).Set(x => x.UpdatedAt, validatedAt).Inc(x => x.Revision, 1);
+        update = diagnostic.IsValid ? update.Unset(x => x.LastErrorAt) : update.Set(x => x.LastErrorAt, validatedAt);
+        await database.GuildBotIdentities.UpdateOneAsync(x => x.Id == identity.Id, update, cancellationToken: cancellationToken);
+        identity = await database.GuildBotIdentities.Find(x => x.Id == identity.Id).FirstAsync(cancellationToken);
+        if (!alreadyRunning && !access.HasReservation) await runtimes.StopCustomRuntimeAsync(identity.Id!, cancellationToken);
         return new(diagnostic.IsValid, diagnostic.ErrorCode, ToView(identity), Diagnostics: diagnostic.Checks);
     }
     public async Task<CustomBotOperationResult> ActivateAsync(ulong guildId, ulong userId, long? revision, CancellationToken cancellationToken = default)
     {
         await ActivationLock.WaitAsync(cancellationToken);
-        string? identityId = null; var reserved = false;
+        string? identityId = null; var reserved = false; var migrated = false; BotRuntimeContext? source = null; BotRuntimeContext? target = null;
         try
         {
             var access = await policy.EvaluateAsync(guildId, cancellationToken);
@@ -223,46 +321,92 @@ public sealed class CustomBotIdentityService(RankoonDbContext database, ICustomB
             if (identity?.Id == null || identity.EncryptedBotToken == null) return new(false, "customBotIdentity.tokenInvalid");
             if (revision.HasValue && identity.Revision != revision.Value) return new(false, "customBotIdentity.revisionConflict");
             identityId = identity.Id;
+            source = await runtimes.ResolveGuildAsync(guildId, cancellationToken);
             var started = await runtimes.StartCustomRuntimeAsync(identityId, cancellationToken);
             if (!started.Succeeded) return new(false, started.ErrorCode);
+            target = started.Context;
             var validation = await validator.ValidateGuildAsync(guildId, identityId, cancellationToken);
             if (!validation.IsValid) { await runtimes.StopCustomRuntimeAsync(identityId, cancellationToken); return new(false, validation.ErrorCode, Diagnostics: validation.Checks); }
+            if (target == null || !await commands.RegisterAsync(target, cancellationToken)) { await runtimes.StopCustomRuntimeAsync(identityId, cancellationToken); return new(false, "customBotIdentity.commandRegistrationFailed"); }
+            if (source != null && source.RuntimeId != target.RuntimeId)
+            {
+                try { await selfRoles.MigrateIdentityAsync(source.Guild, target.Guild, cancellationToken); migrated = true; }
+                catch { await runtimes.StopCustomRuntimeAsync(identityId, cancellationToken); return new(false, "customBotIdentity.selfRoleMigrationFailed"); }
+            }
             if (!access.HasReservation)
             {
                 try { await database.CustomBotCapacityReservations.InsertOneAsync(new CustomBotCapacityReservation { GuildId = guildId, IdentityId = identityId, ReservedAtUtc = timeProvider.GetUtcNow().UtcDateTime, ReservedByUserId = userId }, cancellationToken: cancellationToken); reserved = true; }
-                catch (MongoWriteException) { return new(false, "customBotIdentity.capacityReached"); }
+                catch (MongoWriteException) { if (migrated && source != null && target != null) await selfRoles.MigrateIdentityAsync(target.Guild, source.Guild, cancellationToken); await runtimes.StopCustomRuntimeAsync(identityId, cancellationToken); return new(false, "customBotIdentity.capacityReached"); }
             }
+            var now = timeProvider.GetUtcNow().UtcDateTime;
+            await database.GuildBotIdentities.UpdateOneAsync(x => x.Id == identityId,
+                Builders<GuildBotIdentity>.Update.Set(x => x.Status, BotIdentityStatus.Active).Set(x => x.LastErrorCode, null).Set(x => x.UpdatedAt, now).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);
             await authority.SetCustomAuthorityAsync(guildId, "custom:" + identityId);
-            identity.Status = BotIdentityStatus.Active; identity.LastErrorCode = null; identity.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime; identity.Revision++;
-            await database.GuildBotIdentities.ReplaceOneAsync(x => x.Id == identityId, identity, cancellationToken: cancellationToken);
+            identity = await database.GuildBotIdentities.Find(x => x.Id == identityId).FirstAsync(cancellationToken);
             return new(true, null, ToView(identity), Diagnostics: validation.Checks);
         }
         catch
         {
             if (reserved) await database.CustomBotCapacityReservations.DeleteOneAsync(x => x.GuildId == guildId, cancellationToken);
+            await authority.RestorePlatformAuthorityAsync(guildId);
+            if (migrated && source != null && target != null) try { await selfRoles.MigrateIdentityAsync(target.Guild, source.Guild, cancellationToken); } catch { }
             if (identityId != null) await runtimes.StopCustomRuntimeAsync(identityId, cancellationToken);
             return new(false, "customBotIdentity.runtimeStartFailed");
         }
         finally { ActivationLock.Release(); }
     }
+    public async Task<CustomBotOperationResult> RestartAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        var access = await policy.EvaluateAsync(guildId, cancellationToken);
+        if (!access.IsEligible) return Fail(access.Reason);
+        var identity = await database.GuildBotIdentities.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
+        if (identity?.Id == null || !access.HasReservation) return new(false, "customBotIdentity.tokenInvalid");
+        var started = await runtimes.RestartCustomRuntimeAsync(identity.Id, cancellationToken);
+        if (!started.Succeeded) return new(false, started.ErrorCode);
+        var validation = await validator.ValidateGuildAsync(guildId, identity.Id, cancellationToken);
+        if (!validation.IsValid)
+        {
+            await runtimes.StopCustomRuntimeAsync(identity.Id, cancellationToken);
+            await database.GuildBotIdentities.UpdateOneAsync(x => x.Id == identity.Id, Builders<GuildBotIdentity>.Update.Set(x => x.Status, BotIdentityStatus.Degraded).Set(x => x.LastErrorCode, validation.ErrorCode).Set(x => x.LastErrorAt, timeProvider.GetUtcNow().UtcDateTime).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);
+            return new(false, validation.ErrorCode, ToView(identity), Diagnostics: validation.Checks);
+        }
+        await authority.SetCustomAuthorityAsync(guildId, "custom:" + identity.Id);
+        identity.Status = BotIdentityStatus.Active; identity.LastErrorCode = null; identity.LastReadyAt = identity.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime; identity.Revision++;
+        await database.GuildBotIdentities.ReplaceOneAsync(x => x.Id == identity.Id, identity, cancellationToken: cancellationToken);
+        return new(true, null, ToView(identity), Diagnostics: validation.Checks);
+    }
     public async Task<CustomBotOperationResult> DeactivateAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
         var identity = await database.GuildBotIdentities.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
         if (identity == null) return new(true, null);
-        if (identity.Id != null) await runtimes.StopCustomRuntimeAsync(identity.Id, cancellationToken);
+        var custom = identity.Id == null ? null : await runtimes.GetCustomRuntimeAsync(identity.Id, cancellationToken);
+        var platform = await runtimes.GetPlatformRuntimeAsync(guildId, cancellationToken);
+        if (custom != null && platform != null)
+        {
+            try { await selfRoles.MigrateIdentityAsync(custom.Guild, platform.Guild, cancellationToken); }
+            catch { return new(false, "customBotIdentity.selfRoleMigrationFailed", ToView(identity)); }
+        }
         await database.CustomBotCapacityReservations.DeleteOneAsync(x => x.GuildId == guildId, cancellationToken);
-        await authority.RestorePlatformAuthorityAsync(guildId);
         identity.Status = BotIdentityStatus.Disabled; identity.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime; identity.Revision++;
         await database.GuildBotIdentities.ReplaceOneAsync(x => x.Id == identity.Id, identity, cancellationToken: cancellationToken);
+        await authority.RestorePlatformAuthorityAsync(guildId);
+        if (identity.Id != null) await runtimes.StopCustomRuntimeAsync(identity.Id, cancellationToken);
         return new(true, null, ToView(identity));
     }
-    public async Task DeleteAsync(ulong guildId, CancellationToken cancellationToken = default)
+    public async Task<CustomBotOperationResult> DeleteAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
         var identity = await database.GuildBotIdentities.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
-        if (identity?.Id != null) await runtimes.StopCustomRuntimeAsync(identity.Id, cancellationToken);
+        if (identity == null) return new(true, null);
+        if (await database.CustomBotCapacityReservations.Find(x => x.GuildId == guildId).AnyAsync(cancellationToken))
+        {
+            var deactivated = await DeactivateAsync(guildId, cancellationToken);
+            if (!deactivated.Succeeded) return deactivated;
+        }
+        else if (identity.Id != null) await runtimes.StopCustomRuntimeAsync(identity.Id, cancellationToken);
         await database.CustomBotCapacityReservations.DeleteOneAsync(x => x.GuildId == guildId, cancellationToken);
         await database.GuildBotIdentities.DeleteOneAsync(x => x.GuildId == guildId, cancellationToken);
         await authority.RestorePlatformAuthorityAsync(guildId);
+        return new(true, null);
     }
     private static CustomBotOperationResult Fail(CustomBotAccessReason reason) => new(false, reason switch { CustomBotAccessReason.FeatureDisabled => "customBotIdentity.disabled", CustomBotAccessReason.GuildNotAllowed => "customBotIdentity.guildNotAllowed", CustomBotAccessReason.CapacityReached => "customBotIdentity.capacityReached", _ => "customBotIdentity.disabled" });
     private static CustomBotIdentityView ToView(GuildBotIdentity x) => new(x.GuildId, x.Mode, x.Status, x.ApplicationId, x.BotUserId, x.BotUsername, x.BotGlobalName, x.BotAvatarHash, x.EncryptedBotToken != null, x.LastValidatedAt, x.LastConnectedAt, x.LastReadyAt, x.LastErrorCode, x.Revision);

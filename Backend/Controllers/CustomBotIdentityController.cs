@@ -61,7 +61,7 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
     public async Task<IActionResult> Restart(string guildId)
     {
         var id = await AuthorizeOwnerAsync(guildId); if (id.Error != null) return id.Error;
-        return ToResult(await identities.ValidateAsync(id.GuildId, HttpContext.RequestAborted));
+        return ToResult(await identities.RestartAsync(id.GuildId, HttpContext.RequestAborted));
     }
 
     [HttpPost("deactivate")]
@@ -75,8 +75,8 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
     public async Task<IActionResult> Delete(string guildId)
     {
         var id = await AuthorizeOwnerAsync(guildId); if (id.Error != null) return id.Error;
-        await identities.DeleteAsync(id.GuildId, HttpContext.RequestAborted);
-        return NoContent();
+        var result = await identities.DeleteAsync(id.GuildId, HttpContext.RequestAborted);
+        return result.Succeeded ? NoContent() : ToResult(result);
     }
 
     private async Task<(ulong GuildId, ulong UserId, IActionResult? Error)> AuthorizeOwnerAsync(string guildId)
@@ -86,5 +86,5 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
         if (userId == null || !await authorization.IsOwnerAsync(User, id, HttpContext.RequestAborted)) return (0, 0, this.ApiError("customBotIdentity.ownerRequired"));
         return (id, userId.Value, null);
     }
-    private IActionResult ToResult(CustomBotOperationResult result) => result.Succeeded ? Ok(result) : this.ApiError(result.ErrorCode!);
+    private IActionResult ToResult(CustomBotOperationResult result) => result.Succeeded ? Ok(result) : this.ApiError(result.ErrorCode!, result.Diagnostics == null ? null : new Dictionary<string, object?> { ["diagnostics"] = result.Diagnostics });
 }

@@ -14,7 +14,7 @@ public enum VoiceWatchdogState { Starting, Healthy, Degraded, Stale, Restarting,
 public sealed record VoiceWatchdogStatus(ulong GuildId, VoiceWatchdogState State, DateTimeOffset? LastRunAt, DateTimeOffset? LastPersistenceAt, int ConnectedUsers, int EligibleUsers, int ExcludedUsers, string? LastError, int IntervalSeconds);
 
 /// <summary>Rankoon-owned, per-guild voice reconciliation worker inspired by SharedVcWatchdog.</summary>
-public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContext database, IXpService xp, IReportWriter reports, TimeProvider timeProvider, IOptions<VoiceWatchdogOptions> options, ILogger<VoiceXpWatchdog> logger) : BackgroundService
+public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, ServerBoosterXpMultiplierResolver boosterMultipliers, IReportWriter reports, TimeProvider timeProvider, IOptions<VoiceWatchdogOptions> options, ILogger<VoiceXpWatchdog> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<ulong, VoiceWatchdogStatus> _statuses = new();
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _guildGates = new();
@@ -23,26 +23,28 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
 
     public async Task ReconcileNowAsync(ulong guildId, CancellationToken cancellationToken)
     {
-        var guild = client.GetGuild(guildId) ?? throw new InvalidOperationException("The guild is not available to the Discord client.");
+        var guild = (await discord.ResolveAsync(guildId, cancellationToken))?.Guild ?? throw new InvalidOperationException("The guild is not available to the authoritative Discord runtime.");
         await ReconcileGuildAsync(guild, cancellationToken);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        client.UserVoiceStateUpdated += OnVoiceStateChangedAsync;
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                foreach (var guild in client.Guilds) await ReconcileGuildAsync(guild, stoppingToken);
+                var guildIds = await database.GuildXpSettings.Distinct(x => x.GuildId, Builders<GuildXpSettings>.Filter.Empty).ToListAsync(stoppingToken);
+                foreach (var guildId in guildIds)
+                    if (await discord.ResolveAsync(guildId, stoppingToken) is { } context)
+                        await ReconcileGuildAsync(context.Guild, stoppingToken);
                 await Task.Delay(_interval, timeProvider, stoppingToken);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
-        finally { client.UserVoiceStateUpdated -= OnVoiceStateChangedAsync; }
+        finally { }
     }
 
-    private async Task OnVoiceStateChangedAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)
+    public async Task OnVoiceStateChangedAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)
     {
         try
         {
@@ -143,14 +145,16 @@ public sealed class VoiceXpWatchdog(DiscordShardedClient client, RankoonDbContex
         var periodStart = PeriodStart(session, eligible);
         if (eligible && now > periodStart)
         {
-            var multiplier = settings.ChannelMultipliers.FirstOrDefault(x => x.ChannelId == channel.Id)?.Multiplier ?? 1m;
+            var channelMultiplier = settings.ChannelMultipliers.FirstOrDefault(x => x.ChannelId == channel.Id)?.Multiplier ?? 1m;
+            var award = boosterMultipliers.Apply("voice", settings.Voice.PointsPerMinute, channelMultiplier, settings, member);
             foreach (var (start, end) in await SegmentBySeasonBoundariesAsync(guild.Id, periodStart, now, cancellationToken))
             {
                 var seconds = (long)(end - start).TotalSeconds;
                 if (seconds == 0) continue;
-                var amount = decimal.Round(seconds / 60m * settings.Voice.PointsPerMinute * multiplier, 6, MidpointRounding.AwayFromZero);
+                var amount = decimal.Round(seconds / 60m * award.Amount, 6, MidpointRounding.AwayFromZero);
                 var request = new XpGrantRequest(guild.Id, member.Id, member.DisplayName, "voice", amount,
-                    VoiceGrantKey(guild.Id, member.Id, channel.Id, start, end), start, channel.Id, start, end);
+                    VoiceGrantKey(guild.Id, member.Id, channel.Id, start, end), start, channel.Id, start, end,
+                    AppliedServerBoosterMultiplier: award.AppliedServerBoosterMultiplier);
                 await xp.GrantAsync(request, cancellationToken);
             }
         }

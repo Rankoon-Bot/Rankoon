@@ -1,92 +1,102 @@
+using System.Diagnostics;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 using Rankoon.Data.Auth;
-using Rankoon.Data.Xp;
+using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Diagnostics;
+using Rankoon.Data.Xp;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class RankoonCommandService(DiscordShardedClient client, IXpService xp, VcHubService hubs, IReportWriter reports, IOptions<DiscordSettings> settings, IHttpClientFactory httpClientFactory, ILogger<RankoonCommandService> logger) : IHostedService
+public sealed class RankoonCommandSchemaProvider
 {
-    public Task StartAsync(CancellationToken cancellationToken) { client.InteractionCreated += OnInteractionAsync; client.ShardReady += RegisterAsync; return Task.CompletedTask; }
-    public Task StopAsync(CancellationToken cancellationToken) { client.InteractionCreated -= OnInteractionAsync; client.ShardReady -= RegisterAsync; return Task.CompletedTask; }
-    private async Task RegisterAsync(DiscordSocketClient _)
+    public const string Version = "1";
+
+    public IReadOnlyList<ApplicationCommandProperties> GetCommands() =>
+    [
+        new SlashCommandBuilder().WithName("rank").WithDescription("Zeigt deinen Rankoon-Rang").Build(),
+        new SlashCommandBuilder().WithName("leaderboard").WithDescription("Zeigt die Rankoon-Rangliste").Build(),
+        new SlashCommandBuilder().WithName("voice").WithDescription("Verwaltet deinen temporaeren Voice-Kanal")
+            .AddOption(new SlashCommandOptionBuilder().WithName("action").WithDescription("name, limit, kick oder transfer").WithType(ApplicationCommandOptionType.String).WithRequired(true)
+                .AddChoice("name", "name").AddChoice("limit", "limit").AddChoice("kick", "kick").AddChoice("transfer", "transfer"))
+            .AddOption("value", ApplicationCommandOptionType.String, "Name oder Limit")
+            .AddOption("member", ApplicationCommandOptionType.User, "Mitglied fuer kick oder transfer")
+            .Build()
+    ];
+
+    public object[] GetRestPayload() =>
+    [
+        new { name = "rank", description = "Zeigt deinen Rankoon-Rang", type = 1 },
+        new { name = "leaderboard", description = "Zeigt die Rankoon-Rangliste", type = 1 },
+        new { name = "voice", description = "Verwaltet deinen temporaeren Voice-Kanal", type = 1, options = new object[]
+        {
+            new { name = "action", type = 3, description = "name, limit, kick oder transfer", required = true, choices = new object[] { new { name = "name", value = "name" }, new { name = "limit", value = "limit" }, new { name = "kick", value = "kick" }, new { name = "transfer", value = "transfer" } } },
+            new { name = "value", type = 3, description = "Name oder Limit", required = false },
+            new { name = "member", type = 6, description = "Mitglied fuer kick oder transfer", required = false }
+        }}
+    ];
+}
+
+public sealed class ApplicationCommandRegistrar(RankoonCommandSchemaProvider schema, IOptions<DiscordSettings> settings, IHttpClientFactory clients, RankoonDbContext database, TimeProvider timeProvider, ILogger<ApplicationCommandRegistrar> logger)
+{
+    private int platformRegistered;
+
+    public async Task<bool> RegisterAsync(BotRuntimeContext runtime, CancellationToken cancellationToken = default)
     {
         try
         {
-            if (!ulong.TryParse(settings.Value.ClientId, out var applicationId))
+            if (runtime.Mode == Data.Model.BotIdentityMode.Rankoon)
             {
-                logger.LogError("Discord commands were not synchronized because Discord:ClientId is not a valid application ID");
-                return;
+                if (Interlocked.Exchange(ref platformRegistered, 1) == 1) return true;
+                if (!ulong.TryParse(settings.Value.ClientId, out var applicationId)) return false;
+                using var request = new HttpRequestMessage(HttpMethod.Put, $"https://discord.com/api/v10/applications/{applicationId}/commands") { Content = JsonContent.Create(schema.GetRestPayload()) };
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bot", settings.Value.BotToken);
+                using var response = await clients.CreateClient().SendAsync(request, cancellationToken);
+                if (!response.IsSuccessStatusCode) { Interlocked.Exchange(ref platformRegistered, 0); logger.LogError("Unable to synchronize platform commands (HTTP {StatusCode})", (int)response.StatusCode); return false; }
+                return true;
             }
 
-            var commands = new object[]
-            {
-                new { name = "rank", description = "Zeigt deinen Rankoon-Rang", type = 1 },
-                new { name = "leaderboard", description = "Zeigt die Rankoon-Rangliste", type = 1 },
-                new
-                {
-                    name = "voice",
-                    description = "Verwaltet deinen temporaeren Voice-Kanal",
-                    type = 1,
-                    options = new object[]
-                    {
-                        new { name = "action", type = 3, description = "name, limit, kick oder transfer", required = true, choices = new object[]
-                        {
-                            new { name = "name", value = "name" },
-                            new { name = "limit", value = "limit" },
-                            new { name = "kick", value = "kick" },
-                            new { name = "transfer", value = "transfer" }
-                        } },
-                        new { name = "value", type = 3, description = "Name oder Limit", required = false },
-                        new { name = "member", type = 6, description = "Mitglied fuer kick oder transfer", required = false }
-                    }
-                }
-            };
-
-            // Discord.Net 3.18 builds an invalid application-command path for this client.
-            using var request = new HttpRequestMessage(HttpMethod.Put, $"https://discord.com/api/v10/applications/{applicationId}/commands")
-            {
-                Content = JsonContent.Create(commands)
-            };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bot", settings.Value.BotToken);
-            using var response = await httpClientFactory.CreateClient().SendAsync(request);
-            if (!response.IsSuccessStatusCode)
-            {
-                var responseBody = await response.Content.ReadAsStringAsync();
-                logger.LogError("Unable to synchronize global Rankoon slash commands (HTTP {StatusCode}): {ResponseBody}", (int)response.StatusCode, responseBody);
-                return;
-            }
-
-            logger.LogInformation("Synchronized {CommandCount} global Rankoon slash commands", commands.Length);
+            var identityId = runtime.RuntimeId["custom:".Length..];
+            var identity = await database.GuildBotIdentities.Find(x => x.Id == identityId).FirstOrDefaultAsync(cancellationToken);
+            if (identity?.CommandSchemaVersion == RankoonCommandSchemaProvider.Version) return true;
+            await runtime.Guild.BulkOverwriteApplicationCommandAsync(schema.GetCommands().ToArray(), new RequestOptions { CancelToken = cancellationToken });
+            await database.GuildBotIdentities.UpdateOneAsync(x => x.Id == identityId,
+                Builders<Data.Model.GuildBotIdentity>.Update.Set(x => x.CommandSchemaVersion, RankoonCommandSchemaProvider.Version).Set(x => x.UpdatedAt, timeProvider.GetUtcNow().UtcDateTime).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);
+            return true;
         }
-        catch (Exception exception) { logger.LogError(exception, "Unable to synchronize global Rankoon slash commands"); }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Command registration failed for runtime {RuntimeId} guild {GuildId}", runtime.RuntimeId, runtime.Guild.Id);
+            return false;
+        }
     }
-    private async Task OnInteractionAsync(SocketInteraction interaction)
+}
+
+public sealed class RankoonInteractionHandler(IXpService xp, VcHubService hubs, IReportWriter reports, ILogger<RankoonInteractionHandler> logger)
+{
+    public async Task HandleAsync(SocketInteraction interaction)
     {
         if (interaction is not SocketSlashCommand command || command.GuildId is not ulong guildId) return;
         var stopwatch = Stopwatch.StartNew();
         var action = command.Data.Options.FirstOrDefault(x => x.Name == "action")?.Value?.ToString()?.ToLowerInvariant();
         try
         {
-            var outcome = await HandleInteractionAsync(command);
+            var outcome = await HandleCommandAsync(command);
             await reports.WriteAsync(new(guildId, ReportCategories.Command, command.Data.Name.ToLowerInvariant(), outcome, action, command.User.Id, stopwatch.ElapsedMilliseconds,
                 new Dictionary<string, object?> { ["command"] = command.Data.Name }, ChannelId: command.ChannelId, CorrelationId: command.Id.ToString()));
         }
         catch (Exception exception)
         {
             logger.LogError(exception, "Discord interaction {InteractionId} failed", interaction.Id);
-            await reports.WriteAsync(new(guildId, ReportCategories.Command, command.Data.Name.ToLowerInvariant(), ReportOutcomes.Failed, action, command.User.Id, stopwatch.ElapsedMilliseconds,
-                new Dictionary<string, object?> { ["command"] = command.Data.Name }, ChannelId: command.ChannelId, CorrelationId: command.Id.ToString()));
             await reports.WriteErrorAsync(guildId, "discord.command", exception, command.User.Id, new Dictionary<string, object?> { ["command"] = command.Data.Name, ["eventId"] = command.Id, ["channelId"] = command.ChannelId });
         }
     }
 
-    private async Task<string> HandleInteractionAsync(SocketSlashCommand command)
+    private async Task<string> HandleCommandAsync(SocketSlashCommand command)
     {
         if (command.GuildId is not ulong guildId || command.User is not SocketGuildUser member) return ReportOutcomes.Rejected;
         if (command.Data.Name == "rank") { await SendRankAsync(command, guildId, member); return ReportOutcomes.Succeeded; }
@@ -94,6 +104,7 @@ public sealed class RankoonCommandService(DiscordShardedClient client, IXpServic
         if (command.Data.Name == "voice") return await HandleVoiceAsync(command, guildId, member);
         return ReportOutcomes.Rejected;
     }
+
     private async Task SendRankAsync(SocketSlashCommand command, ulong guildId, SocketGuildUser member)
     {
         var rank = await xp.GetMemberAsync(guildId, member.Id);
@@ -102,6 +113,7 @@ public sealed class RankoonCommandService(DiscordShardedClient client, IXpServic
         var level = Mee6LevelCurve.GetLevel(total);
         await command.RespondAsync($"**{member.DisplayName}** ist Level **{level}** mit **{total:0} XP**. Naechste Stufe: {Mee6LevelCurve.RequiredXpForLevel(level + 1)} XP.", ephemeral: true);
     }
+
     private async Task<string> HandleVoiceAsync(SocketSlashCommand command, ulong guildId, SocketGuildUser member)
     {
         var channel = member.VoiceChannel;
@@ -110,22 +122,13 @@ public sealed class RankoonCommandService(DiscordShardedClient client, IXpServic
         var value = command.Data.Options.FirstOrDefault(x => x.Name == "value")?.Value?.ToString();
         var target = command.Data.Options.FirstOrDefault(x => x.Name == "member")?.Value as SocketGuildUser;
         await command.DeferAsync(ephemeral: true);
-        try
+        switch (action)
         {
-            switch (action)
-            {
-                case "name" when !string.IsNullOrWhiteSpace(value): await channel.ModifyAsync(x => x.Name = value[..Math.Min(value.Length, 100)]); break;
-                case "limit" when int.TryParse(value, out var limit): await channel.ModifyAsync(x => x.UserLimit = Math.Clamp(limit, 0, 99)); break;
-                case "kick" when target != null: await target.ModifyAsync(x => x.Channel = null); break;
-                case "transfer" when target != null: await hubs.TransferOwnershipAsync(guildId, channel.Id, member.Id, target.Id); break;
-                default: await command.FollowupAsync("Nutze `name`, `limit`, `kick` oder `transfer` mit den benoetigten Optionen.", ephemeral: true); return ReportOutcomes.Rejected;
-            }
-        }
-        catch (Exception exception)
-        {
-            logger.LogError(exception, "Voice command {Action} failed for channel {ChannelId}", action, channel.Id);
-            await command.FollowupAsync("Der Voice-Kanal konnte nicht aktualisiert werden. Pruefe, ob Rankoon die Berechtigung `Kanaele verwalten` besitzt.", ephemeral: true);
-            throw;
+            case "name" when !string.IsNullOrWhiteSpace(value): await channel.ModifyAsync(x => x.Name = value[..Math.Min(value.Length, 100)]); break;
+            case "limit" when int.TryParse(value, out var limit): await channel.ModifyAsync(x => x.UserLimit = Math.Clamp(limit, 0, 99)); break;
+            case "kick" when target != null: await target.ModifyAsync(x => x.Channel = null); break;
+            case "transfer" when target != null: await hubs.TransferOwnershipAsync(guildId, channel.Id, member.Id, target.Id); break;
+            default: await command.FollowupAsync("Nutze `name`, `limit`, `kick` oder `transfer` mit den benoetigten Optionen.", ephemeral: true); return ReportOutcomes.Rejected;
         }
         await command.FollowupAsync("Voice-Kanal aktualisiert.", ephemeral: true);
         return ReportOutcomes.Succeeded;

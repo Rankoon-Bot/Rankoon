@@ -9,34 +9,14 @@ using System.Threading.Channels;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class GuildMembershipService(DiscordShardedClient discord, RankoonBotHostedService bot, RankoonDbContext database, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<GuildMembershipService> logger) : BackgroundService
+public sealed class GuildMembershipService(IGuildDiscordContextResolver discord, RankoonDbContext database, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, ILogger<GuildMembershipService> logger) : BackgroundService
 {
     private readonly SemaphoreSlim reconciliationLock = new(1, 1);
     private readonly Channel<ulong> reconciliationQueue = Channel.CreateUnbounded<ulong>();
     private readonly HashSet<ulong> queuedGuilds = [];
 
-    public override Task StartAsync(CancellationToken cancellationToken)
-    {
-        discord.UserJoined += UserJoinedAsync;
-        discord.UserLeft += UserLeftAsync;
-        return base.StartAsync(cancellationToken);
-    }
-
-    public override async Task StopAsync(CancellationToken cancellationToken)
-    {
-        discord.UserJoined -= UserJoinedAsync;
-        discord.UserLeft -= UserLeftAsync;
-        await base.StopAsync(cancellationToken);
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!await bot.Startup.WaitAsync(stoppingToken))
-        {
-            logger.LogWarning("Guild membership reconciliation is disabled because the Discord bot did not start");
-            return;
-        }
-
         var nextFullReconciliation = DateTime.UtcNow;
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -81,13 +61,15 @@ public sealed class GuildMembershipService(DiscordShardedClient discord, Rankoon
         await reconciliationLock.WaitAsync(cancellationToken);
         try
         {
+            var context = await discord.ResolveAsync(guildId, cancellationToken);
+            if (context == null) return;
             var userIds = await database.MemberXp.Find(x => x.GuildId == guildId && !x.IsDevelopmentMock).Project(x => x.UserId).ToListAsync(cancellationToken);
             var currentMembers = new HashSet<ulong>();
             foreach (var userId in userIds)
             {
                 try
                 {
-                    if (await discord.Rest.GetGuildUserAsync(guildId, userId, new RequestOptions { CancelToken = cancellationToken }) != null)
+                    if (await context.Client.Rest.GetGuildUserAsync(guildId, userId, new RequestOptions { CancelToken = cancellationToken }) != null)
                         currentMembers.Add(userId);
                 }
                 catch (global::Discord.Net.HttpException exception) when (exception.HttpCode == HttpStatusCode.NotFound) { }
@@ -106,8 +88,8 @@ public sealed class GuildMembershipService(DiscordShardedClient discord, Rankoon
         finally { reconciliationLock.Release(); }
     }
 
-    private Task UserJoinedAsync(SocketGuildUser user) => SetMembershipAsync(user.Guild.Id, user.Id, true);
-    private Task UserLeftAsync(SocketGuild guild, SocketUser user) => SetMembershipAsync(guild.Id, user.Id, false);
+    public Task UserJoinedAsync(SocketGuildUser user) => SetMembershipAsync(user.Guild.Id, user.Id, true);
+    public Task UserLeftAsync(SocketGuild guild, SocketUser user) => SetMembershipAsync(guild.Id, user.Id, false);
     private async Task SetMembershipAsync(ulong guildId, ulong userId, bool current)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
