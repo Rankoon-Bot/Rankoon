@@ -53,8 +53,10 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, DiscordSha
             if (roleResult.Failed.Count > 0) await ReportAsync(claimed, ReportNames.LevelRolesPartiallyFailed, ReportOutcomes.Failed, cancellationToken);
             var settings = await database.GuildLevelUpAnnouncementSettings.Find(x => x.GuildId == claimed.GuildId).FirstOrDefaultAsync(cancellationToken);
             var ledger = await database.XpLedger.Find(x => x.GrantKey == claimed.LedgerGrantKey).FirstOrDefaultAsync(cancellationToken);
+            // Every genuine lifetime level-up is eligible, including administrative XP adjustments.
+            // MEE6 imports update projections directly and never produce a transition event.
             var canAnnounce = settings?.Enabled == true && settings.ChannelId.HasValue && claimed.NewLevel > claimed.PreviousLevel && ledger != null &&
-                (XpLedgerSemantics.IsAutomatic(ledger) || settings.AnnounceManualAdjustments && XpLedgerSemantics.GetEffectiveKind(ledger) == XpLedgerEntryKind.ManualAdjustment);
+                XpLedgerSemantics.GetEffectiveKind(ledger) != XpLedgerEntryKind.SystemMigration;
             if (!canAnnounce) { await CompleteAsync(claimed, LevelTransitionStatus.CompletedWithoutAnnouncement, null, cancellationToken); return; }
             var announcementSettings = settings!; var sourceLedger = ledger!;
             var guild = discord.GetGuild(claimed.GuildId); var user = guild?.GetUser(claimed.UserId); var channel = guild?.GetTextChannel(announcementSettings.ChannelId!.Value);
