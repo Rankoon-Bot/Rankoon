@@ -104,8 +104,8 @@ ConfigureAppSettings(builder);
 var dcConfig = new DiscordSocketConfig()
 {
     LogLevel = LogSeverity.Info,
-    MessageCacheSize = 1024,
-    AuditLogCacheSize = 1024,
+    MessageCacheSize = 0,
+    AuditLogCacheSize = 0,
     AlwaysDownloadUsers = false,
     AlwaysDownloadDefaultStickers = false,
     TotalShards = 1,
@@ -122,6 +122,7 @@ var dcConfig = new DiscordSocketConfig()
 builder.Services.AddSingleton(new DiscordShardedClient(dcConfig));
 builder.Services.AddSingleton(new GatewayIntentState(dcConfig.GatewayIntents));
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddDataProtection();
 
 // Register database context
 builder.Services.AddSingleton<RankoonDbContext>();
@@ -134,6 +135,13 @@ builder.Services.AddHttpClient<IDiscordService, DiscordService>();
 
 // Register our services
 builder.Services.AddSingleton<IBotInfoCache, BotInfoCache>();
+builder.Services.AddSingleton<ICustomBotTokenProtector, CustomBotTokenProtector>();
+builder.Services.AddSingleton<ICustomBotIdentityAccessPolicy, CustomBotIdentityAccessPolicy>();
+builder.Services.AddSingleton<IGuildBotAuthority, GuildBotAuthority>();
+builder.Services.AddSingleton<IBotRuntimeManager, BotRuntimeManager>();
+builder.Services.AddSingleton<IGuildDiscordContextResolver, GuildDiscordContextResolver>();
+builder.Services.AddSingleton<ICustomBotIdentityValidator, CustomBotIdentityValidator>();
+builder.Services.AddSingleton<ICustomBotIdentityService, CustomBotIdentityService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGuildAuthorizationService, GuildAuthorizationService>();
@@ -180,6 +188,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(provider => provider.GetRequiredService<SelfRoleReactionService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<GuildMembershipService>());
     builder.Services.AddHostedService<RankoonCommandService>();
+    builder.Services.AddHostedService<CustomBotIdentityHostedService>();
 }
 
 // Configure JWT authentication
@@ -292,6 +301,8 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
         builder.Configuration.GetSection(JwtSettings.SectionName));
     builder.Services.Configure<FrontendSettings>(
         builder.Configuration.GetSection(FrontendSettings.SectionName));
+    builder.Services.Configure<CustomBotIdentityOptions>(
+        builder.Configuration.GetSection(CustomBotIdentityOptions.SectionName));
 }
 
 static bool IsJsonException(Exception? exception)

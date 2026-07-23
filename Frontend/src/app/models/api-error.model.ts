@@ -36,6 +36,6 @@ export const KNOWN_API_ERROR_KEYS = [
   'season.invalidTimeZone', 'season.invalidSchedule', 'season.invalidTransition', 'season.activeConflict',
   'season.manualSchedule', 'season.planConflict', 'season.notResumable',
   'selfRoles.invalidPanel', 'selfRoles.tooManyMappings', 'selfRoles.duplicateEmoji',
-  'selfRoles.roleNotManageable', 'selfRoles.channelNotUsable', 'selfRoles.discordPermissions', 'selfRoles.emojiInvalid',
+  'selfRoles.roleNotManageable', 'selfRoles.channelNotUsable', 'selfRoles.discordPermissions', 'selfRoles.emojiInvalid', 'selfRoles.emojiRejected',
   'selfRoles.revisionConflict'
 ] as const;

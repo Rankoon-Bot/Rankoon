@@ -73,6 +73,16 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     new CreateIndexModel<SelfRolePanel>(Builders<SelfRolePanel>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.MessageId), new CreateIndexOptions { Unique = true, Name = "guild_message_unique" })
                 ], stoppingToken);
                 await database.SelfRoleAssignments.Indexes.CreateOneAsync(new CreateIndexModel<SelfRoleAssignment>(Builders<SelfRoleAssignment>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.PanelId).Ascending(x => x.MappingId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true, Name = "panel_mapping_user_unique" }), cancellationToken: stoppingToken);
+                await database.GuildBotIdentities.Indexes.CreateManyAsync([
+                    new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }),
+                    new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.TokenFingerprint), new CreateIndexOptions { Unique = true, Sparse = true, Name = "token_fingerprint_unique" }),
+                    new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.Status).Descending(x => x.UpdatedAt), new CreateIndexOptions { Name = "status_updated" })
+                ], stoppingToken);
+                await database.CustomBotCapacityReservations.Indexes.CreateManyAsync([
+                    new CreateIndexModel<CustomBotCapacityReservation>(Builders<CustomBotCapacityReservation>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }),
+                    new CreateIndexModel<CustomBotCapacityReservation>(Builders<CustomBotCapacityReservation>.IndexKeys.Ascending(x => x.IdentityId), new CreateIndexOptions { Unique = true, Name = "identity_unique" }),
+                    new CreateIndexModel<CustomBotCapacityReservation>(Builders<CustomBotCapacityReservation>.IndexKeys.Ascending(x => x.ReservedAtUtc), new CreateIndexOptions { Name = "reserved_at" })
+                ], stoppingToken);
                 await database.ReportEvents.Indexes.CreateManyAsync([
                     new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Category).Descending(x => x.OccurredAt).Descending("_id"), new CreateIndexOptions { Name = "guild_category_occurred" }),
                     new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Category).Ascending(x => x.Name).Descending(x => x.OccurredAt).Descending("_id"), new CreateIndexOptions { Name = "guild_category_name" }),

@@ -111,6 +111,12 @@ reverse its original award when enabled; scheduled-event interest removal also
 creates an idempotent reversal. Reversals retain the original season attribution.
 
 Voice sessions are reconciled every 5 seconds by default and settled when a member moves. Self-hosters can set the global `VOICEWATCHDOG__INTERVALSECONDS` environment variable; this is intentionally not configurable per guild.
+
+### Custom Bot Identity
+
+Custom Bot Identity is disabled by default. Set `CUSTOMBOTIDENTITY__ENABLED=true` and configure a separate, long random `CUSTOMBOTIDENTITY__FINGERPRINTKEY` to allow guild owners to connect one custom Discord bot application to one guild. `CUSTOMBOTIDENTITY__MAXACTIVEGUILDS` limits reserved identities; omit it for no limit. An empty `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS` allowlist permits every guild, while indexed values such as `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS__0=123456789012345678` restrict access.
+
+Custom bot tokens are encrypted using ASP.NET Core Data Protection and never returned by the API. Production deployments must persist and mount the Data Protection key ring across restarts; otherwise encrypted tokens cannot be recovered after a redeploy.
 Eligible intervals are split at persisted season boundaries, producing uniquely
 keyed ledger grants per segment. The first qualifying settlement includes time
 since joining, including the configured minimum-session interval.

@@ -150,6 +150,12 @@ export const routes: Routes = [
         resolve: { translations: translationScope('role-permissions') },
       },
       {
+        path: 'server-config/bot-identity',
+        loadComponent: () => import('./pages/custom-bot-identity/custom-bot-identity.component').then((c) => c.CustomBotIdentityComponent),
+        canActivate: [guildGuard, ownerGuard],
+        resolve: { translations: translationScope('custom-bot-identity') },
+      },
+      {
         path: 'xp/level-up-announcements',
         loadComponent: () => import('./pages/level-up-announcements/level-up-announcements.component').then((c) => c.LevelUpAnnouncementsComponent),
         canActivate: [guildGuard, moduleGuard],

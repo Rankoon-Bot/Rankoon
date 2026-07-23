@@ -28,7 +28,7 @@ public sealed class SelfRolePanelsController(IGuildAuthorizationService authoriz
         var (id, guild, error) = await AuthorizeGuildAsync(guildId);
         if (error != null) return error;
         try { return Ok(await selfRoles.CreateAsync(guild!, panel, HttpContext.RequestAborted)); }
-        catch (SelfRoleValidationException exception) { return this.ApiError(exception.ErrorKey); }
+        catch (SelfRoleValidationException exception) { return this.ApiError(exception.ErrorKey, exception.Parameters); }
     }
 
     [HttpPut("{panelId}")]
@@ -41,7 +41,7 @@ public sealed class SelfRolePanelsController(IGuildAuthorizationService authoriz
             var saved = await selfRoles.UpdateAsync(guild!, panelId, panel, HttpContext.RequestAborted);
             return saved == null ? NotFound() : Ok(saved);
         }
-        catch (SelfRoleValidationException exception) { return this.ApiError(exception.ErrorKey); }
+        catch (SelfRoleValidationException exception) { return this.ApiError(exception.ErrorKey, exception.Parameters); }
     }
 
     [HttpDelete("{panelId}")]
@@ -62,7 +62,7 @@ public sealed class SelfRolePanelsController(IGuildAuthorizationService authoriz
             var repaired = await selfRoles.RepairAsync(guild!, panelId, panel.Revision, HttpContext.RequestAborted);
             return repaired == null ? NotFound() : Ok(repaired);
         }
-        catch (SelfRoleValidationException exception) { return this.ApiError(exception.ErrorKey); }
+        catch (SelfRoleValidationException exception) { return this.ApiError(exception.ErrorKey, exception.Parameters); }
     }
 
     [HttpGet("/api/guilds/{guildId}/self-role-resources")]

@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LayoutStateService } from '../layout-state.service';
@@ -8,6 +8,7 @@ import { TranslocoService } from '@jsverse/transloco';
 import { LocaleService } from '../../i18n/locale.service';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
+import { CustomBotIdentityAccessService } from '../../services/custom-bot-identity-access.service';
 
 interface MenuItem {
   label: string;
@@ -57,6 +58,9 @@ export class SidebarComponent {
   private readonly appStore = inject(AppStore);
   private readonly i18n = inject(TranslocoService);
   private readonly locale = inject(LocaleService);
+  private readonly botIdentityAccess = inject(CustomBotIdentityAccessService);
+
+  constructor() { effect(() => { const guild = this.appStore.selectedGuild(); const capabilities = this.appStore.guildCapabilities(); if (guild && capabilities?.isOwner) this.botIdentityAccess.load(guild.id); else this.botIdentityAccess.clear(); }); }
 
   readonly menuItems = computed<MenuItem[]>(() => {
     this.locale.locale();
@@ -128,6 +132,7 @@ export class SidebarComponent {
          { label: this.i18n.translate('nav.errors'), route: '/logs/errors', icon: '' }
       ]
     });
+    if (capabilities.isOwner && this.botIdentityAccess.visible()) items.push({ label: this.i18n.translate('nav.botIdentity'), route: '/server-config/bot-identity', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 10h.01M15 10h.01M8 15h8"/></svg>` });
     if (hasModule('diagnostics')) items.push({
       label: this.i18n.translate('nav.diagnostics'), route: '/diagnostics/permissions',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="m12 8-3 5 5-3"/></svg>`

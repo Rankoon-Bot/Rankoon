@@ -35,6 +35,15 @@ public static class ApiErrorCatalog
         ["rateLimit.exceeded"] = new("rateLimit.exceeded", "Too many requests were sent. Please try again later.", StatusCodes.Status429TooManyRequests),
         ["server.internal"] = new("server.internal", "An unexpected server error occurred.", StatusCodes.Status500InternalServerError),
         ["guild.invalidId"] = new("guild.invalidId", "The guild ID is invalid.", StatusCodes.Status400BadRequest),
+        ["customBotIdentity.disabled"] = new("customBotIdentity.disabled", "Custom Bot Identity is disabled on this Rankoon instance.", StatusCodes.Status403Forbidden),
+        ["customBotIdentity.guildNotAllowed"] = new("customBotIdentity.guildNotAllowed", "This guild is not allowed to use Custom Bot Identity.", StatusCodes.Status403Forbidden),
+        ["customBotIdentity.capacityReached"] = new("customBotIdentity.capacityReached", "Custom Bot Identity is currently at capacity.", StatusCodes.Status409Conflict),
+        ["customBotIdentity.tokenInvalid"] = new("customBotIdentity.tokenInvalid", "The bot token is invalid or revoked.", StatusCodes.Status400BadRequest),
+        ["customBotIdentity.tokenAlreadyAssigned"] = new("customBotIdentity.tokenAlreadyAssigned", "This bot token is already assigned to another guild.", StatusCodes.Status409Conflict),
+        ["customBotIdentity.botNotInstalled"] = new("customBotIdentity.botNotInstalled", "The custom bot is not installed in this guild.", StatusCodes.Status400BadRequest),
+        ["customBotIdentity.runtimeStartFailed"] = new("customBotIdentity.runtimeStartFailed", "The custom bot runtime could not be started.", StatusCodes.Status400BadRequest),
+        ["customBotIdentity.revisionConflict"] = new("customBotIdentity.revisionConflict", "The bot identity changed since it was loaded. Reload and try again.", StatusCodes.Status409Conflict),
+        ["customBotIdentity.ownerRequired"] = new("customBotIdentity.ownerRequired", "Only the guild owner can manage Custom Bot Identity.", StatusCodes.Status403Forbidden),
         ["user.invalidId"] = new("user.invalidId", "The user ID is invalid.", StatusCodes.Status400BadRequest),
         ["user.notFound"] = new("user.notFound", "The user was not found.", StatusCodes.Status404NotFound),
         ["auth.refreshTokenRequired"] = new("auth.refreshTokenRequired", "A refresh token is required.", StatusCodes.Status400BadRequest),
@@ -102,6 +111,7 @@ public static class ApiErrorCatalog
         ["selfRoles.channelNotUsable"] = new("selfRoles.channelNotUsable", "The selected channel cannot receive self-role messages.", StatusCodes.Status400BadRequest),
         ["selfRoles.discordPermissions"] = new("selfRoles.discordPermissions", "The bot is missing permissions in the selected channel. Grant View Channel, Send Messages, Embed Links, Add Reactions, Read Message History, and Manage Messages.", StatusCodes.Status400BadRequest),
         ["selfRoles.emojiInvalid"] = new("selfRoles.emojiInvalid", "A self-role mapping contains an invalid emoji.", StatusCodes.Status400BadRequest),
+        ["selfRoles.emojiRejected"] = new("selfRoles.emojiRejected", "Discord rejected a self-role emoji.", StatusCodes.Status400BadRequest),
         ["selfRoles.revisionConflict"] = new("selfRoles.revisionConflict", "The self-role panel changed since it was loaded. Reload and try again.", StatusCodes.Status409Conflict)
         , ["levelAnnouncements.revisionConflict"] = new("levelAnnouncements.revisionConflict", "Level-up announcement settings changed since they were loaded.", StatusCodes.Status409Conflict)
         , ["levelAnnouncements.settingsInvalid"] = new("levelAnnouncements.settingsInvalid", "Level-up announcement settings are invalid.", StatusCodes.Status400BadRequest)

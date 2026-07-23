@@ -167,6 +167,9 @@
       ,"notResumable": "Diese Season kann nur innerhalb ihres ursprünglichen Zeitraums fortgesetzt werden."
     },
     "levelAnnouncements": { "channelUnavailable": "Der konfigurierte Kanal ist nicht verfügbar.", "revisionConflict": "Die Level-Up-Nachrichten wurden zwischenzeitlich geändert.", "settingsInvalid": "Die Level-Up-Einstellungen sind ungültig.", "templateInvalid": "Die Vorlage kann nicht gerendert werden." },
+    "customBotIdentity": {
+      "disabled": "Custom Bot Identity ist auf dieser Rankoon-Instanz deaktiviert.", "guildNotAllowed": "Dieser Server darf Custom Bot Identity nicht verwenden.", "capacityReached": "Custom Bot Identity ist derzeit vollstaendig belegt.", "tokenInvalid": "Der Bot-Token ist ungueltig oder widerrufen.", "tokenAlreadyAssigned": "Dieser Bot-Token ist bereits einem anderen Server zugeordnet.", "botNotInstalled": "Der Custom Bot ist nicht in diesem Server installiert.", "runtimeStartFailed": "Die Custom-Bot-Runtime konnte nicht gestartet werden.", "revisionConflict": "Die Bot-Identitaet wurde seit dem Laden geaendert. Bitte lade neu.", "ownerRequired": "Nur der Server-Owner kann Custom Bot Identity verwalten."
+    },
     "selfRoles": {
       "invalidPanel": "Das Selbstrollen-Panel ist ungültig.",
       "tooManyMappings": "Ein Selbstrollen-Panel unterstützt maximal 20 Zuordnungen.",
@@ -175,6 +178,7 @@
       "channelNotUsable": "Der ausgewählte Kanal kann keine Selbstrollen-Nachrichten empfangen.",
       "discordPermissions": "Dem Bot fehlen Berechtigungen in diesem Kanal. Erteile Kanal ansehen, Nachrichten senden, Links einbetten, Reaktionen hinzufügen, Nachrichtenverlauf anzeigen und Nachrichten verwalten.",
       "emojiInvalid": "Eine Selbstrollen-Zuordnung enthält ein ungültiges Emoji.",
+      "emojiRejected": "Discord hat das Emoji {{emoji}} abgelehnt. Wähle ein anderes Emoji oder prüfe, ob es auf diesem Server verfügbar ist.",
       "revisionConflict": "Das Selbstrollen-Panel wurde seit dem Laden geändert. Bitte lade es neu.",
       "tooManyEmbeds": "Ein Selbstrollen-Panel unterstützt maximal 10 Embeds.",
       "invalidEmbedStructure": "Die Embed-Struktur ist ungültig.",

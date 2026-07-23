@@ -14,6 +14,7 @@ export type TranslationScope =
   | 'leaderboard'
   | 'leaderboard-settings'
   | 'role-permissions'
+  | 'custom-bot-identity'
   | 'reporting'
   | 'self-roles'
   | 'xp'

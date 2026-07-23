@@ -53,6 +53,8 @@ public class RankoonDbContext
     public IMongoCollection<GuildRolePermissionPolicy> GuildRolePermissionPolicies => _database.GetCollection<GuildRolePermissionPolicy>("guild_role_permission_policies");
     public IMongoCollection<SelfRolePanel> SelfRolePanels => _database.GetCollection<SelfRolePanel>("self_role_panels");
     public IMongoCollection<SelfRoleAssignment> SelfRoleAssignments => _database.GetCollection<SelfRoleAssignment>("self_role_assignments");
+    public IMongoCollection<GuildBotIdentity> GuildBotIdentities => _database.GetCollection<GuildBotIdentity>("guild_bot_identities");
+    public IMongoCollection<CustomBotCapacityReservation> CustomBotCapacityReservations => _database.GetCollection<CustomBotCapacityReservation>("custom_bot_capacity_reservations");
 }
 
 /// <summary>

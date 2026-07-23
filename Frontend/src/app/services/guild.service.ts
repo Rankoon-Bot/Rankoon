@@ -48,6 +48,9 @@ export interface SeasonSettings {
 }
 export interface Season { id?: string; guildId?: string; sequence: number; name: string; description: string | null; status: SeasonStatus; startsAtUtc: string; endsAtUtc: string; createdAtUtc?: string; activatedAtUtc?: string | null; closedAtUtc?: string | null; previousSeasonId?: string | null; scheduleRevision?: number; carryOverApplied?: boolean; finalized?: boolean; }
 export interface SeasonPreview { sequence: number; startsAtUtc: string; endsAtUtc: string; name: string; }
+export interface CustomBotAccess { isEligible: boolean; canActivate: boolean; hasReservation: boolean; hasConfiguredIdentity: boolean; activeGuilds: number; maximumActiveGuilds: number | null; reason: 'Available' | 'AlreadyReserved' | 'FeatureDisabled' | 'GuildNotAllowed' | 'CapacityReached'; }
+export interface CustomBotIdentity { guildId: string; mode: 'Rankoon' | 'Custom'; status: string; applicationId: string | null; botUserId: string | null; botUsername: string | null; botGlobalName: string | null; botAvatarHash: string | null; hasStoredToken: boolean; lastValidatedAt: string | null; lastConnectedAt: string | null; lastReadyAt: string | null; lastErrorCode: string | null; revision: number; }
+export interface CustomBotOperation { succeeded: boolean; errorCode: string | null; identity: CustomBotIdentity | null; installUrl: string | null; diagnostics: Record<string, boolean> | null; }
 
 @Injectable({ providedIn: 'root' })
 export class GuildService {
@@ -55,6 +58,14 @@ export class GuildService {
   private url(guildId: string, path: string): string { return `${environment.apiBaseUrl}/guilds/${guildId}/${path}`; }
   dashboard(guildId: string): Observable<DashboardData> { return this.http.get<DashboardData>(this.url(guildId, 'dashboard')); }
   capabilities(guildId: string): Observable<GuildCapabilities> { return this.http.get<GuildCapabilities>(this.url(guildId, 'capabilities')); }
+  customBotAccess(guildId: string): Observable<CustomBotAccess> { return this.http.get<CustomBotAccess>(this.url(guildId, 'custom-bot-identity/access')); }
+  customBotIdentity(guildId: string): Observable<CustomBotIdentity | null> { return this.http.get<CustomBotIdentity | null>(this.url(guildId, 'custom-bot-identity')); }
+  storeCustomBotToken(guildId: string, token: string, revision?: number): Observable<CustomBotOperation> { return this.http.post<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/token'), { token, revision }); }
+  customBotInstallUrl(guildId: string): Observable<CustomBotOperation> { return this.http.get<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/install-url')); }
+  validateCustomBot(guildId: string): Observable<CustomBotOperation> { return this.http.post<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/validate'), {}); }
+  activateCustomBot(guildId: string, revision?: number): Observable<CustomBotOperation> { return this.http.post<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/activate'), { revision }); }
+  deactivateCustomBot(guildId: string): Observable<CustomBotOperation> { return this.http.post<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/deactivate'), {}); }
+  deleteCustomBot(guildId: string): Observable<void> { return this.http.delete<void>(this.url(guildId, 'custom-bot-identity')); }
   rolePermissions(guildId: string): Observable<RolePermissions> { return this.http.get<RolePermissions>(this.url(guildId, 'role-permissions')); }
   saveRolePermissions(guildId: string, permissions: SaveRolePermissions): Observable<RolePermissions> { return this.http.put<RolePermissions>(this.url(guildId, 'role-permissions'), permissions); }
   resources(guildId: string): Observable<GuildResources> { return this.http.get<GuildResources>(this.url(guildId, 'resources')); }

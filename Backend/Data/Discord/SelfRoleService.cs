@@ -8,9 +8,10 @@ using System.Collections.Concurrent;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class SelfRoleValidationException(string errorKey) : Exception(errorKey)
+public sealed class SelfRoleValidationException(string errorKey, IReadOnlyDictionary<string, object?>? parameters = null) : Exception(errorKey)
 {
     public string ErrorKey { get; } = errorKey;
+    public IReadOnlyDictionary<string, object?>? Parameters { get; } = parameters;
 }
 
 public sealed class SelfRoleService(RankoonDbContext database, TimeProvider timeProvider, ILogger<SelfRoleService> logger)
@@ -275,7 +276,13 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
                 foreach (var mapping in panel.Mappings)
                 {
                     logger.LogDebug("Self-role Discord publish: adding reaction {Emoji} for role {RoleId} to message {MessageId}", mapping.Emoji.Value, mapping.RoleId, message.Id);
-                    await message.AddReactionAsync(SelfRoleMessageRenderer.ToEmote(mapping.Emoji));
+                    try { await message.AddReactionAsync(SelfRoleMessageRenderer.ToEmote(mapping.Emoji)); }
+                    catch (global::Discord.Net.HttpException exception) when (exception.DiscordCode == (DiscordErrorCode)10014)
+                    {
+                        var emoji = SelfRoleMessageRenderer.ToEmote(mapping.Emoji).ToString();
+                        logger.LogWarning(exception, "Discord rejected self-role emoji {Emoji} for role {RoleId} on message {MessageId} in panel {PanelId}", emoji, mapping.RoleId, message.Id, panel.Id);
+                        throw new SelfRoleValidationException("selfRoles.emojiRejected", new Dictionary<string, object?> { ["emoji"] = emoji });
+                    }
                 }
             }
         }
