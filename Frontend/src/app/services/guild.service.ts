@@ -17,7 +17,10 @@ export interface VcHub { id?: string; guildId?: string; joinChannelId: number; h
 export interface GuildResources { roles: { id: string; name: string }[]; channels: { id: string; name: string; type: string }[]; }
 export interface SelfRoleEmoji { kind: 'Unicode' | 'Custom'; value: string; name: string; }
 export interface SelfRoleMapping { id?: string; emoji: SelfRoleEmoji; roleId: string; }
-export interface SelfRolePanel { id?: string; guildId?: string; channelId: string; title: string; description: string; color: string; enabled: boolean; mappings: SelfRoleMapping[]; revision: number; updatedAt?: string; status?: string; }
+export type SelfRoleEmbedKind = 'Content' | 'RoleMappings';
+export interface SelfRoleEmbedField { id?: string; name: string; value: string; inline: boolean; }
+export interface SelfRoleEmbed { id?: string; kind: SelfRoleEmbedKind; title: string; description: string; color: string; fields: SelfRoleEmbedField[]; }
+export interface SelfRolePanel { id?: string; guildId?: string; channelId: string; embeds: SelfRoleEmbed[]; title?: string; description?: string; color?: string; enabled: boolean; mappings: SelfRoleMapping[]; revision: number; updatedAt?: string; status?: string; }
 export interface SelfRoleResources extends GuildResources { emojis: { id: string; name: string; animated: boolean; url: string; available: boolean }[]; }
 export type LeaderboardVisibility = 'Public' | 'MembersOnly';
 export interface LeaderboardSettings { guildId: string; alias: string; visibility: LeaderboardVisibility; updatedAt: string; }

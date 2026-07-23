@@ -75,7 +75,7 @@ describe('GuildService permissions API', () => {
   });
 
   it('uses the self-role panel and resource endpoints', () => {
-    const panel: SelfRolePanel = { channelId: 'channel-1', title: 'Pick roles', description: '', color: '#ef3e3a', enabled: true, mappings: [], revision: 0 };
+    const panel: SelfRolePanel = { channelId: 'channel-1', embeds: [{ kind: 'RoleMappings', title: 'Pick roles', description: '', color: '#5865F2', fields: [] }], enabled: true, mappings: [], revision: 0 };
     service.selfRolePanels('guild-1').subscribe();
     const list = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/self-role-panels`);
     expect(list.request.method).toBe('GET');
@@ -91,5 +91,11 @@ describe('GuildService permissions API', () => {
     expect(create.request.method).toBe('POST');
     expect(create.request.body).toEqual(panel);
     create.flush({ ...panel, id: 'panel-1' });
+
+    service.updateSelfRolePanel('guild-1', { ...panel, id: 'panel-1' }).subscribe();
+    const update = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/self-role-panels/panel-1`);
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body.embeds).toEqual(panel.embeds);
+    update.flush({ ...panel, id: 'panel-1' });
   });
 });

@@ -174,7 +174,18 @@
       "channelNotUsable": "The selected channel cannot receive self-role messages.",
       "discordPermissions": "The bot is missing permissions in this channel. Grant View Channel, Send Messages, Embed Links, Add Reactions, Read Message History, and Manage Messages.",
       "emojiInvalid": "A self-role mapping contains an invalid emoji.",
-      "revisionConflict": "The self-role panel changed since it was loaded. Reload and try again."
+      "revisionConflict": "The self-role panel changed since it was loaded. Reload and try again.",
+      "tooManyEmbeds": "A self-role panel supports at most 10 embeds.",
+      "invalidEmbedStructure": "The embed structure is invalid.",
+      "missingRoleMappingsEmbed": "Exactly one role-mappings embed is required.",
+      "tooManyFields": "An embed supports at most 25 fields.",
+      "embedTitleTooLong": "An embed title must not exceed 256 characters.",
+      "embedDescriptionTooLong": "An embed description must not exceed 4096 characters.",
+      "fieldNameRequired": "An embed field name is required.",
+      "fieldValueRequired": "An embed field value is required.",
+      "fieldNameTooLong": "An embed field name must not exceed 256 characters.",
+      "fieldValueTooLong": "An embed field value must not exceed 1024 characters.",
+      "embedTextTooLong": "Embed text must not exceed 6000 characters per message."
     }
   }
 }

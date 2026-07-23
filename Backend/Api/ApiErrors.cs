@@ -103,6 +103,17 @@ public static class ApiErrorCatalog
         ["selfRoles.discordPermissions"] = new("selfRoles.discordPermissions", "The bot is missing permissions in the selected channel. Grant View Channel, Send Messages, Embed Links, Add Reactions, Read Message History, and Manage Messages.", StatusCodes.Status400BadRequest),
         ["selfRoles.emojiInvalid"] = new("selfRoles.emojiInvalid", "A self-role mapping contains an invalid emoji.", StatusCodes.Status400BadRequest),
         ["selfRoles.revisionConflict"] = new("selfRoles.revisionConflict", "The self-role panel changed since it was loaded. Reload and try again.", StatusCodes.Status409Conflict)
+        ,["selfRoles.tooManyEmbeds"] = new("selfRoles.tooManyEmbeds", "A self-role panel supports at most 10 embeds.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.invalidEmbedStructure"] = new("selfRoles.invalidEmbedStructure", "The embed structure is invalid.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.missingRoleMappingsEmbed"] = new("selfRoles.missingRoleMappingsEmbed", "Exactly one role-mappings embed is required.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.tooManyFields"] = new("selfRoles.tooManyFields", "An embed supports at most 25 fields.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.embedTitleTooLong"] = new("selfRoles.embedTitleTooLong", "An embed title must not exceed 256 characters.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.embedDescriptionTooLong"] = new("selfRoles.embedDescriptionTooLong", "An embed description must not exceed 4096 characters.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.fieldNameRequired"] = new("selfRoles.fieldNameRequired", "An embed field name is required.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.fieldValueRequired"] = new("selfRoles.fieldValueRequired", "An embed field value is required.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.fieldNameTooLong"] = new("selfRoles.fieldNameTooLong", "An embed field name must not exceed 256 characters.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.fieldValueTooLong"] = new("selfRoles.fieldValueTooLong", "An embed field value must not exceed 1024 characters.", StatusCodes.Status400BadRequest)
+        ,["selfRoles.embedTextTooLong"] = new("selfRoles.embedTextTooLong", "Embed text must not exceed 6000 characters per message.", StatusCodes.Status400BadRequest)
     };
 
     public static IReadOnlyCollection<ApiErrorDefinition> All { get; } = Definitions.Values.ToArray();

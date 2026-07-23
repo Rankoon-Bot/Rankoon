@@ -174,7 +174,18 @@
       "channelNotUsable": "Der ausgewählte Kanal kann keine Selbstrollen-Nachrichten empfangen.",
       "discordPermissions": "Dem Bot fehlen Berechtigungen in diesem Kanal. Erteile Kanal ansehen, Nachrichten senden, Links einbetten, Reaktionen hinzufügen, Nachrichtenverlauf anzeigen und Nachrichten verwalten.",
       "emojiInvalid": "Eine Selbstrollen-Zuordnung enthält ein ungültiges Emoji.",
-      "revisionConflict": "Das Selbstrollen-Panel wurde seit dem Laden geändert. Bitte lade es neu."
+      "revisionConflict": "Das Selbstrollen-Panel wurde seit dem Laden geändert. Bitte lade es neu.",
+      "tooManyEmbeds": "Ein Selbstrollen-Panel unterstützt maximal 10 Embeds.",
+      "invalidEmbedStructure": "Die Embed-Struktur ist ungültig.",
+      "missingRoleMappingsEmbed": "Genau ein Rollen-Auswahl-Embed ist erforderlich.",
+      "tooManyFields": "Ein Embed unterstützt maximal 25 Felder.",
+      "embedTitleTooLong": "Ein Embed-Titel darf maximal 256 Zeichen haben.",
+      "embedDescriptionTooLong": "Eine Embed-Beschreibung darf maximal 4096 Zeichen haben.",
+      "fieldNameRequired": "Ein Feldname ist erforderlich.",
+      "fieldValueRequired": "Ein Feldwert ist erforderlich.",
+      "fieldNameTooLong": "Ein Feldname darf maximal 256 Zeichen haben.",
+      "fieldValueTooLong": "Ein Feldwert darf maximal 1024 Zeichen haben.",
+      "embedTextTooLong": "Embed-Texte dürfen pro Nachricht maximal 6000 Zeichen haben."
     }
   }
 }

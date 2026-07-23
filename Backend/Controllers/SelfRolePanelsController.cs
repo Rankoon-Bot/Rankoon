@@ -2,7 +2,6 @@ using Discord;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MongoDB.Driver;
 using Rankoon.Api;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Discord;
@@ -14,13 +13,13 @@ namespace Rankoon.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}/self-role-panels")]
-public sealed class SelfRolePanelsController(IGuildAuthorizationService authorization, DiscordShardedClient discord, RankoonDbContext database, SelfRoleService selfRoles, ILogger<SelfRolePanelsController> logger) : ControllerBase
+public sealed class SelfRolePanelsController(IGuildAuthorizationService authorization, DiscordShardedClient discord, SelfRoleService selfRoles, ILogger<SelfRolePanelsController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(string guildId)
     {
         var (id, error) = await AuthorizeAsync(guildId);
-        return error ?? Ok(await database.SelfRolePanels.Find(x => x.GuildId == id).SortByDescending(x => x.UpdatedAt).ToListAsync(HttpContext.RequestAborted));
+        return error ?? Ok(await selfRoles.ListAsync(id, HttpContext.RequestAborted));
     }
 
     [HttpPost]

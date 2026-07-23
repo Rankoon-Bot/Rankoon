@@ -16,6 +16,12 @@ public sealed class SelfRoleValidationException(string errorKey) : Exception(err
 public sealed class SelfRoleService(RankoonDbContext database, TimeProvider timeProvider, ILogger<SelfRoleService> logger)
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> updateLocks = new();
+    public async Task<List<SelfRolePanel>> ListAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        var panels = await database.SelfRolePanels.Find(x => x.GuildId == guildId).SortByDescending(x => x.UpdatedAt).ToListAsync(cancellationToken);
+        foreach (var panel in panels) SelfRoleMessageRenderer.Normalize(panel);
+        return panels;
+    }
     public async Task<SelfRolePanel> CreateAsync(SocketGuild guild, SelfRolePanel panel, CancellationToken cancellationToken = default)
     {
         panel.Id = ObjectId.GenerateNewId().ToString();
@@ -46,6 +52,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
         {
             var existing = await database.SelfRolePanels.Find(x => x.Id == panelId && x.GuildId == guild.Id).FirstOrDefaultAsync(cancellationToken);
             if (existing == null) return null;
+            Prepare(existing);
             if (existing.Revision != panel.Revision) throw new SelfRoleValidationException("selfRoles.revisionConflict");
 
             panel.Id = existing.Id;
@@ -107,6 +114,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
         {
             var panel = await database.SelfRolePanels.Find(x => x.Id == panelId && x.GuildId == guild.Id).FirstOrDefaultAsync(cancellationToken);
             if (panel == null) return null;
+            Prepare(panel);
             if (panel.Revision != revision) throw new SelfRoleValidationException("selfRoles.revisionConflict");
 
             var recreated = false;
@@ -139,12 +147,13 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
         {
             try
             {
+                Prepare(panel);
                 if (guild.GetChannel(panel.ChannelId) is not IMessageChannel channel || await channel.GetMessageAsync(panel.MessageId) is not IUserMessage message)
                 {
                     await MarkFailureAsync(panel, new InvalidOperationException("The configured Discord message is unavailable."), cancellationToken);
                     continue;
                 }
-                foreach (var mapping in panel.Mappings) await message.AddReactionAsync(ToEmote(mapping.Emoji));
+                foreach (var mapping in panel.Mappings) await message.AddReactionAsync(SelfRoleMessageRenderer.ToEmote(mapping.Emoji));
                 await MarkHealthyAsync(panel, cancellationToken);
             }
             catch (Exception exception)
@@ -161,9 +170,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
 
     private void Prepare(SelfRolePanel panel)
     {
-        panel.Title ??= string.Empty;
-        panel.Description ??= string.Empty;
-        panel.Color ??= string.Empty;
+        SelfRoleMessageRenderer.Normalize(panel);
         panel.Mappings ??= [];
         panel.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
         foreach (var mapping in panel.Mappings) mapping.Id ??= ObjectId.GenerateNewId().ToString();
@@ -197,8 +204,9 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
 
     private async Task ValidateAsync(SocketGuild guild, SelfRolePanel panel)
     {
-        if (panel.ChannelId == 0 || string.IsNullOrWhiteSpace(panel.Title) || panel.Title.Length > 256 || panel.Mappings is null || panel.Mappings.Count == 0) throw new SelfRoleValidationException("selfRoles.invalidPanel");
+        if (panel.ChannelId == 0 || panel.Mappings is null || panel.Mappings.Count == 0) throw new SelfRoleValidationException("selfRoles.invalidPanel");
         if (panel.Mappings.Count > 20) throw new SelfRoleValidationException("selfRoles.tooManyMappings");
+        SelfRoleMessageRenderer.ValidateStructure(panel);
         if (guild.GetChannel(panel.ChannelId) is not SocketTextChannel channel || channel.GetChannelType() is not (ChannelType.Text or ChannelType.News))
         {
             logger.LogWarning("Self-role validation rejected non-text or unavailable channel {ChannelId} in guild {GuildId}; bot {BotId}", panel.ChannelId, guild.Id, guild.CurrentUser.Id);
@@ -213,7 +221,6 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
             logger.LogWarning("Self-role validation rejected channel {ChannelId} in guild {GuildId} because the calculated channel permissions are incomplete", channel.Id, guild.Id);
             throw new SelfRoleValidationException("selfRoles.discordPermissions");
         }
-        if (!TryColor(panel.Color, out _)) throw new SelfRoleValidationException("selfRoles.invalidPanel");
         var customEmojiIds = panel.Mappings.Where(mapping => mapping.Emoji.Kind == SelfRoleEmojiKind.Custom).Select(mapping => mapping.Emoji.Value).ToHashSet(StringComparer.Ordinal);
         var availableEmojiIds = new HashSet<ulong>();
         if (customEmojiIds.Count > 0)
@@ -232,7 +239,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
                 throw new SelfRoleValidationException("selfRoles.roleNotManageable");
             try
             {
-                _ = ToEmote(mapping.Emoji);
+                _ = SelfRoleMessageRenderer.ToEmote(mapping.Emoji);
                 if (mapping.Emoji.Kind == SelfRoleEmojiKind.Custom && (!ulong.TryParse(mapping.Emoji.Value, out var emojiId) || !availableEmojiIds.Contains(emojiId)))
                     throw new ArgumentException("Custom emoji is not available on this guild.");
             }
@@ -240,8 +247,6 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
             var key = $"{mapping.Emoji.Kind}:{mapping.Emoji.Value}";
             if (!emojiKeys.Add(key)) throw new SelfRoleValidationException("selfRoles.duplicateEmoji");
         }
-        var mappingLegendLength = panel.Mappings.Sum(mapping => (ToEmote(mapping.Emoji).ToString()?.Length ?? 0) + 23);
-        if (panel.Description.Length + mappingLegendLength + (string.IsNullOrWhiteSpace(panel.Description) ? 0 : 2) > 4096) throw new SelfRoleValidationException("selfRoles.invalidPanel");
     }
 
     private async Task PublishAsync(SocketGuild guild, SelfRolePanel panel, bool isNew)
@@ -253,7 +258,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
             if (isNew)
             {
                 logger.LogInformation("Self-role Discord publish: sending embed to guild {GuildId}, channel {ChannelId}, panel {PanelId}, mappings {MappingCount}", guild.Id, channel.Id, panel.Id, panel.Mappings.Count);
-                message = await channel.SendMessageAsync(embed: BuildEmbed(panel));
+                message = await channel.SendMessageAsync(embeds: SelfRoleMessageRenderer.BuildEmbeds(panel));
                 panel.MessageId = message.Id;
             }
             else
@@ -261,7 +266,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
                 logger.LogInformation("Self-role Discord publish: updating message {MessageId} in guild {GuildId}, channel {ChannelId}, panel {PanelId}, mappings {MappingCount}", panel.MessageId, guild.Id, channel.Id, panel.Id, panel.Mappings.Count);
                 if (await channel.GetMessageAsync(panel.MessageId) is not IUserMessage existing) throw new SelfRoleValidationException("selfRoles.channelNotUsable");
                 message = existing;
-                await message.ModifyAsync(properties => properties.Embed = BuildEmbed(panel));
+                await message.ModifyAsync(properties => properties.Embeds = SelfRoleMessageRenderer.BuildEmbeds(panel));
                 logger.LogDebug("Self-role Discord publish: removing existing reactions from message {MessageId}", message.Id);
                 await message.RemoveAllReactionsAsync();
             }
@@ -270,7 +275,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
                 foreach (var mapping in panel.Mappings)
                 {
                     logger.LogDebug("Self-role Discord publish: adding reaction {Emoji} for role {RoleId} to message {MessageId}", mapping.Emoji.Value, mapping.RoleId, message.Id);
-                    await message.AddReactionAsync(ToEmote(mapping.Emoji));
+                    await message.AddReactionAsync(SelfRoleMessageRenderer.ToEmote(mapping.Emoji));
                 }
             }
         }
@@ -280,30 +285,6 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
                 guild.Id, panel.ChannelId, panel.MessageId, panel.Id, exception.HttpCode, exception.DiscordCode, exception.Message);
             throw new SelfRoleValidationException("selfRoles.discordPermissions");
         }
-    }
-
-    private static Embed BuildEmbed(SelfRolePanel panel)
-    {
-        TryColor(panel.Color, out var color);
-        var mappings = string.Join('\n', panel.Mappings.Select(mapping => $"{ToEmote(mapping.Emoji)} <@&{mapping.RoleId}>"));
-        var description = string.IsNullOrWhiteSpace(panel.Description) ? mappings : $"{panel.Description}\n\n{mappings}";
-        return new EmbedBuilder().WithTitle(panel.Title).WithDescription(description).WithColor(color).Build();
-    }
-
-    private static bool TryColor(string value, out Color color)
-    {
-        color = Color.Default;
-        var hex = value.Trim().TrimStart('#');
-        if (hex.Length != 6 || !uint.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out var rgb)) return false;
-        color = new Color((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
-        return true;
-    }
-
-    private static IEmote ToEmote(SelfRoleEmoji emoji)
-    {
-        if (emoji.Kind == SelfRoleEmojiKind.Unicode && !string.IsNullOrWhiteSpace(emoji.Value)) return new Emoji(emoji.Value);
-        if (emoji.Kind == SelfRoleEmojiKind.Custom && ulong.TryParse(emoji.Value, out var id) && !string.IsNullOrWhiteSpace(emoji.Name)) return new Emote(id, emoji.Name, false);
-        throw new ArgumentException("Invalid emoji.");
     }
 
     private static async Task DeleteMessageAsync(SocketGuild guild, SelfRolePanel panel)

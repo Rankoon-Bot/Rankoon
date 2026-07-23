@@ -7,6 +7,7 @@ namespace Rankoon.Data.Model;
 
 public enum SelfRoleEmojiKind { Unicode, Custom }
 public enum SelfRolePanelState { Pending, Published, Disabled, Degraded }
+public enum SelfRoleEmbedKind { Content, RoleMappings }
 
 public sealed class SelfRolePanel
 {
@@ -14,9 +15,11 @@ public sealed class SelfRolePanel
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("channel_id")] public ulong ChannelId { get; set; }
     [BsonElement("message_id"), JsonIgnore] public ulong MessageId { get; set; }
+    // Retained only to deserialize panels stored before embeds were introduced.
     [BsonElement("title")] public string Title { get; set; } = string.Empty;
     [BsonElement("description")] public string Description { get; set; } = string.Empty;
     [BsonElement("color")] public string Color { get; set; } = "#5865F2";
+    [BsonElement("embeds")] public List<SelfRoleEmbed> Embeds { get; set; } = [];
     [BsonElement("enabled")] public bool Enabled { get; set; } = true;
     [BsonElement("mappings")] public List<SelfRoleMapping> Mappings { get; set; } = [];
     [BsonElement("revision")] public long Revision { get; set; } = 1;
@@ -27,6 +30,24 @@ public sealed class SelfRolePanel
     [BsonElement("last_health_check_at")] public DateTime? LastHealthCheckAt { get; set; }
     [BsonElement("last_error")] public string? LastError { get; set; }
     [BsonElement("last_error_at")] public DateTime? LastErrorAt { get; set; }
+}
+
+public sealed class SelfRoleEmbed
+{
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("kind"), BsonRepresentation(BsonType.String)] public SelfRoleEmbedKind Kind { get; set; }
+    [BsonElement("title")] public string Title { get; set; } = string.Empty;
+    [BsonElement("description")] public string Description { get; set; } = string.Empty;
+    [BsonElement("color")] public string Color { get; set; } = "#5865F2";
+    [BsonElement("fields")] public List<SelfRoleEmbedField> Fields { get; set; } = [];
+}
+
+public sealed class SelfRoleEmbedField
+{
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("name")] public string Name { get; set; } = string.Empty;
+    [BsonElement("value")] public string Value { get; set; } = string.Empty;
+    [BsonElement("inline")] public bool Inline { get; set; }
 }
 
 public sealed class SelfRoleMapping
