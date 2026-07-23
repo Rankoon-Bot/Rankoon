@@ -1,3 +1,14 @@
+# [0.3.0](https://github.com/Rankoon-Bot/Rankoon/compare/v0.2.0...v0.3.0) (2026-07-23)
+
+
+### Features
+
+* add permission diagnostics feature ([481abbb](https://github.com/Rankoon-Bot/Rankoon/commit/481abbb7dbc53a3620c75f1d02bced3a88f7ad93))
+* add refresh functionality for user guilds and improve caching logic ([0e6d569](https://github.com/Rankoon-Bot/Rankoon/commit/0e6d569c27ed6e0be28a6b9564349261a869e9f8))
+* Enhance self-role panel functionality with embeds and validation ([083772f](https://github.com/Rankoon-Bot/Rankoon/commit/083772f33e14f769d257d3130864b783546be0b7))
+* Implement Custom Bot Identity Management ([79d1f23](https://github.com/Rankoon-Bot/Rankoon/commit/79d1f23b58dbec60a7aff839b57d1e1275523141))
+* Implement level-up announcement system with templates and settings ([c792cba](https://github.com/Rankoon-Bot/Rankoon/commit/c792cbafa6beaf920fb73ba41572433806369c6b))
+
 # [0.2.0](https://github.com/Rankoon-Bot/Rankoon/compare/v0.1.0...v0.2.0) (2026-07-22)
 
 
