@@ -8,6 +8,7 @@ export interface User {
     email?: string;
     avatar: string;
     verified?: boolean;
+    isBotOperator?: boolean;
 }
 
 export interface AuthState {
@@ -36,6 +37,7 @@ export class AuthStore {
   // Computed properties
   readonly isAuthenticated = computed(() => this._user() !== null && this._token() !== null);
   readonly hasError = computed(() => this._error() !== null);
+  readonly isBotOperator = computed(() => this._user()?.isBotOperator === true);
 
   // Actions
   setUser(user: User | null): void {

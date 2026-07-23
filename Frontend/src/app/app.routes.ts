@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import {
   guildGuard,
+  botOperatorGuard,
   guestGuard,
   moduleGuard,
   ownerGuard,
@@ -59,6 +60,12 @@ export const routes: Routes = [
             (c) => c.LeaderboardComponent,
           ),
         resolve: { translations: translationScope('leaderboard') },
+      },
+      {
+        path: 'bot-management',
+        loadComponent: () => import('./pages/bot-management/bot-management.component').then((c) => c.BotManagementComponent),
+        canActivate: [botOperatorGuard],
+        resolve: { translations: translationScope('bot-management') },
       },
       {
         path: 'server-selection',

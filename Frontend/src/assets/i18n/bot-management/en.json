@@ -1,0 +1,9 @@
+{
+  "botManagement": {
+    "eyebrow": "Operations", "title": "Bot Management", "description": "Global overview of all connected Discord servers and their Rankoon usage.", "refresh": "Refresh", "refreshing": "Refreshing...", "range": "Time range", "updated": "Last updated", "summary": "Summary", "search": "Search server name or ID", "empty": "Rankoon is not currently connected to any Discord server.", "noActivity": "No activity",
+    "ranges": { "24h": "Last 24 hours", "7d": "Last 7 days", "30d": "Last 30 days", "90d": "Last 90 days" },
+    "cards": { "connected": "Connected Servers", "members": "Server Members", "active": "Active Servers", "activity": "Activity", "errors": "Errors" },
+    "columns": { "server": "Server", "members": "Members", "joined": "Bot active since", "last": "Last usage", "activity": "Activity", "intensity": "Usage per 100 members", "errors": "Errors", "status": "Status" },
+    "status": { "veryActive": "Very active", "active": "Active", "lowActivity": "Low activity", "inactive": "Inactive", "new": "New", "attentionRequired": "Attention required" }
+  }
+}

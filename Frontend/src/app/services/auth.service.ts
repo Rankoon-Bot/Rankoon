@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
-import { catchError, finalize, map, shareReplay, tap } from 'rxjs/operators';
+import { Observable, of, throwError, timer } from 'rxjs';
+import { catchError, finalize, map, retry, shareReplay, tap } from 'rxjs/operators';
 import { AuthStore, User } from '../store/auth.store';
 import { AppStore, Guild } from '../store/app.store';
 import { environment } from '../../environments/environment';
@@ -46,6 +46,7 @@ export class AuthService {
     private guildsRequest$: Observable<Guild[]> | null = null;
     private guildsRefreshAvailableAt = 0;
     private authGeneration = 0;
+    private operatorAccessRequestToken: string | null = null;
 
     /**
      * Initiates Discord OAuth2 login flow - gets login URL from backend
@@ -237,6 +238,22 @@ export class AuthService {
         );
     }
 
+    refreshBotOperatorAccess(): void {
+        const token = this.authStore.token();
+        const user = this.authStore.user();
+        if (!token || !user || this.operatorAccessRequestToken === token) return;
+        this.operatorAccessRequestToken = token;
+        this.http.get<{ isBotOperator: boolean }>(`${this.API_BASE_URL}/bot-management/access`).pipe(
+            retry({ count: 3, delay: error => error?.status === 503 ? timer(2_000) : throwError(() => error) }),
+            catchError(() => {
+                this.operatorAccessRequestToken = null;
+                return of(null);
+            })
+        ).subscribe(access => {
+            if (access && this.authStore.token() === token) this.authStore.setUser({ ...user, isBotOperator: access.isBotOperator });
+        });
+    }
+
     /**
      * Gets user's Discord guilds from backend
      */
@@ -388,5 +405,6 @@ export class AuthService {
         this.guildsCache = null;
         this.guildsRequest$ = null;
         this.guildsRefreshAvailableAt = 0;
+        this.operatorAccessRequestToken = null;
     }
 }

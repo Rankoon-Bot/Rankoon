@@ -17,6 +17,7 @@
     "errors": "Fehlerlogs",
     "dev": "DEV",
     "devLeaderboard": "Mock-Ranglisten",
-    "diagnostics": "Bot-Diagnose"
+    "diagnostics": "Bot-Diagnose",
+    "botManagement": "Bot-Verwaltung"
   }
 }

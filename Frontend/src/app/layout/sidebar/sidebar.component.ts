@@ -9,6 +9,7 @@ import { LocaleService } from '../../i18n/locale.service';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { CustomBotIdentityAccessService } from '../../services/custom-bot-identity-access.service';
+import { AuthStore } from '../../store/auth.store';
 
 interface MenuItem {
   label: string;
@@ -59,13 +60,15 @@ export class SidebarComponent {
   private readonly i18n = inject(TranslocoService);
   private readonly locale = inject(LocaleService);
   private readonly botIdentityAccess = inject(CustomBotIdentityAccessService);
+  private readonly authStore = inject(AuthStore);
 
   constructor() { effect(() => { const guild = this.appStore.selectedGuild(); const capabilities = this.appStore.guildCapabilities(); if (guild && capabilities?.isOwner) this.botIdentityAccess.load(guild.id); else this.botIdentityAccess.clear(); }); }
 
   readonly menuItems = computed<MenuItem[]>(() => {
     this.locale.locale();
     const capabilities = this.appStore.guildCapabilities();
-    if (!capabilities || capabilities.guildId !== this.appStore.selectedGuild()?.id) return [];
+    const operatorItem = this.authStore.isBotOperator() ? [{ label: this.i18n.translate('nav.botManagement'), route: '/bot-management', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5"/></svg>` }] : [];
+    if (!capabilities || capabilities.guildId !== this.appStore.selectedGuild()?.id) return operatorItem;
 
     const items: MenuItem[] = [{
        label: this.i18n.translate('nav.leaderboard'),
@@ -144,6 +147,6 @@ export class SidebarComponent {
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3"/><path d="m16 9 4 3-4 3"/><path d="m14 5-4 14"/></svg>`,
       children: [{ label: this.i18n.translate('nav.devLeaderboard'), route: '/dev', icon: '' }]
     });
-    return items;
+    return [...operatorItem, ...items];
   });
 }

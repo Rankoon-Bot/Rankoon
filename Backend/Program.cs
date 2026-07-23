@@ -2,6 +2,8 @@ using Discord;
 using Discord.WebSocket;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
@@ -69,12 +71,16 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 builder.Services.Configure<RouteOptions>(options =>
     options.ConstraintMap["nonApi"] = typeof(NonApiPathRouteConstraint));
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options => options.AddPolicy(AuthorizationPolicies.BotOperator, policy =>
+    policy.RequireAuthenticatedUser().AddRequirements(new BotOperatorRequirement())));
+builder.Services.AddSingleton<IAuthorizationHandler, BotOperatorAuthorizationHandler>();
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, BotOperatorAuthorizationResultHandler>();
 builder.Services.AddSignalR(options => options.MaximumParallelInvocationsPerClient = 1).AddJsonProtocol(options =>
     options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddSingleton<LeaderboardSubscriptionRegistry>();
 var leaderboardPermitLimit = builder.Configuration.GetValue("RateLimiting:LeaderboardPermitLimit", 90);
 var reportsPermitLimit = builder.Configuration.GetValue("RateLimiting:ReportsPermitLimit", 60);
+var botManagementPermitLimit = builder.Configuration.GetValue("RateLimiting:BotManagementPermitLimit", 30);
 var rateLimitQueueLimit = builder.Configuration.GetValue("RateLimiting:QueueLimit", 2);
 builder.Services.AddRateLimiter(options =>
 {
@@ -95,6 +101,9 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("reports", context =>
         RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
             new FixedWindowRateLimiterOptions { PermitLimit = reportsPermitLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = rateLimitQueueLimit }));
+    options.AddPolicy("bot-management", context =>
+        RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
+            new FixedWindowRateLimiterOptions { PermitLimit = botManagementPermitLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = rateLimitQueueLimit }));
 });
 builder.Services.Configure<HostOptions>(options =>
     options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
@@ -133,12 +142,14 @@ builder.Services.AddSingleton<RankoonDbContext>();
 builder.Services.AddSingleton<ReportWriter>();
 builder.Services.AddSingleton<IReportWriter>(services => services.GetRequiredService<ReportWriter>());
 builder.Services.AddSingleton<IReportQueryService, ReportQueryService>();
+builder.Services.AddSingleton<IBotManagementOverviewService, BotManagementOverviewService>();
 
 // Register HTTP client for Discord API calls
 builder.Services.AddHttpClient<IDiscordService, DiscordService>();
 
 // Register our services
 builder.Services.AddSingleton<IBotInfoCache, BotInfoCache>();
+builder.Services.AddSingleton<IBotOperatorAccessService, BotOperatorAccessService>();
 builder.Services.AddSingleton<ICustomBotTokenProtector, CustomBotTokenProtector>();
 builder.Services.AddSingleton<ICustomBotIdentityAccessPolicy, CustomBotIdentityAccessPolicy>();
 builder.Services.AddSingleton<IGuildBotAuthority, GuildBotAuthority>();

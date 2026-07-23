@@ -181,6 +181,10 @@ errors. Report events are retained in MongoDB for 90 days through a TTL index.
 These reports are application activity records, not infrastructure monitoring or
 distributed tracing.
 
+### Bot management
+
+The global **Bot Management** overview is read-only and available only to the Discord Application Owner and actual Application Team members. It derives access directly from Discord application information, so no additional owner-ID configuration is required. It lists currently connected servers, Discord-reported member totals, bot join dates, Rankoon activity and command reports, relevant errors, and usage per 100 members. Usage describes Rankoon report activity, not CPU, memory, or other infrastructure utilization.
+
 ## Slash Commands
 
 Rankoon synchronizes these commands globally when the Discord client becomes

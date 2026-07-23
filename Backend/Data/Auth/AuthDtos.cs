@@ -58,6 +58,8 @@ public record DiscordUserDto
     public string? Email { get; init; }
     public string? Avatar { get; init; }
     public bool Verified { get; init; }
+    public bool IsBotOperator { get; init; }
+    public BotOperatorRole? BotOperatorRole { get; init; }
 }
 
 /// <summary>

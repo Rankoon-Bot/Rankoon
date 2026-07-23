@@ -18,17 +18,20 @@ public class AuthController : ControllerBase
     private readonly FrontendSettings _frontendSettings;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<AuthController> _logger;
+    private readonly IBotOperatorAccessService _botOperatorAccess;
 
     public AuthController(
         IAuthService authService,
         IOptions<FrontendSettings> frontendSettings,
         TimeProvider timeProvider,
-        ILogger<AuthController> logger)
+        ILogger<AuthController> logger,
+        IBotOperatorAccessService botOperatorAccess)
     {
         _authService = authService;
         _frontendSettings = frontendSettings.Value;
         _timeProvider = timeProvider;
         _logger = logger;
+        _botOperatorAccess = botOperatorAccess;
     }
 
     /// <summary>
@@ -226,7 +229,8 @@ public class AuthController : ControllerBase
                 DisplayName = user.DisplayName,
                 Email = user.Email,
                 Avatar = user.Avatar,
-                Verified = user.Verified
+                Verified = user.Verified,
+                IsBotOperator = await IsBotOperatorAsync(user.DiscordId, HttpContext.RequestAborted)
             };
 
             return Ok(userDto);
@@ -286,7 +290,8 @@ public class AuthController : ControllerBase
                 DisplayName = user.DisplayName,
                 Email = user.Email,
                 Avatar = user.Avatar,
-                Verified = user.Verified
+                Verified = user.Verified,
+                IsBotOperator = await IsBotOperatorAsync(user.DiscordId, HttpContext.RequestAborted)
             };
 
             var response = new
@@ -342,6 +347,9 @@ public class AuthController : ControllerBase
         var errorUrl = $"{_frontendSettings.BaseUrl}{_frontendSettings.CallbackPath}?errorKey={Uri.EscapeDataString(error.Key)}&message={Uri.EscapeDataString(error.Message)}";
         return Redirect(errorUrl);
     }
+
+    private async Task<bool> IsBotOperatorAsync(string discordId, CancellationToken cancellationToken) =>
+        ulong.TryParse(discordId, out var userId) && (await _botOperatorAccess.GetAccessAsync(userId, cancellationToken)).IsAuthorized;
 
     private static bool IsSafeReturnUrl(string? returnUrl) =>
         !string.IsNullOrWhiteSpace(returnUrl)

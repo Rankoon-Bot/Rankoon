@@ -17,6 +17,7 @@
     "errors": "Error logs",
     "dev": "DEV",
     "devLeaderboard": "Mock leaderboards",
-    "diagnostics": "Bot diagnostics"
+    "diagnostics": "Bot diagnostics",
+    "botManagement": "Bot Management"
   }
 }

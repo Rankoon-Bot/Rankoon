@@ -85,6 +85,7 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     new CreateIndexModel<CustomBotCapacityReservation>(Builders<CustomBotCapacityReservation>.IndexKeys.Ascending(x => x.ReservedAtUtc), new CreateIndexOptions { Name = "reserved_at" })
                 ], stoppingToken);
                 await database.ReportEvents.Indexes.CreateManyAsync([
+                    new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.Category).Descending(x => x.OccurredAt).Ascending(x => x.GuildId), new CreateIndexOptions { Name = "category_occurred_guild" }),
                     new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Category).Descending(x => x.OccurredAt).Descending("_id"), new CreateIndexOptions { Name = "guild_category_occurred" }),
                     new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Category).Ascending(x => x.Name).Descending(x => x.OccurredAt).Descending("_id"), new CreateIndexOptions { Name = "guild_category_name" }),
                     new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Category).Ascending(x => x.Outcome).Descending(x => x.OccurredAt).Descending("_id"), new CreateIndexOptions { Name = "guild_category_outcome" }),

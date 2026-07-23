@@ -72,7 +72,8 @@
     "xpAuditDetailsLoad": "Could not load member details.",
     "xpAuditEntriesLoad": "Could not load XP history.",
     "xpAdjustmentSave": "Could not save the XP adjustment.",
-    "xpAdjustmentReverse": "Could not create the reversal."
+    "xpAdjustmentReverse": "Could not create the reversal.",
+    "botManagementLoad": "Could not load bot management data."
   },
   "apiErrors": {
     "request": {
@@ -119,6 +120,10 @@
     },
     "reports": {
       "invalidQuery": "The report query is invalid."
+    },
+    "botManagement": {
+      "invalidRange": "The bot management range is invalid.",
+      "unavailable": "Bot management is temporarily unavailable."
     },
     "permissions": {
       "rolesRequired": "Roles are required.",

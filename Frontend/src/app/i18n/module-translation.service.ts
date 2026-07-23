@@ -20,7 +20,8 @@ export type TranslationScope =
   | 'xp'
   | 'xp-audit'
   | 'level-up-announcements'
-  | 'diagnostics';
+  | 'diagnostics'
+  | 'bot-management';
 
 @Injectable({ providedIn: 'root' })
 export class ModuleTranslationService {

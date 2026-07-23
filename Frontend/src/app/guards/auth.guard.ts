@@ -67,6 +67,13 @@ export const settingsGuard = capabilityGuardFor('settings');
 export const moduleGuard = capabilityGuardFor('module');
 export const ownerGuard = capabilityGuardFor('owner');
 
+export const botOperatorGuard: CanActivateFn = (route, state) => {
+  const authStore = inject(AuthStore);
+  const router = inject(Router);
+  if (!authStore.isAuthenticated()) return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
+  return authStore.isBotOperator() ? true : router.createUrlTree(['/server-selection'], { queryParams: { access: 'forbidden' } });
+};
+
 export const serverSelectionGuard: CanActivateFn = (route, state) => {
   const authStore = inject(AuthStore);
   const router = inject(Router);

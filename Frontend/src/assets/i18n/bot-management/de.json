@@ -1,0 +1,9 @@
+{
+  "botManagement": {
+    "eyebrow": "Betrieb", "title": "Bot-Verwaltung", "description": "Globale Übersicht über alle verbundenen Discord-Server und deren Rankoon-Nutzung.", "refresh": "Aktualisieren", "refreshing": "Wird aktualisiert...", "range": "Zeitraum", "updated": "Zuletzt aktualisiert", "summary": "Zusammenfassung", "search": "Servername oder ID suchen", "empty": "Rankoon ist aktuell mit keinem Discord-Server verbunden.", "noActivity": "Keine Aktivität",
+    "ranges": { "24h": "Letzte 24 Stunden", "7d": "Letzte 7 Tage", "30d": "Letzte 30 Tage", "90d": "Letzte 90 Tage" },
+    "cards": { "connected": "Verbundene Server", "members": "Servermitglieder", "active": "Aktive Server", "activity": "Aktivitäten", "errors": "Fehler" },
+    "columns": { "server": "Server", "members": "Mitglieder", "joined": "Bot aktiv seit", "last": "Letzte Nutzung", "activity": "Aktivität", "intensity": "Nutzung je 100 Mitglieder", "errors": "Fehler", "status": "Status" },
+    "status": { "veryActive": "Sehr aktiv", "active": "Aktiv", "lowActivity": "Gering aktiv", "inactive": "Inaktiv", "new": "Neu", "attentionRequired": "Auffällig" }
+  }
+}

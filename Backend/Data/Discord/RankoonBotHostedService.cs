@@ -4,7 +4,7 @@ using Discord.WebSocket;
 namespace Rankoon.Data.Discord;
 
 /// <summary>Owns the Discord gateway lifecycle so module event handlers live with the web host.</summary>
-public sealed class RankoonBotHostedService(DiscordShardedClient client, Microsoft.Extensions.Options.IOptions<Rankoon.Data.Auth.DiscordSettings> settings, ILogger<RankoonBotHostedService> logger) : IHostedLifecycleService
+public sealed class RankoonBotHostedService(DiscordShardedClient client, Microsoft.Extensions.Options.IOptions<Rankoon.Data.Auth.DiscordSettings> settings, Rankoon.Data.Auth.IBotOperatorAccessService botOperatorAccess, ILogger<RankoonBotHostedService> logger) : IHostedLifecycleService
 {
     private readonly TaskCompletionSource<bool> startup = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -71,6 +71,7 @@ public sealed class RankoonBotHostedService(DiscordShardedClient client, Microso
 
             await client.LoginAsync(TokenType.Bot, settings.Value.BotToken);
             await client.StartAsync();
+            await botOperatorAccess.WarmAsync(cancellationToken);
             startup.TrySetResult(true);
             logger.LogInformation("Discord bot started");
         }

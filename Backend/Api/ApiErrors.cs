@@ -64,6 +64,8 @@ public static class ApiErrorCatalog
         ["leaderboard.aliasConflict"] = new("leaderboard.aliasConflict", "The leaderboard alias is already in use.", StatusCodes.Status409Conflict),
         ["leaderboard.invalidSeason"] = new("leaderboard.invalidSeason", "The requested season is not available on this leaderboard.", StatusCodes.Status400BadRequest),
         ["reports.invalidQuery"] = new("reports.invalidQuery", "The report query is invalid.", StatusCodes.Status400BadRequest),
+        ["botManagement.invalidRange"] = new("botManagement.invalidRange", "The bot management range is invalid.", StatusCodes.Status400BadRequest),
+        ["botManagement.unavailable"] = new("botManagement.unavailable", "Bot management is temporarily unavailable.", StatusCodes.Status503ServiceUnavailable),
         ["permissions.rolesRequired"] = new("permissions.rolesRequired", "Roles are required.", StatusCodes.Status400BadRequest),
         ["permissions.nullRole"] = new("permissions.nullRole", "Roles must not contain null entries.", StatusCodes.Status400BadRequest),
         ["permissions.duplicateRole"] = new("permissions.duplicateRole", "Duplicate role IDs are not allowed.", StatusCodes.Status400BadRequest),

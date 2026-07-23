@@ -16,6 +16,7 @@ import { AuthStore } from '../../store/auth.store';
 import { ModuleTranslationService } from '../../i18n/module-translation.service';
 import { AppStore } from '../../store/app.store';
 import { GuildAccessService } from '../../services/guild-access.service';
+import { AuthService } from '../../services/auth.service';
 import { LayoutStateService } from '../layout-state.service';
 import { TranslocoPipe } from '@jsverse/transloco';
 
@@ -59,6 +60,7 @@ export class MainLayoutComponent {
   readonly isNavigating = signal(false);
   private readonly appStore = inject(AppStore);
   private readonly guildAccess = inject(GuildAccessService);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -80,6 +82,7 @@ export class MainLayoutComponent {
       if (!this.authStore.isAuthenticated()) return;
 
       void this.translations.load('navigation');
+      this.auth.refreshBotOperatorAccess();
 
       const guild = this.appStore.selectedGuild();
       if (!guild?.botInstalled) return;
