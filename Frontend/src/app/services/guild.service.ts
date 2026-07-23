@@ -7,6 +7,8 @@ import {
   RolePermissions,
   SaveRolePermissions
 } from '../models/guild-permissions.models';
+import { LevelUpAnnouncementResponse, LevelUpAnnouncementSettings, LevelUpPreviewRequest, LevelUpPreviewResponse, TemplateSchema } from '../models/level-up-announcement.models';
+import { ChannelDiagnostic, PermissionDiagnosticReport, PermissionDiagnosticScope } from '../models/permission-diagnostics.models';
 
 export interface RankEntry { userId: string; displayName: string; totalXp: string | number; level: number; messageCount: string | number; voiceSeconds: string | number; }
 export interface DashboardData { guildName: string; leaderboardAlias: string; memberCount: string | number; botCount: string | number; activeVoiceMembers: number; activeXpMembers: string | number; stats: { xpAwarded: string | number; messages: string | number; reactions: string | number; threads: string | number; eventInterests: string | number; temporaryChannelsCreated: string | number }; activeTemporaryChannels: string | number; processUptimeSeconds: number; watchdog: { state: string; lastRunAt: string | null; lastError: string | null }; leaderboard: RankEntry[]; }
@@ -17,7 +19,10 @@ export interface VcHub { id?: string; guildId?: string; joinChannelId: number; h
 export interface GuildResources { roles: { id: string; name: string }[]; channels: { id: string; name: string; type: string }[]; }
 export interface SelfRoleEmoji { kind: 'Unicode' | 'Custom'; value: string; name: string; }
 export interface SelfRoleMapping { id?: string; emoji: SelfRoleEmoji; roleId: string; }
-export interface SelfRolePanel { id?: string; guildId?: string; channelId: string; title: string; description: string; color: string; enabled: boolean; mappings: SelfRoleMapping[]; revision: number; updatedAt?: string; status?: string; }
+export type SelfRoleEmbedKind = 'Content' | 'RoleMappings';
+export interface SelfRoleEmbedField { id?: string; name: string; value: string; inline: boolean; }
+export interface SelfRoleEmbed { id?: string; kind: SelfRoleEmbedKind; title: string; description: string; color: string; fields: SelfRoleEmbedField[]; }
+export interface SelfRolePanel { id?: string; guildId?: string; channelId: string; embeds: SelfRoleEmbed[]; title?: string; description?: string; color?: string; enabled: boolean; mappings: SelfRoleMapping[]; revision: number; updatedAt?: string; status?: string; }
 export interface SelfRoleResources extends GuildResources { emojis: { id: string; name: string; animated: boolean; url: string; available: boolean }[]; }
 export type LeaderboardVisibility = 'Public' | 'MembersOnly';
 export interface LeaderboardSettings { guildId: string; alias: string; visibility: LeaderboardVisibility; updatedAt: string; }
@@ -43,6 +48,9 @@ export interface SeasonSettings {
 }
 export interface Season { id?: string; guildId?: string; sequence: number; name: string; description: string | null; status: SeasonStatus; startsAtUtc: string; endsAtUtc: string; createdAtUtc?: string; activatedAtUtc?: string | null; closedAtUtc?: string | null; previousSeasonId?: string | null; scheduleRevision?: number; carryOverApplied?: boolean; finalized?: boolean; }
 export interface SeasonPreview { sequence: number; startsAtUtc: string; endsAtUtc: string; name: string; }
+export interface CustomBotAccess { isEligible: boolean; canActivate: boolean; hasReservation: boolean; hasConfiguredIdentity: boolean; activeGuilds: number; maximumActiveGuilds: number | null; reason: 'Available' | 'AlreadyReserved' | 'FeatureDisabled' | 'GuildNotAllowed' | 'CapacityReached'; }
+export interface CustomBotIdentity { guildId: string; mode: 'Rankoon' | 'Custom'; status: string; applicationId: string | null; botUserId: string | null; botUsername: string | null; botGlobalName: string | null; botAvatarHash: string | null; hasStoredToken: boolean; lastValidatedAt: string | null; lastConnectedAt: string | null; lastReadyAt: string | null; lastErrorCode: string | null; revision: number; }
+export interface CustomBotOperation { succeeded: boolean; errorCode: string | null; identity: CustomBotIdentity | null; installUrl: string | null; diagnostics: Record<string, boolean> | null; }
 
 @Injectable({ providedIn: 'root' })
 export class GuildService {
@@ -50,6 +58,14 @@ export class GuildService {
   private url(guildId: string, path: string): string { return `${environment.apiBaseUrl}/guilds/${guildId}/${path}`; }
   dashboard(guildId: string): Observable<DashboardData> { return this.http.get<DashboardData>(this.url(guildId, 'dashboard')); }
   capabilities(guildId: string): Observable<GuildCapabilities> { return this.http.get<GuildCapabilities>(this.url(guildId, 'capabilities')); }
+  customBotAccess(guildId: string): Observable<CustomBotAccess> { return this.http.get<CustomBotAccess>(this.url(guildId, 'custom-bot-identity/access')); }
+  customBotIdentity(guildId: string): Observable<CustomBotIdentity | null> { return this.http.get<CustomBotIdentity | null>(this.url(guildId, 'custom-bot-identity')); }
+  storeCustomBotToken(guildId: string, token: string, revision?: number): Observable<CustomBotOperation> { return this.http.post<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/token'), { token, revision }); }
+  customBotInstallUrl(guildId: string): Observable<CustomBotOperation> { return this.http.get<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/install-url')); }
+  validateCustomBot(guildId: string): Observable<CustomBotOperation> { return this.http.post<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/validate'), {}); }
+  activateCustomBot(guildId: string, revision?: number): Observable<CustomBotOperation> { return this.http.post<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/activate'), { revision }); }
+  deactivateCustomBot(guildId: string): Observable<CustomBotOperation> { return this.http.post<CustomBotOperation>(this.url(guildId, 'custom-bot-identity/deactivate'), {}); }
+  deleteCustomBot(guildId: string): Observable<void> { return this.http.delete<void>(this.url(guildId, 'custom-bot-identity')); }
   rolePermissions(guildId: string): Observable<RolePermissions> { return this.http.get<RolePermissions>(this.url(guildId, 'role-permissions')); }
   saveRolePermissions(guildId: string, permissions: SaveRolePermissions): Observable<RolePermissions> { return this.http.put<RolePermissions>(this.url(guildId, 'role-permissions'), permissions); }
   resources(guildId: string): Observable<GuildResources> { return this.http.get<GuildResources>(this.url(guildId, 'resources')); }
@@ -83,6 +99,11 @@ export class GuildService {
   }
   setLeaderboardPrivacy(alias: string, publicVisible: boolean): Observable<{ publicVisible: boolean }> { return this.http.put<{ publicVisible: boolean }>(`${environment.apiBaseUrl}/rankings/${encodeURIComponent(alias)}/me/privacy`, { publicVisible }); }
   importMee6(guildId: string, data: unknown): Observable<{ imported: number }> { return this.http.post<{ imported: number }>(this.url(guildId, 'xp/import/mee6'), data); }
+  levelUpAnnouncements(guildId: string): Observable<LevelUpAnnouncementResponse> { return this.http.get<LevelUpAnnouncementResponse>(this.url(guildId, 'xp/level-up-announcements')); }
+  saveLevelUpAnnouncements(guildId: string, settings: LevelUpAnnouncementSettings): Observable<LevelUpAnnouncementSettings> { return this.http.put<LevelUpAnnouncementSettings>(this.url(guildId, 'xp/level-up-announcements'), settings); }
+  levelUpTemplateSchema(guildId: string): Observable<TemplateSchema> { return this.http.get<TemplateSchema>(this.url(guildId, 'xp/level-up-announcements/template-schema')); }
+  previewLevelUpAnnouncement(guildId: string, request: LevelUpPreviewRequest): Observable<LevelUpPreviewResponse> { return this.http.post<LevelUpPreviewResponse>(this.url(guildId, 'xp/level-up-announcements/preview'), request); }
+  testLevelUpAnnouncement(guildId: string, request: LevelUpPreviewRequest): Observable<{ messageId: string }> { return this.http.post<{ messageId: string }>(this.url(guildId, 'xp/level-up-announcements/test'), request); }
   hubs(guildId: string): Observable<VcHub[]> { return this.http.get<VcHub[]>(this.url(guildId, 'vc-hubs')); }
   createHub(guildId: string, hub: VcHub): Observable<VcHub> { return this.http.post<VcHub>(this.url(guildId, 'vc-hubs'), hub); }
   updateHub(guildId: string, hub: VcHub): Observable<VcHub> { return this.http.put<VcHub>(this.url(guildId, `vc-hubs/${hub.id}`), hub); }
@@ -92,4 +113,7 @@ export class GuildService {
   createSelfRolePanel(guildId: string, panel: SelfRolePanel): Observable<SelfRolePanel> { return this.http.post<SelfRolePanel>(this.url(guildId, 'self-role-panels'), panel); }
   updateSelfRolePanel(guildId: string, panel: SelfRolePanel): Observable<SelfRolePanel> { return this.http.put<SelfRolePanel>(this.url(guildId, `self-role-panels/${panel.id}`), panel); }
   deleteSelfRolePanel(guildId: string, panelId: string): Observable<void> { return this.http.delete<void>(this.url(guildId, `self-role-panels/${panelId}`)); }
+  scanPermissionDiagnostics(guildId: string, scope: PermissionDiagnosticScope = 'ConfiguredFeatures', includePermissionTrace = true): Observable<PermissionDiagnosticReport> { return this.http.post<PermissionDiagnosticReport>(this.url(guildId, 'diagnostics/permissions/scan'), { scope, includePermissionTrace }); }
+  latestPermissionDiagnostics(guildId: string): Observable<PermissionDiagnosticReport> { return this.http.get<PermissionDiagnosticReport>(this.url(guildId, 'diagnostics/permissions/latest')); }
+  channelPermissionDiagnostics(guildId: string, channelId: string): Observable<ChannelDiagnostic> { return this.http.get<ChannelDiagnostic>(this.url(guildId, `diagnostics/permissions/channels/${channelId}`)); }
 }

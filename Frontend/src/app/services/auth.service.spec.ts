@@ -1,9 +1,10 @@
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { AuthStore, User } from '../store/auth.store';
+import { Guild } from '../store/app.store';
 import { testI18n } from '../testing/i18n-testing';
 import { authInterceptor } from '../interceptors/auth.interceptor';
 import { ACCESS_TOKEN_EXPIRATION_STORAGE_KEY, ACCESS_TOKEN_STORAGE_KEY, AuthService, REFRESH_TOKEN_STORAGE_KEY } from './auth.service';
@@ -98,6 +99,31 @@ describe('AuthService token contracts', () => {
 
     expect(results).toEqual([true, true]);
   });
+
+  it('caches guild requests and throttles forced refreshes', fakeAsync(() => {
+    const guilds: Guild[] = [{
+      id: 'guild-1', name: 'Guild', icon: null, owner: true, permissions: '8', features: [], botInstalled: true, inviteUrl: ''
+    }];
+    store.setAuthData(user, 'access');
+
+    service.getUserGuilds().subscribe(result => expect(result).toEqual(guilds));
+    http.expectOne(`${environment.apiBaseUrl}/auth/guilds`).flush(guilds);
+
+    service.getUserGuilds().subscribe(result => expect(result).toEqual(guilds));
+    http.expectNone(`${environment.apiBaseUrl}/auth/guilds`);
+
+    service.getUserGuilds(true).subscribe(result => expect(result).toEqual(guilds));
+    const refreshRequest = http.expectOne(request =>
+      request.url === `${environment.apiBaseUrl}/auth/guilds` && request.params.get('refresh') === 'true');
+    refreshRequest.flush(guilds);
+
+    service.getUserGuilds(true).subscribe(result => expect(result).toEqual(guilds));
+    http.expectNone(request => request.url === `${environment.apiBaseUrl}/auth/guilds`);
+
+    tick(120_001);
+    service.getUserGuilds().subscribe(result => expect(result).toEqual(guilds));
+    http.expectOne(`${environment.apiBaseUrl}/auth/guilds`).flush(guilds);
+  }));
 
   it('refreshes an access token that is close to expiry before sending an API request', () => {
     store.setAuthData(user, 'expiring-access');

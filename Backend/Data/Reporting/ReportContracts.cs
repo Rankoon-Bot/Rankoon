@@ -45,6 +45,11 @@ public static class ReportNames
     public const string SeasonStarted = "season.started";
     public const string SeasonClosed = "season.closed";
     public const string SeasonCarryOverApplied = "season.carryover.applied";
+    public const string LevelAnnouncementSettingsChanged = "xp.level-announcement.settings.changed";
+    public const string LevelAnnouncementTestSent = "xp.level-announcement.test.sent";
+    public const string LevelAnnouncementSent = "xp.level-announcement.sent";
+    public const string LevelAnnouncementNoTemplate = "xp.level-announcement.no-template";
+    public const string LevelRolesPartiallyFailed = "xp.level-roles.partially-failed";
 }
 
 public sealed record ReportWrite(

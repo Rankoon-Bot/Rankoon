@@ -7,9 +7,10 @@ import { finalize, forkJoin } from 'rxjs';
 import 'emoji-picker-element';
 import { AppStore } from '../../store/app.store';
 import { ApiErrorService } from '../../services/api-error.service';
-import { GuildService, SelfRoleMapping, SelfRolePanel, SelfRoleResources } from '../../services/guild.service';
+import { GuildService, SelfRoleEmbed, SelfRoleMapping, SelfRolePanel, SelfRoleResources } from '../../services/guild.service';
 import { environment } from '../../../environments/environment';
 import { ToastService } from '../../services/toast.service';
+import { SELF_ROLE_MAX_EMBEDS, SELF_ROLE_MAX_FIELDS, SELF_ROLE_MAX_TEXT, copySelfRoleEmbeds, createSelfRoleEmbed, embedTextLength, embedValidation, finalDescription, legend, normalizeSelfRoleEmbeds } from './self-role-embed.utils';
 
 type SelfRolePanelWithHealth = SelfRolePanel & { state?: 'Pending' | 'Published' | 'Disabled' | 'Degraded'; lastPublishedAt?: string; lastHealthCheckAt?: string; lastError?: string; lastErrorAt?: string; };
 
@@ -41,6 +42,7 @@ export class SelfRolesComponent implements OnInit {
   readonly pickerIndex = signal<number | null>(null);
   readonly pickerTab = signal<'server' | 'unicode'>('server');
   readonly customSearch = signal('');
+  readonly maxEmbeds = SELF_ROLE_MAX_EMBEDS;
 
   ngOnInit(): void { this.load(); }
 
@@ -66,6 +68,10 @@ export class SelfRolesComponent implements OnInit {
     return this.textChannels().find(channel => channel.id === channelId)?.name ?? channelId;
   }
 
+  roleLabel(roleId: string): string {
+    return this.resources()?.roles.find(role => role.id === roleId)?.name ?? this.i18n.translate('selfRoles.rolePlaceholder');
+  }
+
   filteredCustom(): SelfRoleResources['emojis'] {
     const query = this.customSearch().trim().toLowerCase();
     const emojis = this.resources()?.emojis ?? [];
@@ -73,7 +79,7 @@ export class SelfRolesComponent implements OnInit {
   }
 
   create(): void {
-    this.editor.set({ channelId: '', title: '', description: '', color: '#ef3e3a', enabled: true, mappings: [], revision: 0 });
+    this.editor.set({ channelId: '', embeds: [createSelfRoleEmbed('RoleMappings')], enabled: true, mappings: [], revision: 0 });
     this.resetFeedback();
   }
 
@@ -88,20 +94,61 @@ export class SelfRolesComponent implements OnInit {
     const panel = this.editor();
     if (!panel || panel.mappings.length >= 20) return;
     panel.mappings.push({ emoji: { kind: 'Unicode', value: '✅', name: 'check mark' }, roleId: '' });
+    this.touchEditor();
   }
 
-  removeMapping(index: number): void { this.editor()?.mappings.splice(index, 1); }
+  removeMapping(index: number): void { this.editor()?.mappings.splice(index, 1); this.touchEditor(); }
 
   moveMapping(index: number, direction: -1 | 1): void {
     const mappings = this.editor()?.mappings;
     const target = index + direction;
     if (!mappings || target < 0 || target >= mappings.length) return;
     [mappings[index], mappings[target]] = [mappings[target], mappings[index]];
+    this.touchEditor();
   }
+
+  addEmbed(): void {
+    const embeds = this.editor()?.embeds;
+    if (!embeds || embeds.length >= SELF_ROLE_MAX_EMBEDS) return;
+    embeds.push(createSelfRoleEmbed());
+    this.touchEditor();
+  }
+
+  removeEmbed(index: number): void {
+    const embeds = this.editor()?.embeds;
+    if (!embeds || embeds[index]?.kind === 'RoleMappings') return;
+    embeds.splice(index, 1);
+    this.touchEditor();
+  }
+
+  moveEmbed(index: number, direction: -1 | 1): void {
+    const embeds = this.editor()?.embeds;
+    const target = index + direction;
+    if (!embeds || target < 0 || target >= embeds.length) return;
+    [embeds[index], embeds[target]] = [embeds[target], embeds[index]];
+    this.touchEditor();
+  }
+
+  selectRoleMappingsEmbed(index: number): void {
+    const embeds = this.editor()?.embeds;
+    if (!embeds || !embeds[index]) return;
+    for (const embed of embeds) embed.kind = 'Content';
+    embeds[index].kind = 'RoleMappings';
+  }
+
+  addField(embed: SelfRoleEmbed): void { if (embed.fields.length < SELF_ROLE_MAX_FIELDS) { embed.fields.push({ name: '', value: '', inline: false }); this.touchEditor(); } }
+  removeField(embed: SelfRoleEmbed, index: number): void { embed.fields.splice(index, 1); this.touchEditor(); }
+  moveField(embed: SelfRoleEmbed, index: number, direction: -1 | 1): void { const target = index + direction; if (target >= 0 && target < embed.fields.length) { [embed.fields[index], embed.fields[target]] = [embed.fields[target], embed.fields[index]]; this.touchEditor(); } }
+  fieldLimit(): number { return SELF_ROLE_MAX_FIELDS; }
+  embedBudget(panel: SelfRolePanel): number { return embedTextLength(panel.embeds, panel.mappings); }
+  maxText(): number { return SELF_ROLE_MAX_TEXT; }
+  generatedLegend(panel: SelfRolePanel): string { return legend(panel.mappings); }
+  renderedDescription(embed: SelfRoleEmbed, panel: SelfRolePanel): string { return finalDescription(embed, panel.mappings); }
 
   chooseCustom(mapping: SelfRoleMapping, emoji: SelfRoleResources['emojis'][number]): void {
     if (!emoji.available) return;
     mapping.emoji = { kind: 'Custom', value: emoji.id, name: emoji.name };
+    this.touchEditor();
   }
 
   openEmojiPicker(index: number): void {
@@ -120,6 +167,7 @@ export class SelfRolesComponent implements OnInit {
   selectUnicode(unicode: string): void {
     const mapping = this.pickerMapping();
     if (mapping) mapping.emoji = { kind: 'Unicode', value: unicode, name: unicode };
+    this.touchEditor();
     this.closeEmojiPicker();
   }
 
@@ -197,6 +245,10 @@ export class SelfRolesComponent implements OnInit {
     return this.i18n.translate(`selfRoles.health.${state.toLowerCase()}`);
   }
 
+  panelTitle(panel: SelfRolePanel): string {
+    return normalizeSelfRoleEmbeds(panel).find(embed => embed.title.trim() || embed.description.trim() || embed.fields.length)?.title.trim() || this.i18n.translate('selfRoles.untitledEmbed');
+  }
+
   emojiLabel(mapping: SelfRoleMapping): string { return mapping.emoji.kind === 'Custom' ? `:${mapping.emoji.name}:` : mapping.emoji.value; }
 
   customEmojiUrl(mapping: SelfRoleMapping): string | undefined { return this.resources()?.emojis.find(emoji => emoji.id === mapping.emoji.value)?.url; }
@@ -204,14 +256,25 @@ export class SelfRolesComponent implements OnInit {
   private validate(panel: SelfRolePanel): boolean {
     const errors: string[] = [];
     if (!panel.channelId) errors.push(this.i18n.translate('selfRoles.validation.channel'));
-    if (!panel.title.trim()) errors.push(this.i18n.translate('selfRoles.validation.title'));
-    if (!panel.mappings.length) errors.push(this.i18n.translate('selfRoles.validation.mappings'));
+    if (embedValidation(panel.embeds, panel.mappings).length) errors.push(this.i18n.translate('selfRoles.validation.embeds'));
+    if (!panel.mappings.length || panel.mappings.some(mapping => !mapping.roleId || !mapping.emoji.value)) errors.push(this.i18n.translate('selfRoles.validation.mappings'));
     if (new Set(panel.mappings.map(mapping => mapping.roleId).filter(Boolean)).size !== panel.mappings.filter(mapping => mapping.roleId).length) errors.push(this.i18n.translate('selfRoles.validation.roles'));
     if (new Set(panel.mappings.map(mapping => `${mapping.emoji.kind}:${mapping.emoji.value}`)).size !== panel.mappings.length) errors.push(this.i18n.translate('selfRoles.validation.emojis'));
     this.validationErrors.set(errors);
     return errors.length === 0;
   }
 
-  private copyPanel(panel: SelfRolePanel): SelfRolePanel { return { ...panel, mappings: panel.mappings.map(mapping => ({ ...mapping, emoji: { ...mapping.emoji } })) }; }
+  canPublish(panel: SelfRolePanel): boolean {
+    return !!panel.channelId && panel.mappings.length > 0 && !panel.mappings.some(mapping => !mapping.roleId || !mapping.emoji.value) &&
+      new Set(panel.mappings.map(mapping => mapping.roleId)).size === panel.mappings.length &&
+      new Set(panel.mappings.map(mapping => `${mapping.emoji.kind}:${mapping.emoji.value}`)).size === panel.mappings.length &&
+      embedValidation(panel.embeds, panel.mappings).length === 0;
+  }
+
+  private copyPanel(panel: SelfRolePanel): SelfRolePanel {
+    const { title: _title, description: _description, color: _color, ...current } = panel;
+    return { ...current, embeds: copySelfRoleEmbeds(normalizeSelfRoleEmbeds(panel)), mappings: panel.mappings.map(mapping => ({ ...mapping, emoji: { ...mapping.emoji } })) };
+  }
+  touchEditor(): void { this.editor.update(panel => panel ? { ...panel, embeds: copySelfRoleEmbeds(panel.embeds), mappings: panel.mappings.map(mapping => ({ ...mapping, emoji: { ...mapping.emoji } })) } : null); }
   private resetFeedback(): void { this.error.set(''); this.validationErrors.set([]); }
 }

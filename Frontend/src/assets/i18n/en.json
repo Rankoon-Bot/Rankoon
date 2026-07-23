@@ -166,6 +166,10 @@
       "planConflict": "The requested seasons overlap with the existing plan."
       ,"notResumable": "This season can only be resumed during its original time range."
     },
+    "levelAnnouncements": { "channelUnavailable": "The configured channel is unavailable.", "revisionConflict": "Level-up messages changed since they were loaded.", "settingsInvalid": "Level-up announcement settings are invalid.", "templateInvalid": "The template cannot be rendered." },
+    "customBotIdentity": {
+      "disabled": "Custom Bot Identity is disabled on this Rankoon instance.", "guildNotAllowed": "This server is not allowed to use Custom Bot Identity.", "capacityReached": "Custom Bot Identity is currently at capacity.", "tokenInvalid": "The bot token is invalid or revoked.", "tokenAlreadyAssigned": "This bot token is already assigned to another server.", "botNotInstalled": "The custom bot is not installed in this server.", "runtimeStartFailed": "The custom bot runtime could not be started.", "revisionConflict": "The bot identity changed since it was loaded. Reload and try again.", "ownerRequired": "Only the server owner can manage Custom Bot Identity."
+    },
     "selfRoles": {
       "invalidPanel": "The self-role panel is invalid.",
       "tooManyMappings": "A self-role panel supports at most 20 mappings.",
@@ -174,7 +178,19 @@
       "channelNotUsable": "The selected channel cannot receive self-role messages.",
       "discordPermissions": "The bot is missing permissions in this channel. Grant View Channel, Send Messages, Embed Links, Add Reactions, Read Message History, and Manage Messages.",
       "emojiInvalid": "A self-role mapping contains an invalid emoji.",
-      "revisionConflict": "The self-role panel changed since it was loaded. Reload and try again."
+      "emojiRejected": "Discord rejected the emoji {{emoji}}. Choose another emoji or verify that it is available on this server.",
+      "revisionConflict": "The self-role panel changed since it was loaded. Reload and try again.",
+      "tooManyEmbeds": "A self-role panel supports at most 10 embeds.",
+      "invalidEmbedStructure": "The embed structure is invalid.",
+      "missingRoleMappingsEmbed": "Exactly one role-mappings embed is required.",
+      "tooManyFields": "An embed supports at most 25 fields.",
+      "embedTitleTooLong": "An embed title must not exceed 256 characters.",
+      "embedDescriptionTooLong": "An embed description must not exceed 4096 characters.",
+      "fieldNameRequired": "An embed field name is required.",
+      "fieldValueRequired": "An embed field value is required.",
+      "fieldNameTooLong": "An embed field name must not exceed 256 characters.",
+      "fieldValueTooLong": "An embed field value must not exceed 1024 characters.",
+      "embedTextTooLong": "Embed text must not exceed 6000 characters per message."
     }
   }
 }

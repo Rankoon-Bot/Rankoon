@@ -59,6 +59,12 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Kind).Ascending(x => x.ActorUserId).Descending(x => x.OccurredAtUtc).Descending("_id"), new CreateIndexOptions { Name = "guild_kind_actor_occurred" }),
                     new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.ReversesLedgerEntryId), new CreateIndexOptions { Name = "reverses_ledger_entry_unique", Unique = true, Sparse = true })
                 ], stoppingToken);
+                await database.GuildLevelUpAnnouncementSettings.Indexes.CreateOneAsync(new CreateIndexModel<GuildLevelUpAnnouncementSettings>(Builders<GuildLevelUpAnnouncementSettings>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }), cancellationToken: stoppingToken);
+                await database.LevelTransitionEvents.Indexes.CreateManyAsync([
+                    new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.EventKey), new CreateIndexOptions { Unique = true, Name = "event_key_unique" }),
+                    new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.NextAttemptAtUtc), new CreateIndexOptions { Name = "open_delivery" }),
+                    new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId).Descending(x => x.CreatedAtUtc), new CreateIndexOptions { Name = "guild_user_recent" })
+                ], stoppingToken);
                 await database.VoiceSessions.Indexes.CreateOneAsync(new CreateIndexModel<VoiceSession>(Builders<VoiceSession>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
                 await database.TemporaryVoiceChannels.Indexes.CreateOneAsync(new CreateIndexModel<TemporaryVoiceChannel>(Builders<TemporaryVoiceChannel>.IndexKeys.Ascending(x => x.ChannelId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
                 await database.GuildStats.Indexes.CreateOneAsync(new CreateIndexModel<GuildStats>(Builders<GuildStats>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
@@ -67,6 +73,16 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     new CreateIndexModel<SelfRolePanel>(Builders<SelfRolePanel>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.MessageId), new CreateIndexOptions { Unique = true, Name = "guild_message_unique" })
                 ], stoppingToken);
                 await database.SelfRoleAssignments.Indexes.CreateOneAsync(new CreateIndexModel<SelfRoleAssignment>(Builders<SelfRoleAssignment>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.PanelId).Ascending(x => x.MappingId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true, Name = "panel_mapping_user_unique" }), cancellationToken: stoppingToken);
+                await database.GuildBotIdentities.Indexes.CreateManyAsync([
+                    new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }),
+                    new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.TokenFingerprint), new CreateIndexOptions { Unique = true, Sparse = true, Name = "token_fingerprint_unique" }),
+                    new CreateIndexModel<GuildBotIdentity>(Builders<GuildBotIdentity>.IndexKeys.Ascending(x => x.Status).Descending(x => x.UpdatedAt), new CreateIndexOptions { Name = "status_updated" })
+                ], stoppingToken);
+                await database.CustomBotCapacityReservations.Indexes.CreateManyAsync([
+                    new CreateIndexModel<CustomBotCapacityReservation>(Builders<CustomBotCapacityReservation>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }),
+                    new CreateIndexModel<CustomBotCapacityReservation>(Builders<CustomBotCapacityReservation>.IndexKeys.Ascending(x => x.IdentityId), new CreateIndexOptions { Unique = true, Name = "identity_unique" }),
+                    new CreateIndexModel<CustomBotCapacityReservation>(Builders<CustomBotCapacityReservation>.IndexKeys.Ascending(x => x.ReservedAtUtc), new CreateIndexOptions { Name = "reserved_at" })
+                ], stoppingToken);
                 await database.ReportEvents.Indexes.CreateManyAsync([
                     new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Category).Descending(x => x.OccurredAt).Descending("_id"), new CreateIndexOptions { Name = "guild_category_occurred" }),
                     new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Category).Ascending(x => x.Name).Descending(x => x.OccurredAt).Descending("_id"), new CreateIndexOptions { Name = "guild_category_name" }),

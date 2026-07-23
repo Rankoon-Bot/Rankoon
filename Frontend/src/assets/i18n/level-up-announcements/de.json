@@ -1,0 +1,5 @@
+{
+  "levelUpAnnouncements": {
+    "title": "Level-Up-Nachrichten", "description": "Konfiguriere sichere Nachrichten fuer Levelaufstiege.", "enabled": "Nachrichten aktivieren", "channel": "Zielkanal", "notify": "Aufgestiegenen Nutzer benachrichtigen", "repetition": "Wiederholungsschutz", "save": "Speichern", "reset": "Aenderungen zuruecksetzen", "test": "Testnachricht senden", "testSent": "Testnachricht wurde gesendet.", "saved": "Level-Up-Nachrichten wurden gespeichert.", "add": "Vorlage hinzufuegen", "newTemplate": "Neue Vorlage", "name": "Name", "templateEnabled": "Aktiv", "content": "Nachrichtenvarianten", "variationHint": "Jede nicht-leere Zeile ist eine eigenstaendige Variante und wird zufaellig ausgewaehlt.", "variationPlaceholder": "Erste Variante\nZweite Variante\nDritte Variante", "lineCharacters": "Zeile {{line}}: {{count}}/500 Zeichen", "priority": "Prioritaet", "weight": "Gewichtung", "roleCondition": "Rollenbedingung", "templateActions": "Aktionen fuer {{name}}", "duplicate": "Duplizieren", "delete": "Loeschen"
+  }
+}

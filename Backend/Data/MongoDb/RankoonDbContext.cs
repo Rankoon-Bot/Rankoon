@@ -43,6 +43,8 @@ public class RankoonDbContext
     public IMongoCollection<GuildLeaderboardSettings> GuildLeaderboardSettings => _database.GetCollection<GuildLeaderboardSettings>("guild_leaderboard_settings");
     public IMongoCollection<MemberLeaderboardPreference> MemberLeaderboardPreferences => _database.GetCollection<MemberLeaderboardPreference>("member_leaderboard_preferences");
     public IMongoCollection<XpLedgerEntry> XpLedger => _database.GetCollection<XpLedgerEntry>("xp_ledger");
+    public IMongoCollection<GuildLevelUpAnnouncementSettings> GuildLevelUpAnnouncementSettings => _database.GetCollection<GuildLevelUpAnnouncementSettings>("guild_level_up_announcement_settings");
+    public IMongoCollection<LevelTransitionEvent> LevelTransitionEvents => _database.GetCollection<LevelTransitionEvent>("level_transition_events");
     public IMongoCollection<VoiceSession> VoiceSessions => _database.GetCollection<VoiceSession>("voice_sessions");
     public IMongoCollection<VcHub> VcHubs => _database.GetCollection<VcHub>("vc_hubs");
     public IMongoCollection<TemporaryVoiceChannel> TemporaryVoiceChannels => _database.GetCollection<TemporaryVoiceChannel>("temporary_voice_channels");
@@ -51,6 +53,8 @@ public class RankoonDbContext
     public IMongoCollection<GuildRolePermissionPolicy> GuildRolePermissionPolicies => _database.GetCollection<GuildRolePermissionPolicy>("guild_role_permission_policies");
     public IMongoCollection<SelfRolePanel> SelfRolePanels => _database.GetCollection<SelfRolePanel>("self_role_panels");
     public IMongoCollection<SelfRoleAssignment> SelfRoleAssignments => _database.GetCollection<SelfRoleAssignment>("self_role_assignments");
+    public IMongoCollection<GuildBotIdentity> GuildBotIdentities => _database.GetCollection<GuildBotIdentity>("guild_bot_identities");
+    public IMongoCollection<CustomBotCapacityReservation> CustomBotCapacityReservations => _database.GetCollection<CustomBotCapacityReservation>("custom_bot_capacity_reservations");
 }
 
 /// <summary>

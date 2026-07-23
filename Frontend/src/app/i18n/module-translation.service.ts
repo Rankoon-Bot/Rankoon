@@ -14,10 +14,13 @@ export type TranslationScope =
   | 'leaderboard'
   | 'leaderboard-settings'
   | 'role-permissions'
+  | 'custom-bot-identity'
   | 'reporting'
   | 'self-roles'
   | 'xp'
-  | 'xp-audit';
+  | 'xp-audit'
+  | 'level-up-announcements'
+  | 'diagnostics';
 
 @Injectable({ providedIn: 'root' })
 export class ModuleTranslationService {

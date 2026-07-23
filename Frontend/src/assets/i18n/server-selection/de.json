@@ -8,6 +8,8 @@
     "inviteBot": "Bot einladen",
     "managerInvite": "Ein Server-Manager muss Rankoon einladen.",
     "loadingHint": "Einen Moment bitte, während wir deine Discord-Server abrufen.",
-    "empty": "Es wurden keine gemeinsamen Discord-Server gefunden."
+    "empty": "Es wurden keine gemeinsamen Discord-Server gefunden.",
+    "refresh": "Aktualisieren",
+    "refreshAria": "Serverliste aktualisieren"
   }
 }

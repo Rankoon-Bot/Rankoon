@@ -4,16 +4,19 @@
     "dashboard": "Dashboard",
     "xp": "XP & Level",
     "seasons": "Seasons",
+    "levelUpAnnouncements": "Level-Up-Nachrichten",
     "xpAudit": "XP-Verlauf & Korrekturen",
     "voiceHubs": "VC-Hubs",
     "selfRoles": "Selbstrollen",
     "leaderboardSettings": "Ranglisten-Einstellungen",
     "roles": "Rollen & Berechtigungen",
+    "botIdentity": "Bot-Identitaet",
     "reports": "Logs & Analytics",
     "activity": "Aktivitätslogs",
     "commands": "Command-Nutzung",
     "errors": "Fehlerlogs",
     "dev": "DEV",
-    "devLeaderboard": "Mock-Ranglisten"
+    "devLeaderboard": "Mock-Ranglisten",
+    "diagnostics": "Bot-Diagnose"
   }
 }

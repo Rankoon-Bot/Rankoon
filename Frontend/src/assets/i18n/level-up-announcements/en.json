@@ -1,0 +1,5 @@
+{
+  "levelUpAnnouncements": {
+    "title": "Level-up messages", "description": "Configure safe messages for level progress.", "enabled": "Enable messages", "channel": "Target channel", "notify": "Notify leveled-up user", "repetition": "Repeat protection", "save": "Save", "reset": "Reset changes", "test": "Send test message", "testSent": "Test message was sent.", "saved": "Level-up messages were saved.", "add": "Add template", "newTemplate": "New template", "name": "Name", "templateEnabled": "Enabled", "content": "Message variations", "variationHint": "Each non-empty line is a separate variation and is selected randomly.", "variationPlaceholder": "First variation\nSecond variation\nThird variation", "lineCharacters": "Line {{line}}: {{count}}/500 characters", "priority": "Priority", "weight": "Weight", "roleCondition": "Role requirement", "templateActions": "Actions for {{name}}", "duplicate": "Duplicate", "delete": "Delete"
+  }
+}

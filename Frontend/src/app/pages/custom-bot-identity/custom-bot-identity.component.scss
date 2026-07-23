@@ -1,0 +1,5 @@
+.settings-panel { margin-top: var(--rk-space-6); padding: var(--rk-space-6); background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); }
+.settings-panel label, .actions { display: flex; flex-wrap: wrap; gap: var(--rk-space-3); margin-top: var(--rk-space-4); }
+.settings-panel input { min-height: 44px; flex: 1 1 20rem; }
+.settings-panel button { min-height: 44px; }
+.danger, .error { color: var(--rk-danger); }

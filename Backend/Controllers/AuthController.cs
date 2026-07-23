@@ -311,7 +311,7 @@ public class AuthController : ControllerBase
     /// <returns>List of user's Discord guilds</returns>
     [HttpGet("guilds")]
     [Authorize]
-    public async Task<IActionResult> GetUserGuilds()
+    public async Task<IActionResult> GetUserGuilds([FromQuery] bool refresh = false)
     {
         try
         {
@@ -321,7 +321,7 @@ public class AuthController : ControllerBase
                 return this.ApiError("auth.tokenInvalid");
             }
 
-            var guilds = await _authService.GetUserGuildsAsync(userId);
+            var guilds = await _authService.GetUserGuildsAsync(userId, refresh);
             if (guilds == null)
             {
                 return this.ApiError("auth.guildsUnavailable");

@@ -149,6 +149,25 @@ export const routes: Routes = [
         canActivate: [guildGuard, ownerGuard],
         resolve: { translations: translationScope('role-permissions') },
       },
+      {
+        path: 'server-config/bot-identity',
+        loadComponent: () => import('./pages/custom-bot-identity/custom-bot-identity.component').then((c) => c.CustomBotIdentityComponent),
+        canActivate: [guildGuard, ownerGuard],
+        resolve: { translations: translationScope('custom-bot-identity') },
+      },
+      {
+        path: 'xp/level-up-announcements',
+        loadComponent: () => import('./pages/level-up-announcements/level-up-announcements.component').then((c) => c.LevelUpAnnouncementsComponent),
+        canActivate: [guildGuard, moduleGuard],
+        data: { module: 'xp-announcements' },
+        resolve: { translations: translationScope('level-up-announcements') },
+      },
+      {
+        path: 'diagnostics/permissions',
+        loadComponent: () => import('./pages/permission-diagnostics/permission-diagnostics.component').then((c) => c.PermissionDiagnosticsComponent),
+        canActivate: [guildGuard, moduleGuard], data: { module: 'diagnostics' },
+        resolve: { translations: translationScope('diagnostics') },
+      },
       ...(!environment.production ? [{
         path: 'dev',
         loadComponent: () => import('./pages/dev-tools/dev-tools.component').then((c) => c.DevToolsComponent),

@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Discord;
+using Rankoon.Data.Diagnostics;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Utils;
@@ -103,8 +104,8 @@ ConfigureAppSettings(builder);
 var dcConfig = new DiscordSocketConfig()
 {
     LogLevel = LogSeverity.Info,
-    MessageCacheSize = 1024,
-    AuditLogCacheSize = 1024,
+    MessageCacheSize = 0,
+    AuditLogCacheSize = 0,
     AlwaysDownloadUsers = false,
     AlwaysDownloadDefaultStickers = false,
     TotalShards = 1,
@@ -119,7 +120,9 @@ var dcConfig = new DiscordSocketConfig()
         | GatewayIntents.MessageContent
 };
 builder.Services.AddSingleton(new DiscordShardedClient(dcConfig));
+builder.Services.AddSingleton(new GatewayIntentState(dcConfig.GatewayIntents));
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddDataProtection();
 
 // Register database context
 builder.Services.AddSingleton<RankoonDbContext>();
@@ -132,12 +135,23 @@ builder.Services.AddHttpClient<IDiscordService, DiscordService>();
 
 // Register our services
 builder.Services.AddSingleton<IBotInfoCache, BotInfoCache>();
+builder.Services.AddSingleton<ICustomBotTokenProtector, CustomBotTokenProtector>();
+builder.Services.AddSingleton<ICustomBotIdentityAccessPolicy, CustomBotIdentityAccessPolicy>();
+builder.Services.AddSingleton<IGuildBotAuthority, GuildBotAuthority>();
+builder.Services.AddSingleton<IBotRuntimeManager, BotRuntimeManager>();
+builder.Services.AddSingleton<IGuildDiscordContextResolver, GuildDiscordContextResolver>();
+builder.Services.AddSingleton<ICustomBotIdentityValidator, CustomBotIdentityValidator>();
+builder.Services.AddSingleton<ICustomBotIdentityService, CustomBotIdentityService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGuildAuthorizationService, GuildAuthorizationService>();
 builder.Services.AddSingleton<IGuildModuleRegistry, GuildModuleRegistry>();
 builder.Services.AddSingleton<IGuildRolePermissionService, GuildRolePermissionService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.XpService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelTransitionService, Rankoon.Data.Xp.LevelTransitionService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelUpTemplateRenderer, Rankoon.Data.Xp.LevelUpTemplateRenderer>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelUpRandom, Rankoon.Data.Xp.LevelUpRandom>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.LevelUpTemplateSelector>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpService>(services => services.GetRequiredService<Rankoon.Data.Xp.XpService>());
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpAuditService, Rankoon.Data.Xp.XpAuditService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonService, Rankoon.Data.Xp.SeasonService>();
@@ -145,6 +159,8 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonLifecycleService, Rankoon.D
 builder.Services.AddSingleton<Rankoon.Data.Xp.LedgerProjectionRepairService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonCoordinator>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
+builder.Services.AddSingleton<IDiscordAnnouncementSender, DiscordAnnouncementSender>();
+builder.Services.AddSingleton<LevelProgressionWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILeaderboardRealtimePublisher, Rankoon.Data.Xp.LeaderboardRealtimePublisher>();
 builder.Services.AddSingleton<Rankoon.Data.Development.DevelopmentLeaderboardService>();
@@ -154,6 +170,9 @@ builder.Services.AddSingleton<GuildMembershipService>();
 builder.Services.AddSingleton<RankoonBotHostedService>();
 builder.Services.AddSingleton<SelfRoleService>();
 builder.Services.AddSingleton<SelfRoleReactionService>();
+builder.Services.AddSingleton<IPermissionRequirementCatalog, PermissionRequirementCatalog>();
+builder.Services.AddSingleton<IDiagnosticReportCache, DiagnosticReportCache>();
+builder.Services.AddSingleton<IBotPermissionDiagnosticService, BotPermissionDiagnosticService>();
 
 if (!builder.Environment.IsEnvironment("Testing"))
 {
@@ -161,6 +180,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService<MongoIndexInitializer>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LedgerProjectionRepairService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<LevelProgressionWorker>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<RankoonBotHostedService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VcHubService>());
@@ -168,6 +188,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(provider => provider.GetRequiredService<SelfRoleReactionService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<GuildMembershipService>());
     builder.Services.AddHostedService<RankoonCommandService>();
+    builder.Services.AddHostedService<CustomBotIdentityHostedService>();
 }
 
 // Configure JWT authentication
@@ -280,6 +301,8 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
         builder.Configuration.GetSection(JwtSettings.SectionName));
     builder.Services.Configure<FrontendSettings>(
         builder.Configuration.GetSection(FrontendSettings.SectionName));
+    builder.Services.Configure<CustomBotIdentityOptions>(
+        builder.Configuration.GetSection(CustomBotIdentityOptions.SectionName));
 }
 
 static bool IsJsonException(Exception? exception)

@@ -4,16 +4,19 @@
     "dashboard": "Dashboard",
     "xp": "XP & Levels",
     "seasons": "Seasons",
+    "levelUpAnnouncements": "Level-up messages",
     "xpAudit": "XP History & Adjustments",
     "voiceHubs": "Voice hubs",
     "selfRoles": "Self roles",
     "leaderboardSettings": "Leaderboard settings",
     "roles": "Roles & permissions",
+    "botIdentity": "Bot Identity",
     "reports": "Logs & analytics",
     "activity": "Activity logs",
     "commands": "Command usage",
     "errors": "Error logs",
     "dev": "DEV",
-    "devLeaderboard": "Mock leaderboards"
+    "devLeaderboard": "Mock leaderboards",
+    "diagnostics": "Bot diagnostics"
   }
 }

@@ -14,6 +14,8 @@ public static class GuildModuleIds
     public const string SelfRoles = "self-roles";
     public const string XpAudit = "xp-audit";
     public const string XpAdjustments = "xp-adjustments";
+    public const string XpAnnouncements = "xp-announcements";
+    public const string Diagnostics = "diagnostics";
 }
 
 public sealed record GuildModuleDescriptor(string Id);
@@ -34,7 +36,9 @@ public sealed class GuildModuleRegistry : IGuildModuleRegistry
         new(GuildModuleIds.Reporting),
         new(GuildModuleIds.SelfRoles),
         new(GuildModuleIds.XpAudit),
-        new(GuildModuleIds.XpAdjustments)
+        new(GuildModuleIds.XpAdjustments),
+        new(GuildModuleIds.XpAnnouncements),
+        new(GuildModuleIds.Diagnostics)
     ];
 
     public bool Contains(string moduleId) => Modules.Any(module => module.Id == moduleId);

@@ -1,5 +1,17 @@
 # Rankoon
 
+## Bot permission diagnostics
+
+Guild administrators can open **Bot diagnostics** in the server navigation and run a read-only permission scan. The report evaluates only enabled Rankoon features and their configured channels or roles, including effective Discord.Net channel permissions and role hierarchy.
+
+Rankoon does not require or recommend `Administrator`. Category and channel overrides can still restrict granular guild permissions. Role assignment additionally requires `ManageRoles` and a Rankoon role positioned strictly above every configured level or self-role. The scan explains missing permissions and configuration changes but never changes Discord permissions, overwrites, or role positions automatically.
+
+The first version uses the Discord socket cache and a short in-memory cache. If Discord is reconnecting or a configured resource cannot be resolved, it reports `Unknown` instead of assuming access.
+
+## Level-up announcements
+
+Level-up announcements are disabled by default, including for guilds with a legacy XP level-up channel. Administrators can configure a text channel and safe templates in **Level-Up-Nachrichten**. Rendering supports only the allowlisted tokens exposed by the API; template text cannot execute code. Discord sends use restrictive allowed mentions, so manually typed mentions, roles, `@everyone`, and `@here` never ping. A transition outbox separates XP projection from Discord delivery and retries transient failures; this is best-effort deduplication, not an exactly-once Discord guarantee. The bot needs access to the target text channel and permission to send messages; role delivery is only claimed after a successful role assignment. MEE6 imports never create announcements.
+
 **Free, open-source leveling for communities that actually talk.**
 
 Rankoon is a configurable Discord bot that rewards meaningful text and voice
@@ -99,6 +111,12 @@ reverse its original award when enabled; scheduled-event interest removal also
 creates an idempotent reversal. Reversals retain the original season attribution.
 
 Voice sessions are reconciled every 5 seconds by default and settled when a member moves. Self-hosters can set the global `VOICEWATCHDOG__INTERVALSECONDS` environment variable; this is intentionally not configurable per guild.
+
+### Custom Bot Identity
+
+Custom Bot Identity is disabled by default. Set `CUSTOMBOTIDENTITY__ENABLED=true` and configure a separate, long random `CUSTOMBOTIDENTITY__FINGERPRINTKEY` to allow guild owners to connect one custom Discord bot application to one guild. `CUSTOMBOTIDENTITY__MAXACTIVEGUILDS` limits reserved identities; omit it for no limit. An empty `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS` allowlist permits every guild, while indexed values such as `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS__0=123456789012345678` restrict access.
+
+Custom bot tokens are encrypted using ASP.NET Core Data Protection and never returned by the API. Production deployments must persist and mount the Data Protection key ring across restarts; otherwise encrypted tokens cannot be recovered after a redeploy.
 Eligible intervals are split at persisted season boundaries, producing uniquely
 keyed ledger grants per segment. The first qualifying settlement includes time
 since joining, including the configured minimum-session interval.

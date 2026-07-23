@@ -129,6 +129,7 @@ public sealed class XpLedgerEntry
     [BsonElement("is_projection_control")] public bool IsProjectionControl { get; set; }
     [BsonElement("projection_lease_owner")] public string? ProjectionLeaseOwner { get; set; }
     [BsonElement("projection_lease_expires_at_utc")] public DateTime? ProjectionLeaseExpiresAtUtc { get; set; }
+    [BsonElement("level_transition_snapshot"), BsonIgnoreIfNull] public LevelTransitionSnapshot? LevelTransitionSnapshot { get; set; }
 }
 
 public sealed class VoiceSession
