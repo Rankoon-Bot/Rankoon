@@ -39,10 +39,8 @@ public sealed class GuildUserPresentationService(IGuildDiscordContextResolver di
     private static string CreateAvatarUrl(ulong guildId, IUser user, SocketGuildUser? guildUser)
     {
         // This matches the authenticated-header avatar URL format, using hashes already held by Discord.Net.
-        if (!string.IsNullOrEmpty(guildUser?.GuildAvatarId))
-            return $"https://cdn.discordapp.com/guilds/{guildId}/users/{user.Id}/avatars/{guildUser.GuildAvatarId}.{Extension(guildUser.GuildAvatarId)}?size=128";
-        if (!string.IsNullOrEmpty(user.AvatarId))
-            return $"https://cdn.discordapp.com/avatars/{user.Id}/{user.AvatarId}.{Extension(user.AvatarId)}?size=128";
+        if (!string.IsNullOrEmpty(guildUser?.DisplayAvatarId))
+            return $"https://cdn.discordapp.com/avatars/{guildUser.Id}/{guildUser.DisplayAvatarId}.{Extension(guildUser.DisplayAvatarId)}?size=128";
         return user.GetDefaultAvatarUrl();
     }
 
