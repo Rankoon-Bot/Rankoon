@@ -9,6 +9,7 @@ export interface XpAuditMember {
   isCurrentMember: boolean;
   totalXp: XpNumber;
   level: number;
+  iconUrl?: string | null;
 }
 
 export interface XpAuditMemberPage {
@@ -41,6 +42,7 @@ export interface XpAuditDetails {
   userId: string;
   displayName: string;
   isCurrentMember: boolean;
+  iconUrl?: string | null;
   lastXpActivityAtUtc: string | null;
   lifetime: XpTotals;
   activeSeason: XpSeasonTotals | null;
@@ -80,13 +82,41 @@ export interface XpAuditEntryPage {
 }
 
 export interface XpAuditEntryFilter {
+  source?: string | null;
   kind?: XpLedgerKind | null;
   scope?: XpLedgerScope | null;
   direction?: XpLedgerDirection | null;
   from?: string | null;
   to?: string | null;
+  seasonId?: string | null;
+  actorUserId?: string | null;
+  projectionStatus?: string | null;
+  channelId?: string | null;
   cursor?: string | null;
 }
+
+export interface XpTimelineItem {
+  itemType: 'Entry' | 'Group';
+  id: string;
+  entry: XpLedgerEntry | null;
+  source: string;
+  kind: XpLedgerKind;
+  scope: XpLedgerScope;
+  totalAmount: XpNumber;
+  entryCount: number;
+  occurredFromUtc: string;
+  occurredToUtc: string;
+  periodStartsAtUtc: string | null;
+  periodEndsAtUtc: string | null;
+  durationSeconds: number | null;
+  channelId: string | null;
+  seasonId: string | null;
+  seasonName: string | null;
+  projectionStatus: string;
+  appliedServerBoosterMultiplier: XpNumber | null;
+  isPartial: boolean;
+}
+export interface XpAuditTimelinePage { items: XpTimelineItem[]; nextCursor: string | null; }
 
 export interface AdjustmentRequest {
   amount: number;

@@ -42,10 +42,10 @@ describe('XpAuditComponent', () => {
     http.expectOne(request => request.url.endsWith('/members')).flush({ items: [], nextCursor: null });
     fixture.componentInstance.select({ userId: '1', displayName: 'Ada', isCurrentMember: true, totalXp: 10, level: 1 });
     http.expectOne(request => request.url.endsWith('/members/1')).flush({ userId: '1', displayName: 'Ada', isCurrentMember: true, lastXpActivityAtUtc: null, lifetime: { importedXp: 0, earnedXp: 0, manualAdjustment: 0, totalXp: 10, level: 1, rank: 1 }, activeSeason: null, permissions: { canAdjust: false, isSelf: false, isOwner: false } });
-    http.expectOne(request => request.url.endsWith('/entries') && request.params.keys().length === 0).flush({ items: [], nextCursor: 'old' });
+    http.expectOne(request => request.url.endsWith('/timeline') && request.params.keys().length === 0).flush({ items: [], nextCursor: 'old' });
 
     fixture.componentInstance.updateFilter('direction', 'Positive');
-    const filtered = http.expectOne(request => request.url.endsWith('/entries') && request.params.get('direction') === 'Positive');
+    const filtered = http.expectOne(request => request.url.endsWith('/timeline') && request.params.get('direction') === 'Positive');
     expect(filtered.request.params.has('cursor')).toBeFalse();
     filtered.flush({ items: [], nextCursor: null });
   });

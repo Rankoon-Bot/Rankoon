@@ -16,6 +16,30 @@ dd {
   margin-top: var(--rk-space-6);
 }
 
+.search-panel { display: grid; gap: var(--rk-space-4); margin-top: var(--rk-space-6); }
+.search-field { display: flex; align-items: center; gap: var(--rk-space-3); min-height: var(--rk-control-height); padding: 0 var(--rk-space-3); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-md); background: var(--rk-surface-2); }
+.search-field:focus-within { outline: var(--rk-focus-ring); border-color: var(--rk-info); }
+.search-field input { min-width: 0; flex: 1; border: 0; background: transparent; }
+.clear-search, .copy-button { min-width: var(--rk-control-height); min-height: var(--rk-control-height); border: 0; background: transparent; color: var(--rk-info); font: inherit; }
+.filter-chip { display: flex; align-items: center; gap: var(--rk-space-2); width: fit-content; min-height: var(--rk-control-height); padding: 0 var(--rk-space-3); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-md); }
+.member-item { justify-content: start; }
+.member-item > :last-child { margin-left: auto; }
+.member-dialog { width: min(1180px, calc(100vw - var(--rk-space-6))); max-height: 92dvh; }
+.member-dialog__scroll { max-height: 92dvh; overflow: auto; }
+.member-dialog__header, .audit-tabs { position: sticky; z-index: 1; display: flex; align-items: center; gap: var(--rk-space-3); padding: var(--rk-space-4); background: var(--rk-surface-1); border-bottom: 1px solid var(--rk-border-subtle); }
+.member-dialog__header { top: 0; }
+.member-dialog__header > div { min-width: 0; flex: 1; }
+.close-button { margin-left: auto; }
+.audit-tabs { top: calc(var(--rk-control-height) * 2); overflow-x: auto; }
+.audit-tabs button { min-height: var(--rk-control-height); border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--rk-text-muted); font: inherit; font-weight: 700; white-space: nowrap; }
+.audit-tabs button[aria-selected="true"] { color: var(--rk-text-strong); border-color: var(--rk-brand); }
+.tab-panel { display: grid; gap: var(--rk-space-4); padding: var(--rk-space-5); }
+.timeline-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: var(--rk-space-3); }
+.timeline-toolbar label { display: grid; gap: var(--rk-space-1); }
+.timeline-entry { display: flex; gap: var(--rk-space-4); border: 1px solid var(--rk-border-subtle); border-left: 2px solid var(--rk-info); border-radius: var(--rk-radius-md); }
+.timeline-entry > strong { white-space: nowrap; }
+.timeline-entry > div { min-width: 0; }
+
 .member-browser,
 .audit-detail,
 .detail-columns,
@@ -206,4 +230,11 @@ dialog::backdrop { background: var(--rk-canvas-deep); opacity: .8; }
   .entry-main { flex-wrap: wrap; }
   .entry-main .scope-badge { margin-left: 0; }
   .dialog-actions { grid-template-columns: 1fr; }
+  .member-dialog { width: 100vw; max-width: 100vw; max-height: 100dvh; border-radius: 0; }
+  .member-dialog__scroll { max-height: 100dvh; }
+  .member-dialog__header { align-items: start; }
+  .tab-panel { padding: var(--rk-space-4); }
+  .member-item { align-items: center; }
+  .member-item > span:nth-last-child(2) { display: none; }
+  .timeline-entry { display: grid; }
 }

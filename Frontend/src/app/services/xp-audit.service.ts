@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { AdjustmentRequest, XpAuditDetails, XpAuditEntryFilter, XpAuditEntryPage, XpAuditMemberPage } from '../models/xp-audit.models';
+import { AdjustmentRequest, XpAuditDetails, XpAuditEntryFilter, XpAuditEntryPage, XpAuditMemberPage, XpAuditTimelinePage } from '../models/xp-audit.models';
 
 @Injectable({ providedIn: 'root' })
 export class XpAuditService {
@@ -28,6 +28,11 @@ export class XpAuditService {
       if (value !== null && value !== undefined && value !== '') params = params.set(key, value);
     }
     return this.http.get<XpAuditEntryPage>(`${this.base(guildId)}/members/${userId}/entries`, { params });
+  }
+  timeline(guildId: string, userId: string, filter: XpAuditEntryFilter = {}): Observable<XpAuditTimelinePage> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(filter)) if (value !== null && value !== undefined && value !== '') params = params.set(key, value);
+    return this.http.get<XpAuditTimelinePage>(`${this.base(guildId)}/members/${userId}/timeline`, { params });
   }
 
   adjust(guildId: string, userId: string, body: AdjustmentRequest): Observable<unknown> {

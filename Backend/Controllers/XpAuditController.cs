@@ -39,6 +39,14 @@ public sealed class XpAuditController(IGuildAuthorizationService authorization, 
         if (filter.From > filter.To) return this.ApiError("xpAudit.invalidFilter");
         try { return Ok(await audit.GetEntriesAsync(gid, uid, filter, HttpContext.RequestAborted)); } catch (XpAuditValidationException e) { return this.ApiError(e.Code); }
     }
+    [HttpGet("members/{userId}/timeline")]
+    public async Task<IActionResult> Timeline(string guildId, string userId, [FromQuery] XpAuditEntryFilter filter)
+    {
+        if (!TryIds(guildId, userId, out var gid, out var uid, out var error)) return error!;
+        if (!await authorization.CanAccessModuleAsync(User, gid, GuildModuleIds.XpAudit, HttpContext.RequestAborted)) return Forbid();
+        if (filter.From > filter.To) return this.ApiError("xpAudit.invalidFilter");
+        try { return Ok(await audit.GetTimelineAsync(gid, uid, filter, HttpContext.RequestAborted)); } catch (XpAuditValidationException e) { return this.ApiError(e.Code); }
+    }
     [HttpPost("members/{userId}/adjustments")]
     public async Task<IActionResult> Adjust(string guildId, string userId, [FromBody] AdjustmentBody body)
     {

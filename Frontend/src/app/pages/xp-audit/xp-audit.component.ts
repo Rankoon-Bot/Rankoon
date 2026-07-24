@@ -1,22 +1,23 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, ElementRef, ViewChild, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { Subject, debounceTime, distinctUntilChanged, finalize } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, finalize, switchMap, tap } from 'rxjs';
 import { LocaleService } from '../../i18n/locale.service';
-import { AdjustmentRequest, XpAuditDetails, XpAuditEntryFilter, XpAuditMember, XpLedgerEntry, XpLedgerKind, XpLedgerScope } from '../../models/xp-audit.models';
+import { AdjustmentRequest, XpAuditDetails, XpAuditEntryFilter, XpAuditMember, XpLedgerEntry, XpLedgerKind, XpLedgerScope, XpTimelineItem } from '../../models/xp-audit.models';
 import { ApiErrorService } from '../../services/api-error.service';
 import { XpAuditService } from '../../services/xp-audit.service';
 import { AppStore } from '../../store/app.store';
 import { ToastService } from '../../services/toast.service';
+import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
 
 type AdjustmentDirection = 'add' | 'subtract';
 
 @Component({
   selector: 'app-xp-audit',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe],
+  imports: [CommonModule, FormsModule, TranslocoPipe, UserAvatarComponent],
   templateUrl: './xp-audit.component.html',
   styleUrl: './xp-audit.component.scss'
 })
@@ -35,9 +36,11 @@ export class XpAuditComponent {
   private entriesGeneration = 0;
   private adjustmentTrigger: HTMLElement | null = null;
   private reversalTrigger: HTMLElement | null = null;
+  private modalTrigger: HTMLElement | null = null;
 
   @ViewChild('adjustmentDialog') adjustmentDialog?: ElementRef<HTMLDialogElement>;
   @ViewChild('reversalDialog') reversalDialog?: ElementRef<HTMLDialogElement>;
+  @ViewChild('memberDialog') memberDialog?: ElementRef<HTMLDialogElement>;
 
   readonly query = signal('');
   readonly former = signal(false);
@@ -47,6 +50,11 @@ export class XpAuditComponent {
   readonly details = signal<XpAuditDetails | null>(null);
   readonly entries = signal<XpLedgerEntry[]>([]);
   readonly entryCursor = signal<string | null>(null);
+  readonly timelineItems = signal<XpTimelineItem[]>([]);
+  readonly timelineCursor = signal<string | null>(null);
+  readonly timelineMode = signal<'compact' | 'entries'>('compact');
+  readonly activeModalTab = signal<'overview' | 'history' | 'adjust'>('history');
+  readonly expandedGroupRawEntries = signal<Record<string, XpLedgerEntry[]>>({});
   readonly filters = signal<XpAuditEntryFilter>({});
 
   readonly membersLoading = signal(false);
@@ -60,6 +68,8 @@ export class XpAuditComponent {
   readonly detailsError = signal('');
   readonly entriesError = signal('');
   readonly reversalEntry = signal<XpLedgerEntry | null>(null);
+  readonly activeFilterCount = computed(() => Object.values(this.filters()).filter(value => value !== null && value !== undefined && value !== '').length);
+  readonly visibleTabs = computed<Array<'overview' | 'history' | 'adjust'>>(() => this.details()?.permissions.canAdjust ? ['overview', 'history', 'adjust'] : ['overview', 'history']);
 
   amount: string | number | null = '';
   direction: AdjustmentDirection = 'add';
@@ -72,7 +82,10 @@ export class XpAuditComponent {
   private reversalRequestId = this.newRequestId();
 
   constructor() {
-    this.searchInput.pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadMembers());
+    this.searchInput.pipe(debounceTime(280), distinctUntilChanged(), tap(() => { this.membersLoading.set(true); this.membersError.set(''); }), switchMap(() => {
+      const guildId = this.selectedGuildId;
+      return guildId ? this.api.members(guildId, this.query(), this.former()) : [];
+    }), takeUntilDestroyed(this.destroyRef)).subscribe({ next: page => { this.members.set(page.items); this.memberCursor.set(page.nextCursor); this.membersLoading.set(false); }, error: error => { this.membersLoading.set(false); this.membersError.set(this.apiErrors.resolve(error, 'errors.xpAuditMembersLoad').message); } });
     effect(() => {
       const guildId = this.store.selectedGuild()?.id ?? null;
       if (guildId === this.selectedGuildId) return;
@@ -118,16 +131,19 @@ export class XpAuditComponent {
     });
   }
 
-  select(member: XpAuditMember): void {
+  select(member: XpAuditMember, trigger?: Event): void {
     const guildId = this.selectedGuildId;
     if (!guildId) return;
     const generation = ++this.selectionGeneration;
     this.selectedMember.set(member);
+    this.modalTrigger = trigger?.currentTarget as HTMLElement ?? null;
+    this.activeModalTab.set('history');
     this.details.set(null);
     this.entries.set([]);
     this.entryCursor.set(null);
     this.detailsError.set('');
     this.entriesError.set('');
+    this.timelineItems.set([]); this.timelineCursor.set(null); this.expandedGroupRawEntries.set({});
     this.detailsLoading.set(true);
     this.entriesLoading.set(true);
     this.api.details(guildId, member.userId).pipe(finalize(() => {
@@ -142,7 +158,8 @@ export class XpAuditComponent {
         if (generation === this.selectionGeneration) this.detailsError.set(this.apiErrors.resolve(error, 'errors.xpAuditDetailsLoad').message);
       }
     });
-    this.loadEntries(false, generation, member.userId, guildId);
+    setTimeout(() => { const dialog = this.memberDialog?.nativeElement; if (dialog?.isConnected && !dialog.open) dialog.showModal(); });
+    this.loadHistory(false, generation, member.userId, guildId);
   }
 
   clearSelection(): void {
@@ -153,6 +170,12 @@ export class XpAuditComponent {
     this.entryCursor.set(null);
     this.detailsError.set('');
     this.entriesError.set('');
+    this.timelineItems.set([]); this.timelineCursor.set(null); this.expandedGroupRawEntries.set({});
+  }
+
+  closeMemberDialog(): void {
+    if (this.adjustmentSaving() || this.reversalSaving()) return;
+    this.memberDialog?.nativeElement.close(); this.clearSelection(); this.modalTrigger?.focus(); this.modalTrigger = null;
   }
 
   updateFilter(key: keyof XpAuditEntryFilter, value: string): void {
@@ -160,7 +183,7 @@ export class XpAuditComponent {
     this.filters.update(filters => ({ ...filters, [key]: filterValue }));
     this.entryCursor.set(null);
     const member = this.selectedMember();
-    if (member && this.selectedGuildId) this.loadEntries(false, this.selectionGeneration, member.userId, this.selectedGuildId);
+    if (member && this.selectedGuildId) this.loadHistory(false, this.selectionGeneration, member.userId, this.selectedGuildId);
   }
 
   updateDateFilter(key: 'from' | 'to', value: string): void {
@@ -172,8 +195,19 @@ export class XpAuditComponent {
     this.filters.set({});
     this.entryCursor.set(null);
     const member = this.selectedMember();
-    if (member && this.selectedGuildId) this.loadEntries(false, this.selectionGeneration, member.userId, this.selectedGuildId);
+    if (member && this.selectedGuildId) this.loadHistory(false, this.selectionGeneration, member.userId, this.selectedGuildId);
   }
+
+  setTimelineMode(mode: 'compact' | 'entries'): void { if (this.timelineMode() !== mode) { this.timelineMode.set(mode); this.entryCursor.set(null); this.timelineCursor.set(null); this.entries.set([]); this.timelineItems.set([]); this.loadHistory(); } }
+  setTab(tab: 'overview' | 'history' | 'adjust'): void { if (this.visibleTabs().includes(tab)) this.activeModalTab.set(tab); }
+  onTabsKeydown(event: KeyboardEvent): void { const tabs = this.visibleTabs(); const index = tabs.indexOf(this.activeModalTab()); if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); this.setTab(tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]); } }
+  loadHistory(more = false, generation = this.selectionGeneration, userId = this.selectedMember()?.userId, guildId = this.selectedGuildId): void { if (this.timelineMode() === 'entries') this.loadEntries(more, generation, userId, guildId); else this.loadTimeline(more, generation, userId, guildId); }
+  loadTimeline(more = false, expectedGeneration = this.selectionGeneration, userId = this.selectedMember()?.userId, guildId = this.selectedGuildId): void {
+    const cursor = more ? this.timelineCursor() : null; if (!guildId || !userId || expectedGeneration !== this.selectionGeneration || (more && !cursor)) return;
+    (more ? this.moreEntriesLoading : this.entriesLoading).set(true); this.entriesError.set(''); const request = ++this.entriesGeneration;
+    this.api.timeline(guildId, userId, { ...this.filters(), cursor }).pipe(finalize(() => { if (request === this.entriesGeneration) (more ? this.moreEntriesLoading : this.entriesLoading).set(false); }), takeUntilDestroyed(this.destroyRef)).subscribe({ next: page => { if (request !== this.entriesGeneration || expectedGeneration !== this.selectionGeneration) return; const ids = new Set(this.timelineItems().map(x => x.id)); this.timelineItems.set(more ? [...this.timelineItems(), ...page.items.filter(x => !ids.has(x.id))] : page.items); this.timelineCursor.set(page.nextCursor); }, error: error => { if (request === this.entriesGeneration) this.entriesError.set(this.apiErrors.resolve(error, 'errors.xpAuditEntriesLoad').message); } });
+  }
+  toggleGroupRaw(item: XpTimelineItem): void { const cached = this.expandedGroupRawEntries()[item.id]; if (cached) { this.expandedGroupRawEntries.update(groups => { const next = { ...groups }; delete next[item.id]; return next; }); return; } const guild = this.selectedGuildId; const user = this.selectedMember()?.userId; if (!guild || !user) return; this.api.entries(guild, user, { source: 'voice', kind: 'AutomaticGrant', channelId: item.channelId, seasonId: item.seasonId, scope: item.scope, from: item.periodStartsAtUtc, to: item.periodEndsAtUtc }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(page => this.expandedGroupRawEntries.update(groups => ({ ...groups, [item.id]: page.items }))); }
 
   loadEntries(more = false, expectedGeneration = this.selectionGeneration, userId = this.selectedMember()?.userId, guildId = this.selectedGuildId): void {
     const cursor = more ? this.entryCursor() : null;
@@ -250,7 +284,7 @@ export class XpAuditComponent {
       next: () => {
         this.closeAdjustmentDialog();
         this.resetAdjustmentForm();
-        this.select(this.selectedMember()!);
+        this.refreshSelected();
         this.toast.success(this.translate('adjustmentSaved'));
       },
       error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.xpAdjustmentSave').message)
@@ -281,7 +315,7 @@ export class XpAuditComponent {
     this.api.reverse(guildId, entry.id, { reason: this.reversalReason.trim(), reference: this.reversalReference.trim() || undefined, requestId: this.reversalRequestId }).pipe(finalize(() => this.reversalSaving.set(false)), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.closeReversalDialog();
-        this.select(this.selectedMember()!);
+        this.refreshSelected();
         this.toast.success(this.translate('reversalSaved'));
       },
       error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.xpAdjustmentReverse').message)
@@ -292,13 +326,16 @@ export class XpAuditComponent {
     return name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
   }
 
-  formatXp(value: string | number): string {
+  formatTotalXp(value: string | number): string {
     return this.locale.number(value, { maximumFractionDigits: 0 });
   }
+  formatXp(value: string | number): string { return this.formatTotalXp(value); }
+  formatTimelineXp(value: string | number): string { return this.locale.number(value, { maximumFractionDigits: 2 }); }
+  formatRawXp(value: string | number): string { return this.locale.number(value, { maximumFractionDigits: 6 }); }
 
   formatSignedXp(value: string | number): string {
     const amount = Number(value);
-    return `${amount > 0 ? '+' : amount < 0 ? '−' : ''}${this.formatXp(Math.abs(amount))} XP`;
+    return `${amount > 0 ? '+' : amount < 0 ? '−' : ''}${this.formatRawXp(Math.abs(amount))} XP`;
   }
 
   formatDate(value: string | null): string {
@@ -306,8 +343,11 @@ export class XpAuditComponent {
   }
 
   copyDiscordId(userId: string): void {
-    void navigator.clipboard?.writeText(userId);
+    if (!navigator.clipboard) { this.toast.error(this.translate('copyFailed')); return; }
+    void navigator.clipboard.writeText(userId).then(() => this.toast.success(this.translate('discordIdCopied'))).catch(() => this.toast.error(this.translate('copyFailed')));
   }
+  formatDuration(seconds: number | null): string { if (!seconds) return '—'; const hours = Math.floor(seconds / 3600); const minutes = Math.floor((seconds % 3600) / 60); return hours ? `${hours} h${minutes ? ` ${minutes} min` : ''}` : minutes ? `${minutes} min` : `${seconds} s`; }
+  formatTimeRange(from: string, to: string): string { return `${this.locale.date(from, { timeStyle: 'short' })}–${this.locale.date(to, { timeStyle: 'short' })}`; }
 
   kindLabel(kind: XpLedgerKind): string { return this.translate(`kinds.${kind}`); }
   scopeLabel(scope: XpLedgerScope): string { return this.translate(`scopes.${scope}`); }
@@ -330,6 +370,7 @@ export class XpAuditComponent {
     this.filters.set({});
     this.membersError.set('');
     this.resetAdjustmentForm();
+    this.memberDialog?.nativeElement.close(); this.reversalDialog?.nativeElement.close(); this.adjustmentDialog?.nativeElement.close();
   }
 
   private resetAdjustmentForm(): void {
@@ -350,6 +391,7 @@ export class XpAuditComponent {
     const ids = new Set(current.map(entry => entry.id));
     return [...current, ...added.filter(entry => !ids.has(entry.id))];
   }
+  private refreshSelected(): void { const member = this.selectedMember(); if (!member || !this.selectedGuildId) return; const tab = this.activeModalTab(); this.select(member); this.activeModalTab.set(tab === 'adjust' ? 'history' : tab); }
 
   private translate(key: string): string {
     return this.i18n.translate(`xpAudit.${key}`);
