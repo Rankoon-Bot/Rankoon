@@ -66,9 +66,15 @@ export class RealtimeService {
   }
 
   async getLeaderboardWindow(request: LeaderboardWindowRequest): Promise<LeaderboardWindow> {
-    await this.start();
-    if (this.connection?.state !== 'Connected') throw new Error('Leaderboard connection is unavailable.');
-    return await this.connection.invoke<LeaderboardWindow>('GetWindow', request);
+    return await this.serialize(async () => {
+      await this.start();
+      const key = this.key(request.alias, request.scope, request.seasonId);
+      // A reconnect can make the connection usable before its subscriptions are restored.
+      await this.subscribeActive(key);
+      if (!this.activeSubscriptions.has(key) || this.connection?.state !== 'Connected')
+        throw new Error('Leaderboard subscription is unavailable.');
+      return await this.connection.invoke<LeaderboardWindow>('GetWindow', request);
+    });
   }
 
   private async restart(): Promise<void> {
@@ -124,9 +130,9 @@ export class RealtimeService {
     return `${alias}:${scope}:${seasonId ?? ''}`;
   }
 
-  private serialize(operation: () => Promise<void>): Promise<void> {
+  private serialize<T>(operation: () => Promise<T>): Promise<T> {
     const next = this.lifecycle.then(operation, operation);
-    this.lifecycle = next.catch(() => undefined);
+    this.lifecycle = next.then(() => undefined, () => undefined);
     return next;
   }
 }
