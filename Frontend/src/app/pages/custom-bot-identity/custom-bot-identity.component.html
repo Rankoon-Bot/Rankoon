@@ -19,3 +19,12 @@
     @if (diagnostics(); as checks) { <article class="rk-panel identity-panel"><h2>{{ 'customBotIdentity.diagnostics' | transloco }}</h2><ul class="identity-diagnostics">@for (check of checks | keyvalue; track check.key) { <li [class.identity-diagnostic--failed]="!check.value"><strong>{{ check.value ? '✓' : '!' }}</strong><span>{{ ('customBotIdentity.checks.' + check.key) | transloco }}</span></li> }</ul></article> }
   }
 </section>
+<dialog #platformInstallDialog class="identity-install-dialog" aria-labelledby="platform-install-title" aria-describedby="platform-install-description" (cancel)="closePlatformInstall()" (close)="closePlatformInstall()">
+  <section class="rk-panel">
+    <h2 id="platform-install-title">{{ 'customBotIdentity.platformInstallTitle' | transloco }}</h2>
+    <p id="platform-install-description">{{ 'customBotIdentity.platformInstallDescription' | transloco }}</p>
+    <p class="rk-notice rk-notice--info">{{ 'customBotIdentity.platformInstallWaiting' | transloco }}</p>
+    @if (platformInstallError()) { <p class="rk-notice rk-notice--danger" role="alert">{{ platformInstallError() }}</p> }
+    <div class="identity-actions"><button class="rk-button rk-button--ghost" type="button" (click)="closePlatformInstall()">{{ 'common.cancel' | transloco }}</button><button class="rk-button rk-button--discord" type="button" (click)="openPlatformInstall()">{{ 'customBotIdentity.platformInstallAction' | transloco }}</button>@if (platformInstallError()) { <button class="rk-button rk-button--primary" type="button" (click)="retryPlatformReturn()" [disabled]="activeAction() !== null" [attr.aria-busy]="isWorking('returnToPlatform')">{{ 'customBotIdentity.platformInstallRetry' | transloco }}</button> }</div>
+  </section>
+</dialog>

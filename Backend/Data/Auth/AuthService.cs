@@ -49,9 +49,6 @@ public interface IAuthService
 
 public class AuthService : IAuthService
 {
-    private const long AdministratorPermission = 1L << 3;
-    private const long ManageGuildPermission = 1L << 5;
-
     private readonly IGuildRuntimePresenceService _runtimePresence;
     private readonly IDiscordService _discordService;
     private readonly IJwtService _jwtService;
@@ -384,9 +381,9 @@ public class AuthService : IAuthService
             }
 
             var guildDtos = discordGuilds
-                .Where(g => g.owner
-                    || (g.permissions & (AdministratorPermission | ManageGuildPermission)) != 0
-                    || (ulong.TryParse(g.id, out var guildId) && _runtimePresence.GetPresence(guildId).HasConfiguredCustomIdentity))
+                .Where(g => ulong.TryParse(g.id, out var guildId)
+                    && (_runtimePresence.GetPresence(guildId).PlatformBotInstalled
+                        || _runtimePresence.GetPresence(guildId).CustomBotInstalled))
                 .Select(g =>
                 {
                     var presence = ulong.TryParse(g.id, out var guildId) ? _runtimePresence.GetPresence(guildId) : null;

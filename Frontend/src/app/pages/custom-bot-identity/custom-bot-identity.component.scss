@@ -16,3 +16,5 @@
 .identity-diagnostics li { display: flex; gap: var(--rk-space-2); color: var(--rk-success); }
 .identity-diagnostic--failed { color: var(--rk-danger) !important; }
 @media (max-width: 768px) { .identity-actions, .identity-actions__primary { display: grid; } .identity-actions .rk-button { width: 100%; } .identity-details { grid-template-columns: 1fr; } }
+.identity-install-dialog { width: min(100% - var(--rk-space-8), var(--rk-page-max-narrow)); padding: 0; color: var(--rk-text); background: transparent; border: 0; border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-float); }
+.identity-install-dialog::backdrop { background: var(--rk-overlay); }

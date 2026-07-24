@@ -93,5 +93,13 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
         if (userId == null || !await authorization.IsOwnerAsync(User, id, HttpContext.RequestAborted)) return (0, 0, this.ApiError("customBotIdentity.ownerRequired"));
         return (id, userId.Value, null);
     }
-    private IActionResult ToResult(CustomBotOperationResult result) => result.Succeeded ? Ok(result) : this.ApiError(result.ErrorCode!, result.Diagnostics == null ? null : new Dictionary<string, object?> { ["diagnostics"] = result.Diagnostics });
+    private IActionResult ToResult(CustomBotOperationResult result)
+    {
+        if (result.Succeeded) return Ok(result);
+        var parameters = new Dictionary<string, object?>();
+        if (result.Diagnostics != null) parameters["diagnostics"] = result.Diagnostics;
+        if (!string.IsNullOrWhiteSpace(result.InstallUrl)) parameters["installUrl"] = result.InstallUrl;
+        if (!string.IsNullOrWhiteSpace(result.RequiredAction)) parameters["requiredAction"] = result.RequiredAction;
+        return this.ApiError(result.ErrorCode!, parameters.Count == 0 ? null : parameters);
+    }
 }
