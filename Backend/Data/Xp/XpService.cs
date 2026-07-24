@@ -223,8 +223,8 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
     {
         var memberUpdate = Builders<MemberXp>.Update
             .SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.UserId, ledger.UserId)
-            .SetOnInsert(x => x.PublicLeaderboardVisible, true)
-            .Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.NormalizedDisplayName, NormalizeName(ledger.DisplayName)).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAt, now);
+            .SetOnInsert(x => x.PublicLeaderboardVisible, true).SetOnInsert(x => x.IsCurrentMember, true)
+            .Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.NormalizedDisplayName, NormalizeName(ledger.DisplayName)).Set(x => x.UpdatedAt, now);
         if (XpLedgerSemantics.AffectsLifetime(ledger)) memberUpdate = XpLedgerSemantics.IsAutomatic(ledger)
             ? memberUpdate.Inc(x => x.EarnedXp, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount)
             : memberUpdate.Inc(x => x.ManualAdjustment, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount);
@@ -240,7 +240,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             {
                 var seasonUpdate = Builders<SeasonMemberXp>.Update
                     .SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.SeasonId, ledger.SeasonId).SetOnInsert(x => x.UserId, ledger.UserId)
-                    .SetOnInsert(x => x.StartingXp, 0m).SetOnInsert(x => x.PublicLeaderboardVisible, true).Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAtUtc, now)
+                    .SetOnInsert(x => x.StartingXp, 0m).SetOnInsert(x => x.PublicLeaderboardVisible, true).SetOnInsert(x => x.IsCurrentMember, true).Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.UpdatedAtUtc, now)
                     ;
                 seasonUpdate = XpLedgerSemantics.IsAutomatic(ledger) ? seasonUpdate.Inc(x => x.EarnedXp, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount) : seasonUpdate.Inc(x => x.ManualAdjustment, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount);
                 if (XpLedgerSemantics.IsAutomatic(ledger) && ledger.Source == "message") seasonUpdate = seasonUpdate.Inc(x => x.MessageCount, 1);
@@ -274,7 +274,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         await database.MemberXp.UpdateOneAsync(x => x.GuildId == ledger.GuildId && x.UserId == ledger.UserId,
             Builders<MemberXp>.Update.SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.UserId, ledger.UserId).Set(x => x.DisplayName, ledger.DisplayName)
                 .Set(x => x.NormalizedDisplayName, NormalizeName(ledger.DisplayName)).Set(x => x.EarnedXp, earned).Set(x => x.ManualAdjustment, manual).Set(x => x.TotalXp, member.ImportedMee6Xp + earned + manual).Set(x => x.MessageCount, memberEntries.LongCount(x => XpLedgerSemantics.IsAutomatic(x) && x.Source == "message"))
-                .Set(x => x.VoiceSeconds, memberEntries.Where(XpLedgerSemantics.IsAutomatic).Sum(VoiceSeconds)).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAt, now), new UpdateOptions { IsUpsert = true }, cancellationToken);
+                .Set(x => x.VoiceSeconds, memberEntries.Where(XpLedgerSemantics.IsAutomatic).Sum(VoiceSeconds)).SetOnInsert(x => x.IsCurrentMember, true).Set(x => x.UpdatedAt, now), new UpdateOptions { IsUpsert = true }, cancellationToken);
 
         if (ledger.SeasonId != null)
         {
@@ -288,7 +288,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
                 await database.SeasonMemberXp.UpdateOneAsync(x => x.SeasonId == ledger.SeasonId && x.UserId == ledger.UserId,
                     Builders<SeasonMemberXp>.Update.SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.SeasonId, ledger.SeasonId).SetOnInsert(x => x.UserId, ledger.UserId).SetOnInsert(x => x.StartingXp, 0m)
                         .Set(x => x.DisplayName, ledger.DisplayName).Set(x => x.EarnedXp, seasonEarned).Set(x => x.ManualAdjustment, seasonManual).Set(x => x.TotalXp, seasonMember.StartingXp + seasonEarned + seasonManual)
-                        .Set(x => x.MessageCount, seasonEntries.LongCount(x => XpLedgerSemantics.IsAutomatic(x) && x.Source == "message")).Set(x => x.VoiceSeconds, seasonEntries.Where(XpLedgerSemantics.IsAutomatic).Sum(VoiceSeconds)).Set(x => x.IsCurrentMember, true).Set(x => x.UpdatedAtUtc, now), new UpdateOptions { IsUpsert = true }, cancellationToken);
+                        .Set(x => x.MessageCount, seasonEntries.LongCount(x => XpLedgerSemantics.IsAutomatic(x) && x.Source == "message")).Set(x => x.VoiceSeconds, seasonEntries.Where(XpLedgerSemantics.IsAutomatic).Sum(VoiceSeconds)).SetOnInsert(x => x.IsCurrentMember, true).Set(x => x.UpdatedAtUtc, now), new UpdateOptions { IsUpsert = true }, cancellationToken);
             }
         }
 
