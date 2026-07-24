@@ -159,8 +159,11 @@
         "serverBoosterOrder": "Server booster multipliers must not decrease as boost duration increases."
       },
       "import": {
-        "guildMismatch": "The MEE6 export belongs to another server.",
-        "invalidPlayers": "The MEE6 players export is invalid."
+        "unsupportedFormat": "The JSON is neither a supported MEE6 export nor a supported Rankoon export.",
+        "guildMismatch": "The file does not contain leaderboard data for the selected Discord server.",
+        "invalidPlayers": "The MEE6 players export is invalid.",
+        "invalidEntries": "The Rankoon entries export is invalid.",
+        "noValidMembers": "The file does not contain any valid importable members."
       }
     },
     "xpAudit": {

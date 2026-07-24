@@ -113,15 +113,17 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
         await AssertCanonicalErrorAsync(response, HttpStatusCode.NotFound, "resource.notFound");
     }
 
-    [Fact]
-    public async Task Unhandled_exception_returns_safe_canonical_error()
+    [Theory]
+    [InlineData("/api/guilds/1/xp/import")]
+    [InlineData("/api/guilds/1/xp/import/mee6")]
+    public async Task Invalid_import_returns_safe_canonical_error_on_both_routes(string path)
     {
-        using var request = CreateAuthenticatedRequest(HttpMethod.Post, "/api/guilds/1/xp/import/mee6");
+        using var request = CreateAuthenticatedRequest(HttpMethod.Post, path);
         request.Content = new StringContent("{\"guild\":{\"id\":1},\"players\":[]}", Encoding.UTF8, "application/json");
         using var response = await _client.SendAsync(request);
 
-        var error = await AssertCanonicalErrorAsync(response, HttpStatusCode.InternalServerError, "server.internal");
-        Assert.Equal("An unexpected server error occurred.", error.GetProperty("message").GetString());
+        var error = await AssertCanonicalErrorAsync(response, HttpStatusCode.BadRequest, "xp.import.noValidMembers");
+        Assert.Equal("The file does not contain any valid importable members.", error.GetProperty("message").GetString());
     }
 
     [Fact]

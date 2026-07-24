@@ -13,7 +13,7 @@ using Rankoon.Data.Auth;
 
 namespace Rankoon.Data.Xp;
 
-public sealed record LeaderboardEntryDto(long Rank, string UserId, string DisplayName, string? IconUrl, decimal TotalXp, int Level, long MessageCount, long VoiceSeconds, bool IsCurrentUser);
+public sealed record LeaderboardEntryDto(long Rank, string UserId, string DisplayName, string? IconUrl, decimal TotalXp, int Level, long MessageCount, decimal VoiceSeconds, bool IsCurrentUser);
 public sealed record SeasonLeaderboardOption(string Id, string Name, DateTime StartsAtUtc, DateTime EndsAtUtc);
 public sealed record LeaderboardPageDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardEntryDto> Items, string? NextCursor, bool HasMore, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope = SeasonLeaderboardScope.Lifetime, string? SeasonId = null, string? SeasonName = null, IReadOnlyList<SeasonLeaderboardOption>? HistoricalSeasons = null, SeasonLeaderboardOption? CurrentSeason = null, bool SeasonsEnabled = false);
 public sealed record LeaderboardWindowRowDto(long Index, LeaderboardEntryDto Entry);

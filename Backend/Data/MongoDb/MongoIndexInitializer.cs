@@ -14,6 +14,7 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
         {
             try
             {
+                await DropObsoleteGuildRolePermissionIndexAsync(stoppingToken);
                 var obsoleteHoldbackFilter = Builders<GuildXpSettings>.Filter.Exists("Voice.HoldbackThreshold");
                 var obsoleteHoldbackUpdate = Builders<GuildXpSettings>.Update.Unset("Voice.HoldbackThreshold");
                 await database.GuildXpSettings.UpdateManyAsync(obsoleteHoldbackFilter, obsoleteHoldbackUpdate, cancellationToken: stoppingToken);
@@ -145,6 +146,24 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     return;
                 }
             }
+        }
+    }
+
+    private async Task DropObsoleteGuildRolePermissionIndexAsync(CancellationToken cancellationToken)
+    {
+        using var cursor = await database.GuildRolePermissionPolicies.Indexes.ListAsync(cancellationToken);
+        var indexes = await cursor.ToListAsync(cancellationToken);
+        var obsoleteIndexNames = indexes
+            .Where(index => index.TryGetValue("key", out var key)
+                && key.BsonType == BsonType.Document
+                && key.AsBsonDocument.ElementCount == 1
+                && key.AsBsonDocument.Contains("guild_id"))
+            .Select(index => index["name"].AsString);
+
+        foreach (var indexName in obsoleteIndexNames)
+        {
+            await database.GuildRolePermissionPolicies.Indexes.DropOneAsync(indexName, cancellationToken);
+            logger.LogInformation("Dropped obsolete MongoDB index {IndexName} from guild role permission policies", indexName);
         }
     }
 

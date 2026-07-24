@@ -29,7 +29,7 @@ public static class ReportNames
     public const string XpGranted = "xp.granted";
     public const string XpSettingsChanged = "xp.settings.changed";
     public const string VoiceWatchdogChanged = "voice.watchdog.changed";
-    public const string Mee6Imported = "xp.mee6.imported";
+    public const string XpJsonImported = "xp.json.imported";
     public const string LeaderboardSettingsChanged = "leaderboard.settings.changed";
     public const string LeaderboardPrivacyChanged = "leaderboard.privacy.changed";
     public const string RolePermissionsChanged = "permissions.roles.changed";

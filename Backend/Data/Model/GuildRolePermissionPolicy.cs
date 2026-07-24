@@ -4,7 +4,7 @@ namespace Rankoon.Data.Model;
 
 public sealed class GuildRolePermissionPolicy
 {
-    [BsonId] public ulong GuildId { get; set; }
+    [BsonId, BsonElement("_id")] public ulong GuildId { get; set; }
     [BsonElement("role_grants")] public List<GuildRoleModuleGrant> RoleGrants { get; set; } = [];
     [BsonElement("revision")] public long Revision { get; set; } = 1;
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

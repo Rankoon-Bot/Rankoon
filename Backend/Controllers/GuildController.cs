@@ -3,12 +3,12 @@ using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
-using MongoDB.Bson;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Xp;
+using Rankoon.Data.Xp.Import;
 using Rankoon.Data.Reporting;
 using Rankoon.Api;
 
@@ -19,7 +19,7 @@ public sealed record VoiceWatchdogControl(bool Enabled);
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}")]
-public sealed class GuildController(IGuildAuthorizationService authorization, IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, GuildMembershipService memberships, VoiceXpWatchdog watchdog, VcHubService hubs, LevelRoleService levelRoles, IReportWriter reports) : ControllerBase
+public sealed class GuildController(IGuildAuthorizationService authorization, IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, IXpImportService xpImport, VoiceXpWatchdog watchdog, VcHubService hubs, IReportWriter reports) : ControllerBase
 {
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId, string? moduleId = null)
     {
@@ -109,44 +109,29 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
         var member = await xp.GetMemberAsync(id, user, HttpContext.RequestAborted); return member == null ? NotFound() : Ok(ToRank(member));
     }
 
+    [HttpPost("xp/import")]
     [HttpPost("xp/import/mee6")]
-    public async Task<IActionResult> ImportMee6(string guildId, [FromBody] JsonElement payload)
+    public async Task<IActionResult> ImportXpJson(string guildId, [FromBody] JsonElement payload)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
-        if (!payload.TryGetProperty("guild", out var importGuild) || !importGuild.TryGetProperty("id", out var importGuildId) || importGuildId.GetString() != guildId) return this.ApiError("xp.import.guildMismatch");
-        if (!payload.TryGetProperty("players", out var players) || players.ValueKind != JsonValueKind.Array) return this.ApiError("xp.import.invalidPlayers");
-        var imported = 0;
-        foreach (var player in players.EnumerateArray())
+        XpImportResult result;
+        try
         {
-            if (!player.TryGetProperty("id", out var playerId) || !ulong.TryParse(playerId.GetString(), out var userId)) continue;
-            var points = player.TryGetProperty("xp", out var value) ? value.GetInt64() : 0;
-            var messages = player.TryGetProperty("message_count", out var messageCount) ? messageCount.GetInt64() : 0;
-            var name = player.TryGetProperty("username", out var userName) ? userName.GetString() ?? userId.ToString() : userId.ToString();
-            var preference = await database.MemberLeaderboardPreferences.Find(x => x.GuildId == id && x.UserId == userId).FirstOrDefaultAsync(HttpContext.RequestAborted);
-            var importUpdate = new PipelineUpdateDefinition<MemberXp>(new BsonDocument[]
-            {
-                new("$set", new BsonDocument
-                {
-                    { "guild_id", new BsonDocument("$ifNull", new BsonArray { "$guild_id", new BsonDecimal128((decimal)id) }) },
-                    { "user_id", new BsonDocument("$ifNull", new BsonArray { "$user_id", new BsonDecimal128((decimal)userId) }) },
-                    { "display_name", name }, { "imported_mee6_xp", points }, { "message_count", messages }, { "updated_at", DateTime.UtcNow },
-                    { "is_current_member", new BsonDocument("$ifNull", new BsonArray { "$is_current_member", false }) },
-                    { "public_leaderboard_visible", new BsonDocument("$ifNull", new BsonArray { "$public_leaderboard_visible", preference?.PublicVisible ?? true }) }
-                }),
-                new("$set", new BsonDocument("total_xp", new BsonDocument("$add", new BsonArray
-                {
-                    new BsonDocument("$ifNull", new BsonArray { "$imported_mee6_xp", 0 }),
-                    new BsonDocument("$ifNull", new BsonArray { "$earned_xp", 0 }),
-                    new BsonDocument("$ifNull", new BsonArray { "$manual_adjustment", 0 })
-                })))
-            });
-            await database.MemberXp.UpdateOneAsync(x => x.GuildId == id && x.UserId == userId, importUpdate, new UpdateOptions { IsUpsert = true }, HttpContext.RequestAborted);
-            await levelRoles.SynchronizeAsync(id, userId, HttpContext.RequestAborted);
-            imported++;
+            result = await xpImport.ImportAsync(id, payload, HttpContext.RequestAborted);
         }
-        memberships.QueueGuild(id);
-        await WriteActivityAsync(id, ReportNames.Mee6Imported, metadata: new Dictionary<string, object?> { ["imported"] = imported });
-        return Ok(new { imported });
+        catch (XpImportParseException exception)
+        {
+            return this.ApiError(exception.ErrorKey);
+        }
+        await WriteActivityAsync(id, ReportNames.XpJsonImported, metadata: new Dictionary<string, object?>
+        {
+            ["format"] = result.Format.ToString(),
+            ["imported"] = result.Imported,
+            ["skippedInvalid"] = result.SkippedInvalid,
+            ["skippedForeignGuild"] = result.SkippedForeignGuild,
+            ["duplicateUsers"] = result.DuplicateUsers
+        });
+        return Ok(result);
     }
 
     [HttpGet("vc-hubs")]

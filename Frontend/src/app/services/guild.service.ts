@@ -11,6 +11,8 @@ import { LevelUpAnnouncementResponse, LevelUpAnnouncementSettings, LevelUpPrevie
 import { ChannelDiagnostic, PermissionDiagnosticReport, PermissionDiagnosticScope } from '../models/permission-diagnostics.models';
 
 export interface RankEntry { userId: string; displayName: string; iconUrl?: string | null; totalXp: string | number; level: number; messageCount: string | number; voiceSeconds: string | number; }
+export type XpImportFormat = 'Mee6' | 'CustomRankoon';
+export interface XpImportResult { format: XpImportFormat; imported: number; skippedInvalid: number; skippedForeignGuild: number; duplicateUsers: number; }
 export interface DashboardData { guildName: string; leaderboardAlias: string; memberCount: string | number; botCount: string | number; activeVoiceMembers: number; activeXpMembers: string | number; stats: { xpAwarded: string | number; messages: string | number; reactions: string | number; threads: string | number; eventInterests: string | number; temporaryChannelsCreated: string | number }; activeTemporaryChannels: string | number; processUptimeSeconds: number; watchdog: { state: string; lastRunAt: string | null; lastError: string | null }; leaderboard: RankEntry[]; }
 export interface ServerBoosterXpTier { minimumBoostMonths: number; multiplier: number; }
 export interface XpConfig { enabled: boolean; message: { enabled: boolean; minimumPoints: number; maximumPoints: number; minimumCharacters: number; maximumCharacters: number; cooldownSeconds: number }; voice: { enabled: boolean; pointsPerMinute: number; minimumSessionSeconds: number; requireMultipleHumans: boolean; excludeAfkChannel: boolean }; reaction: { enabled: boolean; points: number; cooldownSeconds: number; reverseOnRemove: boolean }; eventInterest: { enabled: boolean; points: number }; thread: { enabled: boolean; createPoints: number; messagePoints: number; cooldownSeconds: number }; excludedChannelIds: string[]; excludedCategoryIds: string[]; excludedRoleIds: string[]; channelMultipliers: { channelId: string; multiplier: number }[]; serverBooster: { enabled: boolean; tiers: ServerBoosterXpTier[] }; levelRoles: { level: number; roleId: string }[]; levelUpChannelId: string | null; }
@@ -101,7 +103,7 @@ export class GuildService {
     return this.http.get<LeaderboardPage>(`${environment.apiBaseUrl}/rankings/${encodeURIComponent(alias)}`, { params });
   }
   setLeaderboardPrivacy(alias: string, publicVisible: boolean): Observable<{ publicVisible: boolean }> { return this.http.put<{ publicVisible: boolean }>(`${environment.apiBaseUrl}/rankings/${encodeURIComponent(alias)}/me/privacy`, { publicVisible }); }
-  importMee6(guildId: string, data: unknown): Observable<{ imported: number }> { return this.http.post<{ imported: number }>(this.url(guildId, 'xp/import/mee6'), data); }
+  importXpJson(guildId: string, data: unknown): Observable<XpImportResult> { return this.http.post<XpImportResult>(this.url(guildId, 'xp/import'), data); }
   levelUpAnnouncements(guildId: string): Observable<LevelUpAnnouncementResponse> { return this.http.get<LevelUpAnnouncementResponse>(this.url(guildId, 'xp/level-up-announcements')); }
   saveLevelUpAnnouncements(guildId: string, settings: LevelUpAnnouncementSettings): Observable<LevelUpAnnouncementSettings> { return this.http.put<LevelUpAnnouncementSettings>(this.url(guildId, 'xp/level-up-announcements'), settings); }
   levelUpTemplateSchema(guildId: string): Observable<TemplateSchema> { return this.http.get<TemplateSchema>(this.url(guildId, 'xp/level-up-announcements/template-schema')); }

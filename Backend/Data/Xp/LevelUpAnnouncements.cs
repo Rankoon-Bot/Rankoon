@@ -4,7 +4,7 @@ using Rankoon.Data.Model;
 
 namespace Rankoon.Data.Xp;
 
-public sealed record LevelUpRenderContext(string UserMention, string DisplayName, string Username, ulong UserId, int PreviousLevel, int Level, decimal PreviousXp, decimal TotalXp, decimal GainedXp, string Source, string? SourceChannelMention, string GuildName, int GuildMemberCount, long Messages, long VoiceSeconds, long? LeaderboardRank, IReadOnlyList<LevelRoleChange> RewardRoles)
+public sealed record LevelUpRenderContext(string UserMention, string DisplayName, string Username, ulong UserId, int PreviousLevel, int Level, decimal PreviousXp, decimal TotalXp, decimal GainedXp, string Source, string? SourceChannelMention, string GuildName, int GuildMemberCount, long Messages, decimal VoiceSeconds, long? LeaderboardRank, IReadOnlyList<LevelRoleChange> RewardRoles)
 {
     public int LevelsGained => Level - PreviousLevel;
     public decimal NextLevelXp => Mee6LevelCurve.RequiredXpForLevel(Level + 1);
@@ -73,7 +73,7 @@ public sealed class LevelUpTemplateRenderer : ILevelUpTemplateRenderer
         "rewardRole.mention" => c.RewardRoles.LastOrDefault() is { } role ? $"<@&{role.RoleId}>" : null,
         "rewardRoles.names" => c.RewardRoles.Count == 0 ? null : string.Join(", ", c.RewardRoles.Select(x => Escape(x.Name))),
         "rewardRoles.mentions" => c.RewardRoles.Count == 0 ? null : string.Join(" ", c.RewardRoles.Select(x => $"<@&{x.RoleId}>")),
-        "leaderboard.rank" => c.LeaderboardRank?.ToString(), "stats.messages" => c.Messages.ToString(), "stats.voiceTime" => TimeSpan.FromSeconds(c.VoiceSeconds).ToString("g"),
+        "leaderboard.rank" => c.LeaderboardRank?.ToString(), "stats.messages" => c.Messages.ToString(), "stats.voiceTime" => TimeSpan.FromSeconds((double)c.VoiceSeconds).ToString("g"),
         "source" => Escape(c.Source), "sourceChannel.mention" => c.SourceChannelMention,
         "guild.name" => Escape(c.GuildName), "guild.memberCount" => c.GuildMemberCount.ToString(), _ => null
     };

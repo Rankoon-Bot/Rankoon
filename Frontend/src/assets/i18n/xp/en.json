@@ -6,9 +6,17 @@
     "watchdogDegraded": "VCWatchdog enabled, but the current run is degraded.",
     "watchdogStarted": "VCWatchdog started.",
     "watchdogStopped": "VCWatchdog stopped.",
-    "imported": "Imported {{count}} MEE6 members.",
-    "importedOne": "Imported {{count}} MEE6 member.",
-    "importedOther": "Imported {{count}} MEE6 members.",
+    "imported": "Imported {{count}} members from {{format}}.",
+    "importedOne": "Imported {{count}} member from {{format}}.",
+    "importedOther": "Imported {{count}} members from {{format}}.",
+    "importFormats": { "Mee6": "MEE6", "CustomRankoon": "Rankoon JSON" },
+    "importWarnings": "Skipped: {{details}}.",
+    "skippedForeignOne": "{{count}} entry from another server",
+    "skippedForeignOther": "{{count}} entries from other servers",
+    "skippedInvalidOne": "{{count}} invalid entry",
+    "skippedInvalidOther": "{{count}} invalid entries",
+    "skippedDuplicateOne": "{{count}} duplicate entry",
+    "skippedDuplicateOther": "{{count}} duplicate entries",
     "loading": "Loading settings",
     "loadingHint": "Retrieving server resources and watchdog status.",
     "unavailable": "XP settings unavailable",
@@ -117,8 +125,8 @@
     "rankStats": "Level {{level}} · {{xp}} XP",
     "noRanking": "No ranking data yet.",
     "dataTransfer": "DATA TRANSFER",
-    "mee6Import": "MEE6 import",
-    "importHint": "Import existing XP and messages from a MEE6 JSON export.",
+    "jsonImport": "Import leaderboard JSON",
+    "importHint": "Import existing XP from a MEE6 export or a supported Rankoon JSON export. The format is detected automatically. XP earned in Rankoon is preserved.",
     "chooseJson": "Choose JSON file",
     "watchdogStates": {
       "starting": "Starting",
@@ -209,7 +217,7 @@
   "errors": {
     "xpLoad": "Could not load XP settings.",
     "watchdogToggle": "Could not change VCWatchdog.",
-    "importFailed": "MEE6 import failed.",
+    "importFailed": "Leaderboard JSON import failed.",
     "invalidJson": "The selected file does not contain valid JSON.",
     "seasonsLoad": "Could not load season settings.",
     "seasonSave": "Could not save season settings.",
@@ -250,8 +258,11 @@
         "serverBoosterOrder": "Server booster multipliers must not decrease as boost duration increases."
       },
       "import": {
-        "guildMismatch": "The MEE6 export belongs to another server.",
-        "invalidPlayers": "The MEE6 player export is invalid."
+        "unsupportedFormat": "The JSON is neither a supported MEE6 export nor a supported Rankoon export.",
+        "guildMismatch": "The file does not contain leaderboard data for the selected Discord server.",
+        "invalidPlayers": "The MEE6 player export is invalid.",
+        "invalidEntries": "The Rankoon entries export is invalid.",
+        "noValidMembers": "The file does not contain any valid importable members."
       }
     }
   }

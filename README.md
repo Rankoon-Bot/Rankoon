@@ -202,17 +202,11 @@ ready. Discord may take time to propagate global command changes.
 Command responses are ephemeral. The `/voice` command works only while the
 invoking member is connected to the temporary channel recorded as theirs.
 
-## Migrate from MEE6
+## Import existing XP
 
-The dashboard accepts a MEE6-style JSON export. The import:
-
-- verifies that the export's guild ID matches the selected Discord server;
-- replaces the member's imported MEE6 XP, message count, and display name;
-- preserves XP subsequently earned through Rankoon and any stored manual
-  adjustment;
-- recalculates each imported member's total and queues membership reconciliation.
-
-The expected shape is:
+The dashboard imports leaderboard JSON from MEE6 and legacy Rankoon exports.
+The backend detects the format from the JSON structure; no format selection is
+required. A MEE6 export has this shape:
 
 ```json
 {
@@ -230,10 +224,47 @@ The expected shape is:
 }
 ```
 
-Guild and player IDs must be JSON strings. Import is currently JSON-only and is
-available through the dashboard or `POST /api/guilds/{guildId}/xp/import/mee6`;
-Rankoon does not fetch data directly from MEE6. Re-importing replaces the
-imported portion instead of adding it again.
+Legacy Rankoon data is accepted as an array of exported user documents. Discord
+snowflakes should be strings or MongoDB Extended JSON `$numberLong` values:
+
+```json
+[
+  {
+    "GuildId": { "$numberLong": "123456789012345678" },
+    "DiscordUserId": { "$numberLong": "234567890123456789" },
+    "UserName": "Example member",
+    "TotalWrittenMessages": 321,
+    "TotalVoiceChatSeconds": { "$numberDouble": "48.4343059" },
+    "ExtraPoints": 13001,
+    "VcPoints": 111,
+    "VcPointCent": 25,
+    "MessagePoints": 1078,
+    "ReactionPoints": 12,
+    "EventInterestPoints": 0,
+    "StagePoints": 0,
+    "Mee6Points": 23020,
+    "NegativePoints": 26000
+  }
+]
+```
+
+Custom XP is calculated exactly as `ExtraPoints + VcPoints +
+(VcPointCent / 100) + MessagePoints + ReactionPoints + EventInterestPoints +
+StagePoints + Mee6Points - NegativePoints`. Missing point fields are zero.
+Files may contain several guilds; Rankoon imports only valid records matching
+the selected Discord server and reports skipped foreign, invalid, and duplicate
+records. The last valid duplicate for a user wins.
+
+Each re-import replaces only the external imported XP basis. XP earned in
+Rankoon, manual adjustments, leaderboard privacy, membership state, seasons,
+and ledger history remain intact. MEE6 sets message counts but leaves existing
+voice time unchanged. Legacy Rankoon imports both `TotalWrittenMessages` and
+`TotalVoiceChatSeconds`. Imported data never generates XP ledger entries,
+level-transition events, or level-up announcements.
+
+The dashboard uses `POST /api/guilds/{guildId}/xp/import`. The previous
+`POST /api/guilds/{guildId}/xp/import/mee6` route remains a compatible alias and
+also accepts both formats. Rankoon does not fetch data directly from MEE6.
 
 ## Requirements
 

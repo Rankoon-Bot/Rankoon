@@ -23,6 +23,18 @@ describe('GuildService permissions API', () => {
     request.flush({ guildId: 'guild-1', isOwner: false, canAccessSettings: true, moduleIds: ['xp'], leaderboardAlias: 'guild-one' });
   });
 
+  it('posts MEE6 and Custom payloads unchanged to the generic XP import endpoint', () => {
+    const mee6 = { guild: { id: '1' }, players: [{ id: '2', xp: 3 }] };
+    const custom = [{ GuildId: { $numberLong: '1' }, DiscordUserId: { $numberLong: '2' }, MessagePoints: 3 }];
+    for (const payload of [mee6, custom]) {
+      service.importXpJson('guild-1', payload).subscribe();
+      const request = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/import`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toBe(payload);
+      request.flush({ format: payload === mee6 ? 'Mee6' : 'CustomRankoon', imported: 1, skippedInvalid: 0, skippedForeignGuild: 0, duplicateUsers: 0 });
+    }
+  });
+
   it('loads and saves role permissions', () => {
     service.rolePermissions('guild-1').subscribe();
     const getRequest = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/role-permissions`);

@@ -42,7 +42,8 @@ public sealed class MemberXp
     [BsonElement("user_id")] public ulong UserId { get; set; }
     [BsonElement("display_name")] public string DisplayName { get; set; } = string.Empty;
     [BsonElement("normalized_display_name")] public string NormalizedDisplayName { get; set; } = string.Empty;
-    [BsonElement("imported_mee6_xp")] public long ImportedMee6Xp { get; set; }
+    // Historical name retained for BSON compatibility; this is the external import basis for all supported formats.
+    [BsonElement("imported_mee6_xp")] public decimal ImportedMee6Xp { get; set; }
     [BsonElement("earned_xp")] public decimal EarnedXp { get; set; }
     [BsonElement("manual_adjustment")] public decimal ManualAdjustment { get; set; }
     [BsonElement("total_xp")] public decimal TotalXp { get; set; }
@@ -50,7 +51,7 @@ public sealed class MemberXp
     [BsonElement("public_leaderboard_visible")] public bool PublicLeaderboardVisible { get; set; } = true;
     [BsonElement("is_development_mock"), BsonIgnoreIfDefault] public bool IsDevelopmentMock { get; set; }
     [BsonElement("message_count")] public long MessageCount { get; set; }
-    [BsonElement("voice_seconds")] public long VoiceSeconds { get; set; }
+    [BsonElement("voice_seconds")] public decimal VoiceSeconds { get; set; }
     [BsonElement("last_message_xp_at")] public DateTime? LastMessageXpAt { get; set; }
     [BsonElement("last_reaction_xp_at")] public DateTime? LastReactionXpAt { get; set; }
     [BsonElement("last_thread_xp_at")] public DateTime? LastThreadXpAt { get; set; }

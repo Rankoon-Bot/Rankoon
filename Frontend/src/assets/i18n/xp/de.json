@@ -6,9 +6,17 @@
     "watchdogDegraded": "VCWatchdog aktiviert, der aktuelle Lauf ist jedoch beeinträchtigt.",
     "watchdogStarted": "VCWatchdog gestartet.",
     "watchdogStopped": "VCWatchdog deaktiviert.",
-    "imported": "{{count}} MEE6-Mitglieder importiert.",
-    "importedOne": "{{count}} MEE6-Mitglied importiert.",
-    "importedOther": "{{count}} MEE6-Mitglieder importiert.",
+    "imported": "{{count}} Mitglieder aus {{format}} importiert.",
+    "importedOne": "{{count}} Mitglied aus {{format}} importiert.",
+    "importedOther": "{{count}} Mitglieder aus {{format}} importiert.",
+    "importFormats": { "Mee6": "MEE6", "CustomRankoon": "Rankoon-JSON" },
+    "importWarnings": "Übersprungen: {{details}}.",
+    "skippedForeignOne": "{{count}} Eintrag eines anderen Servers",
+    "skippedForeignOther": "{{count}} Einträge anderer Server",
+    "skippedInvalidOne": "{{count}} ungültiger Eintrag",
+    "skippedInvalidOther": "{{count}} ungültige Einträge",
+    "skippedDuplicateOne": "{{count}} doppelter Eintrag",
+    "skippedDuplicateOther": "{{count}} doppelte Einträge",
     "loading": "Einstellungen werden geladen",
     "loadingHint": "Serverressourcen und Watchdog-Status werden abgerufen.",
     "unavailable": "XP-Einstellungen nicht verfügbar",
@@ -117,8 +125,8 @@
     "rankStats": "Level {{level}} · {{xp}} XP",
     "noRanking": "Noch keine Rangdaten vorhanden.",
     "dataTransfer": "DATENÜBERNAHME",
-    "mee6Import": "MEE6-Import",
-    "importHint": "Übernimm vorhandene XP und Nachrichten aus einem MEE6-JSON-Export.",
+    "jsonImport": "Ranglisten-JSON importieren",
+    "importHint": "Importiert bestehende XP aus einem MEE6-Export oder einem unterstützten Rankoon-JSON-Export. Das Format wird automatisch erkannt. Bereits in Rankoon verdiente XP bleiben erhalten.",
     "chooseJson": "JSON-Datei wählen",
     "watchdogStates": {
       "starting": "Startet",
@@ -209,7 +217,7 @@
   "errors": {
     "xpLoad": "Die XP-Einstellungen konnten nicht geladen werden.",
     "watchdogToggle": "Der VCWatchdog konnte nicht umgeschaltet werden.",
-    "importFailed": "Der MEE6-Import ist fehlgeschlagen.",
+    "importFailed": "Der Ranglisten-JSON-Import ist fehlgeschlagen.",
     "invalidJson": "Die ausgewählte Datei enthält kein gültiges JSON.",
     "seasonsLoad": "Die Season-Einstellungen konnten nicht geladen werden.",
     "seasonSave": "Die Season-Einstellungen konnten nicht gespeichert werden.",
@@ -250,8 +258,11 @@
         "serverBoosterOrder": "Server-Booster-Multiplikatoren dürfen mit steigender Boost-Dauer nicht sinken."
       },
       "import": {
-        "guildMismatch": "Der MEE6-Export gehört zu einem anderen Server.",
-        "invalidPlayers": "Der MEE6-Spielerexport ist ungültig."
+        "unsupportedFormat": "Das JSON entspricht weder einem unterstützten MEE6-Export noch einem unterstützten Rankoon-Export.",
+        "guildMismatch": "Die Datei enthält keine Ranglistendaten für den ausgewählten Discord-Server.",
+        "invalidPlayers": "Der MEE6-Spielerexport ist ungültig.",
+        "invalidEntries": "Der Rankoon-Eintragsexport ist ungültig.",
+        "noValidMembers": "Die Datei enthält keine gültigen importierbaren Mitglieder."
       }
     }
   }

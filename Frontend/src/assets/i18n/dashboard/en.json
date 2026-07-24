@@ -26,8 +26,8 @@
           "settings": {
             "changed": "XP settings changed"
           },
-          "mee6": {
-            "imported": "MEE6 data imported"
+          "json": {
+            "imported": "Leaderboard JSON imported"
           }
         },
         "voice": {

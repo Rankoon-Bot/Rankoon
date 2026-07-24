@@ -261,7 +261,7 @@ export class XpConfigComponent implements OnInit {
       && new Set(config.levelRoles.map(role => role.roleId)).size === config.levelRoles.length;
   }
 
-  importMee6(event: Event): void {
+  importXpJson(event: Event): void {
     const id = this.appStore.selectedGuild()?.id;
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -269,15 +269,28 @@ export class XpConfigComponent implements OnInit {
 
     file.text()
       .then(text => JSON.parse(text) as unknown)
-      .then(payload => this.api.importMee6(id, payload).subscribe({
+      .then(payload => this.api.importXpJson(id, payload).subscribe({
         next: result => {
-           this.toast.success(this.locale.plural(result.imported, 'xp.importedOne', 'xp.importedOther'));
+          const format = this.i18n.translate(`xp.importFormats.${result.format}`);
+          this.toast.success(this.locale.plural(result.imported, 'xp.importedOne', 'xp.importedOther', { format }));
+          const warnings = [
+            result.skippedForeignGuild > 0 ? this.locale.plural(result.skippedForeignGuild, 'xp.skippedForeignOne', 'xp.skippedForeignOther') : null,
+            result.skippedInvalid > 0 ? this.locale.plural(result.skippedInvalid, 'xp.skippedInvalidOne', 'xp.skippedInvalidOther') : null,
+            result.duplicateUsers > 0 ? this.locale.plural(result.duplicateUsers, 'xp.skippedDuplicateOne', 'xp.skippedDuplicateOther') : null,
+          ].filter((warning): warning is string => warning !== null);
+          if (warnings.length > 0) this.toast.warning(this.i18n.translate('xp.importWarnings', { details: warnings.join(', ') }));
           this.api.leaderboard(id).subscribe(entries => this.leaderboard.set(entries));
           input.value = '';
         },
-          error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.importFailed').message),
+          error: error => {
+            input.value = '';
+            this.toast.error(this.apiErrors.resolve(error, 'errors.importFailed').message);
+          },
       }))
-       .catch(() => this.toast.error(this.i18n.translate('errors.invalidJson')));
+        .catch(() => {
+          input.value = '';
+          this.toast.error(this.i18n.translate('errors.invalidJson'));
+        });
   }
 
   formatDate(value: string): string { return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'medium' }); }

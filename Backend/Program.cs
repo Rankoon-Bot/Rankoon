@@ -176,6 +176,8 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelUpTemplateRenderer, Rankoon.
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelUpRandom, Rankoon.Data.Xp.LevelUpRandom>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelUpTemplateSelector>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpService>(services => services.GetRequiredService<Rankoon.Data.Xp.XpService>());
+builder.Services.AddSingleton<Rankoon.Data.Xp.Import.XpImportParser>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.Import.IXpImportService, Rankoon.Data.Xp.Import.XpImportService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpAuditService, Rankoon.Data.Xp.XpAuditService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ServerBoosterXpMultiplierResolver>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonService, Rankoon.Data.Xp.SeasonService>();

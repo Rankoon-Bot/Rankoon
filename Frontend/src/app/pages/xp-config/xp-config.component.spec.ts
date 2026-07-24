@@ -1,11 +1,13 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks } from '@angular/core/testing';
 import { TranslocoService } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { testI18n } from '../../testing/i18n-testing';
 import { AppStore, Guild } from '../../store/app.store';
 import { XpConfig } from '../../services/guild.service';
+import { ToastService } from '../../services/toast.service';
+import { LocaleService } from '../../i18n/locale.service';
 import { XpConfigComponent } from './xp-config.component';
 
 describe('XpConfigComponent server booster settings', () => {
@@ -117,5 +119,46 @@ describe('XpConfigComponent server booster settings', () => {
     expect(component.dirty()).toBeFalse();
     expect(component.config()!.serverBooster.enabled).toBeFalse();
     expect(component.config()!.serverBooster.tiers[0].multiplier).toBe(1.25);
+  });
+
+  it('imports JSON, reports the detected format and warnings, reloads the leaderboard and resets the input', fakeAsync(() => {
+    const toast = TestBed.inject(ToastService);
+    const locale = TestBed.inject(LocaleService);
+    spyOn(toast, 'success');
+    spyOn(toast, 'warning');
+    const plural = spyOn(locale, 'plural').and.callFake((value, one, other, params) => `${other}:${value}:${params?.['format'] ?? ''}`);
+    const payload = [{ GuildId: { $numberLong: '1' }, DiscordUserId: { $numberLong: '2' }, MessagePoints: 3 }];
+    const input = { files: [{ text: () => Promise.resolve(JSON.stringify(payload)) }], value: 'ranking.json' } as unknown as HTMLInputElement;
+
+    component.importXpJson({ target: input } as unknown as Event);
+    flushMicrotasks();
+    const request = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/import`);
+    expect(request.request.body).toEqual(payload);
+    request.flush({ format: 'CustomRankoon', imported: 96, skippedInvalid: 1, skippedForeignGuild: 2, duplicateUsers: 1 });
+
+    expect(toast.success).toHaveBeenCalled();
+    expect(toast.warning).toHaveBeenCalled();
+    expect(plural).toHaveBeenCalledWith(96, 'xp.importedOne', 'xp.importedOther', { format: 'xp.importFormats.CustomRankoon' });
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/leaderboard`).flush([]);
+    expect(input.value).toBe('');
+  }));
+
+  it('rejects syntactically invalid JSON without an HTTP import request', fakeAsync(() => {
+    const toast = TestBed.inject(ToastService);
+    spyOn(toast, 'error');
+    const input = { files: [{ text: () => Promise.resolve('{invalid') }], value: 'invalid.json' } as unknown as HTMLInputElement;
+
+    component.importXpJson({ target: input } as unknown as Event);
+    flushMicrotasks();
+
+    http.expectNone(`${environment.apiBaseUrl}/guilds/guild-1/xp/import`);
+    expect(toast.error).toHaveBeenCalled();
+    expect(input.value).toBe('');
+  }));
+
+  it('uses neutral leaderboard import copy instead of a MEE6-only heading', () => {
+    const text = fixture.nativeElement.querySelector('.import-card').textContent as string;
+    expect(text).not.toContain('MEE6 import');
+    expect(fixture.nativeElement.querySelector('.import-card h2').textContent).toContain('xp.jsonImport');
   });
 });
