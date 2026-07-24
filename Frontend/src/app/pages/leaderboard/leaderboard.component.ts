@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { combineLatest, finalize } from 'rxjs';
 import { LevelProgressComponent } from '../../components/level-progress/level-progress.component';
+import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
 import { LocaleService } from '../../i18n/locale.service';
 import { ApiErrorService } from '../../services/api-error.service';
 import { GuildService, LeaderboardEntry, LeaderboardPage, LeaderboardWindow, SeasonLeaderboardScope } from '../../services/guild.service';
@@ -18,7 +19,7 @@ interface VirtualLeaderboardRow { index: number; entry?: LeaderboardEntry; }
 @Component({
   selector: 'app-leaderboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, TranslocoPipe, LevelProgressComponent, ScrollingModule],
+  imports: [CommonModule, RouterLink, TranslocoPipe, LevelProgressComponent, UserAvatarComponent, ScrollingModule],
   templateUrl: './leaderboard.component.html',
   styleUrls: ['./leaderboard.component.scss'],
 })

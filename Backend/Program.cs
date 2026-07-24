@@ -183,6 +183,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
 builder.Services.AddSingleton<IDiscordAnnouncementSender, DiscordAnnouncementSender>();
 builder.Services.AddSingleton<LevelProgressionWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.IGuildUserPresentationService, Rankoon.Data.Xp.GuildUserPresentationService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILeaderboardRealtimePublisher, Rankoon.Data.Xp.LeaderboardRealtimePublisher>();
 builder.Services.AddSingleton<Rankoon.Data.Development.DevelopmentLeaderboardService>();
 builder.Services.AddSingleton<VoiceXpWatchdog>();

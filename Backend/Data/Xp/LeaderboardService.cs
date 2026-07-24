@@ -13,13 +13,13 @@ using Rankoon.Data.Auth;
 
 namespace Rankoon.Data.Xp;
 
-public sealed record LeaderboardEntryDto(long Rank, string UserId, string DisplayName, decimal TotalXp, int Level, long MessageCount, long VoiceSeconds, bool IsCurrentUser);
+public sealed record LeaderboardEntryDto(long Rank, string UserId, string DisplayName, string? IconUrl, decimal TotalXp, int Level, long MessageCount, long VoiceSeconds, bool IsCurrentUser);
 public sealed record SeasonLeaderboardOption(string Id, string Name, DateTime StartsAtUtc, DateTime EndsAtUtc);
 public sealed record LeaderboardPageDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardEntryDto> Items, string? NextCursor, bool HasMore, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope = SeasonLeaderboardScope.Lifetime, string? SeasonId = null, string? SeasonName = null, IReadOnlyList<SeasonLeaderboardOption>? HistoricalSeasons = null, SeasonLeaderboardOption? CurrentSeason = null, bool SeasonsEnabled = false);
 public sealed record LeaderboardWindowRowDto(long Index, LeaderboardEntryDto Entry);
 public sealed record LeaderboardWindowDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardWindowRowDto> Items, IReadOnlyList<LeaderboardWindowRowDto> CachedItems, IReadOnlyList<string> RemovedCachedUserIds, long Offset, long TotalCount, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope, string? SeasonId, string? SeasonName, IReadOnlyList<SeasonLeaderboardOption> HistoricalSeasons, SeasonLeaderboardOption? CurrentSeason, bool SeasonsEnabled);
 
-public sealed class LeaderboardService(RankoonDbContext database, DiscordShardedClient discord, GuildMembershipService memberships, IOptions<JwtSettings> jwtSettings, TimeProvider timeProvider)
+public sealed class LeaderboardService(RankoonDbContext database, DiscordShardedClient discord, GuildMembershipService memberships, IOptions<JwtSettings> jwtSettings, TimeProvider timeProvider, IGuildUserPresentationService presentations)
 {
     private sealed record Cursor(string Xp, string DisplayName, string UserId, long Rank, SeasonLeaderboardScope Scope, string? SeasonId);
     private readonly byte[] cursorKey = Encoding.UTF8.GetBytes(jwtSettings.Value.SecretKey);
@@ -125,6 +125,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             firstRank + index,
             member.UserId.ToString(),
             member.DisplayName,
+            null,
             decimal.Truncate(member.TotalXp),
             Mee6LevelCurve.GetLevel(member.TotalXp),
             member.MessageCount,
@@ -139,7 +140,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             publicVisible = member?.PublicLeaderboardVisible ?? preference?.PublicVisible ?? true;
         }
 
-        return new LeaderboardPageDto(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, items, nextCursor, hasMore, isMember, publicVisible);
+        return new LeaderboardPageDto(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, WithIcons(settings.GuildId, items), nextCursor, hasMore, isMember, publicVisible);
     }
 
     public async Task<LeaderboardPageDto> GetScopedPageAsync(GuildLeaderboardSettings settings, bool isMember, ulong? currentUserId, SeasonLeaderboardScope scope, string? seasonId, string? cursor, int take, bool aroundCurrentUser, CancellationToken cancellationToken = default)
@@ -216,7 +217,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
                 before.Reverse();
                 var after = await database.SeasonMemberXp.Find(baseFilter & SeasonBehind(member.TotalXp, member.DisplayName, member.UserId)).SortByDescending(x => x.TotalXp).ThenBy(x => x.DisplayName).ThenBy(x => x.UserId).Limit(take - before.Count).ToListAsync(cancellationToken);
                 var centeredFirstRank = 1 + await database.SeasonMemberXp.CountDocumentsAsync(baseFilter & SeasonAheadOf(member.TotalXp, member.DisplayName, member.UserId), cancellationToken: cancellationToken);
-                var rows = before.Append(member).Concat(after).Select((x, index) => new LeaderboardEntryDto(centeredFirstRank - before.Count + index, x.UserId.ToString(), x.DisplayName, decimal.Truncate(x.TotalXp), Mee6LevelCurve.GetLevel(x.TotalXp), x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList();
+                var rows = before.Append(member).Concat(after).Select((x, index) => new LeaderboardEntryDto(centeredFirstRank - before.Count + index, x.UserId.ToString(), x.DisplayName, null, decimal.Truncate(x.TotalXp), Mee6LevelCurve.GetLevel(x.TotalXp), x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList();
                 return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, rows, false, null, SeasonLeaderboardScope.CurrentSeason, history, current, seasonsEnabled, cancellationToken);
             }
         }
@@ -232,7 +233,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         if (hasMore) members.RemoveAt(members.Count - 1);
         var firstRank = firstRankHint ?? 1;
         if (firstRankHint == null && members.Count > 0) firstRank += await database.SeasonMemberXp.CountDocumentsAsync(baseFilter & SeasonAheadOf(members[0].TotalXp, members[0].DisplayName, members[0].UserId), cancellationToken: cancellationToken);
-        return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, members.Select((x, index) => new LeaderboardEntryDto(firstRank + index, x.UserId.ToString(), x.DisplayName, decimal.Truncate(x.TotalXp), Mee6LevelCurve.GetLevel(x.TotalXp), x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList(), hasMore, members.Count == 0 ? null : EncodeCursor(members[^1].TotalXp, members[^1].DisplayName, members[^1].UserId, firstRank + members.Count - 1, SeasonLeaderboardScope.CurrentSeason, season.Id), SeasonLeaderboardScope.CurrentSeason, history, current, seasonsEnabled, cancellationToken);
+        return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, members.Select((x, index) => new LeaderboardEntryDto(firstRank + index, x.UserId.ToString(), x.DisplayName, null, decimal.Truncate(x.TotalXp), Mee6LevelCurve.GetLevel(x.TotalXp), x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList(), hasMore, members.Count == 0 ? null : EncodeCursor(members[^1].TotalXp, members[^1].DisplayName, members[^1].UserId, firstRank + members.Count - 1, SeasonLeaderboardScope.CurrentSeason, season.Id), SeasonLeaderboardScope.CurrentSeason, history, current, seasonsEnabled, cancellationToken);
     }
 
     private async Task<LeaderboardPageDto> GetHistoricalSeasonPageAsync(GuildLeaderboardSettings settings, GuildSeason season, bool isMember, ulong? currentUserId, string? cursor, int take, bool aroundCurrentUser, IReadOnlyList<SeasonLeaderboardOption> history, SeasonLeaderboardOption? current, bool seasonsEnabled, CancellationToken cancellationToken)
@@ -248,13 +249,13 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         var standings = await database.SeasonFinalStandings.Find(filter).SortBy(x => x.Rank).Limit(take + 1).ToListAsync(cancellationToken);
         var hasMore = standings.Count > take;
         if (hasMore) standings.RemoveAt(standings.Count - 1);
-        return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, standings.Select(x => new LeaderboardEntryDto(x.Rank, x.UserId.ToString(), x.DisplayName, decimal.Truncate(x.TotalXp), x.Level, x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList(), hasMore, standings.Count == 0 ? null : EncodeCursor(standings[^1].TotalXp, standings[^1].DisplayName, standings[^1].UserId, standings[^1].Rank, SeasonLeaderboardScope.Season, season.Id), SeasonLeaderboardScope.Season, history, current, seasonsEnabled, cancellationToken);
+        return await CreateSeasonPageAsync(settings, season, isMember, currentUserId, standings.Select(x => new LeaderboardEntryDto(x.Rank, x.UserId.ToString(), x.DisplayName, null, decimal.Truncate(x.TotalXp), x.Level, x.MessageCount, x.VoiceSeconds, currentUserId == x.UserId)).ToList(), hasMore, standings.Count == 0 ? null : EncodeCursor(standings[^1].TotalXp, standings[^1].DisplayName, standings[^1].UserId, standings[^1].Rank, SeasonLeaderboardScope.Season, season.Id), SeasonLeaderboardScope.Season, history, current, seasonsEnabled, cancellationToken);
     }
 
     private async Task<LeaderboardPageDto> CreateSeasonPageAsync(GuildLeaderboardSettings settings, GuildSeason season, bool isMember, ulong? currentUserId, IReadOnlyList<LeaderboardEntryDto> items, bool hasMore, string? nextCursor, SeasonLeaderboardScope scope, IReadOnlyList<SeasonLeaderboardOption> history, SeasonLeaderboardOption? current, bool seasonsEnabled, CancellationToken cancellationToken)
     {
         var publicVisible = await GetPublicVisibilityAsync(settings.GuildId, currentUserId, cancellationToken);
-        return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, UniqueUsers(items), nextCursor, hasMore, isMember, publicVisible, scope, season.Id, season.Name, history, current, seasonsEnabled);
+        return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, WithIcons(settings.GuildId, UniqueUsers(items)), nextCursor, hasMore, isMember, publicVisible, scope, season.Id, season.Name, history, current, seasonsEnabled);
     }
 
     public async Task<LeaderboardWindowDto> GetWindowAsync(GuildLeaderboardSettings settings, bool isMember, ulong? currentUserId, SeasonLeaderboardScope scope, string? seasonId, int offset, int take, bool aroundCurrentUser, IReadOnlyCollection<ulong> cachedUserIds, CancellationToken cancellationToken = default)
@@ -318,6 +319,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             cachedRows = await GetCachedStandingRowsAsync(filter, cachedUserIds.Except(standings.Select(x => x.UserId)).ToArray(), currentUserId, cancellationToken);
         }
 
+        (rows, cachedRows) = WithIcons(settings.GuildId, rows, cachedRows);
         var returnedIds = rows.Concat(cachedRows).Select(x => x.Entry.UserId).ToHashSet(StringComparer.Ordinal);
         var removed = cachedUserIds.Select(x => x.ToString()).Where(id => !returnedIds.Contains(id)).ToArray();
         return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, rows, cachedRows, removed, offset, totalCount, isMember, publicVisible, scope, resolvedSeasonId, seasonName, history, currentOption, seasonSettings?.Enabled == true);
@@ -362,9 +364,30 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         return rows;
     }
 
-    private static LeaderboardEntryDto ToEntry(long rank, MemberXp member, ulong? currentUserId) => new(rank, member.UserId.ToString(), member.DisplayName, decimal.Truncate(member.TotalXp), Mee6LevelCurve.GetLevel(member.TotalXp), member.MessageCount, member.VoiceSeconds, currentUserId == member.UserId);
-    private static LeaderboardEntryDto ToEntry(long rank, SeasonMemberXp member, ulong? currentUserId) => new(rank, member.UserId.ToString(), member.DisplayName, decimal.Truncate(member.TotalXp), Mee6LevelCurve.GetLevel(member.TotalXp), member.MessageCount, member.VoiceSeconds, currentUserId == member.UserId);
-    private static LeaderboardEntryDto ToEntry(SeasonFinalStanding standing, ulong? currentUserId) => new(standing.Rank, standing.UserId.ToString(), standing.DisplayName, decimal.Truncate(standing.TotalXp), standing.Level, standing.MessageCount, standing.VoiceSeconds, currentUserId == standing.UserId);
+    private static LeaderboardEntryDto ToEntry(long rank, MemberXp member, ulong? currentUserId) => new(rank, member.UserId.ToString(), member.DisplayName, null, decimal.Truncate(member.TotalXp), Mee6LevelCurve.GetLevel(member.TotalXp), member.MessageCount, member.VoiceSeconds, currentUserId == member.UserId);
+    private static LeaderboardEntryDto ToEntry(long rank, SeasonMemberXp member, ulong? currentUserId) => new(rank, member.UserId.ToString(), member.DisplayName, null, decimal.Truncate(member.TotalXp), Mee6LevelCurve.GetLevel(member.TotalXp), member.MessageCount, member.VoiceSeconds, currentUserId == member.UserId);
+    private static LeaderboardEntryDto ToEntry(SeasonFinalStanding standing, ulong? currentUserId) => new(standing.Rank, standing.UserId.ToString(), standing.DisplayName, null, decimal.Truncate(standing.TotalXp), standing.Level, standing.MessageCount, standing.VoiceSeconds, currentUserId == standing.UserId);
+
+    private IReadOnlyList<LeaderboardEntryDto> WithIcons(ulong guildId, IReadOnlyList<LeaderboardEntryDto> entries)
+    {
+        IReadOnlyDictionary<ulong, string?> iconUrls;
+        try
+        {
+            iconUrls = presentations.ResolveIconUrls(guildId, entries.Select(entry => ulong.TryParse(entry.UserId, out var id) ? id : 0).Where(id => id != 0));
+        }
+        catch
+        {
+            iconUrls = new Dictionary<ulong, string?>();
+        }
+        return entries.Select(entry => ulong.TryParse(entry.UserId, out var id) && iconUrls.TryGetValue(id, out var iconUrl) ? entry with { IconUrl = iconUrl } : entry).ToList();
+    }
+
+    private (IReadOnlyList<LeaderboardWindowRowDto> Rows, IReadOnlyList<LeaderboardWindowRowDto> CachedRows) WithIcons(ulong guildId, IReadOnlyList<LeaderboardWindowRowDto> rows, IReadOnlyList<LeaderboardWindowRowDto> cachedRows)
+    {
+        var entries = WithIcons(guildId, rows.Concat(cachedRows).Select(row => row.Entry).ToList());
+        var icons = entries.GroupBy(entry => entry.UserId, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().IconUrl, StringComparer.Ordinal);
+        return (rows.Select(row => row with { Entry = row.Entry with { IconUrl = icons[row.Entry.UserId] } }).ToList(), cachedRows.Select(row => row with { Entry = row.Entry with { IconUrl = icons[row.Entry.UserId] } }).ToList());
+    }
     internal static int ClampWindowOffset(int offset, long totalCount) => (int)Math.Clamp(offset, 0, Math.Max(0, totalCount - 1));
     internal static int CenterOffset(long index, long totalCount, int take) => (int)Math.Clamp(Math.Max(0, index - take / 3), 0, Math.Max(0, totalCount - take));
 

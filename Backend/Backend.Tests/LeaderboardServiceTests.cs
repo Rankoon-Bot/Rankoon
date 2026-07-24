@@ -38,5 +38,9 @@ public sealed class LeaderboardServiceTests
     public void Center_offset_keeps_the_current_user_inside_the_window(long index, long total, int take, int expected) =>
         Assert.Equal(expected, LeaderboardService.CenterOffset(index, total, take));
 
-    private static LeaderboardEntryDto Entry(long rank, string userId) => new(rank, userId, userId, 0, 0, 0, 0, false);
+    [Fact]
+    public void Uncached_users_receive_a_discord_default_avatar_url() =>
+        Assert.Equal("https://cdn.discordapp.com/embed/avatars/0.png", GuildUserPresentationService.CreateDefaultAvatarUrl(1528473110666412042));
+
+    private static LeaderboardEntryDto Entry(long rank, string userId) => new(rank, userId, userId, null, 0, 0, 0, 0, false);
 }

@@ -7,16 +7,20 @@ interface BuildInfo {
   buildVersion: string;
 }
 
+function shortenBuildVersion(version: string): string {
+  return version.replace(/\+[0-9a-f]+([0-9a-f]{8})$/i, '+$1');
+}
+
 @Injectable({ providedIn: 'root' })
 export class BuildInfoService {
   private readonly http = inject(HttpClient);
-  readonly buildVersion = signal(environment.buildVersion);
+  readonly buildVersion = signal(shortenBuildVersion(environment.buildVersion));
 
   constructor() {
     this.http.get<BuildInfo>(`${environment.apiBaseUrl}/info`).pipe(
       catchError(() => of(null))
     ).subscribe((info) => {
-      if (info?.buildVersion) this.buildVersion.set(info.buildVersion);
+      if (info?.buildVersion) this.buildVersion.set(shortenBuildVersion(info.buildVersion));
     });
   }
 }

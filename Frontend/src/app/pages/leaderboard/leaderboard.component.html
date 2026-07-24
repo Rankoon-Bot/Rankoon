@@ -30,7 +30,7 @@
       <ng-container *cdkVirtualFor="let row of virtualRows(); trackBy: trackRow">
       <article class="rank-row" role="row" *ngIf="row?.entry as entry; else unloadedRow" [class.current-user]="entry.isCurrentUser" [attr.data-current-user]="entry.isCurrentUser" [attr.aria-rowindex]="row!.index + 1">
       <div class="rank-number" role="cell">#{{ entry.rank }}</div>
-      <div class="member" role="cell"><span class="avatar" aria-hidden="true">{{ entry.displayName.charAt(0).toUpperCase() }}</span><div><strong>{{ entry.displayName }}</strong><small *ngIf="entry.isCurrentUser">{{ 'common.you' | transloco }}</small><p>{{ messageCount(entry.messageCount) }}</p></div></div>
+       <div class="member" role="cell"><app-user-avatar [displayName]="entry.displayName" [iconUrl]="entry.iconUrl" /><div><strong>{{ entry.displayName }}</strong><small *ngIf="entry.isCurrentUser">{{ 'common.you' | transloco }}</small><p>{{ messageCount(entry.messageCount) }}</p></div></div>
       <div class="level" role="cell"><app-level-progress [level]="entry.level" [totalXp]="entry.totalXp" /></div>
       <div class="xp" role="cell"><strong>{{ formatNumber(entry.totalXp) }}</strong><span> XP</span></div>
       </article>
