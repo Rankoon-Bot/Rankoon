@@ -340,8 +340,9 @@ package settings and cannot be established from this repository alone. If the
 package is public, replace the local image name above with a published version
 tag such as `ghcr.io/rankoon-bot/rankoon:<version>`.
 
-The unauthenticated `GET /api/version` endpoint reports the running assembly
-version. It is not a liveness or readiness check.
+The unauthenticated `GET /api/info` endpoint reports the running build version.
+`GET /api/version` remains available as an alias. Neither endpoint is a liveness
+or readiness check.
 
 ## Configuration
 

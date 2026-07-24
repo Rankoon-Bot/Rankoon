@@ -8,11 +8,12 @@ EXPOSE 8080
 
 # Build the Angular application from the repository root Docker context.
 FROM node:22-alpine AS frontend-build
+ARG APP_VERSION=0.0.0-local
 WORKDIR /src/Frontend
 COPY Frontend/package*.json ./
 RUN npm ci --registry=https://registry.npmjs.org --no-audit
 COPY Frontend/ ./
-RUN npm run build
+RUN APP_VERSION=$APP_VERSION npm run build
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release

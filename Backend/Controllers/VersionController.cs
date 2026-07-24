@@ -4,8 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Rankoon.Controllers;
 
 [ApiController]
+[Route("api/info")]
 [Route("api/version")]
-public class VersionController : ControllerBase
+public sealed class VersionController : ControllerBase
 {
     [HttpGet]
     public IActionResult Get()
@@ -15,6 +16,6 @@ public class VersionController : ControllerBase
             ?? assembly.GetName().Version?.ToString()
             ?? "unknown";
 
-        return Ok(new { version });
+        return Ok(new { buildVersion = version });
     }
 }

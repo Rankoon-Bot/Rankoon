@@ -4,6 +4,8 @@
 }
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   width: 100%;
   background: var(--rk-surface-1);
@@ -16,6 +18,15 @@
 
 .sidebar-nav {
   padding: var(--rk-space-4) var(--rk-space-2);
+  flex: 1;
+}
+
+.sidebar-footer {
+  padding: var(--rk-space-3) var(--rk-space-4);
+  border-top: 1px solid var(--rk-border-subtle);
+  color: var(--rk-text-muted);
+  font-size: 0.75rem;
+  line-height: 1;
 }
 
 .nav-list {

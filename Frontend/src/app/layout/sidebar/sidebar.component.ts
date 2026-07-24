@@ -10,6 +10,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
 import { CustomBotIdentityAccessService } from '../../services/custom-bot-identity-access.service';
 import { AuthStore } from '../../store/auth.store';
+import { BuildInfoService } from '../../services/build-info.service';
 
 interface MenuItem {
   label: string;
@@ -50,6 +51,7 @@ interface MenuItem {
           </li>
         </ul>
       </nav>
+      <footer class="sidebar-footer">v{{ buildInfo.buildVersion() }}</footer>
     </aside>
   `,
   styleUrls: ['./sidebar.component.scss']
@@ -61,6 +63,7 @@ export class SidebarComponent {
   private readonly locale = inject(LocaleService);
   private readonly botIdentityAccess = inject(CustomBotIdentityAccessService);
   private readonly authStore = inject(AuthStore);
+  readonly buildInfo = inject(BuildInfoService);
 
   constructor() { effect(() => { const guild = this.appStore.selectedGuild(); const capabilities = this.appStore.guildCapabilities(); if (guild && capabilities?.isOwner) this.botIdentityAccess.load(guild.id); else this.botIdentityAccess.clear(); }); }
 

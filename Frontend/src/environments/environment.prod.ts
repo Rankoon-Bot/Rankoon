@@ -4,5 +4,6 @@ export const environment = {
   // NIEMALS das Client Secret hier einfügen - das gehört nur ins Backend!
   discordRedirectUri: 'https://your-api-domain.com/auth/discord/callback', // Backend callback URL
   frontendCallbackUri: 'https://your-domain.com/auth/callback', // Frontend callback URL
-  apiBaseUrl: '/api'
+  apiBaseUrl: '/api',
+  buildVersion: BUILD_VERSION
 };

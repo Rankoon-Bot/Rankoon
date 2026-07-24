@@ -87,6 +87,16 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
     }
 
     [Fact]
+    public async Task Info_route_returns_the_running_build_version()
+    {
+        using var response = await _client.GetAsync("/api/info");
+
+        response.EnsureSuccessStatusCode();
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+        Assert.False(string.IsNullOrWhiteSpace(document.RootElement.GetProperty("buildVersion").GetString()));
+    }
+
+    [Fact]
     public async Task Development_mock_endpoints_are_not_available_outside_development()
     {
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/dev/guilds/1/leaderboard-mocks");

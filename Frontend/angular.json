@@ -36,7 +36,10 @@
             ],
             "styles": [
               "src/styles.scss"
-            ]
+            ],
+            "define": {
+              "BUILD_VERSION": "\"0.0.0-local\""
+            }
           },
           "configurations": {
             "production": {
@@ -108,7 +111,10 @@
             ],
             "styles": [
               "src/styles.scss"
-            ]
+            ],
+            "define": {
+              "BUILD_VERSION": "\"0.0.0-local\""
+            }
           }
         }
       }

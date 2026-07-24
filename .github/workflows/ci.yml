@@ -79,7 +79,7 @@ jobs:
         working-directory: Frontend
 
       - name: Build frontend
-        run: npm run build
+        run: APP_VERSION=${{ inputs.app-version }} npm run build
         working-directory: Frontend
 
       - name: Upload frontend artifact
