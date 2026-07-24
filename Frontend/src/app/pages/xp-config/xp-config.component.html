@@ -1,27 +1,711 @@
 <section class="page">
-  <header class="page-header"><div><p class="eyebrow">{{ 'xp.eyebrow' | transloco }}</p><h1>{{ 'nav.xp' | transloco }}</h1><p>{{ 'xp.subtitle' | transloco }}</p></div><div class="page-actions"><button class="secondary" type="button" (click)="reset()" [disabled]="saving() || !dirty()">{{ 'xp.resetChanges' | transloco }}</button><button class="primary" type="button" (click)="save()" [disabled]="saving() || watchdogBusy() || !config() || !dirty() || !isValid(config()!)">{{ (saving() ? 'common.saving' : 'common.saveChanges') | transloco }}</button></div></header>
-  @if (loading()) { <div class="state-card" role="status"><span class="loader" aria-hidden="true"></span><div><h2>{{ 'xp.loading' | transloco }}</h2><p>{{ 'xp.loadingHint' | transloco }}</p></div></div> }
-  @else if (loadError()) { <div class="state-card error-state" role="alert"><div><h2>{{ 'xp.unavailable' | transloco }}</h2><p>{{ loadError() }}</p></div><button class="secondary" type="button" (click)="load()">{{ 'common.retry' | transloco }}</button></div> }
-  @else { @if (config(); as cfg) {
-    <div class="summary" [attr.aria-label]="'xp.summaryAria' | transloco"><div><span>{{ 'xp.module' | transloco }}</span><strong [class.off]="!cfg.enabled">{{ (cfg.enabled ? 'common.active' : 'common.paused') | transloco }}</strong></div><div><span>{{ 'xp.activeSources' | transloco }}</span><strong>{{ 'xp.sourcesCount' | transloco: { count: activeSources(cfg), total: 5 } }}</strong></div><div><span>{{ 'xp.levelRoles' | transloco }}</span><strong>{{ formatNumber(cfg.levelRoles.length) }}</strong></div><div><span>{{ 'xp.channelRules' | transloco }}</span><strong>{{ formatNumber(cfg.channelMultipliers.length) }}</strong></div></div>
-    <article class="card watchdog-card" [class.running]="watchdogIsRunning()"><div class="watchdog-main"><div class="status-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg></div><div><div class="status-line"><h2>VCWatchdog</h2><span class="status-pill">{{ watchdogState(watchdog()) }}</span></div><p>{{ 'xp.watchdogDescription' | transloco }}</p>@if (watchdog()?.lastRunAt) { <small>{{ lastCheck(watchdog()!.lastRunAt!, watchdog()!.connectedUsers) }}</small> } @else { <small>{{ 'xp.noCheck' | transloco }}</small> }@if (watchdog()?.lastError) { <small class="error-text">{{ watchdog()!.lastError }}</small> }</div></div><div class="watchdog-actions"><button class="icon-button" type="button" (click)="refreshWatchdog()" [attr.aria-label]="'xp.refreshWatchdog' | transloco">{{ 'xp.refreshStatus' | transloco }}</button>@if (watchdogIsRunning()) { <button class="danger" type="button" (click)="setWatchdog(false)" [disabled]="watchdogBusy()">{{ (watchdogBusy() ? 'xp.stopping' : 'xp.stop') | transloco }}</button> } @else { <button class="primary" type="button" (click)="setWatchdog(true)" [disabled]="watchdogBusy()">{{ (watchdogBusy() ? 'xp.starting' : 'xp.start') | transloco }}</button> }</div></article>
-    <div class="layout"><main class="stack">
-      <article class="card module-card"><div><h2>{{ 'xp.module' | transloco }}</h2><p>{{ 'xp.moduleHint' | transloco }}</p></div><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.enabled"><span aria-hidden="true"></span><b>{{ (cfg.enabled ? 'common.active' : 'common.paused') | transloco }}</b></label></article>
-      <article class="card"><div class="card-heading"><div><p class="section-kicker">{{ 'xp.textActivity' | transloco }}</p><h2>{{ 'xp.messageXp' | transloco }}</h2><p>{{ 'xp.messageHint' | transloco }}</p></div><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.message.enabled"><span aria-hidden="true"></span><b>{{ (cfg.message.enabled ? 'common.active' : 'common.inactive') | transloco }}</b></label></div><div class="fields three"><label>{{ 'xp.minimumXp' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.message.minimumPoints"><small>{{ 'xp.minimumXpHint' | transloco }}</small></label><label>{{ 'xp.maximumXp' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.message.maximumPoints"><small>{{ 'xp.maximumXpHint' | transloco }}</small></label><label>{{ 'xp.cooldown' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.message.cooldownSeconds"><small>{{ 'xp.cooldownHint' | transloco }}</small></label><label>{{ 'xp.minimumCharacters' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.message.minimumCharacters"></label><label>{{ 'xp.maximumCharacters' | transloco }}<input type="number" min="1" [(ngModel)]="cfg.message.maximumCharacters"></label></div>@if (cfg.message.maximumPoints < cfg.message.minimumPoints || cfg.message.maximumCharacters < cfg.message.minimumCharacters) { <p class="validation" role="alert">{{ 'xp.maximumValidation' | transloco }}</p> }</article>
-      <article class="card"><div class="card-heading"><div><p class="section-kicker">{{ 'xp.voiceTracking' | transloco }}</p><h2>{{ 'xp.voiceXp' | transloco }}</h2><p>{{ 'xp.voiceHint' | transloco }}</p></div><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.voice.enabled"><span aria-hidden="true"></span><b>{{ (cfg.voice.enabled ? 'common.active' : 'common.inactive') | transloco }}</b></label></div><div class="fields three"><label>{{ 'xp.xpPerMinute' | transloco }}<input type="number" min="0" step="0.1" [(ngModel)]="cfg.voice.pointsPerMinute"></label><label>{{ 'xp.minimumDuration' | transloco }}<input type="number" min="0" max="86400" [(ngModel)]="cfg.voice.minimumSessionSeconds"><small>{{ 'xp.minimumDurationHint' | transloco }}</small></label></div><div class="switch-list"><label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.requireMultipleHumans"><span><b>{{ 'xp.multiplePeople' | transloco }}</b><small>{{ 'xp.multiplePeopleHint' | transloco }}</small></span></label><label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.excludeAfkChannel"><span><b>{{ 'xp.excludeAfk' | transloco }}</b><small>{{ 'xp.excludeAfkHint' | transloco }}</small></span></label></div></article>
-      <article class="card"><div class="card-heading"><div><p class="section-kicker">{{ 'xp.otherSources' | transloco }}</p><h2>{{ 'xp.interactions' | transloco }}</h2><p>{{ 'xp.interactionsHint' | transloco }}</p></div></div><div class="source-grid">
-        <section><div class="source-heading"><h3>{{ 'xp.reactions' | transloco }}</h3><label class="toggle compact"><input type="checkbox" [(ngModel)]="cfg.reaction.enabled" [attr.aria-label]="'xp.reactionAria' | transloco"><span aria-hidden="true"></span><b>{{ (cfg.reaction.enabled ? 'common.on' : 'common.off') | transloco }}</b></label></div><label>{{ 'xp.xpPerReaction' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.reaction.points"></label><label>{{ 'xp.cooldownSeconds' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.reaction.cooldownSeconds"></label><label class="switch simple"><input type="checkbox" [(ngModel)]="cfg.reaction.reverseOnRemove"><span>{{ 'xp.reverseReaction' | transloco }}</span></label></section>
-        <section><div class="source-heading"><h3>{{ 'xp.eventInterest' | transloco }}</h3><label class="toggle compact"><input type="checkbox" [(ngModel)]="cfg.eventInterest.enabled" [attr.aria-label]="'xp.eventAria' | transloco"><span aria-hidden="true"></span><b>{{ (cfg.eventInterest.enabled ? 'common.on' : 'common.off') | transloco }}</b></label></div><label>{{ 'xp.xpForInterest' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.eventInterest.points"></label></section>
-        <section><div class="source-heading"><h3>{{ 'xp.threads' | transloco }}</h3><label class="toggle compact"><input type="checkbox" [(ngModel)]="cfg.thread.enabled" [attr.aria-label]="'xp.threadAria' | transloco"><span aria-hidden="true"></span><b>{{ (cfg.thread.enabled ? 'common.on' : 'common.off') | transloco }}</b></label></div><label>{{ 'xp.xpForCreation' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.thread.createPoints"></label><label>{{ 'xp.xpPerPost' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.thread.messagePoints"></label><label>{{ 'xp.cooldownSeconds' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.thread.cooldownSeconds"></label></section>
-      </div></article>
-      <article class="card booster-card"><div class="card-heading"><div><h2>{{ 'xp.boosterTitle' | transloco }}</h2><p>{{ 'xp.boosterDescription' | transloco }}</p></div><label class="toggle"><input class="booster-toggle" type="checkbox" [(ngModel)]="cfg.serverBooster.enabled"><span aria-hidden="true"></span><b>{{ (cfg.serverBooster.enabled ? 'common.active' : 'common.inactive') | transloco }}</b></label></div>@if (cfg.serverBooster.enabled) { <div class="booster-tiers"><p class="helper" *ngIf="!cfg.serverBooster.tiers.length">{{ 'xp.boosterNoTiers' | transloco }}</p><div class="booster-row" *ngFor="let tier of cfg.serverBooster.tiers"><label>{{ 'xp.boosterFromMonths' | transloco }}<input class="booster-months" type="number" min="0" step="1" inputmode="numeric" [(ngModel)]="tier.minimumBoostMonths" (ngModelChange)="sortBoosterTiers()"></label><label>{{ 'xp.multiplier' | transloco }}<span class="multiplier-input"><b aria-hidden="true">x</b><input class="booster-multiplier" type="number" min="1" max="10" step="0.01" inputmode="decimal" [(ngModel)]="tier.multiplier"></span></label><button class="danger booster-remove" type="button" (click)="removeBoosterTier(tier)" [attr.aria-label]="'xp.boosterRemove' | transloco">{{ 'xp.boosterRemove' | transloco }}</button><div class="tier-errors" *ngIf="boosterTierErrors(cfg, tier).length"><small class="validation-inline" role="alert" *ngFor="let error of boosterTierErrors(cfg, tier)">{{ error | transloco }}</small></div></div><button class="secondary add-tier" type="button" (click)="addBoosterTier()" [disabled]="cfg.serverBooster.tiers.length >= 10">{{ 'xp.boosterAddTier' | transloco }}</button><p class="booster-note">{{ 'xp.boosterThresholdHint' | transloco }}</p><p class="booster-note">{{ 'xp.boosterLastTierHint' | transloco }}</p></div> }</article>
-      <article class="card"><div class="card-heading"><div><p class="section-kicker">{{ 'xp.permissions' | transloco }}</p><h2>{{ 'xp.exclusions' | transloco }}</h2><p>{{ 'xp.exclusionsHint' | transloco }}</p></div></div><div class="rule-grid">
-        <section><h3>{{ 'xp.roles' | transloco }}</h3><div class="picker"><select [(ngModel)]="selectedRole" [attr.aria-label]="'xp.excludeRoleAria' | transloco"><option value="">{{ 'xp.chooseRole' | transloco }}</option><option *ngFor="let role of resources().roles" [value]="role.id">{{ role.name }}</option></select><button class="secondary" type="button" (click)="excludeRole()" [disabled]="!selectedRole">{{ 'common.add' | transloco }}</button></div><div class="chips"><span *ngFor="let id of cfg.excludedRoleIds">{{ roleName(id) }} <button type="button" (click)="remove(cfg.excludedRoleIds, id)" [attr.aria-label]="'common.removeNamed' | transloco: { name: roleName(id) }">{{ 'common.remove' | transloco }}</button></span><small *ngIf="!cfg.excludedRoleIds.length">{{ 'xp.noRolesExcluded' | transloco }}</small></div></section>
-        <section><h3>{{ 'xp.channels' | transloco }}</h3><div class="picker"><select [(ngModel)]="selectedChannel" [attr.aria-label]="'xp.excludeChannelAria' | transloco"><option value="">{{ 'xp.chooseChannel' | transloco }}</option><option *ngFor="let channel of resources().channels" [value]="channel.id">{{ channel.name }}</option></select><button class="secondary" type="button" (click)="excludeChannel()" [disabled]="!selectedChannel">{{ 'common.add' | transloco }}</button></div><div class="chips"><span *ngFor="let id of cfg.excludedChannelIds">{{ channelName(id) }} <button type="button" (click)="remove(cfg.excludedChannelIds, id)" [attr.aria-label]="'common.removeNamed' | transloco: { name: channelName(id) }">{{ 'common.remove' | transloco }}</button></span><small *ngIf="!cfg.excludedChannelIds.length">{{ 'xp.noChannelsExcluded' | transloco }}</small></div></section>
-        <section><h3>{{ 'xp.categories' | transloco }}</h3><div class="picker"><select [(ngModel)]="selectedCategory" [attr.aria-label]="'xp.excludeCategoryAria' | transloco"><option value="">{{ 'xp.chooseCategory' | transloco }}</option><option *ngFor="let channel of categories()" [value]="channel.id">{{ channel.name }}</option></select><button class="secondary" type="button" (click)="excludeCategory()" [disabled]="!selectedCategory">{{ 'common.add' | transloco }}</button></div><div class="chips"><span *ngFor="let id of cfg.excludedCategoryIds">{{ channelName(id) }} <button type="button" (click)="remove(cfg.excludedCategoryIds, id)" [attr.aria-label]="'common.removeNamed' | transloco: { name: channelName(id) }">{{ 'common.remove' | transloco }}</button></span><small *ngIf="!cfg.excludedCategoryIds.length">{{ 'xp.noCategoriesExcluded' | transloco }}</small></div></section>
-      </div></article>
-      <article class="card"><div class="card-heading"><div><p class="section-kicker">{{ 'xp.channelRules' | transloco }}</p><h2>{{ 'xp.multipliers' | transloco }}</h2><p>{{ 'xp.multipliersHint' | transloco }}</p></div><button class="secondary" type="button" (click)="addMultiplier()">{{ 'xp.addRule' | transloco }}</button></div><p class="helper" *ngIf="!cfg.channelMultipliers.length">{{ 'xp.noMultipliers' | transloco }}</p><div class="rule-row" *ngFor="let rule of cfg.channelMultipliers; let index = index"><label>{{ 'xp.channel' | transloco }}<select [(ngModel)]="rule.channelId"><option value="">{{ 'xp.chooseChannel' | transloco }}</option><option *ngFor="let channel of resources().channels" [value]="channel.id">{{ channel.name }}</option></select></label><label>{{ 'xp.multiplier' | transloco }}<input type="number" min="0" step="0.1" [(ngModel)]="rule.multiplier"></label><button class="danger" type="button" (click)="cfg.channelMultipliers.splice(index, 1)">{{ 'common.remove' | transloco }}</button></div></article>
-      <article class="card"><div class="card-heading"><div><p class="section-kicker">{{ 'xp.levelRewards' | transloco }}</p><h2>{{ 'xp.levelAndRoles' | transloco }}</h2><p>{{ 'xp.levelRolesHint' | transloco }}</p></div><button class="secondary" type="button" (click)="addLevelRole()">{{ 'xp.addLevelRole' | transloco }}</button></div><label class="wide-field">{{ 'xp.levelUpChannel' | transloco }}<select [(ngModel)]="cfg.levelUpChannelId"><option [ngValue]="null">{{ 'xp.noNotification' | transloco }}</option><option *ngFor="let channel of textChannels()" [value]="channel.id">{{ channel.name }}</option></select></label><div class="repeater"><p class="helper" *ngIf="!cfg.levelRoles.length">{{ 'xp.noRoleAutomation' | transloco }}</p><div class="rule-row level-row" *ngFor="let role of cfg.levelRoles; let index = index"><label>{{ 'xp.fromLevel' | transloco }}<input type="number" [(ngModel)]="role.level" min="1"></label><label>{{ 'xp.discordRole' | transloco }}<select [(ngModel)]="role.roleId"><option value="">{{ 'xp.chooseRole' | transloco }}</option><option *ngFor="let option of resources().roles" [value]="option.id">{{ option.name }}</option></select></label><button class="danger" type="button" (click)="cfg.levelRoles.splice(index, 1)">{{ 'common.remove' | transloco }}</button></div></div></article>
-    </main><aside class="sidebar"><article class="card leaderboard"><div class="card-heading"><div><p class="section-kicker">{{ 'xp.top25' | transloco }}</p><h2>{{ 'leaderboard.title' | transloco }}</h2><p>{{ 'xp.serverStanding' | transloco }}</p></div></div><div class="rank" *ngFor="let entry of leaderboard(); let index = index"><b>{{ index + 1 }}</b><div><strong>{{ entry.displayName }}</strong><span>{{ 'xp.rankStats' | transloco: { level: formatNumber(entry.level), xp: formatNumber(entry.totalXp) } }}</span></div></div><p class="helper" *ngIf="!leaderboard().length">{{ 'xp.noRanking' | transloco }}</p></article><article class="card import-card"><p class="section-kicker">{{ 'xp.dataTransfer' | transloco }}</p><h2>{{ 'xp.jsonImport' | transloco }}</h2><p>{{ 'xp.importHint' | transloco }}</p><label class="file-input">{{ 'xp.chooseJson' | transloco }}<input type="file" accept="application/json,.json" (change)="importXpJson($event)"></label></article></aside></div>
-  } }
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">{{ "xp.eyebrow" | transloco }}</p>
+      <h1>{{ "nav.xp" | transloco }}</h1>
+      <p>{{ "xp.subtitle" | transloco }}</p>
+    </div>
+    <div class="page-actions">
+      <button
+        class="secondary"
+        type="button"
+        (click)="reset()"
+        [disabled]="saving() || !dirty()"
+      >
+        {{ "xp.resetChanges" | transloco }}
+      </button>
+      <button
+        class="primary"
+        type="button"
+        (click)="save()"
+        [disabled]="saving() || !config() || !dirty() || !isValid(config()!)"
+      >
+        {{ (saving() ? "common.saving" : "common.saveChanges") | transloco }}
+      </button>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div class="state-card" role="status">
+      <span class="loader" aria-hidden="true"></span>
+      <div>
+        <h2>{{ "xp.loading" | transloco }}</h2>
+        <p>{{ "xp.loadingHint" | transloco }}</p>
+      </div>
+    </div>
+  } @else if (loadError()) {
+    <div class="state-card error-state" role="alert">
+      <div>
+        <h2>{{ "xp.unavailable" | transloco }}</h2>
+        <p>{{ loadError() }}</p>
+      </div>
+      <button class="secondary" type="button" (click)="load()">
+        {{ "common.retry" | transloco }}
+      </button>
+    </div>
+  } @else {
+    @if (config(); as cfg) {
+      <section class="system-card card" aria-labelledby="xp-system-title">
+        <div>
+          <h2 id="xp-system-title">{{ "xp.systemTitle" | transloco }}</h2>
+          <p>{{ "xp.systemDescription" | transloco }}</p>
+        </div>
+        <label class="toggle"
+          ><input
+            type="checkbox"
+            [(ngModel)]="cfg.enabled"
+            [attr.aria-label]="'xp.systemToggleAria' | transloco"
+          /><span aria-hidden="true"></span
+          ><b>{{
+            (cfg.enabled ? "xp.systemActive" : "xp.systemPaused") | transloco
+          }}</b></label
+        >
+        <p class="system-hint">{{ "xp.systemPauseHint" | transloco }}</p>
+      </section>
+
+      <section class="content-section" aria-labelledby="xp-sources-title">
+        <div class="section-heading">
+          <p class="section-kicker">{{ "xp.sourcesKicker" | transloco }}</p>
+          <h2 id="xp-sources-title">{{ "xp.sourcesTitle" | transloco }}</h2>
+          <p>{{ "xp.sourcesDescription" | transloco }}</p>
+        </div>
+        <div class="primary-source-grid">
+          <article
+            class="card source-card"
+            [class.source-disabled]="!cfg.message.enabled"
+          >
+            <div class="card-heading">
+              <div>
+                <h3>{{ "xp.messageXp" | transloco }}</h3>
+                <p>{{ "xp.messageHint" | transloco }}</p>
+              </div>
+              <label class="toggle"
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="cfg.message.enabled"
+                  [attr.aria-label]="'xp.messageToggleAria' | transloco"
+                /><span aria-hidden="true"></span
+                ><b>{{
+                  (cfg.message.enabled ? "common.active" : "common.inactive")
+                    | transloco
+                }}</b></label
+              >
+            </div>
+            <div class="fields message-fields">
+              <div class="field-group">
+                <span>{{ "xp.xpRange" | transloco }}</span>
+                <div class="input-pair">
+                  <label
+                    >{{ "xp.minimumXp" | transloco
+                    }}<span class="input-with-suffix"
+                      ><input
+                        type="number"
+                        min="0"
+                        [(ngModel)]="cfg.message.minimumPoints"
+                      /><b>XP</b></span
+                    ></label
+                  ><label
+                    >{{ "xp.maximumXp" | transloco
+                    }}<span class="input-with-suffix"
+                      ><input
+                        type="number"
+                        min="0"
+                        [(ngModel)]="cfg.message.maximumPoints"
+                      /><b>XP</b></span
+                    ></label
+                  >
+                </div>
+              </div>
+              <label
+                >{{ "xp.cooldown" | transloco
+                }}<span class="input-with-suffix"
+                  ><input
+                    type="number"
+                    min="0"
+                    [(ngModel)]="cfg.message.cooldownSeconds"
+                  /><b>{{ "xp.secondsUnit" | transloco }}</b></span
+                ></label
+              >
+              <div class="field-group">
+                <span>{{ "xp.characterRange" | transloco }}</span>
+                <div class="input-pair">
+                  <label
+                    >{{ "xp.minimumCharacters" | transloco
+                    }}<span class="input-with-suffix"
+                      ><input
+                        type="number"
+                        min="0"
+                        [(ngModel)]="cfg.message.minimumCharacters"
+                      /><b>{{ "xp.charactersUnit" | transloco }}</b></span
+                    ></label
+                  ><label
+                    >{{ "xp.maximumCharacters" | transloco
+                    }}<span class="input-with-suffix"
+                      ><input
+                        type="number"
+                        min="1"
+                        [(ngModel)]="cfg.message.maximumCharacters"
+                      /><b>{{ "xp.charactersUnit" | transloco }}</b></span
+                    ></label
+                  >
+                </div>
+              </div>
+            </div>
+            @if (
+              cfg.message.maximumPoints < cfg.message.minimumPoints ||
+              cfg.message.maximumCharacters < cfg.message.minimumCharacters
+            ) {
+              <p class="validation" role="alert">
+                {{ "xp.maximumValidation" | transloco }}
+              </p>
+            }
+          </article>
+
+          <article
+            class="card source-card"
+            [class.source-disabled]="!cfg.voice.enabled"
+          >
+            <div class="card-heading">
+              <div>
+                <h3>{{ "xp.voiceXp" | transloco }}</h3>
+                <p>{{ "xp.voiceHint" | transloco }}</p>
+              </div>
+              <label class="toggle"
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="cfg.voice.enabled"
+                  [attr.aria-label]="'xp.voiceToggleAria' | transloco"
+                /><span aria-hidden="true"></span
+                ><b>{{
+                  (cfg.voice.enabled ? "common.active" : "common.inactive")
+                    | transloco
+                }}</b></label
+              >
+            </div>
+            <div class="fields two">
+              <label
+                >{{ "xp.xpPerMinute" | transloco
+                }}<span class="input-with-suffix"
+                  ><input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    [(ngModel)]="cfg.voice.pointsPerMinute"
+                  /><b>XP</b></span
+                ></label
+              ><label
+                >{{ "xp.minimumDuration" | transloco
+                }}<span class="input-with-suffix"
+                  ><input
+                    type="number"
+                    min="0"
+                    max="86400"
+                    [(ngModel)]="cfg.voice.minimumSessionSeconds"
+                  /><b>{{ "xp.secondsUnit" | transloco }}</b></span
+                ></label
+              >
+            </div>
+            <div class="switch-list">
+              <label class="switch"
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="cfg.voice.requireMultipleHumans"
+                /><span
+                  ><b>{{ "xp.multiplePeople" | transloco }}</b
+                  ><small>{{
+                    "xp.multiplePeopleHint" | transloco
+                  }}</small></span
+                ></label
+              ><label class="switch"
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="cfg.voice.excludeAfkChannel"
+                /><span
+                  ><b>{{ "xp.excludeAfk" | transloco }}</b
+                  ><small>{{ "xp.excludeAfkHint" | transloco }}</small></span
+                ></label
+              >
+            </div>
+            <div
+              class="voice-service-status"
+              [class]="
+                'voice-service-status status-' + voiceStatusTone(watchdog())
+              "
+              [attr.role]="hasVoiceStatusError(watchdog()) ? 'alert' : 'status'"
+            >
+              <span class="status-dot" aria-hidden="true"></span>
+              <div>
+                <strong>{{ voiceStatusText(cfg, watchdog()) }}</strong>
+                @if (effectiveVoiceXpEnabled(cfg) && watchdog()?.lastRunAt) {
+                  <small>{{ lastCheck(watchdog()!.lastRunAt!) }}</small>
+                } @else if (effectiveVoiceXpEnabled(cfg)) {
+                  <small>{{ "xp.noCheck" | transloco }}</small>
+                }
+                @if (hasVoiceStatusError(watchdog())) {
+                  <small class="error-text">{{
+                    "xp.technicalProblem"
+                      | transloco: { error: watchdog()!.lastError }
+                  }}</small>
+                }
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="secondary-source-grid">
+          <article
+            class="card source-card compact-source"
+            [class.source-disabled]="!cfg.reaction.enabled"
+          >
+            <div class="source-heading">
+              <div>
+                <h3>{{ "xp.reactions" | transloco }}</h3>
+                <p>{{ "xp.reactionHint" | transloco }}</p>
+              </div>
+              <label class="toggle compact"
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="cfg.reaction.enabled"
+                  [attr.aria-label]="'xp.reactionAria' | transloco" /><span
+                  aria-hidden="true"
+                ></span
+              ></label>
+            </div>
+            <label
+              >{{ "xp.xpPerReaction" | transloco
+              }}<span class="input-with-suffix"
+                ><input
+                  type="number"
+                  min="0"
+                  [(ngModel)]="cfg.reaction.points"
+                /><b>XP</b></span
+              ></label
+            ><label
+              >{{ "xp.cooldown" | transloco
+              }}<span class="input-with-suffix"
+                ><input
+                  type="number"
+                  min="0"
+                  [(ngModel)]="cfg.reaction.cooldownSeconds"
+                /><b>{{ "xp.secondsUnit" | transloco }}</b></span
+              ></label
+            ><label class="switch simple"
+              ><input
+                type="checkbox"
+                [(ngModel)]="cfg.reaction.reverseOnRemove"
+              /><span>{{ "xp.reverseReaction" | transloco }}</span></label
+            >
+          </article>
+          <article
+            class="card source-card compact-source"
+            [class.source-disabled]="!cfg.eventInterest.enabled"
+          >
+            <div class="source-heading">
+              <div>
+                <h3>{{ "xp.eventInterest" | transloco }}</h3>
+                <p>{{ "xp.eventInterestHint" | transloco }}</p>
+              </div>
+              <label class="toggle compact"
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="cfg.eventInterest.enabled"
+                  [attr.aria-label]="'xp.eventAria' | transloco" /><span
+                  aria-hidden="true"
+                ></span
+              ></label>
+            </div>
+            <label
+              >{{ "xp.xpForInterest" | transloco
+              }}<span class="input-with-suffix"
+                ><input
+                  type="number"
+                  min="0"
+                  [(ngModel)]="cfg.eventInterest.points"
+                /><b>XP</b></span
+              ></label
+            >
+          </article>
+          <article
+            class="card source-card compact-source"
+            [class.source-disabled]="!cfg.thread.enabled"
+          >
+            <div class="source-heading">
+              <div>
+                <h3>{{ "xp.threads" | transloco }}</h3>
+                <p>{{ "xp.threadHint" | transloco }}</p>
+              </div>
+              <label class="toggle compact"
+                ><input
+                  type="checkbox"
+                  [(ngModel)]="cfg.thread.enabled"
+                  [attr.aria-label]="'xp.threadAria' | transloco" /><span
+                  aria-hidden="true"
+                ></span
+              ></label>
+            </div>
+            <label
+              >{{ "xp.xpForCreation" | transloco
+              }}<span class="input-with-suffix"
+                ><input
+                  type="number"
+                  min="0"
+                  [(ngModel)]="cfg.thread.createPoints"
+                /><b>XP</b></span
+              ></label
+            ><label
+              >{{ "xp.xpPerPost" | transloco
+              }}<span class="input-with-suffix"
+                ><input
+                  type="number"
+                  min="0"
+                  [(ngModel)]="cfg.thread.messagePoints"
+                /><b>XP</b></span
+              ></label
+            ><label
+              >{{ "xp.cooldown" | transloco
+              }}<span class="input-with-suffix"
+                ><input
+                  type="number"
+                  min="0"
+                  [(ngModel)]="cfg.thread.cooldownSeconds"
+                /><b>{{ "xp.secondsUnit" | transloco }}</b></span
+              ></label
+            >
+          </article>
+        </div>
+      </section>
+
+      <section class="content-section" aria-labelledby="xp-rules-title">
+        <div class="section-heading">
+          <p class="section-kicker">{{ "xp.rulesKicker" | transloco }}</p>
+          <h2 id="xp-rules-title">{{ "xp.rulesTitle" | transloco }}</h2>
+          <p>{{ "xp.exclusionsHint" | transloco }}</p>
+        </div>
+        <article class="card">
+          <div class="rule-grid">
+            <section>
+              <h3>{{ "xp.roles" | transloco }}</h3>
+              <div class="picker">
+                <select
+                  [(ngModel)]="selectedRole"
+                  [attr.aria-label]="'xp.excludeRoleAria' | transloco"
+                >
+                  <option value="">{{ "xp.chooseRole" | transloco }}</option>
+                  @for (role of resources().roles; track role.id) {
+                    <option [value]="role.id">{{ role.name }}</option>
+                  }</select
+                ><button
+                  class="secondary"
+                  type="button"
+                  (click)="excludeRole()"
+                  [disabled]="!selectedRole"
+                >
+                  {{ "common.add" | transloco }}
+                </button>
+              </div>
+              <div class="chips">
+                @for (id of cfg.excludedRoleIds; track id) {
+                  <span
+                    >{{ roleName(id)
+                    }}<button
+                      type="button"
+                      (click)="remove(cfg.excludedRoleIds, id)"
+                      [attr.aria-label]="
+                        'common.removeNamed' | transloco: { name: roleName(id) }
+                      "
+                    >
+                      {{ "common.remove" | transloco }}
+                    </button></span
+                  >
+                }
+                @if (!cfg.excludedRoleIds.length) {
+                  <small>{{ "xp.noRolesExcluded" | transloco }}</small>
+                }
+              </div>
+            </section>
+            <section>
+              <h3>{{ "xp.channels" | transloco }}</h3>
+              <div class="picker">
+                <select
+                  [(ngModel)]="selectedChannel"
+                  [attr.aria-label]="'xp.excludeChannelAria' | transloco"
+                >
+                  <option value="">{{ "xp.chooseChannel" | transloco }}</option>
+                  @for (channel of resources().channels; track channel.id) {
+                    <option [value]="channel.id">{{ channel.name }}</option>
+                  }</select
+                ><button
+                  class="secondary"
+                  type="button"
+                  (click)="excludeChannel()"
+                  [disabled]="!selectedChannel"
+                >
+                  {{ "common.add" | transloco }}
+                </button>
+              </div>
+              <div class="chips">
+                @for (id of cfg.excludedChannelIds; track id) {
+                  <span
+                    >{{ channelName(id)
+                    }}<button
+                      type="button"
+                      (click)="remove(cfg.excludedChannelIds, id)"
+                      [attr.aria-label]="
+                        'common.removeNamed'
+                          | transloco: { name: channelName(id) }
+                      "
+                    >
+                      {{ "common.remove" | transloco }}
+                    </button></span
+                  >
+                }
+                @if (!cfg.excludedChannelIds.length) {
+                  <small>{{ "xp.noChannelsExcluded" | transloco }}</small>
+                }
+              </div>
+            </section>
+            <section>
+              <h3>{{ "xp.categories" | transloco }}</h3>
+              <div class="picker">
+                <select
+                  [(ngModel)]="selectedCategory"
+                  [attr.aria-label]="'xp.excludeCategoryAria' | transloco"
+                >
+                  <option value="">
+                    {{ "xp.chooseCategory" | transloco }}
+                  </option>
+                  @for (channel of categories(); track channel.id) {
+                    <option [value]="channel.id">{{ channel.name }}</option>
+                  }</select
+                ><button
+                  class="secondary"
+                  type="button"
+                  (click)="excludeCategory()"
+                  [disabled]="!selectedCategory"
+                >
+                  {{ "common.add" | transloco }}
+                </button>
+              </div>
+              <div class="chips">
+                @for (id of cfg.excludedCategoryIds; track id) {
+                  <span
+                    >{{ channelName(id)
+                    }}<button
+                      type="button"
+                      (click)="remove(cfg.excludedCategoryIds, id)"
+                      [attr.aria-label]="
+                        'common.removeNamed'
+                          | transloco: { name: channelName(id) }
+                      "
+                    >
+                      {{ "common.remove" | transloco }}
+                    </button></span
+                  >
+                }
+                @if (!cfg.excludedCategoryIds.length) {
+                  <small>{{ "xp.noCategoriesExcluded" | transloco }}</small>
+                }
+              </div>
+            </section>
+          </div>
+          <div class="multipliers">
+            <div class="card-heading">
+              <div>
+                <h3>{{ "xp.multipliers" | transloco }}</h3>
+                <p>{{ "xp.multipliersHint" | transloco }}</p>
+              </div>
+              <button class="secondary" type="button" (click)="addMultiplier()">
+                {{ "xp.addRule" | transloco }}
+              </button>
+            </div>
+            @if (!cfg.channelMultipliers.length) {
+              <p class="helper">{{ "xp.noMultipliers" | transloco }}</p>
+            }
+            @for (
+              rule of cfg.channelMultipliers;
+              track rule;
+              let index = $index
+            ) {
+              <div class="rule-row">
+                <label
+                  >{{ "xp.channel" | transloco
+                  }}<select [(ngModel)]="rule.channelId">
+                    <option value="">
+                      {{ "xp.chooseChannel" | transloco }}
+                    </option>
+                    @for (channel of resources().channels; track channel.id) {
+                      <option [value]="channel.id">{{ channel.name }}</option>
+                    }
+                  </select></label
+                ><label
+                  >{{ "xp.multiplier" | transloco
+                  }}<input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    [(ngModel)]="rule.multiplier" /></label
+                ><button
+                  class="danger"
+                  type="button"
+                  (click)="cfg.channelMultipliers.splice(index, 1)"
+                >
+                  {{ "common.remove" | transloco }}
+                </button>
+              </div>
+            }
+          </div>
+        </article>
+      </section>
+
+      <section class="content-section" aria-labelledby="xp-rewards-title">
+        <div class="section-heading">
+          <p class="section-kicker">{{ "xp.levelRewards" | transloco }}</p>
+          <h2 id="xp-rewards-title">{{ "xp.rewardsTitle" | transloco }}</h2>
+          <p>{{ "xp.levelRolesHint" | transloco }}</p>
+        </div>
+        <article class="card">
+          <div class="card-heading">
+            <label class="wide-field"
+              >{{ "xp.levelUpChannel" | transloco
+              }}<select [(ngModel)]="cfg.levelUpChannelId">
+                <option [ngValue]="null">
+                  {{ "xp.noNotification" | transloco }}
+                </option>
+                @for (channel of textChannels(); track channel.id) {
+                  <option [value]="channel.id">{{ channel.name }}</option>
+                }
+              </select></label
+            ><button class="secondary" type="button" (click)="addLevelRole()">
+              {{ "xp.addLevelRole" | transloco }}
+            </button>
+          </div>
+          @if (!cfg.levelRoles.length) {
+            <p class="helper">{{ "xp.noRoleAutomation" | transloco }}</p>
+          }
+          @for (role of cfg.levelRoles; track role; let index = $index) {
+            <div class="rule-row level-row">
+              <label
+                >{{ "xp.fromLevel" | transloco
+                }}<input
+                  type="number"
+                  [(ngModel)]="role.level"
+                  min="1" /></label
+              ><label
+                >{{ "xp.discordRole" | transloco
+                }}<select [(ngModel)]="role.roleId">
+                  <option value="">{{ "xp.chooseRole" | transloco }}</option>
+                  @for (option of resources().roles; track option.id) {
+                    <option [value]="option.id">{{ option.name }}</option>
+                  }
+                </select></label
+              ><button
+                class="danger"
+                type="button"
+                (click)="cfg.levelRoles.splice(index, 1)"
+              >
+                {{ "common.remove" | transloco }}
+              </button>
+            </div>
+          }
+        </article>
+      </section>
+
+      <section class="content-section">
+        <article class="card booster-card">
+          <div class="card-heading">
+            <div>
+              <h2>{{ "xp.boosterTitle" | transloco }}</h2>
+              <p>{{ "xp.boosterDescription" | transloco }}</p>
+            </div>
+            <label class="toggle"
+              ><input
+                type="checkbox"
+                [(ngModel)]="cfg.serverBooster.enabled"
+              /><span aria-hidden="true"></span
+              ><b>{{
+                (cfg.serverBooster.enabled
+                  ? "common.active"
+                  : "common.inactive"
+                ) | transloco
+              }}</b></label
+            >
+          </div>
+          @if (cfg.serverBooster.enabled) {
+            <div class="booster-tiers">
+              @if (!cfg.serverBooster.tiers.length) {
+                <p class="helper">{{ "xp.boosterNoTiers" | transloco }}</p>
+              }
+              @for (tier of cfg.serverBooster.tiers; track tier) {
+                <div class="booster-row">
+                  <label
+                    >{{ "xp.boosterFromMonths" | transloco
+                    }}<input
+                      type="number"
+                      min="0"
+                      step="1"
+                      [(ngModel)]="tier.minimumBoostMonths"
+                      (ngModelChange)="sortBoosterTiers()" /></label
+                  ><label
+                    >{{ "xp.multiplier" | transloco
+                    }}<span class="input-with-suffix"
+                      ><input
+                        type="number"
+                        min="1"
+                        max="10"
+                        step="0.01"
+                        [(ngModel)]="tier.multiplier"
+                      /><b>x</b></span
+                    ></label
+                  ><button
+                    class="danger"
+                    type="button"
+                    (click)="removeBoosterTier(tier)"
+                  >
+                    {{ "xp.boosterRemove" | transloco }}
+                  </button>
+                  @for (error of boosterTierErrors(cfg, tier); track error) {
+                    <small class="validation-inline" role="alert">{{
+                      error | transloco
+                    }}</small>
+                  }
+                </div>
+              }
+              <button
+                class="secondary add-tier"
+                type="button"
+                (click)="addBoosterTier()"
+                [disabled]="cfg.serverBooster.tiers.length >= 10"
+              >
+                {{ "xp.boosterAddTier" | transloco }}
+              </button>
+              <p class="booster-note">
+                {{ "xp.boosterThresholdHint" | transloco }}
+              </p>
+              <p class="booster-note">
+                {{ "xp.boosterLastTierHint" | transloco }}
+              </p>
+            </div>
+          }
+        </article>
+      </section>
+
+      <details class="migration card">
+        <summary>
+          <span>{{ "xp.dataMigration" | transloco }}</span
+          ><small>{{ "xp.dataMigrationHint" | transloco }}</small>
+        </summary>
+        <div class="migration-content">
+          <h2>{{ "xp.jsonImport" | transloco }}</h2>
+          <p>{{ "xp.importHint" | transloco }}</p>
+          <label class="file-input"
+            >{{ "xp.chooseJson" | transloco
+            }}<input
+              type="file"
+              accept="application/json,.json"
+              (change)="importXpJson($event)"
+          /></label>
+        </div>
+      </details>
+    }
+  }
 </section>

@@ -41,6 +41,20 @@ public sealed class VoiceXpWatchdogTests
         Assert.Equal(joinedAt, start);
     }
 
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, false)]
+    public void Guild_voice_processing_requires_both_XP_toggles(bool xpEnabled, bool voiceEnabled, bool expected)
+    {
+        var settings = new GuildXpSettings { Enabled = xpEnabled, Voice = new VoiceXpSettings { Enabled = voiceEnabled } };
+
+        var enabled = (bool)Invoke("IsVoiceXpEnabled", settings)!;
+
+        Assert.Equal(expected, enabled);
+    }
+
     private static object? Invoke(string name, params object[] arguments) => typeof(VoiceXpWatchdog)
         .GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!
         .Invoke(null, arguments);

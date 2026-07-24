@@ -65,7 +65,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         try
         {
             var settings = await xp.GetSettingsAsync(member.Guild.Id, CancellationToken.None);
-            if (!settings.Enabled || !settings.Voice.Enabled)
+            if (!IsVoiceXpEnabled(settings))
             {
                 await database.VoiceSessions.DeleteOneAsync(x => x.GuildId == member.Guild.Id && x.UserId == member.Id);
                 return;
@@ -98,7 +98,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         try
         {
             var settings = await xp.GetSettingsAsync(guild.Id, cancellationToken);
-            if (!settings.Enabled || !settings.Voice.Enabled)
+            if (!IsVoiceXpEnabled(settings))
             {
                 await database.VoiceSessions.DeleteManyAsync(x => x.GuildId == guild.Id, cancellationToken);
                 _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Stopped, timeProvider.GetUtcNow(), null, 0, 0, 0, null, (int)_interval.TotalSeconds);
@@ -134,7 +134,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
     private async Task SettleUserAsync(SocketGuild guild, SocketGuildUser member, SocketVoiceChannel channel, DateTime now, CancellationToken cancellationToken)
     {
         var settings = await xp.GetSettingsAsync(guild.Id, cancellationToken);
-        if (!settings.Enabled || !settings.Voice.Enabled) return;
+        if (!IsVoiceXpEnabled(settings)) return;
         var session = await database.VoiceSessions.Find(x => x.GuildId == guild.Id && x.UserId == member.Id).FirstOrDefaultAsync(cancellationToken);
         if (session == null || now <= session.LastAccruedAt) return;
         var totalSeconds = (long)(now - session.JoinedAt).TotalSeconds;
@@ -175,6 +175,8 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
     }
 
     private static DateTime PeriodStart(VoiceSession session, bool eligible) => eligible && session.EligibleSeconds == 0 ? session.JoinedAt : session.LastAccruedAt;
+
+    private static bool IsVoiceXpEnabled(GuildXpSettings settings) => settings.Enabled && settings.Voice.Enabled;
 
     private static string VoiceGrantKey(ulong guildId, ulong userId, ulong channelId, DateTime start, DateTime end) => $"voice:{guildId}:{userId}:{channelId}:{start.Ticks}:{end.Ticks}";
 

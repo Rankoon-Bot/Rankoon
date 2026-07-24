@@ -14,8 +14,6 @@ using Rankoon.Api;
 
 namespace Rankoon.Controllers;
 
-public sealed record VoiceWatchdogControl(bool Enabled);
-
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}")]
@@ -84,19 +82,6 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
     {
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
         return Ok(watchdog.GetStatus(id));
-    }
-
-    [HttpPut("xp/watchdog")]
-    public async Task<IActionResult> SetVoiceWatchdog(string guildId, [FromBody] VoiceWatchdogControl control)
-    {
-        var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
-        var settings = await xp.GetSettingsAsync(id, HttpContext.RequestAborted);
-        settings.Voice.Enabled = control.Enabled;
-        if (control.Enabled) settings.Enabled = true;
-        await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted);
-        await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
-        await WriteActivityAsync(id, ReportNames.VoiceWatchdogChanged, metadata: new Dictionary<string, object?> { ["enabled"] = control.Enabled });
-        return Ok(new { settings, status = watchdog.GetStatus(id) });
     }
 
     [HttpGet("xp/leaderboard")]
