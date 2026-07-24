@@ -326,9 +326,28 @@
   }
 
   .dropdown-footer {
+    display: grid;
+    gap: var(--rk-space-2);
     padding: 12px 20px;
     border-top: 1px solid var(--rk-border-subtle);
     background: var(--rk-surface-2);
+
+    .invite-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: var(--rk-control-height);
+      padding: var(--rk-space-2) var(--rk-space-3);
+      color: var(--rk-text-strong);
+      background: var(--rk-discord);
+      border: 1px solid var(--rk-discord);
+      border-radius: var(--rk-radius-md);
+      font-weight: 700;
+      text-decoration: none;
+
+      &:hover { box-shadow: var(--rk-shadow-discord); }
+      &:focus-visible { outline: none; box-shadow: var(--rk-focus-ring); }
+    }
 
     .view-all-btn {
       width: 100%;

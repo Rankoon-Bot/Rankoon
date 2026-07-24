@@ -3,7 +3,8 @@
 .header-content { max-width: 600px; margin: 0 auto; }
 .header-content h1 { margin-bottom: var(--rk-space-3); }
 .header-content p { color: var(--rk-text-muted); }
-.refresh-btn { position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; gap: var(--rk-space-2); padding: var(--rk-space-2) var(--rk-space-3); color: var(--rk-text); background: var(--rk-surface-2); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-md); font-weight: 700; }
+.server-selection-actions { position: absolute; top: 0; right: 0; display: flex; gap: var(--rk-space-2); }
+.refresh-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; gap: var(--rk-space-2); padding: var(--rk-space-2) var(--rk-space-3); color: var(--rk-text); background: var(--rk-surface-2); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-md); font-weight: 700; }
 .refresh-btn:hover:not(:disabled) { color: var(--rk-text-strong); border-color: var(--rk-info); }
 .refresh-btn:active:not(:disabled) { background: var(--rk-surface-3); }
 .refresh-btn:focus-visible { outline: none; box-shadow: var(--rk-focus-ring); }
@@ -30,7 +31,7 @@
 .server-arrow { color: var(--rk-text-muted); }
 .unavailable-copy { max-width: 180px; color: var(--rk-text-muted); font-size: 0.8rem; text-align: right; }
 .server-card:hover .server-arrow { color: var(--rk-brand); }
-.invite-btn { display: inline-flex; align-items: center; min-height: 44px; padding: var(--rk-space-2) var(--rk-space-3); color: var(--rk-text-strong); background: var(--rk-discord); border: 1px solid var(--rk-discord); border-radius: var(--rk-radius-md); font-weight: 700; text-decoration: none; white-space: nowrap; }
+.invite-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: var(--rk-space-2) var(--rk-space-3); color: var(--rk-text-strong); background: var(--rk-discord); border: 1px solid var(--rk-discord); border-radius: var(--rk-radius-md); font-weight: 700; text-decoration: none; white-space: nowrap; }
 .invite-btn:hover { box-shadow: var(--rk-shadow-discord); }
 .invite-btn:active { background: var(--rk-surface-3); }
 .center-content, .error-state { display: grid; place-items: center; min-height: 360px; text-align: center; }
@@ -47,4 +48,4 @@
 .retry-btn:hover { background: var(--rk-brand-hover); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .server-card, .loading-spinner { animation: none; transition: none; } }
-@media (max-width: 768px) { .server-selection { padding: var(--rk-space-6) var(--rk-space-4); } .server-selection-header { display: flex; flex-direction: column; gap: var(--rk-space-4); } .refresh-btn { position: static; align-self: center; } .server-grid { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .server-selection { padding: var(--rk-space-6) var(--rk-space-4); } .server-selection-header { display: flex; flex-direction: column; gap: var(--rk-space-4); } .server-selection-actions { position: static; align-self: center; } .server-grid { grid-template-columns: 1fr; } }

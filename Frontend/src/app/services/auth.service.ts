@@ -44,6 +44,7 @@ export class AuthService {
     private refreshInFlight$: Observable<boolean> | null = null;
     private guildsCache: { token: string; guilds: Guild[]; expiresAt: number } | null = null;
     private guildsRequest$: Observable<Guild[]> | null = null;
+    private botInviteUrlRequest$: Observable<string> | null = null;
     private guildsRefreshAvailableAt = 0;
     private authGeneration = 0;
     private operatorAccessRequestToken: string | null = null;
@@ -303,6 +304,16 @@ export class AuthService {
         );
 
         return this.guildsRequest$;
+    }
+
+    getBotInviteUrl(): Observable<string> {
+        if (!this.botInviteUrlRequest$) {
+            this.botInviteUrlRequest$ = this.http.get<{ inviteUrl: string }>(`${this.API_BASE_URL}/auth/bot-invite`).pipe(
+                map(response => response.inviteUrl),
+                shareReplay({ bufferSize: 1, refCount: false })
+            );
+        }
+        return this.botInviteUrlRequest$;
     }
 
     /**

@@ -57,6 +57,7 @@
     "closeNavigation": "Close navigation",
     "switchServer": "Switch server",
     "allServers": "View all servers",
+    "inviteBot": "Invite bot",
     "logout": "Log out"
   },
   "errors": {

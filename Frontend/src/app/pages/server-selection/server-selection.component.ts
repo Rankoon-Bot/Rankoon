@@ -19,19 +19,31 @@ import { ApiErrorService } from '../../services/api-error.service';
             <h1>{{ 'serverSelection.title' | transloco }}</h1>
             <p>{{ 'serverSelection.subtitle' | transloco }}</p>
           </div>
-          <button
-            class="refresh-btn"
-            type="button"
-            [disabled]="appStore.isLoading() || refreshCoolingDown()"
-            [attr.aria-label]="'serverSelection.refreshAria' | transloco"
-            (click)="refreshGuilds()"
-          >
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="23,4 23,10 17,10"/>
-              <path d="M20.49,15A9,9,0,1,1,5.64,5.64L23,10"/>
-            </svg>
-            {{ 'serverSelection.refresh' | transloco }}
-          </button>
+          <div class="server-selection-actions">
+            <a
+              *ngIf="botInviteUrl()"
+              class="invite-btn"
+              [href]="botInviteUrl()"
+              target="_blank"
+              rel="noopener noreferrer"
+              (click)="inviteBot()"
+            >
+              {{ 'serverSelection.inviteBot' | transloco }}
+            </a>
+            <button
+              class="refresh-btn"
+              type="button"
+              [disabled]="appStore.isLoading() || refreshCoolingDown()"
+              [attr.aria-label]="'serverSelection.refreshAria' | transloco"
+              (click)="refreshGuilds()"
+            >
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23,4 23,10 17,10"/>
+                <path d="M20.49,15A9,9,0,1,1,5.64,5.64L23,10"/>
+              </svg>
+              {{ 'serverSelection.refresh' | transloco }}
+            </button>
+          </div>
       </div>
 
       <p *ngIf="accessNotice()" class="access-notice" role="alert">{{ accessNotice() }}</p>
@@ -160,12 +172,14 @@ export class ServerSelectionComponent implements OnInit {
   readonly appStore = inject(AppStore);
   readonly accessNotice = signal('');
   readonly refreshCoolingDown = signal(false);
+  readonly botInviteUrl = signal('');
   private refreshAfterInvite = false;
 
   ngOnInit(): void {
     const access = this.route.snapshot.queryParamMap.get('access');
     if (access === 'forbidden') this.accessNotice.set(this.i18n.translate('errors.settingsForbidden'));
     if (access === 'unavailable') this.accessNotice.set(this.i18n.translate('errors.capabilitiesCheck'));
+    this.authService.getBotInviteUrl().subscribe({ next: url => this.botInviteUrl.set(url) });
     this.loadGuilds();
   }
 
@@ -224,8 +238,8 @@ export class ServerSelectionComponent implements OnInit {
     });
   }
 
-  inviteBot(event: Event): void {
-    event.stopPropagation();
+  inviteBot(event?: Event): void {
+    event?.stopPropagation();
     this.refreshAfterInvite = true;
   }
 

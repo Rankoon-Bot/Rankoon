@@ -101,6 +101,16 @@ import { ApiErrorService } from '../../services/api-error.service';
                         </div>
                         
                         <div class="dropdown-footer">
+                            <a
+                                *ngIf="botInviteUrl"
+                                class="invite-btn"
+                                [href]="botInviteUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                (click)="inviteBot()"
+                            >
+                                {{ 'header.inviteBot' | transloco }}
+                            </a>
                             <button class="view-all-btn" type="button" (click)="goToServerSelection()">
                                  {{ 'header.allServers' | transloco }}
                             </button>
@@ -133,6 +143,7 @@ import { ApiErrorService } from '../../services/api-error.service';
 export class HeaderComponent implements OnInit {
     @ViewChild('guildTrigger') private guildTrigger?: ElementRef<HTMLButtonElement>;
     isGuildDropdownOpen = false;
+    botInviteUrl = '';
     private refreshAfterInvite = false;
 
     constructor(
@@ -151,6 +162,7 @@ export class HeaderComponent implements OnInit {
         if (this.authStore.isAuthenticated() && !this.appStore.hasGuilds()) {
             this.loadGuilds();
         }
+        this.authService.getBotInviteUrl().subscribe({ next: url => this.botInviteUrl = url });
     }
 
     @HostListener('document:click', ['$event'])

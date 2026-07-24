@@ -125,6 +125,11 @@ describe('AuthService token contracts', () => {
     http.expectOne(`${environment.apiBaseUrl}/auth/guilds`).flush(guilds);
   }));
 
+  it('retrieves the guild-independent bot invite URL', () => {
+    service.getBotInviteUrl().subscribe(url => expect(url).toBe('https://discord.com/oauth2/authorize?client_id=bot'));
+    http.expectOne(`${environment.apiBaseUrl}/auth/bot-invite`).flush({ inviteUrl: 'https://discord.com/oauth2/authorize?client_id=bot' });
+  });
+
   it('refreshes an access token that is close to expiry before sending an API request', () => {
     store.setAuthData(user, 'expiring-access');
     localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'valid-refresh');

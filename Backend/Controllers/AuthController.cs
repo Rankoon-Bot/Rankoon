@@ -341,6 +341,9 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpGet("bot-invite")]
+    public IActionResult GetBotInviteUrl() => Ok(new { inviteUrl = _authService.GetBotInviteUrl() });
+
     private IActionResult OAuthFailureRedirect()
     {
         var error = ApiErrorCatalog.Get("auth.oauthFailed");

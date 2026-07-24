@@ -45,6 +45,8 @@ public interface IAuthService
     /// Get user's Discord guilds
     /// </summary>
     Task<GuildDto[]?> GetUserGuildsAsync(string userId, bool refresh = false);
+
+    string GetBotInviteUrl();
 }
 
 public class AuthService : IAuthService
@@ -402,7 +404,7 @@ public class AuthService : IAuthService
                         CustomBotInstalled = presence?.CustomBotInstalled == true,
                         ActiveBotIdentity = presence?.AuthoritativeMode,
                         AuthoritativeRuntimeAvailable = presence?.AuthoritativeRuntimeAvailable == true,
-                        InviteUrl = GetBotInviteUrl(g.id)
+                        InviteUrl = BuildBotInviteUrl(g.id)
                     };
                 }).ToArray();
 
@@ -415,17 +417,22 @@ public class AuthService : IAuthService
         }
     }
 
-    private string GetBotInviteUrl(string guildId)
+    public string GetBotInviteUrl() => BuildBotInviteUrl();
+
+    private string BuildBotInviteUrl(string? guildId = null)
     {
         var parameters = new Dictionary<string, string>
         {
             ["client_id"] = _discordSettings.ClientId,
             ["scope"] = "bot applications.commands",
             ["permissions"] = _discordSettings.BotInvitePermissions,
-            ["guild_id"] = guildId,
-            ["disable_guild_select"] = "true",
             ["integration_type"] = "0"
         };
+        if (!string.IsNullOrEmpty(guildId))
+        {
+            parameters["guild_id"] = guildId;
+            parameters["disable_guild_select"] = "true";
+        }
         var queryString = string.Join("&", parameters.Select(parameter => $"{parameter.Key}={Uri.EscapeDataString(parameter.Value)}"));
         return $"https://discord.com/oauth2/authorize?{queryString}";
     }
