@@ -9,7 +9,7 @@ namespace Rankoon.Hubs;
 public sealed record LeaderboardWindowRequest(string Alias, SeasonLeaderboardScope? Scope, string? SeasonId, int Offset, int Take, bool AroundCurrentUser, IReadOnlyList<string>? CachedUserIds);
 
 [AllowAnonymous]
-public sealed class LeaderboardHub(LeaderboardService leaderboard, IGuildAuthorizationService authorization, LeaderboardSubscriptionRegistry subscriptions) : Hub
+public sealed class LeaderboardHub(LeaderboardService leaderboard, IGuildAuthorizationService authorization, LeaderboardSubscriptionRegistry subscriptions, ILogger<LeaderboardHub> logger) : Hub
 {
     public async Task Subscribe(string alias, SeasonLeaderboardScope? scope = null, string? seasonId = null)
     {
@@ -18,7 +18,10 @@ public sealed class LeaderboardHub(LeaderboardService leaderboard, IGuildAuthori
         var isMember = Context.User?.Identity?.IsAuthenticated == true &&
             await authorization.IsMemberAsync(Context.User, settings.GuildId, Context.ConnectionAborted);
         if (settings.Visibility == LeaderboardVisibility.MembersOnly && !isMember)
-            throw new HubException("Leaderboard access denied.");
+        {
+            logger.LogInformation("Ignoring leaderboard subscription for {Alias} after access was revoked on connection {ConnectionId}.", settings.Alias, Context.ConnectionId);
+            return;
+        }
         var resolvedScope = await leaderboard.ResolveScopeAsync(settings, scope, seasonId, Context.ConnectionAborted);
         if (!await leaderboard.IsScopeAvailableAsync(settings, resolvedScope, seasonId, Context.ConnectionAborted))
             throw new HubException("Leaderboard scope is unavailable.");
@@ -47,7 +50,7 @@ public sealed class LeaderboardHub(LeaderboardService leaderboard, IGuildAuthori
         }
     }
 
-    public async Task<LeaderboardWindowDto> GetWindow(LeaderboardWindowRequest request)
+    public async Task<LeaderboardWindowDto?> GetWindow(LeaderboardWindowRequest request)
     {
         if (request.Take is < 10 or > 100 || request.Offset < 0 || request.CachedUserIds?.Count > 100)
             throw new HubException("Invalid leaderboard window.");
@@ -56,7 +59,10 @@ public sealed class LeaderboardHub(LeaderboardService leaderboard, IGuildAuthori
         var isMember = Context.User?.Identity?.IsAuthenticated == true &&
             await authorization.IsMemberAsync(Context.User, settings.GuildId, Context.ConnectionAborted);
         if (settings.Visibility == LeaderboardVisibility.MembersOnly && !isMember)
-            throw new HubException("Leaderboard access denied.");
+        {
+            logger.LogInformation("Ignoring leaderboard window request for {Alias} after access was revoked on connection {ConnectionId}.", settings.Alias, Context.ConnectionId);
+            return null;
+        }
         var scope = await leaderboard.ResolveScopeAsync(settings, request.Scope, request.SeasonId, Context.ConnectionAborted);
         if (!await leaderboard.IsScopeAvailableAsync(settings, scope, request.SeasonId, Context.ConnectionAborted))
             throw new HubException("Leaderboard scope is unavailable.");
