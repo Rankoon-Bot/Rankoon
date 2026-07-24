@@ -100,6 +100,9 @@ body.rk-navigation-open { overflow: hidden; }
 .rk-button--primary:hover:not(:disabled) { background: var(--rk-brand-hover); border-color: var(--rk-brand-hover); }
 .rk-button--danger { color: var(--rk-danger); background: var(--rk-danger-subtle); border-color: var(--rk-danger); }
 .rk-button--ghost { background: transparent; }
+.rk-button--discord { color: var(--rk-text-strong); background: var(--rk-discord); border-color: var(--rk-discord); box-shadow: var(--rk-shadow-discord); }
+.rk-button--discord:hover:not(:disabled) { background: color-mix(in srgb, var(--rk-discord), var(--rk-text-strong) 12%); border-color: var(--rk-discord); }
+.rk-button--discord:active:not(:disabled) { box-shadow: none; }
 
 .rk-notice {
   display: flex;

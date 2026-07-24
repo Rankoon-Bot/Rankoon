@@ -20,11 +20,9 @@ public sealed class GuildUserPresentationService(IGuildDiscordContextResolver di
         {
             var context = discord.ResolveAsync(guildId).GetAwaiter().GetResult();
             foreach (var userId in ids)
-            {
-                var guildUser = context?.Guild.GetUser(userId);
-                var user = guildUser ?? context?.Client.GetUser(userId);
-                iconUrls[userId] = user == null ? CreateDefaultAvatarUrl(userId) : CreateAvatarUrl(guildId, user, guildUser);
-            }
+                iconUrls[userId] = context?.Guild.GetUser(userId) is { } user
+                    ? CreateAvatarUrl(user)
+                    : CreateDefaultAvatarUrl(userId);
         }
         catch
         {
@@ -36,11 +34,11 @@ public sealed class GuildUserPresentationService(IGuildDiscordContextResolver di
         return iconUrls;
     }
 
-    private static string CreateAvatarUrl(ulong guildId, IUser user, SocketGuildUser? guildUser)
+    private static string CreateAvatarUrl(SocketGuildUser user)
     {
         // This matches the authenticated-header avatar URL format, using hashes already held by Discord.Net.
-        if (!string.IsNullOrEmpty(guildUser?.DisplayAvatarId))
-            return $"https://cdn.discordapp.com/avatars/{guildUser.Id}/{guildUser.DisplayAvatarId}.{Extension(guildUser.DisplayAvatarId)}?size=128";
+        if (!string.IsNullOrEmpty(user.DisplayAvatarId))
+            return $"https://cdn.discordapp.com/avatars/{user.Id}/{user.DisplayAvatarId}.{Extension(user.DisplayAvatarId)}?size=128";
         return user.GetDefaultAvatarUrl();
     }
 

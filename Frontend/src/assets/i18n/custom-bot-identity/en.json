@@ -28,6 +28,8 @@
     "install": "Install bot",
     "validate": "Check connection",
     "activate": "Activate",
+    "completeHandover": "Complete handover",
+    "handoverIncomplete": "The custom bot is active, but the official Rankoon bot still needs to leave this server.",
     "restart": "Reconnect",
     "deactivate": "Return to official Rankoon bot",
     "delete": "Delete identity",

@@ -52,7 +52,7 @@ public class AuthService : IAuthService
     private const long AdministratorPermission = 1L << 3;
     private const long ManageGuildPermission = 1L << 5;
 
-    private readonly DiscordShardedClient discord;
+    private readonly IGuildRuntimePresenceService _runtimePresence;
     private readonly IDiscordService _discordService;
     private readonly IJwtService _jwtService;
     private readonly RankoonDbContext _dbContext;
@@ -63,7 +63,7 @@ public class AuthService : IAuthService
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
-        DiscordShardedClient discord,
+        IGuildRuntimePresenceService runtimePresence,
         IDiscordService discordService,
         IJwtService jwtService,
         RankoonDbContext dbContext,
@@ -73,7 +73,7 @@ public class AuthService : IAuthService
         TimeProvider timeProvider,
         ILogger<AuthService> logger)
     {
-        this.discord = discord;
+        _runtimePresence = runtimePresence;
         _discordService = discordService;
         _jwtService = jwtService;
         _dbContext = dbContext;
@@ -386,10 +386,11 @@ public class AuthService : IAuthService
             var guildDtos = discordGuilds
                 .Where(g => g.owner
                     || (g.permissions & (AdministratorPermission | ManageGuildPermission)) != 0
-                    || (ulong.TryParse(g.id, out var guildId) && discord.GetGuild(guildId) != null))
+                    || (ulong.TryParse(g.id, out var guildId) && _runtimePresence.GetPresence(guildId).HasConfiguredCustomIdentity))
                 .Select(g =>
                 {
-                    var botInstalled = ulong.TryParse(g.id, out var guildId) && discord.GetGuild(guildId) != null;
+                    var presence = ulong.TryParse(g.id, out var guildId) ? _runtimePresence.GetPresence(guildId) : null;
+                    var botInstalled = presence?.PlatformBotInstalled == true || presence?.CustomBotInstalled == true;
                     return new GuildDto
                     {
                         Id = g.id,
@@ -399,6 +400,11 @@ public class AuthService : IAuthService
                         Permissions = g.permissions.ToString(),
                         Features = g.features,
                         BotInstalled = botInstalled,
+                        RankoonManaged = presence?.AuthoritativeRuntimeAvailable == true || (g.owner && presence?.HasConfiguredCustomIdentity == true),
+                        PlatformBotInstalled = presence?.PlatformBotInstalled == true,
+                        CustomBotInstalled = presence?.CustomBotInstalled == true,
+                        ActiveBotIdentity = presence?.AuthoritativeMode,
+                        AuthoritativeRuntimeAvailable = presence?.AuthoritativeRuntimeAvailable == true,
                         InviteUrl = GetBotInviteUrl(g.id)
                     };
                 }).ToArray();

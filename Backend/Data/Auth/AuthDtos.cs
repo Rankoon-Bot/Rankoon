@@ -1,3 +1,5 @@
+using Rankoon.Data.Model;
+
 namespace Rankoon.Data.Auth;
 
 /// <summary>
@@ -87,6 +89,11 @@ public record GuildDto
     public string Permissions { get; init; } = string.Empty;
     public string[] Features { get; init; } = Array.Empty<string>();
     public bool BotInstalled { get; init; }
+    public bool RankoonManaged { get; init; }
+    public bool PlatformBotInstalled { get; init; }
+    public bool CustomBotInstalled { get; init; }
+    public BotIdentityMode? ActiveBotIdentity { get; init; }
+    public bool AuthoritativeRuntimeAvailable { get; init; }
     public string InviteUrl { get; init; } = string.Empty;
 }
 

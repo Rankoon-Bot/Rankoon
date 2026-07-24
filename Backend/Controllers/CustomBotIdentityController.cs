@@ -64,6 +64,13 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
         return ToResult(await identities.RestartAsync(id.GuildId, HttpContext.RequestAborted));
     }
 
+    [HttpPost("complete-handover")]
+    public async Task<IActionResult> CompleteHandover(string guildId)
+    {
+        var id = await AuthorizeOwnerAsync(guildId); if (id.Error != null) return id.Error;
+        return ToResult(await identities.CompleteHandoverAsync(id.GuildId, HttpContext.RequestAborted));
+    }
+
     [HttpPost("deactivate")]
     public async Task<IActionResult> Deactivate(string guildId)
     {

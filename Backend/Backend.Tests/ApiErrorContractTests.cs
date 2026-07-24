@@ -22,6 +22,14 @@ public sealed class ApiErrorContractTests
         }
     }
 
+    [Fact]
+    public void Platform_bot_not_installed_is_a_documented_conflict()
+    {
+        var definition = ApiErrorCatalog.Get("customBotIdentity.platformBotNotInstalled");
+
+        Assert.Equal(StatusCodes.Status409Conflict, definition.StatusCode);
+    }
+
     [Theory]
     [InlineData(400, "request.badRequest")]
     [InlineData(401, "auth.unauthorized")]

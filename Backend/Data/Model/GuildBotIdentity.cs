@@ -5,6 +5,7 @@ namespace Rankoon.Data.Model;
 
 public enum BotIdentityMode { Rankoon, Custom }
 public enum BotIdentityStatus { Default, Draft, AwaitingInstallation, Validating, Starting, Active, Reconnecting, MissingIntents, MissingPermissions, InvalidToken, RemovedFromGuild, Degraded, Disabled, DisabledByPolicy }
+public enum PlatformBotDepartureState { NotRequired, Pending, Completed, Failed }
 
 public sealed class GuildBotIdentity
 {
@@ -26,6 +27,10 @@ public sealed class GuildBotIdentity
     [BsonElement("last_ready_at")] public DateTime? LastReadyAt { get; set; }
     [BsonElement("last_error_code")] public string? LastErrorCode { get; set; }
     [BsonElement("last_error_at")] public DateTime? LastErrorAt { get; set; }
+    [BsonElement("platform_departure_state"), BsonRepresentation(BsonType.String)] public PlatformBotDepartureState PlatformDepartureState { get; set; } = PlatformBotDepartureState.NotRequired;
+    [BsonElement("platform_departure_error_code")] public string? PlatformDepartureErrorCode { get; set; }
+    [BsonElement("platform_departure_attempted_at")] public DateTime? PlatformDepartureAttemptedAt { get; set; }
+    [BsonElement("platform_departed_at")] public DateTime? PlatformDepartedAt { get; set; }
     [BsonElement("created_by_user_id")] public ulong CreatedByUserId { get; set; }
     [BsonElement("created_at")] public DateTime CreatedAt { get; set; }
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; }

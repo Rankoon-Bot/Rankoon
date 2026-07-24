@@ -6,7 +6,7 @@ using Rankoon.Data.MongoDb;
 namespace Rankoon.Data.Discord;
 
 /// <summary>Restores only policy-eligible custom runtimes after the platform gateway and indexes are available.</summary>
-public sealed class CustomBotIdentityHostedService(RankoonDbContext database, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityValidator validator, ApplicationCommandRegistrar commands, IBotRuntimeManager runtimes, IGuildBotAuthority authority, IOptions<CustomBotIdentityOptions> options, TimeProvider timeProvider, ILogger<CustomBotIdentityHostedService> logger) : IHostedService
+public sealed class CustomBotIdentityHostedService(RankoonDbContext database, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityValidator validator, ApplicationCommandRegistrar commands, IBotRuntimeManager runtimes, IGuildBotAuthority authority, ICustomBotIdentityService identityService, IOptions<CustomBotIdentityOptions> options, TimeProvider timeProvider, ILogger<CustomBotIdentityHostedService> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -44,6 +44,7 @@ public sealed class CustomBotIdentityHostedService(RankoonDbContext database, IC
                 var now = timeProvider.GetUtcNow().UtcDateTime;
                 await database.GuildBotIdentities.UpdateOneAsync(x => x.Id == identity.Id,
                     Builders<GuildBotIdentity>.Update.Set(x => x.Status, BotIdentityStatus.Active).Set(x => x.LastErrorCode, null).Set(x => x.LastReadyAt, now).Set(x => x.UpdatedAt, now).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);
+                await identityService.CompleteHandoverAsync(identity.GuildId, cancellationToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException) { logger.LogWarning(exception, "Custom bot identity {IdentityId} was not restored", identity.Id); }
             finally { semaphore.Release(); }

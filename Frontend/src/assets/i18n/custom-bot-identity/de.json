@@ -28,6 +28,8 @@
     "install": "Bot installieren",
     "validate": "Verbindung prüfen",
     "activate": "Aktivieren",
+    "completeHandover": "Handover abschließen",
+    "handoverIncomplete": "Der Custom Bot ist aktiv, aber der offizielle Rankoon-Bot muss diesen Server noch verlassen.",
     "restart": "Neu verbinden",
     "deactivate": "Zum offiziellen Rankoon-Bot wechseln",
     "delete": "Identität löschen",

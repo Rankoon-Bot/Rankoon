@@ -29,8 +29,8 @@ export const guildGuard: CanActivateFn = (route, state) => {
     return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
   }
 
-  // Server-specific pages require a current selection where the bot is installed.
-  if (appStore.selectedGuild()?.botInstalled === true) {
+  // A configured custom identity remains manageable even while its gateway is repaired.
+  if ((appStore.selectedGuild()?.rankoonManaged ?? appStore.selectedGuild()?.botInstalled) === true) {
     return true;
   }
 
@@ -44,7 +44,7 @@ function capabilityGuardFor(kind: 'settings' | 'module' | 'owner'): CanActivateF
     const access = inject(GuildAccessService);
     const router = inject(Router);
     const guild = appStore.selectedGuild();
-    if (!guild?.botInstalled) return router.createUrlTree(['/server-selection']);
+    if (!(guild?.rankoonManaged ?? guild?.botInstalled)) return router.createUrlTree(['/server-selection']);
 
     const requiredModule = route.data['module'] as GuildModuleId | undefined;
     return access.loadCapabilities(guild.id, true).pipe(

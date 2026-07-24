@@ -11,6 +11,11 @@ export interface Guild {
   permissions: string;
   features: string[];
   botInstalled: boolean;
+  rankoonManaged?: boolean;
+  platformBotInstalled?: boolean;
+  customBotInstalled?: boolean;
+  activeBotIdentity?: 'Rankoon' | 'Custom' | null;
+  authoritativeRuntimeAvailable?: boolean;
   inviteUrl: string;
 }
 
@@ -105,12 +110,12 @@ export class AppStore {
     this._guilds.set(guilds);
     const selectedGuild = this._selectedGuild();
     if (!selectedGuild) {
-      const installedGuilds = guilds.filter(guild => guild.botInstalled);
+      const installedGuilds = guilds.filter(guild => guild.rankoonManaged ?? guild.botInstalled);
       if (installedGuilds.length === 1) this.setSelectedGuild(installedGuilds[0]);
       return;
     }
 
-    const currentGuild = guilds.find(guild => guild.id === selectedGuild.id && guild.botInstalled);
+    const currentGuild = guilds.find(guild => guild.id === selectedGuild.id && (guild.rankoonManaged ?? guild.botInstalled));
     this.setSelectedGuild(currentGuild ?? null);
   }
 

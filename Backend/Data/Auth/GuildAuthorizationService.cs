@@ -1,7 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using Discord;
-using Discord.WebSocket;
+using Rankoon.Data.Discord;
 
 namespace Rankoon.Data.Auth;
 
@@ -17,20 +17,21 @@ public interface IGuildAuthorizationService
 }
 
 public sealed class GuildAuthorizationService(
-    DiscordShardedClient discord,
+    IGuildDiscordContextResolver guildResolver,
+    IUserDiscordGuildProvider userGuilds,
     IGuildRolePermissionService permissions,
     IGuildModuleRegistry modules) : IGuildAuthorizationService
 {
     public async Task<IGuildUser?> ResolveMemberAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default)
     {
         var userId = GetDiscordUserId(user);
-        var guild = discord.GetGuild(guildId);
-        if (userId == null || guild == null) return null;
+        var context = await guildResolver.ResolveAsync(guildId, cancellationToken);
+        if (userId == null || context == null) return null;
 
-        IGuildUser? member = guild.GetUser(userId.Value);
+        IGuildUser? member = context.Guild.GetUser(userId.Value);
         try
         {
-            return member ?? await discord.Rest.GetGuildUserAsync(guildId, userId.Value, new RequestOptions { CancelToken = cancellationToken });
+            return member ?? await context.Client.Rest.GetGuildUserAsync(guildId, userId.Value, new RequestOptions { CancelToken = cancellationToken });
         }
         catch (global::Discord.Net.HttpException exception) when (exception.HttpCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
         {
@@ -38,19 +39,21 @@ public sealed class GuildAuthorizationService(
         }
     }
 
-    public Task<bool> IsOwnerAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default)
+    public async Task<bool> IsOwnerAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default)
     {
-        var guild = discord.GetGuild(guildId);
+        var context = await guildResolver.ResolveAsync(guildId, cancellationToken);
         var userId = GetDiscordUserId(user);
-        return Task.FromResult(guild != null && userId != null && guild.OwnerId == userId.Value);
+        if (userId == null) return false;
+        return context != null ? context.Guild.OwnerId == userId.Value : await userGuilds.IsGuildOwnerAsync(userId.Value, guildId, cancellationToken);
     }
 
     public async Task<bool> IsMemberAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default)
     {
-        var guild = discord.GetGuild(guildId);
+        var context = await guildResolver.ResolveAsync(guildId, cancellationToken);
         var userId = GetDiscordUserId(user);
-        if (guild == null || userId == null) return false;
-        return guild.OwnerId == userId.Value || await ResolveMemberAsync(user, guildId, cancellationToken) != null;
+        if (userId == null) return false;
+        if (context == null) return await userGuilds.IsGuildMemberAsync(userId.Value, guildId, cancellationToken);
+        return context.Guild.OwnerId == userId.Value || await ResolveMemberAsync(user, guildId, cancellationToken) != null;
     }
 
     public async Task<bool> CanAccessAnyModuleAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default) =>
@@ -61,9 +64,10 @@ public sealed class GuildAuthorizationService(
 
     public async Task<IReadOnlyList<string>> GetAccessibleModuleIdsAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default)
     {
-        var guild = discord.GetGuild(guildId);
+        var context = await guildResolver.ResolveAsync(guildId, cancellationToken);
         var userId = GetDiscordUserId(user);
-        if (guild == null || userId == null) return [];
+        if (context == null || userId == null) return [];
+        var guild = context.Guild;
         if (guild.OwnerId == userId.Value) return modules.Modules.Select(module => module.Id).ToArray();
 
         var member = await ResolveMemberAsync(user, guildId, cancellationToken);

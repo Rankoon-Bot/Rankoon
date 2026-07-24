@@ -208,7 +208,7 @@ export class ServerSelectionComponent implements OnInit {
   }
 
   selectServer(guild: Guild): void {
-    if (!guild.botInstalled) return;
+    if (!(guild.rankoonManaged ?? guild.botInstalled)) return;
     this.appStore.setLoading(true);
     this.appStore.setError(null);
     this.guildAccess.selectAndNavigate(guild).subscribe({
