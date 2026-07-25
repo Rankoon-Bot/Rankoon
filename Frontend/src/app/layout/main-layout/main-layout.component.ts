@@ -13,7 +13,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { AuthStore } from '../../store/auth.store';
-import { ModuleTranslationService } from '../../i18n/module-translation.service';
 import { AppStore } from '../../store/app.store';
 import { GuildAccessService } from '../../services/guild-access.service';
 import { AuthService } from '../../services/auth.service';
@@ -28,11 +27,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
     <div class="layout-container">
         <app-header></app-header>
         <div class="layout-content">
-        <app-sidebar
-          *ngIf="
-            authStore.isAuthenticated() && translations.isLoaded('navigation')
-          "
-        ></app-sidebar>
+        <app-sidebar *ngIf="authStore.isAuthenticated()"></app-sidebar>
         @if (layoutState.mobileNavigationOpen()) {
           <button class="navigation-backdrop" type="button" (click)="layoutState.closeMobileNavigation()" [attr.aria-label]="'header.closeNavigation' | transloco"></button>
         }
@@ -55,7 +50,6 @@ import { TranslocoPipe } from '@jsverse/transloco';
 })
 export class MainLayoutComponent {
   readonly authStore = inject(AuthStore);
-  readonly translations = inject(ModuleTranslationService);
   readonly layoutState = inject(LayoutStateService);
   readonly isNavigating = signal(false);
   private readonly appStore = inject(AppStore);
@@ -81,7 +75,6 @@ export class MainLayoutComponent {
     effect(() => {
       if (!this.authStore.isAuthenticated()) return;
 
-      void this.translations.load('navigation');
       this.auth.refreshBotOperatorAccess();
 
       const guild = this.appStore.selectedGuild();

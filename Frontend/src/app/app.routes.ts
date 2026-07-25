@@ -9,7 +9,6 @@ import {
   settingsGuard,
 } from './guards/auth.guard';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
-import { translationScope } from './i18n/module-translation.resolver';
 import { environment } from '../environments/environment';
 
 export const routes: Routes = [
@@ -24,14 +23,12 @@ export const routes: Routes = [
             (c) => c.LandingComponent,
           ),
         canActivate: [guestGuard],
-        resolve: { translations: translationScope('landing') },
       },
       {
         path: 'login',
         loadComponent: () =>
           import('./pages/login/login.component').then((c) => c.LoginComponent),
         canActivate: [guestGuard],
-        resolve: { translations: translationScope('auth') },
       },
       {
         path: 'tos',
@@ -51,7 +48,6 @@ export const routes: Routes = [
           import('./pages/auth-callback/auth-callback.component').then(
             (c) => c.AuthCallbackComponent,
           ),
-        resolve: { translations: translationScope('auth') },
       },
       {
         path: 'rankings/:alias',
@@ -59,13 +55,11 @@ export const routes: Routes = [
           import('./pages/leaderboard/leaderboard.component').then(
             (c) => c.LeaderboardComponent,
           ),
-        resolve: { translations: translationScope('leaderboard') },
       },
       {
         path: 'bot-management',
         loadComponent: () => import('./pages/bot-management/bot-management.component').then((c) => c.BotManagementComponent),
         canActivate: [botOperatorGuard],
-        resolve: { translations: translationScope('bot-management') },
         children: [
           { path: '', redirectTo: 'overview', pathMatch: 'full' },
           { path: 'overview', loadComponent: () => import('./pages/bot-management/operations-overview.component').then(c => c.OperationsOverviewComponent), canActivate: [botOperatorGuard] },
@@ -81,7 +75,6 @@ export const routes: Routes = [
             (c) => c.ServerSelectionComponent,
           ),
         canActivate: [serverSelectionGuard],
-        resolve: { translations: translationScope('server-selection') },
       },
       {
         path: 'dashboard',
@@ -90,7 +83,6 @@ export const routes: Routes = [
             (c) => c.DashboardComponent,
           ),
         canActivate: [guildGuard, settingsGuard],
-        resolve: { translations: translationScope('dashboard') },
       },
       {
         path: 'xp',
@@ -100,7 +92,6 @@ export const routes: Routes = [
           ),
         canActivate: [guildGuard, moduleGuard],
         data: { module: 'xp' },
-        resolve: { translations: translationScope('xp') },
       },
       {
         path: 'xp/seasons',
@@ -110,14 +101,12 @@ export const routes: Routes = [
           ),
         canActivate: [guildGuard, moduleGuard],
         data: { module: 'xp' },
-        resolve: { translations: translationScope('xp') },
       },
       {
         path: 'xp/audit',
         loadComponent: () => import('./pages/xp-audit/xp-audit.component').then((c) => c.XpAuditComponent),
         canActivate: [guildGuard, moduleGuard],
         data: { module: 'xp-audit' },
-        resolve: { translations: translationScope('xp-audit') },
       },
       {
         path: 'vc-hubs',
@@ -127,7 +116,6 @@ export const routes: Routes = [
           ),
         canActivate: [guildGuard, moduleGuard],
         data: { module: 'voice-hubs' },
-        resolve: { translations: translationScope('voice-hubs') },
       },
       {
         path: 'self-roles',
@@ -137,7 +125,6 @@ export const routes: Routes = [
           ),
         canActivate: [guildGuard, moduleGuard],
         data: { module: 'self-roles' },
-        resolve: { translations: translationScope('self-roles') },
       },
       {
         path: 'server-config',
@@ -152,7 +139,6 @@ export const routes: Routes = [
           ),
         canActivate: [guildGuard, moduleGuard],
         data: { module: 'leaderboard' },
-        resolve: { translations: translationScope('leaderboard-settings') },
       },
       {
         path: 'server-config/roles',
@@ -161,38 +147,33 @@ export const routes: Routes = [
             (c) => c.RolePermissionsComponent,
           ),
         canActivate: [guildGuard, ownerGuard],
-        resolve: { translations: translationScope('role-permissions') },
       },
       {
         path: 'server-config/bot-identity',
         loadComponent: () => import('./pages/custom-bot-identity/custom-bot-identity.component').then((c) => c.CustomBotIdentityComponent),
         canActivate: [guildGuard, ownerGuard],
-        resolve: { translations: translationScope('custom-bot-identity') },
       },
       {
         path: 'xp/level-up-announcements',
         loadComponent: () => import('./pages/level-up-announcements/level-up-announcements.component').then((c) => c.LevelUpAnnouncementsComponent),
         canActivate: [guildGuard, moduleGuard],
         data: { module: 'xp-announcements' },
-        resolve: { translations: translationScope('level-up-announcements') },
       },
       {
         path: 'diagnostics/permissions',
         loadComponent: () => import('./pages/permission-diagnostics/permission-diagnostics.component').then((c) => c.PermissionDiagnosticsComponent),
         canActivate: [guildGuard, moduleGuard], data: { module: 'diagnostics' },
-        resolve: { translations: translationScope('diagnostics') },
       },
       ...(!environment.production ? [{
         path: 'dev',
         loadComponent: () => import('./pages/dev-tools/dev-tools.component').then((c) => c.DevToolsComponent),
         canActivate: [guildGuard, ownerGuard],
-        resolve: { translations: translationScope('dev-tools') },
       }] : []),
       {
         path: 'analytics',
         loadComponent: () => import('./pages/guild-analytics/analytics-shell.component').then(c => c.AnalyticsShellComponent),
         canActivate: [guildGuard, moduleGuard],
-        data: { module: 'analytics' }, resolve: { translations: translationScope('analytics') },
+        data: { module: 'analytics' },
         children: [
           { path: '', redirectTo: 'overview', pathMatch: 'full' },
           { path: 'overview', loadComponent: () => import('./pages/guild-analytics/analytics-overview.component').then(c => c.AnalyticsOverviewComponent), canActivate: [guildGuard, moduleGuard], data: { module: 'analytics' } },

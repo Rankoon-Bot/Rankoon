@@ -5,6 +5,7 @@ import { LayoutStateService } from '../layout-state.service';
 import { AppStore } from '../../store/app.store';
 import { GuildModuleId } from '../../models/guild-permissions.models';
 import { TranslocoService } from '@jsverse/transloco';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { LocaleService } from '../../i18n/locale.service';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { environment } from '../../../environments/environment';
@@ -60,6 +61,7 @@ export class SidebarComponent {
   readonly layoutState = inject(LayoutStateService);
   private readonly appStore = inject(AppStore);
   private readonly i18n = inject(TranslocoService);
+  private readonly translationEvent = toSignal(this.i18n.events$);
   private readonly locale = inject(LocaleService);
   private readonly botIdentityAccess = inject(CustomBotIdentityAccessService);
   private readonly authStore = inject(AuthStore);
@@ -69,6 +71,7 @@ export class SidebarComponent {
 
   readonly menuItems = computed<MenuItem[]>(() => {
     this.locale.locale();
+    this.translationEvent();
     const capabilities = this.appStore.guildCapabilities();
     const operatorItem: MenuItem[] = this.authStore.isBotOperator() ? [{ label: this.i18n.translate('nav.botOperations'), route: '/bot-management/overview', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5"/></svg>`, children: [
       { label: this.i18n.translate('nav.operationsOverview'), route: '/bot-management/overview', icon: '' },

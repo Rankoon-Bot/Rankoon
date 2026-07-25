@@ -1,23 +1,40 @@
 import { KNOWN_API_ERROR_KEYS } from '../models/api-error.model';
 
 describe('translation catalogs', () => {
-  const scopes = [
-    'core',
-    'auth',
-    'navigation',
-    'server-selection',
-    'dashboard',
-    'dev-tools',
-    'voice-hubs',
-    'leaderboard',
-    'leaderboard-settings',
-    'role-permissions',
-    'reporting',
+  const expectedKeyCount = 1393;
+  const namespaces = [
+    'activity',
     'analytics',
-    'bot-management',
-    'self-roles',
-    'custom-bot-identity',
+    'app',
+    'apiErrors',
+    'authCallback',
+    'botManagement',
+    'commands',
+    'common',
+    'customBotIdentity',
+    'dashboard',
+    'devTools',
+    'diagnostics',
+    'domain',
+    'errorLogs',
+    'errors',
+    'header',
+    'landing',
+    'language',
+    'leaderboard',
+    'leaderboardSettings',
+    'levelUpAnnouncements',
+    'login',
+    'modules',
+    'nav',
+    'reports',
+    'rolePermissions',
+    'seasons',
+    'selfRoles',
+    'serverSelection',
+    'voiceHubs',
     'xp',
+    'xpAudit',
   ];
   const flatten = (value: unknown, prefix = ''): string[] =>
     Object.entries(value as Record<string, unknown>).flatMap(([key, child]) => {
@@ -25,29 +42,19 @@ describe('translation catalogs', () => {
       return child && typeof child === 'object' ? flatten(child, path) : [path];
     });
 
-  const catalog = (scope: string, lang: string) =>
-    fetch(
-      scope === 'core'
-        ? `/assets/i18n/${lang}.json`
-        : `/assets/i18n/${scope}/${lang}.json`,
-    ).then((response) => response.json());
+  const catalog = (lang: string) =>
+    fetch(`/assets/i18n/${lang}.json`).then((response) => response.json());
 
-  it('keeps English and German keys in parity for every catalog', async () => {
-    for (const scope of scopes) {
-      const [en, de] = await Promise.all([
-        catalog(scope, 'en'),
-        catalog(scope, 'de'),
-      ]);
-      expect(flatten(de).sort()).toEqual(flatten(en).sort());
-    }
+  it('keeps the consolidated English and German catalogs in parity', async () => {
+    const [en, de] = await Promise.all([catalog('en'), catalog('de')]);
+    expect(flatten(de).sort()).toEqual(flatten(en).sort());
+    expect(flatten(en)).toHaveSize(expectedKeyCount);
+    expect(Object.keys(en).sort()).toEqual(namespaces.sort());
   });
 
-  it('contains every frontend-known API error key across the scoped catalogs', async () => {
+  it('contains every frontend-known API error key', async () => {
     for (const lang of ['en', 'de']) {
-      const catalogs = await Promise.all(
-        scopes.map((scope) => catalog(scope, lang)),
-      );
-      const keys = catalogs.flatMap((translation) => flatten(translation));
+      const keys = flatten(await catalog(lang));
       for (const errorKey of KNOWN_API_ERROR_KEYS)
         expect(keys).toContain(`apiErrors.${errorKey}`);
       expect(keys).not.toContain('auth.logoutSucceeded');
@@ -61,7 +68,7 @@ describe('translation catalogs', () => {
       'xp.boosterDuplicateValidation', 'xp.boosterMultiplierValidation', 'xp.boosterOrderValidation'
     ];
     for (const lang of ['en', 'de']) {
-      const keys = flatten(await catalog('xp', lang));
+      const keys = flatten(await catalog(lang));
       for (const key of requiredKeys) expect(keys).toContain(key);
     }
   });
