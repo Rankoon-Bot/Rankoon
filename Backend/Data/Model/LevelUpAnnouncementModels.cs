@@ -47,10 +47,14 @@ public sealed class LevelTransitionEvent
 {
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("event_key")] public string EventKey { get; set; } = string.Empty;
-    [BsonElement("ledger_grant_key")] public string LedgerGrantKey { get; set; } = string.Empty;
+    [BsonElement("ledger_grant_key"), BsonIgnoreIfNull] public string? LedgerGrantKey { get; set; }
+    [BsonElement("cause_key")] public string CauseKey { get; set; } = string.Empty;
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("user_id")] public ulong UserId { get; set; }
     [BsonElement("source")] public string Source { get; set; } = string.Empty;
+    [BsonElement("source_channel_id"), BsonIgnoreIfNull] public ulong? SourceChannelId { get; set; }
+    [BsonElement("gained_xp")] public decimal GainedXp { get; set; }
+    [BsonElement("suppress_announcement")] public bool SuppressAnnouncement { get; set; }
     [BsonElement("previous_total_xp")] public decimal PreviousTotalXp { get; set; }
     [BsonElement("new_total_xp")] public decimal NewTotalXp { get; set; }
     [BsonElement("previous_level")] public int PreviousLevel { get; set; }

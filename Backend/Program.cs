@@ -190,6 +190,12 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.Import.XpImportParser>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.Import.IXpImportService, Rankoon.Data.Xp.Import.XpImportService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.IXpAuditService, Rankoon.Data.Xp.XpAuditService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ServerBoosterXpMultiplierResolver>();
+    builder.Services.AddSingleton<Rankoon.Data.Xp.VoiceActivityAccumulator>();
+    builder.Services.AddSingleton<Rankoon.Data.Xp.IVoiceActivityAccumulator>(services => services.GetRequiredService<Rankoon.Data.Xp.VoiceActivityAccumulator>());
+    builder.Services.AddSingleton<Rankoon.Data.Xp.IXpProjectionCoordinator, Rankoon.Data.Xp.XpProjectionCoordinator>();
+    builder.Services.AddSingleton<Rankoon.Data.Xp.IVoiceActivityProjectionService, Rankoon.Data.Xp.VoiceActivityProjectionService>();
+    builder.Services.AddSingleton<Rankoon.Data.Xp.VoiceActivityProjectionRepairService>();
+    builder.Services.AddSingleton<Rankoon.Data.Xp.VoiceLedgerMigrationService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonService, Rankoon.Data.Xp.SeasonService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonLifecycleService, Rankoon.Data.Xp.SeasonLifecycleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LedgerProjectionRepairService>();
@@ -218,6 +224,8 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(services => services.GetRequiredService<GuildAnalyticsRecorder>());
     builder.Services.AddHostedService<MongoIndexInitializer>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LedgerProjectionRepairService>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.VoiceActivityProjectionRepairService>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.VoiceLedgerMigrationService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<LevelProgressionWorker>());
     builder.Services.AddHostedService(provider => (DiscordRuntimeEventDispatcher)provider.GetRequiredService<IDiscordRuntimeEventDispatcher>());
@@ -336,6 +344,17 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
     builder.Services.AddOptions<VoiceWatchdogOptions>()
         .Bind(builder.Configuration.GetSection(VoiceWatchdogOptions.SectionName))
         .Validate(options => options.IntervalSeconds > 0, "VoiceWatchdog:IntervalSeconds must be greater than zero.")
+        .ValidateOnStart();
+    builder.Services.AddOptions<VoiceActivityOptions>()
+        .Bind(builder.Configuration.GetSection(VoiceActivityOptions.SectionName))
+        .Validate(options => options.ProjectionIntervalSeconds is >= 15 and <= 30, "VoiceActivity:ProjectionIntervalSeconds must be between 15 and 30.")
+        .Validate(options => options.MaximumSegmentsPerDocument is > 0 and <= Rankoon.Data.Xp.VoiceActivityAccumulator.MaximumSegmentsPerPart, "VoiceActivity:MaximumSegmentsPerDocument must be between 1 and 2000.")
+        .Validate(options => options.ProjectionBatchSize is >= 1 and <= 1000, "VoiceActivity:ProjectionBatchSize must be between 1 and 1000.")
+        .Validate(options => options.MigrationBatchSize is >= 1 and <= 1000, "VoiceActivity:MigrationBatchSize must be between 1 and 1000.")
+        .Validate(options => options.MaxWriteAttempts is >= 1 and <= 100, "VoiceActivity:MaxWriteAttempts must be between 1 and 100.")
+        .ValidateOnStart();
+    builder.Services.AddOptions<Rankoon.Data.Model.VoiceLedgerMigrationOptions>()
+        .Bind(builder.Configuration.GetSection(Rankoon.Data.Model.VoiceLedgerMigrationOptions.SectionName))
         .ValidateOnStart();
     builder.Services.AddOptions<AnalyticsRetentionOptions>().Bind(builder.Configuration.GetSection(AnalyticsRetentionOptions.SectionName)).ValidateOnStart();
     builder.Services.AddOptions<ReportingRetentionOptions>().Bind(builder.Configuration.GetSection(ReportingRetentionOptions.SectionName)).ValidateOnStart();

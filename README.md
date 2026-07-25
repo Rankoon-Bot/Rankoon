@@ -64,11 +64,13 @@ instructions below rather than trusting an unofficial invite link.
 
 ### XP and leveling
 
-Rankoon records every non-zero XP grant in an additive MongoDB ledger before
-projecting it into member, season, and guild-stat totals. Unique grant keys and
-per-projection applied-key sets make retries idempotent. A background repair
-worker resumes pending projections after interruptions between writes. The
-MEE6-compatible cumulative curve calculates levels from the persistent total.
+Rankoon records discrete non-zero XP grants, such as messages, reactions, events,
+and manual adjustments, in an immutable MongoDB ledger before projecting them
+into member, season, and guild-stat totals. Unique grant keys and projection
+leases make retries idempotent. Voice intervals do not create XP-ledger grants:
+they are stored as exact, compacted segments in daily `voice_activity_days`
+documents. The MEE6-compatible cumulative curve calculates levels from the
+persistent projected total.
 
 ### XP history and adjustments
 
@@ -104,22 +106,32 @@ Voice XP can be configured to:
 - respect excluded roles, channels, and categories;
 - grant fractional XP according to eligible connected time.
 
+Every eligible watchdog slice is persisted before projection. Adjacent slices
+with the same session, channel, season, effective rate, multipliers, and settings
+revision compact into one exact segment; changes preserve a segment boundary.
+Daily documents retain total and projected revisions, eligible seconds, XP, and
+season totals. Active users project at most once per configured 15-30 second
+window, while leave, channel, UTC-day, season, and module-disable boundaries
+request immediate projection. A batch repair worker resumes pending or expired
+projections after interruption without relying on an in-memory throttle.
+
 Message, reaction, and thread-message cooldowns are acquired atomically on the
 member record after a ledger entry is written. Cooldown-denied entries are retained
 without projection, so retries cannot later award them. Reaction removal can
 reverse its original award when enabled; scheduled-event interest removal also
 creates an idempotent reversal. Reversals retain the original season attribution.
 
-Voice sessions are reconciled every 5 seconds by default and settled when a member moves. Self-hosters can set the global `VOICEWATCHDOG__INTERVALSECONDS` environment variable; this is intentionally not configurable per guild.
+Voice sessions are reconciled every 5 seconds by default and settled when a member moves. Self-hosters can set the global `VOICEWATCHDOG__INTERVALSECONDS` environment variable; this is intentionally not configurable per guild. Reconciliation persists accrual every slice but does not publish a SignalR update every five seconds.
 
 ### Custom Bot Identity
 
 Custom Bot Identity is disabled by default. Set `CUSTOMBOTIDENTITY__ENABLED=true` and configure a separate, long random `CUSTOMBOTIDENTITY__FINGERPRINTKEY` to allow guild owners to connect one custom Discord bot application to one guild. `CUSTOMBOTIDENTITY__MAXACTIVEGUILDS` limits reserved identities; omit it for no limit. An empty `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS` allowlist permits every guild, while indexed values such as `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS__0=123456789012345678` restrict access.
 
 Custom bot tokens are encrypted using ASP.NET Core Data Protection and never returned by the API. Production deployments must set `DATAPROTECTION__KEYRINGPATH` to a persistently mounted directory; otherwise encrypted tokens cannot be recovered after a redeploy. Keep `CUSTOMBOTIDENTITY__FINGERPRINTKEY` stable and separate from JWT and Discord secrets. `CUSTOMBOTIDENTITY__STARTUPPARALLELISM` controls staggered runtime restoration and must be between `1` and `4`.
-Eligible intervals are split at persisted season boundaries, producing uniquely
-keyed ledger grants per segment. The first qualifying settlement includes time
-since joining, including the configured minimum-session interval.
+Eligible intervals are split at persisted season and UTC-day boundaries, producing
+exact compressed voice segments rather than interval ledger grants. The first
+qualifying settlement includes time since joining, including the configured
+minimum-session interval.
 
 ### Seasons
 
@@ -406,6 +418,10 @@ Selected optional overrides include:
 | `RateLimiting__ReportsPermitLimit` | `60` | Report requests per minute and partition |
 | `RateLimiting__QueueLimit` | `2` | Queued requests per rate-limit partition |
 | `Serilog__MinimumLevel__Default` | `Information` | Default log level |
+| `VoiceActivity__ProjectionIntervalSeconds` | `20` | Persisted voice projection cadence; must be 15-30 seconds |
+| `VoiceActivity__MaximumSegmentsPerDocument` | `2000` | Daily document rollover threshold |
+| `VoiceActivity__ProjectionBatchSize` | `100` | Projection repair batch size |
+| `VoiceActivity__MigrationBatchSize` | `500` | Default legacy voice migration batch size |
 
 See [`Backend/appsettings.json`](Backend/appsettings.json),
 [`Backend/.env.example`](Backend/.env.example), and

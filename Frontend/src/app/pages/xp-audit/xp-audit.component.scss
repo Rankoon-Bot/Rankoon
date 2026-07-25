@@ -39,6 +39,11 @@ dd {
 .timeline-entry { display: flex; gap: var(--rk-space-4); border: 1px solid var(--rk-border-subtle); border-left: 2px solid var(--rk-info); border-radius: var(--rk-radius-md); }
 .timeline-entry > strong { white-space: nowrap; }
 .timeline-entry > div { min-width: 0; }
+.voice-day { border-left-color: var(--rk-info); }
+.voice-day__segments { display: grid; gap: var(--rk-space-2); margin-top: var(--rk-space-3); padding-top: var(--rk-space-3); border-top: 1px solid var(--rk-border-subtle); }
+.voice-segment { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--rk-space-3); padding: var(--rk-space-2); border-radius: var(--rk-radius-sm); background: var(--rk-surface-1); color: var(--rk-text-muted); }
+.voice-segment > :last-child { grid-column: 2; }
+.voice-segment strong { color: var(--rk-text-strong); }
 
 .member-browser,
 .audit-detail,
@@ -237,4 +242,6 @@ dialog::backdrop { background: var(--rk-canvas-deep); opacity: .8; }
   .member-item { align-items: center; }
   .member-item > span:nth-last-child(2) { display: none; }
   .timeline-entry { display: grid; }
+  .voice-segment { grid-template-columns: 1fr; }
+  .voice-segment > :last-child { grid-column: 1; }
 }

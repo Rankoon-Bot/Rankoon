@@ -4,6 +4,7 @@ using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Utils;
 using Rankoon.Data.Discord;
+using Rankoon.Data.Xp;
 
 namespace Rankoon.Data.Analytics;
 
@@ -49,12 +50,13 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
     public Task<GuildAnalyticsOverviewResponse> OverviewAsync(ulong guildId, AnalyticsRange range, CancellationToken token) => CachedAsync<GuildAnalyticsOverviewResponse>($"analytics:overview:{guildId}:{range}", async () =>
     {
         var data = await ReadBucketsAsync(guildId, range, null, token);
+        var voiceActivity = await ReadVoiceActivityAsync(guildId, data.Period, token);
         var participants = await ActiveRecipients(guildId, data.Period.From, data.Period.To, token);
         var previousParticipants = await ActiveRecipients(guildId, data.Period.PreviousFrom, data.Period.PreviousTo, token);
         var xp = data.Rows.Where(x => x.Operation == "xp.grant" && x.Metric == GuildAnalyticsMetric.Quantity).Sum(x => x.Value);
         var previousXp = data.PreviousRows.Where(x => x.Operation == "xp.grant" && x.Metric == GuildAnalyticsMetric.Quantity).Sum(x => x.Value);
-        var voice = data.Rows.Where(x => x.Feature == GuildAnalyticsFeature.Voice).Sum(x => x.DurationSeconds);
-        var previousVoice = data.PreviousRows.Where(x => x.Feature == GuildAnalyticsFeature.Voice).Sum(x => x.DurationSeconds);
+        var voice = voiceActivity.Current.Sum(x => x.EligibleSeconds);
+        var previousVoice = voiceActivity.Previous.Sum(x => x.EligibleSeconds);
         var levelUps = await LevelUps(guildId, data.Period.From, data.Period.To, token);
         var previousLevelUps = await LevelUps(guildId, data.Period.PreviousFrom, data.Period.PreviousTo, token);
         var insights = data.Insights.Concat(telemetry.DroppedCount > 0 ? [new AnalyticsInsight("telemetryDrops", "warning", telemetry.DroppedCount, new Dictionary<string, object?> { ["scope"] = "processLifetime" })] : []).Take(3).ToArray();
@@ -64,12 +66,13 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
     public Task<GuildAnalyticsVoiceResponse> VoiceAsync(ulong guildId, AnalyticsRange range, CancellationToken token) => CachedAsync<GuildAnalyticsVoiceResponse>($"analytics:voice:{guildId}:{range}", async () =>
     {
         var data = await ReadBucketsAsync(guildId, range, GuildAnalyticsFeature.Voice, token);
-        var rows = data.Rows; var previous = data.PreviousRows; var sessions = rows.Sum(x => x.Count); var previousSessions = previous.Sum(x => x.Count);
-        var seconds = (decimal)rows.Sum(x => x.DurationSeconds); var previousSeconds = (decimal)previous.Sum(x => x.DurationSeconds);
+        var activity = await ReadVoiceActivityAsync(guildId, data.Period, token);
+        var rows = data.Rows; var previous = data.PreviousRows; var sessions = activity.Current.Count; var previousSessions = activity.Previous.Count;
+        var seconds = (decimal)activity.Current.Sum(x => x.EligibleSeconds); var previousSeconds = (decimal)activity.Previous.Sum(x => x.EligibleSeconds);
         var participants = await ActiveRecipients(guildId, data.Period.From, data.Period.To, token, "voice");
         var previousParticipants = await ActiveRecipients(guildId, data.Period.PreviousFrom, data.Period.PreviousTo, token, "voice");
-        var voiceXp = rows.Where(x => x.Metric == GuildAnalyticsMetric.Quantity).Sum(x => x.Value); var previousVoiceXp = previous.Where(x => x.Metric == GuildAnalyticsMetric.Quantity).Sum(x => x.Value);
-        var breakdown = rows.Where(x => x.ChannelId != null).GroupBy(x => x.ChannelId!.Value).OrderByDescending(x => x.Sum(y => y.DurationSeconds)).Take(12).Select(x => Breakdown("channel:" + x.Key, (decimal)x.Sum(y => y.DurationSeconds), (decimal)previous.Where(y => y.ChannelId == x.Key).Sum(y => y.DurationSeconds))).Concat(rows.Where(x => x.Outcome is GuildAnalyticsOutcome.Rejected or GuildAnalyticsOutcome.Skipped).GroupBy(x => x.Reason).Take(12).Select(x => Breakdown("nonqualified:" + (x.Key.Length == 0 ? "unspecified" : x.Key), x.Sum(y => y.Count), previous.Where(y => y.Reason == x.Key).Sum(y => y.Count)))).Concat(rows.Where(x => x.Operation.Contains("hub", StringComparison.Ordinal)).GroupBy(x => x.Operation).Take(8).Select(x => Breakdown("hub:" + x.Key, x.Sum(y => y.Count), previous.Where(y => y.Operation == x.Key).Sum(y => y.Count)))).ToArray();
+        var voiceXp = activity.Current.Sum(x => x.AwardedXp); var previousVoiceXp = activity.Previous.Sum(x => x.AwardedXp);
+        var breakdown = activity.Current.GroupBy(x => x.ChannelId).OrderByDescending(x => x.Sum(y => y.EligibleSeconds)).Take(12).Select(x => Breakdown("channel:" + x.Key, x.Sum(y => (decimal)y.EligibleSeconds), activity.Previous.Where(y => y.ChannelId == x.Key).Sum(y => (decimal)y.EligibleSeconds))).Concat(rows.Where(x => x.Outcome is GuildAnalyticsOutcome.Rejected or GuildAnalyticsOutcome.Skipped).GroupBy(x => x.Reason).Take(12).Select(x => Breakdown("nonqualified:" + (x.Key.Length == 0 ? "unspecified" : x.Key), x.Sum(y => y.Count), previous.Where(y => y.Reason == x.Key).Sum(y => y.Count)))).Concat(rows.Where(x => x.Operation.Contains("hub", StringComparison.Ordinal)).GroupBy(x => x.Operation).Take(8).Select(x => Breakdown("hub:" + x.Key, x.Sum(y => y.Count), previous.Where(y => y.Operation == x.Key).Sum(y => y.Count)))).ToArray();
         return new(data.Now, data.Period, [Kpi("qualifiedSeconds", seconds, previousSeconds), Kpi("sessions", sessions, previousSessions), Kpi("averageSessionSeconds", sessions == 0 ? 0 : seconds / sessions, previousSessions == 0 ? 0 : previousSeconds / previousSessions), Kpi("participants", participants, previousParticipants), Kpi("voiceXp", voiceXp, previousVoiceXp), Kpi("hubEvents", rows.Where(x => x.Operation.Contains("hub", StringComparison.Ordinal)).Sum(x => x.Count), previous.Where(x => x.Operation.Contains("hub", StringComparison.Ordinal)).Sum(x => x.Count)), Kpi("transfers", rows.Where(x => x.Operation.Contains("transfer", StringComparison.Ordinal)).Sum(x => x.Count), previous.Where(x => x.Operation.Contains("transfer", StringComparison.Ordinal)).Sum(x => x.Count))], data.Trend, breakdown, data.Insights);
     });
 
@@ -84,8 +87,15 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
     public Task<GuildAnalyticsXpResponse> XpAsync(ulong guildId, AnalyticsRange range, CancellationToken token) => CachedAsync<GuildAnalyticsXpResponse>($"analytics:xp:{guildId}:{range}", async () =>
     {
         var now = timeProvider.GetUtcNow(); var period = CreatePeriod(range, now);
-        var entries = await database.XpLedger.Aggregate().Match(x => x.GuildId == guildId && x.OccurredAtUtc >= period.PreviousFrom.UtcDateTime && x.OccurredAtUtc <= period.To.UtcDateTime && !x.CooldownDenied && !x.IsProjectionControl)
+        var entriesTask = database.XpLedger.Aggregate().Match(x => x.GuildId == guildId && x.OccurredAtUtc >= period.PreviousFrom.UtcDateTime && x.OccurredAtUtc <= period.To.UtcDateTime && !x.CooldownDenied && !x.IsProjectionControl)
             .Group(x => new { Day = x.OccurredAtUtc.Date, x.Source, x.UserId }, group => new XpAggregate(group.Key.Day, group.Key.Source, group.Key.UserId, group.Sum(x => x.Amount), group.LongCount())).ToListAsync(token);
+        var voiceDaysTask = database.VoiceActivities.Find(x => x.GuildId == guildId && x.DayStartUtc >= period.PreviousFrom.UtcDateTime.Date && x.DayStartUtc <= period.To.UtcDateTime.Date).ToListAsync(token);
+        var migrationTask = database.VoiceLedgerMigrationStates.Find(x => x.Id == VoiceLedgerMigrationState.SingletonId).FirstOrDefaultAsync(token);
+        await Task.WhenAll(entriesTask, voiceDaysTask, migrationTask);
+        var compressedVoiceAuthoritative = VoiceLedgerMigrationService.IsCompressedVoiceAuthoritative(migrationTask.Result);
+        var entries = entriesTask.Result.Where(x => x.Source != "voice" || !compressedVoiceAuthoritative).ToList();
+        entries.AddRange(VoiceActivityReadModel.Select(voiceDaysTask.Result, compressedVoiceAuthoritative, period.PreviousFrom.UtcDateTime, period.To.UtcDateTime)
+            .GroupBy(x => new { Day = x.OccurredAtUtc.Date, x.UserId }).Select(x => new XpAggregate(x.Key.Day, "voice", x.Key.UserId, x.Sum(y => y.AwardedXp), x.LongCount())));
         var current = entries.Where(x => x.Day >= period.From.UtcDateTime).ToArray(); var previous = entries.Where(x => x.Day < period.From.UtcDateTime).ToArray();
         var value = current.Sum(x => x.Value); var old = previous.Sum(x => x.Value);
         var trend = BuildTrend(period, current.GroupBy(x => x.Day).ToDictionary(x => x.Key, x => x.Sum(y => y.Value)));
@@ -180,11 +190,38 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
     {
         var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, guildId) & Builders<XpLedgerEntry>.Filter.Gte(x => x.OccurredAtUtc, from.UtcDateTime) & Builders<XpLedgerEntry>.Filter.Lt(x => x.OccurredAtUtc, to.UtcDateTime) & Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true) & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true);
         if (source != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Source, source);
-        return (await database.XpLedger.Aggregate().Match(filter).Group(x => x.UserId, x => new ParticipantAggregate(x.Key)).Count().FirstOrDefaultAsync(token))?.Count ?? 0;
+        var ledgerTask = database.XpLedger.Aggregate().Match(filter).Group(x => x.UserId, x => new ParticipantAggregate(x.Key)).ToListAsync(token);
+        if (source != null && source != "voice") return (await ledgerTask).LongCount();
+        var migrationTask = database.VoiceLedgerMigrationStates.Find(x => x.Id == VoiceLedgerMigrationState.SingletonId).FirstOrDefaultAsync(token);
+        var daysTask = database.VoiceActivities.Find(x => x.GuildId == guildId && x.DayStartUtc >= from.UtcDateTime.Date && x.DayStartUtc <= to.UtcDateTime.Date).ToListAsync(token);
+        await Task.WhenAll(ledgerTask, migrationTask, daysTask);
+        var compressedVoiceAuthoritative = VoiceLedgerMigrationService.IsCompressedVoiceAuthoritative(migrationTask.Result);
+        var recipients = ledgerTask.Result.Select(x => x.UserId).ToHashSet();
+        if (compressedVoiceAuthoritative)
+        {
+            if (source == "voice") recipients.Clear();
+            else recipients = (await database.XpLedger.Distinct(x => x.UserId, filter & Builders<XpLedgerEntry>.Filter.Ne(x => x.Source, "voice"), cancellationToken: token).ToListAsync(token)).ToHashSet();
+        }
+        recipients.UnionWith(VoiceActivityReadModel.Select(daysTask.Result, compressedVoiceAuthoritative, from.UtcDateTime, to.UtcDateTime).Select(x => x.UserId));
+        return recipients.Count;
+    }
+
+    private async Task<VoicePeriodData> ReadVoiceActivityAsync(ulong guildId, AnalyticsPeriod period, CancellationToken token)
+    {
+        var daysTask = database.VoiceActivities.Find(x => x.GuildId == guildId && x.DayStartUtc >= period.PreviousFrom.UtcDateTime.Date && x.DayStartUtc <= period.To.UtcDateTime.Date).ToListAsync(token);
+        var migrationTask = database.VoiceLedgerMigrationStates.Find(x => x.Id == VoiceLedgerMigrationState.SingletonId).FirstOrDefaultAsync(token);
+        var ledgerTask = database.XpLedger.Find(x => x.GuildId == guildId && x.Source == "voice" && x.OccurredAtUtc >= period.PreviousFrom.UtcDateTime && x.OccurredAtUtc < period.To.UtcDateTime && !x.CooldownDenied && !x.IsProjectionControl).ToListAsync(token);
+        await Task.WhenAll(daysTask, migrationTask, ledgerTask);
+        var authoritative = VoiceLedgerMigrationService.IsCompressedVoiceAuthoritative(migrationTask.Result);
+        var items = VoiceActivityReadModel.Select(daysTask.Result, authoritative, period.PreviousFrom.UtcDateTime, period.To.UtcDateTime).ToList();
+        if (!authoritative) items.AddRange(ledgerTask.Result.Select(x => new VoiceActivityReadItem(x.UserId, x.OccurredAtUtc, x.Amount,
+            x.PeriodStartsAtUtc != null && x.PeriodEndsAtUtc > x.PeriodStartsAtUtc ? (long)(x.PeriodEndsAtUtc.Value - x.PeriodStartsAtUtc.Value).TotalSeconds : 0, x.ChannelId ?? 0)));
+        return new(items.Where(x => x.OccurredAtUtc >= period.From.UtcDateTime).ToArray(), items.Where(x => x.OccurredAtUtc < period.From.UtcDateTime).ToArray());
     }
     private async Task<long> LevelUps(ulong guildId, DateTimeOffset from, DateTimeOffset to, CancellationToken token) => await database.LevelTransitionEvents.CountDocumentsAsync(x => x.GuildId == guildId && x.CreatedAtUtc >= from.UtcDateTime && x.CreatedAtUtc < to.UtcDateTime && x.NewLevel > x.PreviousLevel, cancellationToken: token);
     private sealed record ParticipantAggregate(ulong UserId);
     private sealed record XpAggregate(DateTime Day, string Source, ulong UserId, decimal Value, long Count);
     private sealed record BucketAggregate(DateTime BucketStartUtc, GuildAnalyticsMetric Metric, GuildAnalyticsFeature Feature, GuildAnalyticsOutcome Outcome, string Operation, string Source, string Reason, ulong? ChannelId, long Count, long Value, double DurationSeconds, DateTime LastAt);
     private sealed record BucketData(DateTimeOffset Now, AnalyticsPeriod Period, IReadOnlyList<AnalyticsKpi> Kpis, IReadOnlyList<AnalyticsTrendPoint> Trend, IReadOnlyList<AnalyticsBreakdown> Breakdown, IReadOnlyList<AnalyticsInsight> Insights, IReadOnlyList<BucketAggregate> Rows, IReadOnlyList<BucketAggregate> PreviousRows);
+    private sealed record VoicePeriodData(IReadOnlyList<VoiceActivityReadItem> Current, IReadOnlyList<VoiceActivityReadItem> Previous);
 }

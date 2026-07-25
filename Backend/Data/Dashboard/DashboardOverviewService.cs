@@ -7,6 +7,7 @@ using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
+using Rankoon.Data.Xp;
 
 namespace Rankoon.Data.Dashboard;
 
@@ -44,10 +45,16 @@ public sealed class DashboardOverviewService(RankoonDbContext database, IGuildDi
         var panelsTask = database.SelfRolePanels.Find(x => x.GuildId == guildId).ToListAsync(cancellationToken);
         var reportsTask = database.ReportEvents.Find(x => x.GuildId == guildId && x.OccurredAt >= start).SortByDescending(x => x.OccurredAt).Limit(100).ToListAsync(cancellationToken);
         var ledgerTask = database.XpLedger.Find(x => x.GuildId == guildId && x.OccurredAtUtc >= start && x.OccurredAtUtc <= end && x.ProjectionStatus == SeasonProjectionStatus.Applied && !x.CooldownDenied && !x.IsProjectionControl).ToListAsync(cancellationToken);
-        await Task.WhenAll(settingsTask, hubsTask, panelsTask, reportsTask, ledgerTask);
+        var voiceDaysTask = database.VoiceActivities.Find(x => x.GuildId == guildId && x.DayStartUtc >= start.Date && x.DayStartUtc <= end.Date).ToListAsync(cancellationToken);
+        var migrationTask = database.VoiceLedgerMigrationStates.Find(x => x.Id == VoiceLedgerMigrationState.SingletonId).FirstOrDefaultAsync(cancellationToken);
+        await Task.WhenAll(settingsTask, hubsTask, panelsTask, reportsTask, ledgerTask, voiceDaysTask, migrationTask);
         var settings = settingsTask.Result ?? new GuildXpSettings { GuildId = guildId, Enabled = false };
-        var ledgers = ledgerTask.Result.Where(IsQualifiedGrant).ToArray();
-        var activity = BuildActivity(ledgers, start, days, reportsTask.Result);
+        var compressedVoiceAuthoritative = VoiceLedgerMigrationService.IsCompressedVoiceAuthoritative(migrationTask.Result);
+        var rows = ledgerTask.Result.Where(IsQualifiedGrant).Where(x => x.Source != "voice" || !compressedVoiceAuthoritative)
+            .Select(x => new ActivityRow(x.UserId, x.OccurredAtUtc, x.Source, x.Amount, Voice(x))).ToList();
+        rows.AddRange(VoiceActivityReadModel.Select(voiceDaysTask.Result, compressedVoiceAuthoritative, start, end)
+            .Select(x => new ActivityRow(x.UserId, x.OccurredAtUtc, "voice", x.AwardedXp, x.EligibleSeconds)));
+        var activity = BuildActivity(rows, start, days, reportsTask.Result);
         var modules = BuildModules(visible, settings, hubsTask.Result, panelsTask.Result, watchdog.GetStatus(guildId), activity, reportsTask.Result, guild);
         var health = BuildHealth(modules);
         var botUser = discordClient.CurrentUser;
@@ -59,17 +66,17 @@ public sealed class DashboardOverviewService(RankoonDbContext database, IGuildDi
     }
 
     private static bool IsQualifiedGrant(XpLedgerEntry x) => x.Amount > 0 && XpLedgerSemantics.GetEffectiveKind(x) == XpLedgerEntryKind.AutomaticGrant;
-    private static DashboardActivitySummary BuildActivity(IReadOnlyList<XpLedgerEntry> rows, DateTime start, int days, IReadOnlyList<ReportEvent> reports)
+    internal static DashboardActivitySummary BuildActivity(IReadOnlyList<ActivityRow> rows, DateTime start, int days, IReadOnlyList<ReportEvent> reports)
     {
         var sources = rows.GroupBy(x => Source(x.Source)).Select(g => new DashboardActivitySource(g.Key, g.LongCount(), g.Sum(x => x.Amount), rows.Count == 0 ? 0 : Math.Round(g.Count() * 100d / rows.Count, 1))).OrderByDescending(x => x.XpAwarded).ToArray();
         var trend = Enumerable.Range(0, days).Select(i => {
             var date = start.AddDays(i); var day = rows.Where(x => x.OccurredAtUtc.Date == date.Date).ToArray();
-            return new DashboardTrendPoint(new DateTimeOffset(date, TimeSpan.Zero), day.Sum(x => x.Amount), day.Select(x => x.UserId).Distinct().LongCount(), Voice(day));
+            return new DashboardTrendPoint(new DateTimeOffset(date, TimeSpan.Zero), day.Sum(x => x.Amount), day.Select(x => x.UserId).Distinct().LongCount(), day.Sum(x => x.VoiceSeconds));
         }).ToArray();
         var temporary = reports.LongCount(x => x.Name == ReportNames.VoiceChannelCreated && x.OccurredAt >= start);
-        return new(rows.Select(x => x.UserId).Distinct().LongCount(), rows.Sum(x => x.Amount), Voice(rows), rows.LongCount(), temporary, null, sources, trend);
+        return new(rows.Select(x => x.UserId).Distinct().LongCount(), rows.Sum(x => x.Amount), rows.Sum(x => x.VoiceSeconds), rows.LongCount(), temporary, null, sources, trend);
     }
-    private static long Voice(IEnumerable<XpLedgerEntry> rows) => rows.Where(x => x.Source == "voice" && x.PeriodStartsAtUtc != null && x.PeriodEndsAtUtc != null && x.PeriodEndsAtUtc > x.PeriodStartsAtUtc).Sum(x => (long)(x.PeriodEndsAtUtc!.Value - x.PeriodStartsAtUtc!.Value).TotalSeconds);
+    private static long Voice(XpLedgerEntry row) => row.Source == "voice" && row.PeriodStartsAtUtc != null && row.PeriodEndsAtUtc > row.PeriodStartsAtUtc ? (long)(row.PeriodEndsAtUtc.Value - row.PeriodStartsAtUtc.Value).TotalSeconds : 0;
     private static string Source(string source) => source switch { "thread_create" or "thread_message" => "thread", "event_interest" => "event", "message" or "reaction" or "voice" => source, _ => "other" };
     private static IReadOnlyList<DashboardModuleSummary> BuildModules(IEnumerable<string> visible, GuildXpSettings xp, IReadOnlyList<VcHub> hubs, IReadOnlyList<SelfRolePanel> panels, VoiceWatchdogStatus watchdog, DashboardActivitySummary activity, IReadOnlyList<ReportEvent> reports, SocketGuild guild) => visible.Select(id => id switch
     {
@@ -99,4 +106,5 @@ public sealed class DashboardOverviewService(RankoonDbContext database, IGuildDi
     private static DashboardHealthSummary BuildHealth(IReadOnlyList<DashboardModuleSummary> modules) { var attention = modules.Where(x => x.Status is DashboardOperationalStatus.Critical or DashboardOperationalStatus.Warning or DashboardOperationalStatus.SetupRequired).OrderByDescending(x => x.Status == DashboardOperationalStatus.Critical).ThenByDescending(x => x.Status == DashboardOperationalStatus.Warning).Select(x => new DashboardAttentionItem($"{x.ModuleId}:{x.Status}", x.Status == DashboardOperationalStatus.Critical ? DashboardAttentionSeverity.Critical : x.Status == DashboardOperationalStatus.Warning ? DashboardAttentionSeverity.Warning : DashboardAttentionSeverity.Info, x.ModuleId, $"dashboard.attention.{x.ModuleId}.title", x.StatusReasonKey, new Dictionary<string, string>(), new("openSettings", x.ModuleId, null))).ToArray(); var overall = modules.Any(x => x.Status == DashboardOperationalStatus.Critical) ? DashboardOperationalStatus.Critical : modules.Any(x => x.Status == DashboardOperationalStatus.Warning) ? DashboardOperationalStatus.Warning : modules.Any(x => x.Status == DashboardOperationalStatus.SetupRequired) ? DashboardOperationalStatus.SetupRequired : DashboardOperationalStatus.Healthy; return new(overall, modules.Count(x => x.Status == DashboardOperationalStatus.Healthy), modules.Count(x => x.Status == DashboardOperationalStatus.Disabled), modules.Count(x => x.Status == DashboardOperationalStatus.SetupRequired), modules.Count(x => x.Status == DashboardOperationalStatus.Warning), modules.Count(x => x.Status == DashboardOperationalStatus.Critical), modules.Count(x => x.Status == DashboardOperationalStatus.Unknown), attention); }
     private static IReadOnlyList<DashboardRecentEvent> BuildEvents(IEnumerable<ReportEvent> reports, IEnumerable<string> modules, SocketGuild guild) => reports.Where(x => x.Name != ReportNames.XpGranted).Where(x => ModuleFor(x.Name) is { } m && modules.Contains(m)).Take(6).Select(x => new DashboardRecentEvent(x.Id ?? string.Empty, x.Name, x.Outcome, x.Severity, ModuleFor(x.Name), x.ActorId?.ToString(), null, x.SubjectId?.ToString(), null, x.ChannelId?.ToString(), x.ChannelId is { } channel && guild.GetChannel(channel) is { } c ? c.Name : null, x.Metadata?.ToDictionary(k => k.Key, v => v.Value?.ToString() ?? string.Empty) ?? new Dictionary<string, string>(), new DateTimeOffset(x.OccurredAt, TimeSpan.Zero))).ToArray();
     private static string? ModuleFor(string name) => name.StartsWith("xp.") ? "xp" : name.StartsWith("voice.") ? "voice-hubs" : name.StartsWith("leaderboard.") ? "leaderboard" : name.StartsWith("permissions.") ? "dashboard-access" : name.StartsWith("level.") ? "level-up-announcements" : null;
+    internal sealed record ActivityRow(ulong UserId, DateTime OccurredAtUtc, string Source, decimal Amount, long VoiceSeconds);
 }

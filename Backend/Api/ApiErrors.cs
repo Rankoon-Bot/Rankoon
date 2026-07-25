@@ -105,6 +105,7 @@ public static class ApiErrorCatalog
         ["xp.import.noValidMembers"] = new("xp.import.noValidMembers", "The file does not contain any valid importable members.", StatusCodes.Status400BadRequest),
         ["xpAudit.invalidUserId"] = new("xpAudit.invalidUserId", "The user ID is invalid.", StatusCodes.Status400BadRequest),
         ["xpAudit.memberNotFound"] = new("xpAudit.memberNotFound", "The XP member was not found.", StatusCodes.Status404NotFound),
+        ["xpAudit.voiceRequiresTimeline"] = new("xpAudit.voiceRequiresTimeline", "Voice activity is available in the compact daily timeline.", StatusCodes.Status400BadRequest),
         ["xpAudit.invalidCursor"] = new("xpAudit.invalidCursor", "The XP audit cursor is invalid.", StatusCodes.Status400BadRequest),
         ["xpAudit.invalidFilter"] = new("xpAudit.invalidFilter", "The XP audit filter is invalid.", StatusCodes.Status400BadRequest),
         ["xpAdjustment.selfAdjustmentForbidden"] = new("xpAdjustment.selfAdjustmentForbidden", "Non-owners cannot adjust their own XP.", StatusCodes.Status403Forbidden),

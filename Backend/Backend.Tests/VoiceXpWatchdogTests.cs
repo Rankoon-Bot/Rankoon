@@ -1,6 +1,7 @@
 using System.Reflection;
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
+using Rankoon.Data.Xp;
 using Xunit;
 
 namespace Backend.Tests;
@@ -18,16 +19,19 @@ public sealed class VoiceXpWatchdogTests
     }
 
     [Fact]
-    public void Grant_key_is_deterministic_for_a_voice_interval()
+    public void UTC_midnight_is_a_deterministic_voice_boundary()
     {
-        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var end = start.AddMinutes(5);
+        var start = new DateTime(2026, 1, 1, 23, 59, 0, DateTimeKind.Utc);
+        var end = start.AddMinutes(2);
 
-        var first = (string)Invoke("VoiceGrantKey", 1UL, 2UL, 3UL, start, end)!;
-        var retry = (string)Invoke("VoiceGrantKey", 1UL, 2UL, 3UL, start, end)!;
+        var boundaries = (IEnumerable<DateTime>)Invoke("EachUtcMidnight", start, end)!;
+        var segments = VoiceActivityAccumulator.Split(start, end, boundaries);
 
-        Assert.Equal("voice:1:2:3:639028224000000000:639028227000000000", first);
-        Assert.Equal(first, retry);
+        Assert.Equal(new[]
+        {
+            new VoiceActivityInterval(start, new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc)),
+            new VoiceActivityInterval(new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc), end)
+        }, segments);
     }
 
     [Fact]
@@ -53,6 +57,34 @@ public sealed class VoiceXpWatchdogTests
         var enabled = (bool)Invoke("IsVoiceXpEnabled", settings)!;
 
         Assert.Equal(expected, enabled);
+    }
+
+    [Fact]
+    public void Every_boundary_slice_preserves_legacy_rounding()
+    {
+        var whole = VoiceXpWatchdog.RoundAccrual(2, 10m);
+        var split = VoiceXpWatchdog.RoundAccrual(1, 10m) + VoiceXpWatchdog.RoundAccrual(1, 10m);
+
+        Assert.Equal(0.333333m, whole);
+        Assert.Equal(0.333334m, split);
+        Assert.NotEqual(whole, split);
+    }
+
+    [Fact]
+    public void Many_five_second_watchdog_slices_round_independently()
+    {
+        Assert.Equal(9.999996m, Enumerable.Range(0, 12).Sum(_ => VoiceXpWatchdog.RoundAccrual(5, 10m)));
+    }
+
+    [Fact]
+    public void Hard_ineligibility_advances_first_accrual_without_changing_join_time()
+    {
+        var joinedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var eligibleAt = joinedAt.AddMinutes(3);
+        var session = new VoiceSession { JoinedAt = joinedAt, EligibilityStartedAt = eligibleAt, LastAccruedAt = eligibleAt.AddMinutes(1), EligibleSeconds = 0 };
+
+        Assert.Equal(eligibleAt, (DateTime)Invoke("PeriodStart", session, true)!);
+        Assert.Equal(joinedAt, session.JoinedAt);
     }
 
     private static object? Invoke(string name, params object[] arguments) => typeof(VoiceXpWatchdog)

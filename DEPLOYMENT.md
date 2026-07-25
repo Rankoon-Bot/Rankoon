@@ -49,9 +49,27 @@ Optional settings from `Backend/appsettings.json` can be overridden using the sa
 ## MongoDB Startup
 
 At startup Rankoon retries index initialization until MongoDB is available. It
-creates unique identities for member XP, ledger grant keys, voice sessions, season
-settings and sequences, active seasons, final standings, and self-role assignments,
-plus ranking, projection, report-query, and TTL indexes. Compatible startup
-migrations remove the obsolete voice holdback setting,
-initialize missing member leaderboard fields and totals, and set missing
-final-standing visibility to public. There is no separate manual migration command.
+creates unique identities for member XP, discrete ledger grant keys, voice sessions,
+season settings and sequences, active seasons, final standings, and self-role
+assignments, plus ranking, projection, report-query, and TTL indexes. Compressed
+voice uses `voice_activity_days` with unique `(guild_id, user_id, day_start_utc,
+part)`, session-cursor, open-projection, and guild-period indexes. Migration state
+is stored in `voice_ledger_migration_states` with a phase/update index.
+
+The resumable legacy voice migration copies a fixed ledger high-water mark in
+`VoiceActivity__MigrationBatchSize` batches unless
+`VoiceLedgerMigration__CopyBatchSize` explicitly overrides it. It records generated
+documents/segments and verifies exact global, guild/user, season, and
+guild/user/season XP and duration parity. During `Copying`, `Verifying`, or
+`ParityFailed`, audit history reads legacy voice ledger rows plus only new compressed
+segments. Successful parity changes authority to compressed days in
+`AwaitingDeletionApproval`; `Deleting` requires explicit approval of that parity
+fingerprint, and `Completed` records completion. A mismatch cannot authorize
+deletion.
+
+Rankoon supports standalone MongoDB and does not require replica-set transactions.
+Voice accrual, projection leases, cursor-based migration, and repair use idempotent
+single-document operations and compare-and-swap updates. Compatible startup
+migrations also remove the obsolete voice holdback setting, initialize missing
+member leaderboard fields and totals, and set missing final-standing visibility to
+public. There is no separate relational migration command.

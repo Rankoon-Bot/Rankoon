@@ -96,9 +96,10 @@ export interface XpAuditEntryFilter {
 }
 
 export interface XpTimelineItem {
-  itemType: 'Entry' | 'Group';
+  itemType: 'Entry' | 'VoiceDay';
   id: string;
   entry: XpLedgerEntry | null;
+  voiceDay: XpVoiceDay | null;
   source: string;
   kind: XpLedgerKind;
   scope: XpLedgerScope;
@@ -115,8 +116,39 @@ export interface XpTimelineItem {
   projectionStatus: string;
   appliedServerBoosterMultiplier: XpNumber | null;
   isPartial: boolean;
+  dayKey: string | null;
 }
 export interface XpAuditTimelinePage { items: XpTimelineItem[]; nextCursor: string | null; }
+
+export interface XpVoiceDay {
+  day: string;
+  totalXp: XpNumber;
+  eligibleSeconds: number;
+  segmentCount: number;
+  sessionCount: number;
+  sessionIds: string[];
+  channelCount: number;
+  channelIds: string[];
+  seasonIds: string[];
+  activityStartsAtUtc: string;
+  activityEndsAtUtc: string;
+}
+
+export interface XpVoiceSegment {
+  id: string;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  durationSeconds: number;
+  xp: XpNumber;
+  channelId: string;
+  seasonId: string | null;
+  seasonName: string | null;
+  effectiveXpPerMinute: XpNumber;
+  channelMultiplier: XpNumber;
+  serverBoosterMultiplier: XpNumber | null;
+}
+
+export interface XpVoiceSegmentPage { items: XpVoiceSegment[]; }
 
 export interface AdjustmentRequest {
   amount: number;

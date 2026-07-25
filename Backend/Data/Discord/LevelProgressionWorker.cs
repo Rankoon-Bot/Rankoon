@@ -54,17 +54,17 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
             var roleResult = await roles.SynchronizeAsync(claimed.GuildId, claimed.UserId, cancellationToken);
             if (roleResult.Failed.Count > 0) await ReportAsync(claimed, ReportNames.LevelRolesPartiallyFailed, ReportOutcomes.Failed, cancellationToken);
             var settings = await database.GuildLevelUpAnnouncementSettings.Find(x => x.GuildId == claimed.GuildId).FirstOrDefaultAsync(cancellationToken);
-            var ledger = await database.XpLedger.Find(x => x.GrantKey == claimed.LedgerGrantKey).FirstOrDefaultAsync(cancellationToken);
+            var ledger = string.IsNullOrWhiteSpace(claimed.LedgerGrantKey) ? null : await database.XpLedger.Find(x => x.GrantKey == claimed.LedgerGrantKey).FirstOrDefaultAsync(cancellationToken);
+            var cause = ResolveCause(claimed, ledger);
             // Every genuine lifetime level-up is eligible, including administrative XP adjustments.
             // MEE6 imports update projections directly and never produce a transition event.
-            var canAnnounce = settings?.Enabled == true && settings.ChannelId.HasValue && claimed.NewLevel > claimed.PreviousLevel && ledger != null &&
-                XpLedgerSemantics.GetEffectiveKind(ledger) != XpLedgerEntryKind.SystemMigration;
+            var canAnnounce = settings?.Enabled == true && settings.ChannelId.HasValue && claimed.NewLevel > claimed.PreviousLevel && !cause.SuppressAnnouncement;
             if (!canAnnounce) { await CompleteAsync(claimed, LevelTransitionStatus.CompletedWithoutAnnouncement, null, cancellationToken); return; }
-            var announcementSettings = settings!; var sourceLedger = ledger!;
+            var announcementSettings = settings!;
             var guild = (await discord.ResolveAsync(claimed.GuildId, cancellationToken))?.Guild; var user = guild?.GetUser(claimed.UserId); var channel = guild?.GetTextChannel(announcementSettings.ChannelId!.Value);
             if (guild == null || user == null || channel == null) { await FailAsync(claimed, "channelUnavailable", true, cancellationToken); return; }
             var member = await database.MemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? new MemberXp();
-            var context = new LevelUpRenderContext($"<@{claimed.UserId}>", user.DisplayName, user.Username, claimed.UserId, claimed.PreviousLevel, claimed.NewLevel, claimed.PreviousTotalXp, claimed.NewTotalXp, claimed.NewTotalXp - claimed.PreviousTotalXp, claimed.Source, sourceLedger.ChannelId is { } sourceChannel ? $"<#{sourceChannel}>" : null, guild.Name, guild.MemberCount, member.MessageCount, member.VoiceSeconds, null, roleResult.Added.OrderBy(x => x.RequiredLevel).ToArray());
+            var context = new LevelUpRenderContext($"<@{claimed.UserId}>", user.DisplayName, user.Username, claimed.UserId, claimed.PreviousLevel, claimed.NewLevel, claimed.PreviousTotalXp, claimed.NewTotalXp, cause.GainedXp, claimed.Source, cause.ChannelId is { } sourceChannel ? $"<#{sourceChannel}>" : null, guild.Name, guild.MemberCount, member.MessageCount, member.VoiceSeconds, null, roleResult.Added.OrderBy(x => x.RequiredLevel).ToArray());
             var recent = await database.LevelTransitionEvents.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId && x.SelectedTemplateId != null && x.Status == LevelTransitionStatus.Delivered).SortByDescending(x => x.CompletedAtUtc).Limit(announcementSettings.AvoidRecentTemplatesPerUser).Project(x => x.SelectedTemplateId!).ToListAsync(cancellationToken);
             var selection = selector.Select(announcementSettings, context, recent);
             if (selection == null) { await ReportAsync(claimed, ReportNames.LevelAnnouncementNoTemplate, ReportOutcomes.Rejected, cancellationToken); await CompleteAsync(claimed, LevelTransitionStatus.CompletedWithoutAnnouncement, null, cancellationToken); return; }
@@ -84,4 +84,12 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
         return database.LevelTransitionEvents.UpdateOneAsync(x => x.Id == e.Id && x.LeaseOwner == owner, Builders<LevelTransitionEvent>.Update.Set(x => x.DeliveryAttempts, attempts).Set(x => x.LastErrorCode, code).Set(x => x.Status, dead ? LevelTransitionStatus.DeadLetter : LevelTransitionStatus.RetryScheduled).Set(x => x.NextAttemptAtUtc, dead ? null : timeProvider.GetUtcNow().UtcDateTime.AddSeconds(delays[attempts - 1])).Set(x => x.CompletedAtUtc, dead ? timeProvider.GetUtcNow().UtcDateTime : null).Unset(x => x.LeaseOwner).Unset(x => x.LeaseExpiresAtUtc), cancellationToken: ct);
     }
     private Task ReportAsync(LevelTransitionEvent e, string name, string outcome, CancellationToken ct) => reports.WriteAsync(new(e.GuildId, ReportCategories.Activity, name, outcome, e.Source, e.UserId, Metadata: new Dictionary<string, object?> { ["userId"] = e.UserId, ["level"] = e.NewLevel, ["source"] = e.Source }, SubjectId: e.UserId), ct);
+
+    internal static LevelTransitionCause ResolveCause(LevelTransitionEvent transition, XpLedgerEntry? ledger) => new(
+        transition.Source,
+        string.IsNullOrWhiteSpace(transition.CauseKey) ? transition.LedgerGrantKey ?? transition.EventKey : transition.CauseKey,
+        transition.GainedXp != 0 ? transition.GainedXp : transition.NewTotalXp - transition.PreviousTotalXp,
+        transition.SourceChannelId ?? ledger?.ChannelId,
+        transition.LedgerGrantKey,
+        transition.SuppressAnnouncement || ledger != null && XpLedgerSemantics.GetEffectiveKind(ledger) == XpLedgerEntryKind.SystemMigration);
 }

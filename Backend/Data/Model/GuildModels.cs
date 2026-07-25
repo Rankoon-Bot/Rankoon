@@ -21,6 +21,7 @@ public sealed class GuildXpSettings
     [BsonElement("server_booster")] public ServerBoosterXpSettings ServerBooster { get; set; } = new();
     [BsonElement("level_roles")] public List<LevelRole> LevelRoles { get; set; } = [];
     [BsonElement("level_up_channel_id")] public ulong? LevelUpChannelId { get; set; }
+    [BsonElement("revision")] public long Revision { get; set; }
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -45,6 +46,7 @@ public sealed class MemberXp
     // Historical name retained for BSON compatibility; this is the external import basis for all supported formats.
     [BsonElement("imported_mee6_xp")] public decimal ImportedMee6Xp { get; set; }
     [BsonElement("earned_xp")] public decimal EarnedXp { get; set; }
+    [BsonElement("voice_xp")] public decimal VoiceXp { get; set; }
     [BsonElement("manual_adjustment")] public decimal ManualAdjustment { get; set; }
     [BsonElement("total_xp")] public decimal TotalXp { get; set; }
     [BsonElement("is_current_member")] public bool IsCurrentMember { get; set; } = true;
@@ -143,9 +145,12 @@ public sealed class VoiceSession
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("user_id")] public ulong UserId { get; set; }
     [BsonElement("channel_id")] public ulong ChannelId { get; set; }
+    [BsonElement("session_id")] public string SessionId { get; set; } = string.Empty;
     [BsonElement("joined_at")] public DateTime JoinedAt { get; set; }
+    [BsonElement("eligibility_started_at")] public DateTime? EligibilityStartedAt { get; set; }
     [BsonElement("last_accrued_at")] public DateTime LastAccruedAt { get; set; }
     [BsonElement("eligible_seconds")] public long EligibleSeconds { get; set; }
+    [BsonElement("revision")] public long Revision { get; set; }
 }
 
 public sealed class VcHub
@@ -178,9 +183,20 @@ public sealed class GuildStats
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("xp_awarded")] public decimal XpAwarded { get; set; }
+    [BsonElement("voice_xp_awarded")] public decimal VoiceXpAwarded { get; set; }
+    [BsonElement("voice_seconds")] public long VoiceSeconds { get; set; }
     [BsonElement("messages")] public long Messages { get; set; }
     [BsonElement("reactions")] public long Reactions { get; set; }
     [BsonElement("threads")] public long Threads { get; set; }
     [BsonElement("event_interests")] public long EventInterests { get; set; }
     [BsonElement("temporary_channels_created")] public long TemporaryChannelsCreated { get; set; }
+}
+
+public sealed class XpProjectionLease
+{
+    [BsonId] public string Key { get; set; } = string.Empty;
+    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonElement("user_id")] public ulong UserId { get; set; }
+    [BsonElement("owner_id")] public string OwnerId { get; set; } = string.Empty;
+    [BsonElement("expires_at_utc")] public DateTime ExpiresAtUtc { get; set; }
 }

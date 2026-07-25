@@ -96,6 +96,7 @@ public sealed class SeasonMemberXp
     [BsonElement("display_name")] public string DisplayName { get; set; } = string.Empty;
     [BsonElement("starting_xp")] public decimal StartingXp { get; set; }
     [BsonElement("earned_xp")] public decimal EarnedXp { get; set; }
+    [BsonElement("voice_xp")] public decimal VoiceXp { get; set; }
     [BsonElement("manual_adjustment")] public decimal ManualAdjustment { get; set; }
     [BsonElement("total_xp")] public decimal TotalXp { get; set; }
     [BsonElement("message_count")] public long MessageCount { get; set; }

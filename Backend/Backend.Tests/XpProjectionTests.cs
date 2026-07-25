@@ -61,6 +61,67 @@ public sealed class XpProjectionTests
         Assert.False(XpService.MatchesAutomaticGrant(otherAutomaticGrant, "event_interest"));
     }
 
+    [Fact]
+    public void Recovery_snapshot_uses_claimed_revision_but_only_projected_totals_from_newer_pending_days()
+    {
+        var claimed = new VoiceActivityDay { Id = "a", TotalEligibleSeconds = 10, TotalAwardedXp = 2m, SeasonTotals = [new VoiceSeasonTotal { SeasonId = "s", EligibleSeconds = 10, AwardedXp = 2m }] };
+        var pending = new VoiceActivityDay { Id = "b", TotalEligibleSeconds = 20, TotalAwardedXp = 4m, ProjectedEligibleSeconds = 5, ProjectedXp = 1m, ProjectedSeasonTotals = [new VoiceSeasonTotal { SeasonId = "s", EligibleSeconds = 5, AwardedXp = 1m }] };
+
+        var snapshot = VoiceActivityProjectionService.Snapshot([claimed, pending], claimed);
+
+        Assert.Equal(15, snapshot.EligibleSeconds);
+        Assert.Equal(3m, snapshot.AwardedXp);
+        Assert.Equal(15, snapshot.Seasons["s"].EligibleSeconds);
+    }
+
+    [Fact]
+    public void Expired_lease_recovery_uses_persisted_target_not_new_activity()
+    {
+        var day = new VoiceActivityDay
+        {
+            Id = "a", TotalEligibleSeconds = 20, TotalAwardedXp = 4m, ProjectionRevision = 2,
+            ProjectionTargetRevision = 1, ProjectionTargetEligibleSeconds = 10, ProjectionTargetAwardedXp = 2m,
+            ProjectionTargetSeasonTotals = [new VoiceSeasonTotal { SeasonId = "s", EligibleSeconds = 10, AwardedXp = 2m }]
+        };
+
+        var target = VoiceActivityProjectionService.ProjectionTarget(day);
+
+        Assert.Equal(1, target.ProjectionRevision);
+        Assert.Equal(10, target.TotalEligibleSeconds);
+        Assert.Equal(2m, target.TotalAwardedXp);
+    }
+
+    [Theory]
+    [InlineData(SeasonStatus.Active, true)]
+    [InlineData(SeasonStatus.Closing, true)]
+    [InlineData(SeasonStatus.Closed, false)]
+    [InlineData(null, false)]
+    public void Live_voice_projection_never_mutates_closed_or_missing_seasons(SeasonStatus? status, bool expected)
+    {
+        Assert.Equal(expected, VoiceActivityProjectionService.CanMutateSeason(status));
+    }
+
+    [Fact]
+    public void Pre_cutover_snapshot_excludes_only_migrated_legacy_segments()
+    {
+        var day = new VoiceActivityDay
+        {
+            Id = "a", ProjectedEligibleSeconds = 15, ProjectedXp = 3m,
+            ProjectedSeasonTotals = [new VoiceSeasonTotal { SeasonId = "s", EligibleSeconds = 15, AwardedXp = 3m }],
+            Segments =
+            [
+                new VoiceActivitySegment { SettingsRevision = VoiceLedgerMigrationService.LegacySettingsRevision, EligibleSeconds = 10, AwardedXp = 2m, SeasonId = "s" },
+                new VoiceActivitySegment { SettingsRevision = 1, EligibleSeconds = 5, AwardedXp = 1m, SeasonId = "s" }
+            ]
+        };
+
+        var snapshot = VoiceActivityProjectionService.Snapshot([day], new VoiceActivityDay(), includeLegacy: false);
+
+        Assert.Equal(5, snapshot.EligibleSeconds);
+        Assert.Equal(1m, snapshot.AwardedXp);
+        Assert.Equal(1m, snapshot.Seasons["s"].AwardedXp);
+    }
+
     private static object? Invoke(string name, params object[] arguments) => typeof(XpService)
         .GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!
         .Invoke(null, arguments);

@@ -67,6 +67,8 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
         settings.GuildId = id;
         settings.Voice.MinimumSessionSeconds = Math.Clamp(settings.Voice.MinimumSessionSeconds, 0, 86400);
         ServerBoosterXpSettingsValidator.Normalize(settings.ServerBooster);
+        // Settle open intervals with the persisted revision before changing their qualification or rate.
+        await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
         await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted);
         await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
         await WriteActivityAsync(id, ReportNames.XpSettingsChanged, metadata: new Dictionary<string, object?> { ["enabled"] = settings.Enabled });
