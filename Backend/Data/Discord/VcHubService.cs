@@ -5,10 +5,11 @@ using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
+using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.Discord;
 
-public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDbContext database, IReportWriter reports, TimeProvider timeProvider, ILogger<VcHubService> logger) : BackgroundService
+public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDbContext database, IReportWriter reports, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<VcHubService> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _gates = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _ownerGates = new();
@@ -26,6 +27,7 @@ public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDb
                 {
                     await CleanupAsync(stoppingToken);
                     await ReconcileAllHubsAsync(stoppingToken);
+                    health.Report("voice-hub", WorkerHealthState.Healthy);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -34,6 +36,8 @@ public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDb
                 catch (Exception exception)
                 {
                     logger.LogError(exception, "Temporary voice channel cleanup failed; retrying in one minute");
+                    health.Report("voice-hub", WorkerHealthState.Degraded, exception.GetType().Name);
+                    await errors.RecordAsync(new(exception, "worker", "voice-hub.cleanup", Worker: "voice-hub"), stoppingToken);
                 }
 
                 await Task.Delay(TimeSpan.FromMinutes(1), timeProvider, stoppingToken);
@@ -88,7 +92,7 @@ public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDb
         catch (Exception exception)
         {
             logger.LogError(exception, "Temporary voice channel event failed for user {UserId}", user.Id);
-            if (user is SocketGuildUser member) await WriteErrorAsync(member.Guild.Id, "voice.channel.lifecycle", exception, member.Id, new Dictionary<string, object?> { ["userId"] = member.Id });
+            if (user is SocketGuildUser member) await RecordErrorAsync(member.Guild.Id, "voice.channel.lifecycle", exception, member.Id, new Dictionary<string, object?> { ["userId"] = member.Id });
         }
     }
 
@@ -145,10 +149,10 @@ public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDb
             {
                 await database.GuildStats.UpdateOneAsync(x => x.GuildId == member.Guild.Id, Builders<GuildStats>.Update.SetOnInsert(x => x.GuildId, member.Guild.Id).Inc(x => x.TemporaryChannelsCreated, 1), new UpdateOptions { IsUpsert = true });
             }
-            catch (Exception exception) { await WriteErrorAsync(member.Guild.Id, "voice.channel.stats", exception, member.Id, new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = hub.Id }); }
+            catch (Exception exception) { await RecordErrorAsync(member.Guild.Id, "voice.channel.stats", exception, member.Id, new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = hub.Id }); }
             await WriteReportAsync(new(member.Guild.Id, ReportCategories.Activity, ReportNames.VoiceChannelCreated, ReportOutcomes.Succeeded, ActorId: member.Id, Metadata: new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = hub.Id }));
         }
-        catch (Exception exception) { logger.LogError(exception, "Unable to create temporary voice channel for {UserId}", member.Id); await WriteErrorAsync(member.Guild.Id, "voice.channel.create", exception, member.Id, new Dictionary<string, object?> { ["userId"] = member.Id, ["hubId"] = hub.Id }); }
+        catch (Exception exception) { logger.LogError(exception, "Unable to create temporary voice channel for {UserId}", member.Id); await RecordErrorAsync(member.Guild.Id, "voice.channel.create", exception, member.Id, new Dictionary<string, object?> { ["userId"] = member.Id, ["hubId"] = hub.Id }); }
         finally { gate.Release(); ownerGate.Release(); }
     }
 
@@ -167,7 +171,7 @@ public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDb
         catch (Exception exception)
         {
             logger.LogError(exception, "Unable to delete orphaned temporary voice channel {ChannelId}", channel.Id);
-            await WriteErrorAsync(guild.Id, "voice.channel.compensate.discord", exception, record?.OwnerId, new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = record?.HubId, ["cause"] = cause.GetType().Name });
+            await RecordErrorAsync(guild.Id, "voice.channel.compensate.discord", exception, record?.OwnerId, new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = record?.HubId, ["cause"] = cause.GetType().Name });
         }
         finally { _deletingTemporaryChannels.TryRemove(channel.Id, out _); }
         if (!deleted) return;
@@ -179,7 +183,7 @@ public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDb
         catch (Exception exception)
         {
             logger.LogError(exception, "Unable to remove partial temporary voice channel record {ChannelId}", channel.Id);
-            await WriteErrorAsync(guild.Id, "voice.channel.compensate.database", exception, record?.OwnerId, new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = record?.HubId, ["cause"] = cause.GetType().Name });
+            await RecordErrorAsync(guild.Id, "voice.channel.compensate.database", exception, record?.OwnerId, new Dictionary<string, object?> { ["channelId"] = channel.Id, ["hubId"] = record?.HubId, ["cause"] = cause.GetType().Name });
         }
     }
 
@@ -189,9 +193,9 @@ public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDb
         catch (Exception exception) { logger.LogError(exception, "Unable to write voice hub report {ReportName} for guild {GuildId}", report.Name, report.GuildId); }
     }
 
-    private async Task WriteErrorAsync(ulong guildId, string source, Exception exception, ulong? actorId = null, IReadOnlyDictionary<string, object?>? metadata = null)
+    private async Task RecordErrorAsync(ulong guildId, string source, Exception exception, ulong? actorId = null, IReadOnlyDictionary<string, object?>? metadata = null)
     {
-        try { await reports.WriteErrorAsync(guildId, source, exception, actorId, metadata); }
+        try { await errors.RecordAsync(new(exception, "discord", source, GuildId: guildId, ActorUserId: actorId, Context: metadata)); }
         catch (Exception reportException) { logger.LogError(reportException, "Unable to write voice hub error report {Source} for guild {GuildId}", source, guildId); }
     }
 
@@ -342,7 +346,7 @@ public sealed class VcHubService(IGuildDiscordContextResolver discord, RankoonDb
                 catch (global::Discord.Net.HttpException exception) when (exception.HttpCode == System.Net.HttpStatusCode.Forbidden)
                 {
                     logger.LogWarning(exception, "Temporary voice channel {ChannelId} cannot be deleted because permissions are missing", record.ChannelId);
-                    await WriteErrorAsync(guild.Id, "voice.channel.delete", exception, record.OwnerId, new Dictionary<string, object?> { ["channelId"] = record.ChannelId, ["hubId"] = record.HubId });
+                    await RecordErrorAsync(guild.Id, "voice.channel.delete", exception, record.OwnerId, new Dictionary<string, object?> { ["channelId"] = record.ChannelId, ["hubId"] = record.HubId });
                 }
                 finally { _deletingTemporaryChannels.TryRemove(channel.Id, out _); }
             }

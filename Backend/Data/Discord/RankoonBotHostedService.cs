@@ -1,10 +1,11 @@
 using Discord;
 using Discord.WebSocket;
+using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.Discord;
 
 /// <summary>Owns the Discord gateway lifecycle so module event handlers live with the web host.</summary>
-public sealed class RankoonBotHostedService(DiscordShardedClient client, Microsoft.Extensions.Options.IOptions<Rankoon.Data.Auth.DiscordSettings> settings, Rankoon.Data.Auth.IBotOperatorAccessService botOperatorAccess, ILogger<RankoonBotHostedService> logger) : IHostedLifecycleService
+public sealed class RankoonBotHostedService(DiscordShardedClient client, Microsoft.Extensions.Options.IOptions<Rankoon.Data.Auth.DiscordSettings> settings, Rankoon.Data.Auth.IBotOperatorAccessService botOperatorAccess, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, ILogger<RankoonBotHostedService> logger) : IHostedLifecycleService
 {
     private readonly TaskCompletionSource<bool> startup = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -27,19 +28,21 @@ public sealed class RankoonBotHostedService(DiscordShardedClient client, Microso
     private Task OnShardConnectedAsync(DiscordSocketClient shard)
     {
         logger.LogInformation("Discord shard {ShardId} connected", shard.ShardId);
+        health.Report("discord-gateway", WorkerHealthState.Healthy);
         return Task.CompletedTask;
     }
 
-    private Task OnShardDisconnectedAsync(Exception exception, DiscordSocketClient shard)
+    private async Task OnShardDisconnectedAsync(Exception exception, DiscordSocketClient shard)
     {
+        health.Report("discord-gateway", WorkerHealthState.Degraded, exception.GetType().Name);
+        await errors.RecordAsync(new(exception, "discord", "gateway.disconnected", Worker: "discord-gateway", Context: new Dictionary<string, object?> { ["shardId"] = shard.ShardId }));
         if (exception.ToString().Contains("close 4014", StringComparison.Ordinal))
         {
             logger.LogError(exception, "Discord shard {ShardId} was rejected because a requested Gateway Intent is not enabled in the Discord Developer Portal", shard.ShardId);
-            return Task.CompletedTask;
+            return;
         }
 
         logger.LogWarning(exception, "Discord shard {ShardId} disconnected; Discord.Net will reconnect it automatically", shard.ShardId);
-        return Task.CompletedTask;
     }
 
     private Task OnShardReadyAsync(DiscordSocketClient shard)
@@ -73,6 +76,7 @@ public sealed class RankoonBotHostedService(DiscordShardedClient client, Microso
             await client.StartAsync();
             await botOperatorAccess.WarmAsync(cancellationToken);
             startup.TrySetResult(true);
+            health.Report("discord-gateway", WorkerHealthState.Healthy);
             logger.LogInformation("Discord bot started");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -85,6 +89,8 @@ public sealed class RankoonBotHostedService(DiscordShardedClient client, Microso
             startup.TrySetResult(false);
             UnsubscribeEvents();
             logger.LogError(exception, "Discord bot could not be started; the HTTP backend remains available");
+            health.Report("discord-gateway", WorkerHealthState.Unhealthy, exception.GetType().Name);
+            await errors.RecordAsync(new(exception, "discord", "gateway.start", Worker: "discord-gateway"), CancellationToken.None);
         }
     }
 

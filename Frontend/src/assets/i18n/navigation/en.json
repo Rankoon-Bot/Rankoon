@@ -18,6 +18,8 @@
     "dev": "DEV",
     "devLeaderboard": "Mock leaderboards",
     "diagnostics": "Bot diagnostics",
-    "botManagement": "Bot Management"
+    "botManagement": "Bot Management",
+    "analytics": "Analytics", "analyticsOverview": "Overview", "analyticsXp": "XP", "analyticsVoice": "Voice", "analyticsFeatures": "Features", "analyticsAudit": "Audit",
+    "botOperations": "Bot Operations", "operationsOverview": "Operations Overview", "incidents": "Incidents", "guildHealth": "Guild Health", "globalUsage": "Global Usage"
   }
 }

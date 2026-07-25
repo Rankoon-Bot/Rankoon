@@ -39,6 +39,10 @@
     "reporting": {
       "name": "Berichte",
       "description": "Aktivitäts-, Command- und Fehlerberichte ansehen"
+    },
+    "analytics": {
+      "name": "Analytics",
+      "description": "Server-Analytics und Aktivitätsaudit ansehen"
     }
   },
   "errors": {

@@ -66,6 +66,13 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/bot-management/bot-management.component').then((c) => c.BotManagementComponent),
         canActivate: [botOperatorGuard],
         resolve: { translations: translationScope('bot-management') },
+        children: [
+          { path: '', redirectTo: 'overview', pathMatch: 'full' },
+          { path: 'overview', loadComponent: () => import('./pages/bot-management/operations-overview.component').then(c => c.OperationsOverviewComponent), canActivate: [botOperatorGuard] },
+          { path: 'incidents', loadComponent: () => import('./pages/bot-management/incidents.component').then(c => c.IncidentsComponent), canActivate: [botOperatorGuard] },
+          { path: 'guilds', loadComponent: () => import('./pages/bot-management/guild-health.component').then(c => c.GuildHealthComponent), canActivate: [botOperatorGuard] },
+          { path: 'usage', loadComponent: () => import('./pages/bot-management/global-usage.component').then(c => c.GlobalUsageComponent), canActivate: [botOperatorGuard] },
+        ],
       },
       {
         path: 'server-selection',
@@ -181,37 +188,24 @@ export const routes: Routes = [
         canActivate: [guildGuard, ownerGuard],
         resolve: { translations: translationScope('dev-tools') },
       }] : []),
-      { path: 'logs', redirectTo: '/logs/activity', pathMatch: 'full' },
       {
-        path: 'logs/activity',
-        loadComponent: () =>
-          import('./pages/reports/activity-logs.component').then(
-            (c) => c.ActivityLogsComponent,
-          ),
+        path: 'analytics',
+        loadComponent: () => import('./pages/guild-analytics/analytics-shell.component').then(c => c.AnalyticsShellComponent),
         canActivate: [guildGuard, moduleGuard],
-        data: { module: 'reporting' },
-        resolve: { translations: translationScope('reporting') },
+        data: { module: 'analytics' }, resolve: { translations: translationScope('analytics') },
+        children: [
+          { path: '', redirectTo: 'overview', pathMatch: 'full' },
+          { path: 'overview', loadComponent: () => import('./pages/guild-analytics/analytics-overview.component').then(c => c.AnalyticsOverviewComponent), canActivate: [guildGuard, moduleGuard], data: { module: 'analytics' } },
+          { path: 'xp', loadComponent: () => import('./pages/guild-analytics/analytics-xp.component').then(c => c.AnalyticsXpComponent), canActivate: [guildGuard, moduleGuard], data: { module: 'analytics' } },
+          { path: 'voice', loadComponent: () => import('./pages/guild-analytics/analytics-voice.component').then(c => c.AnalyticsVoiceComponent), canActivate: [guildGuard, moduleGuard], data: { module: 'analytics' } },
+          { path: 'features', loadComponent: () => import('./pages/guild-analytics/analytics-features.component').then(c => c.AnalyticsFeaturesComponent), canActivate: [guildGuard, moduleGuard], data: { module: 'analytics' } },
+          { path: 'audit', loadComponent: () => import('./pages/guild-analytics/analytics-audit.component').then(c => c.AnalyticsAuditComponent), canActivate: [guildGuard, moduleGuard], data: { module: 'analytics' } },
+        ],
       },
-      {
-        path: 'logs/commands',
-        loadComponent: () =>
-          import('./pages/reports/command-usage.component').then(
-            (c) => c.CommandUsageComponent,
-          ),
-        canActivate: [guildGuard, moduleGuard],
-        data: { module: 'reporting' },
-        resolve: { translations: translationScope('reporting') },
-      },
-      {
-        path: 'logs/errors',
-        loadComponent: () =>
-          import('./pages/reports/error-logs.component').then(
-            (c) => c.ErrorLogsComponent,
-          ),
-        canActivate: [guildGuard, moduleGuard],
-        data: { module: 'reporting' },
-        resolve: { translations: translationScope('reporting') },
-      },
+      { path: 'logs', redirectTo: '/analytics/audit', pathMatch: 'full' },
+      { path: 'logs/activity', redirectTo: '/analytics/audit', pathMatch: 'full' },
+      { path: 'logs/commands', redirectTo: '/analytics/features', pathMatch: 'full' },
+      { path: 'logs/errors', redirectTo: '/analytics/audit', pathMatch: 'full' },
     ],
   },
   { path: '**', redirectTo: '' },

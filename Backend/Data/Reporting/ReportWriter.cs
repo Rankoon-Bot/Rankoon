@@ -2,16 +2,17 @@ using System.Globalization;
 using System.Threading.Channels;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
+using Rankoon.Data.Analytics;
+using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.Reporting;
 
 public interface IReportWriter
 {
     Task WriteAsync(ReportWrite report, CancellationToken cancellationToken = default);
-    Task WriteErrorAsync(ulong guildId, string source, Exception exception, ulong? actorId = null, IReadOnlyDictionary<string, object?>? metadata = null, CancellationToken cancellationToken = default);
 }
 
-public sealed class ReportWriter(RankoonDbContext database, TimeProvider timeProvider, ILogger<ReportWriter> logger) : BackgroundService, IReportWriter
+public sealed class ReportWriter(RankoonDbContext database, TimeProvider timeProvider, IGuildAuditWriter audit, IGuildAnalyticsRecorder analytics, ILogger<ReportWriter> logger) : BackgroundService, IReportWriter
 {
     public static readonly TimeSpan Retention = TimeSpan.FromDays(90);
     private const int MaxMetadataEntries = 12;
@@ -30,7 +31,11 @@ public sealed class ReportWriter(RankoonDbContext database, TimeProvider timePro
 
     public Task WriteAsync(ReportWrite report, CancellationToken cancellationToken = default)
     {
+        if (report.Name == ReportNames.XpGranted) return Task.CompletedTask;
         if (report.GuildId == 0 || !IsCategory(report.Category) || !IsToken(report.Name) || !IsToken(report.Outcome)) return Task.CompletedTask;
+        var outcome = report.Outcome == ReportOutcomes.Succeeded ? GuildAnalyticsOutcome.Succeeded : report.Outcome == ReportOutcomes.Failed ? GuildAnalyticsOutcome.Failed : report.Outcome == ReportOutcomes.Rejected ? GuildAnalyticsOutcome.Rejected : GuildAnalyticsOutcome.Skipped;
+        var feature = Feature(report.Name, report.Category);
+        analytics.TryRecord(new(report.GuildId, GuildAnalyticsMetric.EventCount, Feature: feature, Outcome: outcome, Operation: report.Name, Source: report.Action, ChannelId: report.ChannelId, DurationSeconds: (report.DurationMs ?? 0) / 1000d));
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var document = new ReportEvent
         {
@@ -52,15 +57,9 @@ public sealed class ReportWriter(RankoonDbContext database, TimeProvider timePro
             ExpiresAt = now.Add(Retention)
         };
         if (!_queue.Writer.TryWrite(document)) logger.LogWarning("Reporting queue is full; dropping {Category} event for guild {GuildId}", report.Category, report.GuildId);
+        if (report.Category != ReportCategories.Command)
+            _ = WriteAuditSafelyAsync(new(report.GuildId, report.Category, feature.ToString(), report.Action ?? report.Name, report.Outcome, report.ActorId, report.SubjectId?.ToString(), report.ChannelId, report.CorrelationId, report.Metadata), cancellationToken);
         return Task.CompletedTask;
-    }
-
-    public Task WriteErrorAsync(ulong guildId, string source, Exception exception, ulong? actorId = null, IReadOnlyDictionary<string, object?>? metadata = null, CancellationToken cancellationToken = default)
-    {
-        var values = metadata == null ? new Dictionary<string, object?>() : new Dictionary<string, object?>(metadata);
-        values["errorType"] = exception.GetBaseException().GetType().Name;
-        return WriteAsync(new(guildId, ReportCategories.Error, NormalizeToken(source), ReportOutcomes.Failed, ActorId: actorId, Metadata: values,
-            Severity: ReportSeverities.Error, ChannelId: ReadId(values, "channelId"), CorrelationId: ReadText(values, "eventId")), cancellationToken);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -97,7 +96,7 @@ public sealed class ReportWriter(RankoonDbContext database, TimeProvider timePro
                 bool boolean => boolean ? "true" : "false",
                 byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal => Convert.ToString(value, CultureInfo.InvariantCulture),
                 Enum enumValue => enumValue.ToString(),
-                string stringValue => stringValue,
+                string stringValue => SafeToken(stringValue),
                 _ => null
             };
             if (string.IsNullOrWhiteSpace(text)) continue;
@@ -106,7 +105,12 @@ public sealed class ReportWriter(RankoonDbContext database, TimeProvider timePro
         return result;
     }
 
-    private static bool IsCategory(string value) => value is ReportCategories.Activity or ReportCategories.Command or ReportCategories.Error;
+    private static bool IsCategory(string value) => value is ReportCategories.Activity or ReportCategories.Command;
+    private static string? SafeToken(string value)
+    {
+        var redacted = OperationalErrorSanitizer.Redact(value.Trim(), MaxMetadataValueLength);
+        return redacted.Length > 0 && redacted.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-' or ':' or '/') ? redacted : null;
+    }
     private static bool IsSeverity(string? value) => value is ReportSeverities.Info or ReportSeverities.Warning or ReportSeverities.Error or ReportSeverities.Critical;
     private static bool IsToken(string? value) => !string.IsNullOrWhiteSpace(value) && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-');
     private static string NormalizeToken(string value)
@@ -120,14 +124,23 @@ public sealed class ReportWriter(RankoonDbContext database, TimeProvider timePro
         value = value.Trim();
         return value.Length <= 100 && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-') ? value : null;
     }
-    private static ulong? ReadId(IReadOnlyDictionary<string, object?> values, string key) =>
-        values.TryGetValue(key, out var value) && ulong.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), out var id) ? id : null;
-    private static string? ReadText(IReadOnlyDictionary<string, object?> values, string key) =>
-        values.TryGetValue(key, out var value) ? Convert.ToString(value, CultureInfo.InvariantCulture) : null;
     private static string BuildGroupKey(ReportWrite report)
     {
-        if (report.Category != ReportCategories.Error || report.Metadata == null || !report.Metadata.TryGetValue("errorType", out var errorType)) return report.Name;
-        var suffix = NormalizeToken(Convert.ToString(errorType, CultureInfo.InvariantCulture) ?? "unknown");
-        return $"{report.Name}:{suffix}"[..Math.Min(report.Name.Length + suffix.Length + 1, 160)];
+        return report.Name;
+    }
+
+    private static GuildAnalyticsFeature Feature(string name, string category) => category == ReportCategories.Command ? GuildAnalyticsFeature.Commands
+        : name.Contains("voice", StringComparison.Ordinal) ? GuildAnalyticsFeature.Voice
+        : name.Contains("season", StringComparison.Ordinal) ? GuildAnalyticsFeature.Seasons
+        : name.Contains("leaderboard", StringComparison.Ordinal) ? GuildAnalyticsFeature.Leaderboard
+        : name.Contains("self", StringComparison.Ordinal) || name.Contains("role", StringComparison.Ordinal) ? GuildAnalyticsFeature.SelfRoles
+        : name.Contains("xp", StringComparison.Ordinal) ? GuildAnalyticsFeature.Experience
+        : GuildAnalyticsFeature.Discord;
+
+    private async Task WriteAuditSafelyAsync(GuildAuditWrite value, CancellationToken cancellationToken)
+    {
+        try { await audit.WriteAsync(value, cancellationToken); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception exception) { logger.LogError(exception, "Unable to forward legacy report event {Action} to guild audit", value.Action); }
     }
 }

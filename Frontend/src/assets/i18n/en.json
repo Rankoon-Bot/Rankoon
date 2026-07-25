@@ -74,7 +74,11 @@
     "xpAuditEntriesLoad": "Could not load XP history.",
     "xpAdjustmentSave": "Could not save the XP adjustment.",
     "xpAdjustmentReverse": "Could not create the reversal.",
-    "botManagementLoad": "Could not load bot management data."
+    "botManagementLoad": "Could not load bot management data.",
+    "analyticsLoad": "Could not load guild analytics.",
+    "incidentsLoad": "Could not load incidents.",
+    "incidentLoad": "Could not load incident details.",
+    "incidentAction": "Could not update the incident."
   },
   "apiErrors": {
     "request": {

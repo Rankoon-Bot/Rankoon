@@ -1,7 +1,24 @@
 {
   "dashboard": {
-    "welcome": "Welcome back, {{name}}!",
-    "subtitle": "{{guild}}: live activity and module status",
+    "serverOverview": "Server overview",
+    "bots": "bots",
+    "openLeaderboard": "Open leaderboard",
+    "openDiagnostics": "Open diagnostics",
+    "refresh": "Refresh",
+    "needsAttention": "Needs attention",
+    "openSettings": "Open settings",
+    "days7": "7 days",
+    "days30": "30 days",
+    "lastUpdated": "Last updated",
+    "activeMembers": "Active members",
+    "qualifiedVoiceTime": "Qualified voice time",
+    "qualifiedActivities": "Qualified activities",
+    "communityActivity": "Community activity",
+    "noActivity": "No activity recorded in this period.",
+    "recentEvents": "Recent events",
+    "noRecentEvents": "No recent administrative events.",
+    "openLogs": "Open all activity logs",
+    "modules": "Modules",
     "members": "Members",
     "memberStats": "{{members}} server members · {{bots}} bots",
     "voiceActive": "Active in voice",
@@ -16,7 +33,12 @@
     "configureXp": "Configure XP & levels",
     "setupHub": "Set up a voice hub",
     "watchdog": "Watchdog: {{state}}",
-    "messagesReactions": "{{messages}} messages · {{reactions}} reactions"
+    "messagesReactions": "{{messages}} messages · {{reactions}} reactions",
+    "status": { "Healthy": "Everything is working", "Warning": "Warning", "Critical": "Critical", "Disabled": "Disabled", "SetupRequired": "Setup required", "Unknown": "Status unknown", "healthy": "Everything is working", "disabled": "Disabled", "xp": "XP configuration needs attention", "seasonsSetup": "No season scheduled", "announcementSetup": "Announcement setup required", "hubsSetup": "No voice hubs configured", "selfRolesSetup": "No self-role panels configured", "diagnosticsSetup": "No diagnostic scan available", "criticalErrors": "Critical errors recorded", "errors": "Errors recorded", "botUnavailable": "Bot unavailable", "unknown": "Status unknown" },
+    "sources": { "voice": "Voice", "message": "Messages", "reaction": "Reactions", "thread": "Threads", "event": "Events", "other": "Other" },
+    "module": { "xp": "XP & levels", "seasons": "Seasons", "level-up-announcements": "Level-up announcements", "leaderboard": "Leaderboard", "xp-audit": "XP history & adjustments", "voice-hubs": "Voice hubs", "self-roles": "Self-roles", "analytics": "Analytics", "reporting": "Reports & logs", "diagnostics": "Diagnostics", "dashboard-access": "Dashboard access", "bot-identity": "Bot identity" },
+    "metric": { "sources": "XP sources", "xpAwarded": "XP awarded", "levelRoles": "Level roles", "hubs": "Hubs", "created": "Created", "panels": "Panels", "mappings": "Role mappings", "errors": "Errors", "critical": "Critical" },
+    "attention": { "xp": { "title": "XP needs attention" }, "seasons": { "title": "Seasons need setup" }, "level-up-announcements": { "title": "Announcements need setup" }, "voice-hubs": { "title": "Voice hubs need setup" }, "self-roles": { "title": "Self-roles need setup" }, "analytics": { "title": "Analytics needs attention" }, "reporting": { "title": "Reports need attention" }, "diagnostics": { "title": "Diagnostics need setup" } }
   },
   "domain": {
     "reports": {

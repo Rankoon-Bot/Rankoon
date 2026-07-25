@@ -2,11 +2,12 @@ using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
+using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.Discord;
 
 /// <summary>Restores only policy-eligible custom runtimes after the platform gateway and indexes are available.</summary>
-public sealed class CustomBotIdentityHostedService(RankoonDbContext database, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityValidator validator, ApplicationCommandRegistrar commands, IBotRuntimeManager runtimes, IGuildBotAuthority authority, ICustomBotIdentityService identityService, IOptions<CustomBotIdentityOptions> options, TimeProvider timeProvider, ILogger<CustomBotIdentityHostedService> logger) : IHostedService
+public sealed class CustomBotIdentityHostedService(RankoonDbContext database, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityValidator validator, ApplicationCommandRegistrar commands, IBotRuntimeManager runtimes, IGuildBotAuthority authority, ICustomBotIdentityService identityService, IOperationalErrorRecorder errors, IOptions<CustomBotIdentityOptions> options, TimeProvider timeProvider, ILogger<CustomBotIdentityHostedService> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -46,7 +47,7 @@ public sealed class CustomBotIdentityHostedService(RankoonDbContext database, IC
                     Builders<GuildBotIdentity>.Update.Set(x => x.Status, BotIdentityStatus.Active).Set(x => x.LastErrorCode, null).Set(x => x.LastReadyAt, now).Set(x => x.UpdatedAt, now).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);
                 await identityService.CompleteHandoverAsync(identity.GuildId, cancellationToken);
             }
-            catch (Exception exception) when (exception is not OperationCanceledException) { logger.LogWarning(exception, "Custom bot identity {IdentityId} was not restored", identity.Id); }
+            catch (Exception exception) when (exception is not OperationCanceledException) { logger.LogWarning(exception, "Custom bot identity {IdentityId} was not restored", identity.Id); await errors.RecordAsync(new(exception, "worker", "custom-bot.restore", GuildId: identity.GuildId, Worker: "custom-bot-restoration", Context: new Dictionary<string, object?> { ["identityId"] = identity.Id }), cancellationToken); }
             finally { semaphore.Release(); }
         }));
     }

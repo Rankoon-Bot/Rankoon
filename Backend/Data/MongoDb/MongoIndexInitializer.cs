@@ -3,10 +3,11 @@ using MongoDB.Driver;
 using MongoDB.Bson;
 using Rankoon.Data.Model;
 using Rankoon.Data.Xp;
+using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.MongoDb;
 
-public sealed class MongoIndexInitializer(RankoonDbContext database, XpService xp, TimeProvider timeProvider, ILogger<MongoIndexInitializer> logger) : BackgroundService
+public sealed class MongoIndexInitializer(RankoonDbContext database, XpService xp, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<MongoIndexInitializer> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -15,6 +16,7 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
             try
             {
                 await DropObsoleteGuildRolePermissionIndexAsync(stoppingToken);
+                await DropIndexIfPresentAsync(database.GuildAnalyticsBuckets.Indexes, "bucket_dimensions_unique", stoppingToken);
                 var obsoleteHoldbackFilter = Builders<GuildXpSettings>.Filter.Exists("Voice.HoldbackThreshold");
                 var obsoleteHoldbackUpdate = Builders<GuildXpSettings>.Update.Unset("Voice.HoldbackThreshold");
                 await database.GuildXpSettings.UpdateManyAsync(obsoleteHoldbackFilter, obsoleteHoldbackUpdate, cancellationToken: stoppingToken);
@@ -94,6 +96,31 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Category).Ascending(x => x.CorrelationId).Descending(x => x.OccurredAt).Descending("_id"), new CreateIndexOptions { Name = "guild_category_correlation" }),
                     new CreateIndexModel<ReportEvent>(Builders<ReportEvent>.IndexKeys.Ascending(x => x.ExpiresAt), new CreateIndexOptions { Name = "expires_ttl", ExpireAfter = TimeSpan.Zero })
                 ], stoppingToken);
+                await database.GuildAuditEvents.Indexes.CreateManyAsync([
+                    new CreateIndexModel<GuildAuditEvent>(Builders<GuildAuditEvent>.IndexKeys.Ascending(x => x.GuildId).Descending(x => x.OccurredAtUtc).Descending("_id"), new CreateIndexOptions { Name = "guild_occurred" }),
+                    new CreateIndexModel<GuildAuditEvent>(Builders<GuildAuditEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Type).Ascending(x => x.Feature).Descending(x => x.OccurredAtUtc), new CreateIndexOptions { Name = "guild_type_feature_occurred" }),
+                    new CreateIndexModel<GuildAuditEvent>(Builders<GuildAuditEvent>.IndexKeys.Ascending(x => x.ExpiresAtUtc), new CreateIndexOptions { Name = "expires_ttl", ExpireAfter = TimeSpan.Zero })
+                ], stoppingToken);
+                await database.GuildAnalyticsBuckets.Indexes.CreateManyAsync([
+                    new CreateIndexModel<GuildAnalyticsBucket>(Builders<GuildAnalyticsBucket>.IndexKeys
+                        .Ascending(x => x.GuildId).Ascending(x => x.Granularity).Ascending(x => x.BucketStartUtc)
+                        .Ascending(x => x.Metric).Ascending(x => x.Feature).Ascending(x => x.Outcome)
+                        .Ascending(x => x.Operation).Ascending(x => x.Source).Ascending(x => x.Reason).Ascending(x => x.ChannelId), new CreateIndexOptions { Unique = true, Name = "bucket_dimensions_unique_v2" }),
+                    new CreateIndexModel<GuildAnalyticsBucket>(Builders<GuildAnalyticsBucket>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Granularity).Ascending(x => x.BucketStartUtc), new CreateIndexOptions { Name = "guild_granularity_period" }),
+                    new CreateIndexModel<GuildAnalyticsBucket>(Builders<GuildAnalyticsBucket>.IndexKeys.Ascending(x => x.ExpiresAtUtc), new CreateIndexOptions { Name = "expires_ttl", ExpireAfter = TimeSpan.Zero })
+                ], stoppingToken);
+                await database.OperationalErrorOccurrences.Indexes.CreateManyAsync([
+                    new CreateIndexModel<OperationalErrorOccurrence>(Builders<OperationalErrorOccurrence>.IndexKeys.Ascending(x => x.Fingerprint).Descending(x => x.OccurredAtUtc), new CreateIndexOptions { Name = "fingerprint_occurred" }),
+                    new CreateIndexModel<OperationalErrorOccurrence>(Builders<OperationalErrorOccurrence>.IndexKeys.Ascending(x => x.GuildId).Descending(x => x.OccurredAtUtc), new CreateIndexOptions { Name = "guild_occurred", Sparse = true }),
+                    new CreateIndexModel<OperationalErrorOccurrence>(Builders<OperationalErrorOccurrence>.IndexKeys.Descending(x => x.OccurredAtUtc), new CreateIndexOptions { Name = "occurred" }),
+                    new CreateIndexModel<OperationalErrorOccurrence>(Builders<OperationalErrorOccurrence>.IndexKeys.Ascending(x => x.ExpiresAtUtc), new CreateIndexOptions { Name = "expires_ttl", ExpireAfter = TimeSpan.Zero })
+                ], stoppingToken);
+                await database.OperationalIncidents.Indexes.CreateManyAsync([
+                    new CreateIndexModel<OperationalIncident>(Builders<OperationalIncident>.IndexKeys.Ascending(x => x.Fingerprint), new CreateIndexOptions { Unique = true, Name = "fingerprint_unique" }),
+                    new CreateIndexModel<OperationalIncident>(Builders<OperationalIncident>.IndexKeys.Ascending(x => x.Status).Descending(x => x.LastSeenAtUtc), new CreateIndexOptions { Name = "status_last_seen" }),
+                    new CreateIndexModel<OperationalIncident>(Builders<OperationalIncident>.IndexKeys.Ascending(x => x.AffectedGuildIds).Ascending(x => x.Status).Descending(x => x.LastSeenAtUtc), new CreateIndexOptions { Name = "guild_status_last_seen" }),
+                    new CreateIndexModel<OperationalIncident>(Builders<OperationalIncident>.IndexKeys.Ascending(x => x.ExpiresAtUtc), new CreateIndexOptions { Name = "expires_ttl", ExpireAfter = TimeSpan.Zero })
+                ], stoppingToken);
                 var migration = new PipelineUpdateDefinition<MemberXp>(new BsonDocument[]
                 {
                     new BsonDocument("$set", new BsonDocument
@@ -128,6 +155,7 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                 await database.MemberXp.UpdateManyAsync(invalidNormalizedName, normalizeNames, cancellationToken: stoppingToken);
                 await MigrateLegacyManualAdjustmentsAsync(stoppingToken);
                 logger.LogInformation("MongoDB indexes initialized");
+                health.Report("mongo-index-initializer", WorkerHealthState.Healthy);
                 return;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -137,6 +165,8 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
             catch (Exception exception)
             {
                 logger.LogError(exception, "MongoDB index initialization failed; retrying in 30 seconds");
+                health.Report("mongo-index-initializer", WorkerHealthState.Degraded, exception.GetType().Name);
+                await errors.RecordAsync(new(exception, "worker", "mongo.index-initialization", Worker: "mongo-index-initializer"), stoppingToken);
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(30), timeProvider, stoppingToken);
@@ -147,6 +177,12 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                 }
             }
         }
+    }
+
+    private static async Task DropIndexIfPresentAsync<T>(IMongoIndexManager<T> indexes, string name, CancellationToken cancellationToken)
+    {
+        using var cursor = await indexes.ListAsync(cancellationToken);
+        if ((await cursor.ToListAsync(cancellationToken)).Any(index => index["name"] == name)) await indexes.DropOneAsync(name, cancellationToken);
     }
 
     private async Task DropObsoleteGuildRolePermissionIndexAsync(CancellationToken cancellationToken)

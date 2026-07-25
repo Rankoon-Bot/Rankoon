@@ -16,6 +16,8 @@ using Rankoon.Data.Discord;
 using Rankoon.Data.Diagnostics;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
+using Rankoon.Data.Analytics;
+using Rankoon.Data.Operations;
 using Rankoon.Data.Utils;
 using Rankoon.Api;
 using Rankoon.Hubs;
@@ -139,10 +141,18 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeyRingPath))
 
 // Register database context
 builder.Services.AddSingleton<RankoonDbContext>();
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ReportWriter>();
 builder.Services.AddSingleton<IReportWriter>(services => services.GetRequiredService<ReportWriter>());
 builder.Services.AddSingleton<IReportQueryService, ReportQueryService>();
-builder.Services.AddSingleton<IBotManagementOverviewService, BotManagementOverviewService>();
+builder.Services.AddSingleton<GuildAnalyticsRecorder>();
+builder.Services.AddSingleton<IGuildAnalyticsRecorder>(services => services.GetRequiredService<GuildAnalyticsRecorder>());
+builder.Services.AddSingleton<IGuildAnalyticsQueryService, GuildAnalyticsQueryService>();
+builder.Services.AddSingleton<IGuildAuditWriter, GuildAuditWriter>();
+builder.Services.AddSingleton<IOperationalErrorRecorder, OperationalErrorRecorder>();
+builder.Services.AddSingleton<IWorkerHealthRegistry, WorkerHealthRegistry>();
+builder.Services.AddSingleton<IOperationsQueryService, OperationsQueryService>();
+builder.Services.AddSingleton<ISignedCursorService, SignedCursorService>();
 
 // Register HTTP client for Discord API calls
 builder.Services.AddHttpClient<IDiscordService, DiscordService>();
@@ -200,10 +210,12 @@ builder.Services.AddSingleton<SelfRoleReactionService>();
 builder.Services.AddSingleton<IPermissionRequirementCatalog, PermissionRequirementCatalog>();
 builder.Services.AddSingleton<IDiagnosticReportCache, DiagnosticReportCache>();
 builder.Services.AddSingleton<IBotPermissionDiagnosticService, BotPermissionDiagnosticService>();
+builder.Services.AddScoped<Rankoon.Data.Dashboard.IDashboardOverviewService, Rankoon.Data.Dashboard.DashboardOverviewService>();
 
 if (!builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddHostedService(services => services.GetRequiredService<ReportWriter>());
+    builder.Services.AddHostedService(services => services.GetRequiredService<GuildAnalyticsRecorder>());
     builder.Services.AddHostedService<MongoIndexInitializer>();
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LedgerProjectionRepairService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
@@ -270,6 +282,13 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     context.RequestServices.GetRequiredService<ILoggerFactory>()
         .CreateLogger("ApiExceptionHandler")
         .LogError(exception, "Unhandled exception for {Method} {Path}; trace ID {TraceId}", context.Request.Method, context.Request.Path, context.TraceIdentifier);
+    if (exception != null)
+    {
+        ulong? guildId = context.Request.RouteValues.TryGetValue("guildId", out var routeGuild) && ulong.TryParse(Convert.ToString(routeGuild), out var parsedGuild) ? parsedGuild : null;
+        var route = context.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Routing.RouteNameMetadata>()?.RouteName ?? context.Request.Path.Value;
+        var correlation = context.Request.Headers.TryGetValue("X-Correlation-ID", out var header) ? header.ToString() : context.TraceIdentifier;
+        await context.RequestServices.GetRequiredService<IOperationalErrorRecorder>().RecordAsync(new(exception, "aspnet", "unhandled_request", GuildId: guildId, Route: route, CorrelationId: correlation, TraceId: System.Diagnostics.Activity.Current?.TraceId.ToString(), Build: typeof(Program).Assembly.GetName().Version?.ToString(), Context: new Dictionary<string, object?> { ["method"] = context.Request.Method }), CancellationToken.None);
+    }
     if (!context.Response.HasStarted)
     {
         context.Response.Clear();
@@ -318,6 +337,8 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
         .Bind(builder.Configuration.GetSection(VoiceWatchdogOptions.SectionName))
         .Validate(options => options.IntervalSeconds > 0, "VoiceWatchdog:IntervalSeconds must be greater than zero.")
         .ValidateOnStart();
+    builder.Services.AddOptions<AnalyticsRetentionOptions>().Bind(builder.Configuration.GetSection(AnalyticsRetentionOptions.SectionName)).ValidateOnStart();
+    builder.Services.AddOptions<ReportingRetentionOptions>().Bind(builder.Configuration.GetSection(ReportingRetentionOptions.SectionName)).ValidateOnStart();
     builder.Services.Configure<MongoDbSettings>(
         builder.Configuration.GetSection(MongoDbSettings.SectionName));
     builder.Services.Configure<DiscordSettings>(

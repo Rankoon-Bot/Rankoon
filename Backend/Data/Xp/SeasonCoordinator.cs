@@ -2,12 +2,13 @@ using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
+using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.Xp;
 
 public sealed record SeasonCoordinatorStatus(DateTimeOffset? LastRunAt, string? LastError, int EnabledGuildCount = 0, int LeasesHeld = 0);
 
-public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycleService lifecycle, TimeProvider timeProvider, ILogger<SeasonCoordinator> logger) : BackgroundService
+public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycleService lifecycle, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<SeasonCoordinator> logger) : BackgroundService
 {
     private readonly string instanceId = Guid.NewGuid().ToString("N");
     private volatile SeasonCoordinatorStatus status = new(null, null);
@@ -21,6 +22,7 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
             {
                 var run = await RunOnceAsync(stoppingToken);
                 status = new(timeProvider.GetUtcNow(), null, run.EnabledGuildCount, run.LeasesHeld);
+                health.Report("season-coordinator", WorkerHealthState.Healthy);
                 await Task.Delay(TimeSpan.FromMinutes(1), timeProvider, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
@@ -28,6 +30,8 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
             {
                 logger.LogError(exception, "Season coordinator failed");
                 status = new(timeProvider.GetUtcNow(), exception.GetBaseException().GetType().Name);
+                health.Report("season-coordinator", WorkerHealthState.Degraded, exception.GetType().Name);
+                await errors.RecordAsync(new(exception, "worker", "season.coordinator", Worker: "season-coordinator"), stoppingToken);
                 await Task.Delay(TimeSpan.FromSeconds(30), timeProvider, stoppingToken);
             }
         }

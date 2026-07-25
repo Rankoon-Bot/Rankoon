@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
+using Rankoon.Data.Analytics;
 
 namespace Rankoon.Data.Xp;
 
@@ -21,7 +22,7 @@ public interface IXpService
 
 public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null, int? CooldownSeconds = null, bool SuppressReport = false, decimal? AppliedServerBoosterMultiplier = null);
 
-public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IReportWriter reports, ILeaderboardRealtimePublisher realtime, ILevelTransitionService transitions, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
+public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IGuildAnalyticsRecorder analytics, ILeaderboardRealtimePublisher realtime, ILevelTransitionService transitions, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
 {
     public async Task<GuildXpSettings> GetSettingsAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
@@ -97,13 +98,11 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id, Builders<XpLedgerEntry>.Update.Set(x => x.CooldownAcquired, true), cancellationToken: cancellationToken);
         }
         await ProjectAsync(ledger, cancellationToken);
-        if (inserted && !request.SuppressReport) await reports.WriteAsync(new(request.GuildId, ReportCategories.Activity, ReportNames.XpGranted, ReportOutcomes.Succeeded, request.Source, request.UserId, Metadata: new Dictionary<string, object?>
+        if (inserted && !request.SuppressReport)
         {
-            ["source"] = request.Source,
-            ["amount"] = request.Amount,
-            ["channelId"] = request.ChannelId,
-            ["seasonId"] = ledger.SeasonId
-        }, SubjectId: request.UserId, ChannelId: request.ChannelId), cancellationToken);
+            var duration = request.Source == "voice" && request.PeriodStartsAtUtc is { } starts && request.PeriodEndsAtUtc is { } ends ? Math.Max(0, (ends - starts).TotalSeconds) : 0;
+            analytics.TryRecord(new(request.GuildId, GuildAnalyticsMetric.Quantity, (long)decimal.Round(request.Amount, 0), request.Source == "voice" ? GuildAnalyticsFeature.Voice : GuildAnalyticsFeature.Experience, GuildAnalyticsOutcome.Succeeded, "xp.grant", request.Source, ChannelId: request.ChannelId, DurationSeconds: duration, OccurredAt: occurredAtUtc));
+        }
         logger.LogDebug("Granted {Amount} {Source} XP to {UserId} in {GuildId}", request.Amount, request.Source, request.UserId, request.GuildId);
         return true;
     }

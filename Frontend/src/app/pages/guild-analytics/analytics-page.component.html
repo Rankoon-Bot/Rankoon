@@ -1,0 +1,46 @@
+<main class="analytics-page">
+  <header class="rk-page-header">
+    <div>
+      <p class="rk-page-header__eyebrow">{{ 'analytics.eyebrow' | transloco }}</p>
+      <h1>{{ ('analytics.pages.' + page() + '.title') | transloco }}</h1>
+      <p class="rk-page-header__description">{{ ('analytics.pages.' + page() + '.description') | transloco }}</p>
+    </div>
+    <div class="range" role="group" [attr.aria-label]="'analytics.range' | transloco">
+      @for (option of ranges; track option) {
+        <button type="button" [attr.aria-pressed]="range() === option" [class.active]="range() === option" (click)="rangeChange.emit(option)">{{ ('analytics.ranges.' + option) | transloco }}</button>
+      }
+    </div>
+  </header>
+
+  @if (loading() && !data()) {
+    <section class="rk-panel state" role="status"><span class="rk-skeleton"></span><p>{{ 'analytics.loading' | transloco }}</p></section>
+  } @else if (error() && !data()) {
+    <section class="rk-notice rk-notice--danger state" role="alert"><p>{{ error() }}</p><button class="rk-button" type="button" (click)="retry.emit()">{{ 'common.retry' | transloco }}</button></section>
+  } @else {
+    @if (data(); as report) {
+    @if (report.kpis.length === 0 && report.trend.length === 0 && report.breakdown.length === 0 && report.insights.length === 0) {
+      <section class="rk-panel state"><div class="mascot-slot" aria-hidden="true"></div><h2>{{ 'analytics.empty.title' | transloco }}</h2><p>{{ 'analytics.empty.description' | transloco }}</p></section>
+    } @else {
+      <section class="kpis" [attr.aria-label]="'analytics.kpis' | transloco">
+        @for (kpi of kpis(); track kpi.code) {
+          <article class="rk-panel"><span>{{ label('kpis', kpi.code) }}</span><strong>{{ kpi.value | number }}</strong><small [class.positive]="kpi.direction === 'up'" [class.negative]="kpi.direction === 'down'">{{ kpi.changePercent === null ? ('analytics.noComparison' | transloco) : (kpi.changePercent | number:'1.0-1') + '%' }} &middot; {{ 'analytics.previous' | transloco }} {{ kpi.previousValue === null ? '-' : (kpi.previousValue | number) }}</small></article>
+        }
+      </section>
+      <section class="content-grid">
+        <article class="rk-panel trend-panel">
+          <div class="section-heading"><div><h2>{{ 'analytics.trend' | transloco }}</h2><p>{{ 'analytics.trendHint' | transloco }}</p></div><span>{{ locale.date(report.generatedAt, { dateStyle: 'medium', timeStyle: 'short' }) }}</span></div>
+          @if (report.trend.length) {
+            <div class="bars" role="img" [attr.aria-label]="'analytics.trendAria' | transloco:{ count: report.trend.length }">
+              @for (point of report.trend; track point.timestamp) { <span [style.height.%]="point.value / maxTrend() * 100" aria-hidden="true"></span> }
+            </div>
+            <details><summary>{{ 'analytics.accessibleData' | transloco }}</summary><ul class="data-list">@for (point of report.trend; track point.timestamp) { <li><time>{{ locale.date(point.timestamp, { dateStyle: 'medium', timeStyle: 'short' }) }}</time><strong>{{ point.value | number }}</strong><span>{{ 'analytics.previous' | transloco }}: {{ point.previousValue === null ? '-' : (point.previousValue | number) }}</span></li> }</ul></details>
+          } @else { <p class="muted">{{ 'analytics.empty.trend' | transloco }}</p> }
+        </article>
+        <article class="rk-panel"><h2>{{ 'analytics.breakdown' | transloco }}</h2><ul class="data-list">@for (item of report.breakdown; track item.code + item.label) { <li><span>{{ item.label || label('breakdowns', item.code) }}</span><strong>{{ item.value | number }}</strong><small>{{ item.changePercent === null ? ('analytics.noComparison' | transloco) : (item.changePercent | number:'1.0-1') + '%' }}</small></li> } @empty { <li class="muted">{{ 'analytics.empty.breakdown' | transloco }}</li> }</ul></article>
+      </section>
+      <section class="rk-panel"><h2>{{ 'analytics.insights' | transloco }}</h2><ul class="insights">@for (item of report.insights; track item.code) { <li [class]="item.severity"><strong>{{ label('insights', item.code) }}</strong><p>{{ insight(item.code, item.context) }}</p><code>{{ item.code }}</code></li> } @empty { <li class="muted">{{ 'analytics.empty.insights' | transloco }}</li> }</ul></section>
+    }
+    @if (error()) { <div class="rk-notice rk-notice--danger" role="alert">{{ error() }}</div> }
+    }
+  }
+</main>

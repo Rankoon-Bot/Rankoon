@@ -110,7 +110,7 @@ public sealed class ReportQueryService(RankoonDbContext database, IOptions<JwtSe
     private NormalizedQuery Normalize(ulong guildId, string category, ReportQuery query, ReportCursorPayload? cursor = null)
     {
         if (guildId == 0) throw new ArgumentException("A guild is required.");
-        if (category is not (ReportCategories.Activity or ReportCategories.Command or ReportCategories.Error)) throw new ArgumentException("Invalid report category.");
+        if (category is not (ReportCategories.Activity or ReportCategories.Command)) throw new ArgumentException("Invalid report category.");
         var now = timeProvider.GetUtcNow();
         var to = cursor == null ? query.To?.ToUniversalTime() ?? now : new DateTimeOffset(cursor.ToTicks, TimeSpan.Zero);
         if (to > now) to = now;

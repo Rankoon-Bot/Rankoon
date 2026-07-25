@@ -5,6 +5,7 @@ using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Xp;
+using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.Discord;
 
@@ -23,7 +24,7 @@ public sealed class DiscordAnnouncementSender : IDiscordAnnouncementSender
     }
 }
 
-public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDiscordContextResolver discord, LevelRoleService roles, ILevelUpTemplateRenderer renderer, LevelUpTemplateSelector selector, IDiscordAnnouncementSender sender, IReportWriter reports, TimeProvider timeProvider, ILogger<LevelProgressionWorker> logger) : BackgroundService
+public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDiscordContextResolver discord, LevelRoleService roles, ILevelUpTemplateRenderer renderer, LevelUpTemplateSelector selector, IDiscordAnnouncementSender sender, IReportWriter reports, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<LevelProgressionWorker> logger) : BackgroundService
 {
     private readonly string owner = Guid.NewGuid().ToString("N");
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -34,10 +35,11 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
             {
                 var work = await database.LevelTransitionEvents.Find(x => (x.Status == LevelTransitionStatus.Pending || x.Status == LevelTransitionStatus.RetryScheduled) && x.NextAttemptAtUtc <= timeProvider.GetUtcNow().UtcDateTime).Limit(20).ToListAsync(stoppingToken);
                 foreach (var item in work) await ProcessAsync(item, stoppingToken);
+                health.Report("level-progression", WorkerHealthState.Healthy);
                 await Task.Delay(work.Count == 0 ? TimeSpan.FromSeconds(5) : TimeSpan.FromMilliseconds(50), timeProvider, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
-            catch (Exception exception) { logger.LogError(exception, "Level progression worker failed"); await Task.Delay(TimeSpan.FromSeconds(10), timeProvider, stoppingToken); }
+            catch (Exception exception) { logger.LogError(exception, "Level progression worker failed"); health.Report("level-progression", WorkerHealthState.Degraded, exception.GetType().Name); await errors.RecordAsync(new(exception, "worker", "level.progression", Worker: "level-progression"), stoppingToken); await Task.Delay(TimeSpan.FromSeconds(10), timeProvider, stoppingToken); }
         }
     }
 
@@ -73,7 +75,7 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
             await database.LevelTransitionEvents.UpdateOneAsync(x => x.Id == claimed.Id && x.LeaseOwner == owner, Builders<LevelTransitionEvent>.Update.Set(x => x.Status, LevelTransitionStatus.Delivered).Set(x => x.DiscordMessageId, messageId).Set(x => x.DeliveryChannelId, channel.Id).Set(x => x.SelectedTemplateId, selection.Template.Id).Set(x => x.CompletedAtUtc, timeProvider.GetUtcNow().UtcDateTime).Unset(x => x.LeaseOwner).Unset(x => x.LeaseExpiresAtUtc), cancellationToken: cancellationToken);
             await ReportAsync(claimed, ReportNames.LevelAnnouncementSent, ReportOutcomes.Succeeded, cancellationToken);
         }
-        catch (Exception exception) { logger.LogWarning(exception, "Level announcement delivery failed for {EventKey}", claimed.EventKey); await FailAsync(claimed, "discordTemporaryFailure", true, cancellationToken); }
+        catch (Exception exception) { logger.LogWarning(exception, "Level announcement delivery failed for {EventKey}", claimed.EventKey); await errors.RecordAsync(new(exception, "discord", "level.announcement", GuildId: claimed.GuildId, Worker: "level-progression", Context: new Dictionary<string, object?> { ["eventId"] = claimed.EventKey }), cancellationToken); await FailAsync(claimed, "discordTemporaryFailure", true, cancellationToken); }
     }
     private Task CompleteAsync(LevelTransitionEvent e, LevelTransitionStatus status, string? error, CancellationToken ct) => database.LevelTransitionEvents.UpdateOneAsync(x => x.Id == e.Id && x.LeaseOwner == owner, Builders<LevelTransitionEvent>.Update.Set(x => x.Status, status).Set(x => x.LastErrorCode, error).Set(x => x.CompletedAtUtc, timeProvider.GetUtcNow().UtcDateTime).Unset(x => x.LeaseOwner).Unset(x => x.LeaseExpiresAtUtc), cancellationToken: ct);
     private Task FailAsync(LevelTransitionEvent e, string code, bool temporary, CancellationToken ct)

@@ -26,7 +26,7 @@ public interface IBotOperatorAccessService
 /// <summary>Resolves Discord application operators without exposing application metadata to callers.</summary>
 public sealed class BotOperatorAccessService(DiscordShardedClient discord, TimeProvider timeProvider, ILogger<BotOperatorAccessService> logger) : IBotOperatorAccessService
 {
-    private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(45);
     private readonly SemaphoreSlim refreshLock = new(1, 1);
     private CachedApplication? cache;
 

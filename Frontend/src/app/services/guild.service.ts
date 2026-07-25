@@ -37,30 +37,6 @@ export interface XpImportResult {
   skippedForeignGuild: number;
   duplicateUsers: number;
 }
-export interface DashboardData {
-  guildName: string;
-  leaderboardAlias: string;
-  memberCount: string | number;
-  botCount: string | number;
-  activeVoiceMembers: number;
-  activeXpMembers: string | number;
-  stats: {
-    xpAwarded: string | number;
-    messages: string | number;
-    reactions: string | number;
-    threads: string | number;
-    eventInterests: string | number;
-    temporaryChannelsCreated: string | number;
-  };
-  activeTemporaryChannels: string | number;
-  processUptimeSeconds: number;
-  watchdog: {
-    state: string;
-    lastRunAt: string | null;
-    lastError: string | null;
-  };
-  leaderboard: RankEntry[];
-}
 export interface ServerBoosterXpTier {
   minimumBoostMonths: number;
   multiplier: number;
@@ -366,9 +342,6 @@ export class GuildService {
   private readonly http = inject(HttpClient);
   private url(guildId: string, path: string): string {
     return `${environment.apiBaseUrl}/guilds/${guildId}/${path}`;
-  }
-  dashboard(guildId: string): Observable<DashboardData> {
-    return this.http.get<DashboardData>(this.url(guildId, 'dashboard'));
   }
   capabilities(guildId: string): Observable<GuildCapabilities> {
     return this.http.get<GuildCapabilities>(this.url(guildId, 'capabilities'));

@@ -11,6 +11,7 @@ public static class GuildModuleIds
     public const string Leaderboard = "leaderboard";
     public const string VoiceHubs = "voice-hubs";
     public const string Reporting = "reporting";
+    public const string Analytics = "analytics";
     public const string SelfRoles = "self-roles";
     public const string XpAudit = "xp-audit";
     public const string XpAdjustments = "xp-adjustments";
@@ -33,7 +34,7 @@ public sealed class GuildModuleRegistry : IGuildModuleRegistry
         new(GuildModuleIds.Xp),
         new(GuildModuleIds.Leaderboard),
         new(GuildModuleIds.VoiceHubs),
-        new(GuildModuleIds.Reporting),
+        new(GuildModuleIds.Analytics),
         new(GuildModuleIds.SelfRoles),
         new(GuildModuleIds.XpAudit),
         new(GuildModuleIds.XpAdjustments),
@@ -97,7 +98,10 @@ public sealed class GuildRolePermissionService(RankoonDbContext database, IGuild
     grants.Select(grant => new GuildRoleModuleGrant
     {
         RoleId = grant.RoleId,
-        ModuleIds = grant.ModuleIds.Contains(GuildModuleIds.XpAdjustments) ?
-        [.. grant.ModuleIds.Append(GuildModuleIds.XpAudit).Distinct(StringComparer.Ordinal)] : grant.ModuleIds
+        ModuleIds = [.. grant.ModuleIds
+            .Where(moduleId => moduleId != GuildModuleIds.Reporting)
+            .Concat(grant.ModuleIds.Contains(GuildModuleIds.XpAdjustments) ? [GuildModuleIds.XpAudit] : [])
+            .Concat(grant.ModuleIds.Contains(GuildModuleIds.Reporting) ? [GuildModuleIds.Analytics] : [])
+            .Distinct(StringComparer.Ordinal)]
     });
 }

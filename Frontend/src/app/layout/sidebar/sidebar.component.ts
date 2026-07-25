@@ -70,7 +70,12 @@ export class SidebarComponent {
   readonly menuItems = computed<MenuItem[]>(() => {
     this.locale.locale();
     const capabilities = this.appStore.guildCapabilities();
-    const operatorItem = this.authStore.isBotOperator() ? [{ label: this.i18n.translate('nav.botManagement'), route: '/bot-management', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5"/></svg>` }] : [];
+    const operatorItem: MenuItem[] = this.authStore.isBotOperator() ? [{ label: this.i18n.translate('nav.botOperations'), route: '/bot-management/overview', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 9h8M8 13h5"/></svg>`, children: [
+      { label: this.i18n.translate('nav.operationsOverview'), route: '/bot-management/overview', icon: '' },
+      { label: this.i18n.translate('nav.incidents'), route: '/bot-management/incidents', icon: '' },
+      { label: this.i18n.translate('nav.guildHealth'), route: '/bot-management/guilds', icon: '' },
+      { label: this.i18n.translate('nav.globalUsage'), route: '/bot-management/usage', icon: '' },
+    ] }] : [];
     if (!capabilities || capabilities.guildId !== this.appStore.selectedGuild()?.id) return operatorItem;
 
     const items: MenuItem[] = [{
@@ -90,6 +95,7 @@ export class SidebarComponent {
       </svg>`
     });
     const hasModule = (moduleId: GuildModuleId) => capabilities.isOwner || capabilities.moduleIds.includes(moduleId);
+    const hasAnalytics = capabilities.isOwner || capabilities.moduleIds.includes('analytics') || capabilities.moduleIds.includes('reporting');
     if (hasModule('xp')) items.push({
        label: this.i18n.translate('nav.xp'),
        route: '/xp',
@@ -122,9 +128,9 @@ export class SidebarComponent {
       route: '/server-config/roles',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 11 2 2 4-4"/></svg>`
     });
-    if (hasModule('reporting')) items.push({
-       label: this.i18n.translate('nav.reports'),
-      route: '/logs',
+    if (hasAnalytics) items.push({
+       label: this.i18n.translate('nav.analytics'),
+       route: '/analytics/overview',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
         <polyline points="14,2 14,8 20,8"/>
@@ -132,11 +138,13 @@ export class SidebarComponent {
         <line x1="16" y1="17" x2="8" y2="17"/>
         <polyline points="10,9 9,9 8,9"/>
       </svg>`,
-      children: [
-         { label: this.i18n.translate('nav.activity'), route: '/logs/activity', icon: '' },
-         { label: this.i18n.translate('nav.commands'), route: '/logs/commands', icon: '' },
-         { label: this.i18n.translate('nav.errors'), route: '/logs/errors', icon: '' }
-      ]
+       children: [
+          { label: this.i18n.translate('nav.analyticsOverview'), route: '/analytics/overview', icon: '' },
+          { label: this.i18n.translate('nav.analyticsXp'), route: '/analytics/xp', icon: '' },
+          { label: this.i18n.translate('nav.analyticsVoice'), route: '/analytics/voice', icon: '' },
+          { label: this.i18n.translate('nav.analyticsFeatures'), route: '/analytics/features', icon: '' },
+          { label: this.i18n.translate('nav.analyticsAudit'), route: '/analytics/audit', icon: '' }
+       ]
     });
     if (capabilities.isOwner && this.botIdentityAccess.visible()) items.push({ label: this.i18n.translate('nav.botIdentity'), route: '/server-config/bot-identity', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 10h.01M15 10h.01M8 15h8"/></svg>` });
     if (hasModule('diagnostics')) items.push({

@@ -14,22 +14,28 @@ namespace Rankoon.Controllers;
 public sealed class ReportsController(IGuildAuthorizationService authorization, IReportQueryService reports) : ControllerBase
 {
     [HttpGet("activity")]
+    [Obsolete("Use guild analytics.")]
     public Task<IActionResult> Activity(string guildId, [FromQuery] ReportQuery query) => ListAsync(guildId, ReportCategories.Activity, query);
 
     [HttpGet("activity/summary")]
+    [Obsolete("Use guild analytics.")]
     public Task<IActionResult> ActivitySummary(string guildId, [FromQuery] ReportQuery query) => SummaryAsync(guildId, ReportCategories.Activity, query);
 
     [HttpGet("commands")]
+    [Obsolete("Use guild analytics.")]
     public Task<IActionResult> Commands(string guildId, [FromQuery] ReportQuery query) => ListAsync(guildId, ReportCategories.Command, query);
 
     [HttpGet("commands/summary")]
+    [Obsolete("Use guild analytics.")]
     public Task<IActionResult> CommandsSummary(string guildId, [FromQuery] ReportQuery query) => SummaryAsync(guildId, ReportCategories.Command, query);
 
     [HttpGet("errors")]
-    public Task<IActionResult> Errors(string guildId, [FromQuery] ReportQuery query) => ListAsync(guildId, ReportCategories.Error, query);
+    [Obsolete("Gone. Use bot-management incidents.")]
+    public IActionResult Errors() => StatusCode(StatusCodes.Status410Gone);
 
     [HttpGet("errors/summary")]
-    public Task<IActionResult> ErrorsSummary(string guildId, [FromQuery] ReportQuery query) => SummaryAsync(guildId, ReportCategories.Error, query);
+    [Obsolete("Gone. Use bot-management incidents.")]
+    public IActionResult ErrorsSummary() => StatusCode(StatusCodes.Status410Gone);
 
     private async Task<IActionResult> ListAsync(string guildId, string category, ReportQuery query)
     {

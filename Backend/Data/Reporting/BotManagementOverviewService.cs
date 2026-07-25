@@ -22,7 +22,7 @@ public sealed class BotManagementOverviewService(RankoonDbContext database, Disc
         var to = timeProvider.GetUtcNow();
         var from = to - RangeDuration(range);
         var usageFrom = from < to.AddDays(-30) ? from : to.AddDays(-30);
-        var events = await database.ReportEvents.Find(Builders<ReportEvent>.Filter.Gte(x => x.OccurredAt, usageFrom.UtcDateTime) & Builders<ReportEvent>.Filter.Lte(x => x.OccurredAt, to.UtcDateTime) & Builders<ReportEvent>.Filter.In(x => x.Category, [ReportCategories.Activity, ReportCategories.Command, ReportCategories.Error])).ToListAsync(cancellationToken);
+        var events = await database.ReportEvents.Find(Builders<ReportEvent>.Filter.Gte(x => x.OccurredAt, usageFrom.UtcDateTime) & Builders<ReportEvent>.Filter.Lte(x => x.OccurredAt, to.UtcDateTime) & Builders<ReportEvent>.Filter.In(x => x.Category, [ReportCategories.Activity, ReportCategories.Command])).ToListAsync(cancellationToken);
         var byGuild = events.GroupBy(x => x.GuildId).ToDictionary(x => x.Key);
         var guilds = discord.Guilds.Select(guild => BuildGuild(guild, byGuild.TryGetValue(guild.Id, out var reports) ? reports.ToArray() : Array.Empty<ReportEvent>(), from, to)).OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToArray();
         return new(to, new(RangeKey(range), from, to), new(guilds.Length, guilds.Sum(x => (long)x.MemberCount), guilds.Count(x => x.ActivityEventCount + x.CommandEventCount > 0), guilds.Sum(x => x.ActivityEventCount), guilds.Sum(x => x.CommandEventCount), guilds.Sum(x => x.ErrorEventCount)), guilds);
@@ -33,7 +33,7 @@ public sealed class BotManagementOverviewService(RankoonDbContext database, Disc
         var period = events.Where(x => x.OccurredAt >= from.UtcDateTime && x.OccurredAt <= to.UtcDateTime).ToArray();
         var activity = period.LongCount(x => x.Category == ReportCategories.Activity);
         var commands = period.LongCount(x => x.Category == ReportCategories.Command);
-        var errors = period.LongCount(x => x.Category == ReportCategories.Error);
+        const long errors = 0;
         var failed = period.LongCount(x => x.Outcome == ReportOutcomes.Failed);
         var usage = events.Where(x => x.Category is ReportCategories.Activity or ReportCategories.Command).ToArray();
         DateTimeOffset? last = usage.Length == 0 ? null : new DateTimeOffset(DateTime.SpecifyKind(usage.Max(x => x.OccurredAt), DateTimeKind.Utc));

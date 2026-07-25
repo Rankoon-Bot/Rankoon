@@ -83,6 +83,8 @@ public sealed class GuildAuthorizationService(
             .SelectMany(grant => grant.ModuleIds)
             .ToHashSet(StringComparer.Ordinal);
         if (grantedIds.Contains(GuildModuleIds.XpAdjustments)) grantedIds.Add(GuildModuleIds.XpAudit);
+        if (grantedIds.Contains(GuildModuleIds.Reporting)) grantedIds.Add(GuildModuleIds.Analytics);
+        if (grantedIds.Contains(GuildModuleIds.Analytics)) grantedIds.Add(GuildModuleIds.Reporting);
         return modules.Modules.Where(module => grantedIds.Contains(module.Id)).Select(module => module.Id).ToArray();
     }
 

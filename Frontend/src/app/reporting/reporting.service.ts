@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { forkJoin, map } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ActivityEventDto, ActivityQuery, ActivityReportDto, CommandInvocationDto, CommandQuery, CommandReportDto, DateRangeQuery, ErrorEventDto, ErrorQuery, ErrorReportDto, ReportItemDto, ReportListDto, ReportStatus, ReportSummaryDto } from './reporting.models';
+import { ActivityEventDto, ActivityQuery, ActivityReportDto, CommandInvocationDto, CommandQuery, CommandReportDto, DateRangeQuery, ReportItemDto, ReportListDto, ReportStatus, ReportSummaryDto } from './reporting.models';
 import { TranslocoService } from '@jsverse/transloco';
 import { DomainValueService } from '../i18n/domain-value.service';
 
@@ -32,24 +32,6 @@ export class ReportingService {
          trend: summary.trend.map(point => ({ timestamp: point.timestamp, value: this.number(point.total), secondaryValue: this.number(point.failed) })),
          byCommand: summary.groups.map(group => ({ command: group.key, invocations: this.number(group.count), successRate: this.number(group.count) ? this.number(group.succeeded) / this.number(group.count) : 0, averageDurationMs: this.number(group.averageDurationMs) })),
         recent: { items: recent, nextCursor: list.nextCursor, hasMore: list.nextCursor !== null }
-      };
-    }));
-  }
-
-  errors(guildId: string, query: ErrorQuery): Observable<ErrorReportDto> {
-    return this.request(guildId, 'errors', query, { name: query.source, severity: query.severity, correlationId: query.correlationId }).pipe(map(({ list, summary }) => {
-      const rawItems = list.items;
-      const events = rawItems.map(item => this.errorItem(item));
-      return {
-        summary: {
-          totalErrors: this.number(summary.total),
-          affectedUsers: this.number(summary.uniqueActors),
-          affectedCommands: this.number(summary.uniqueCommands),
-          unresolvedErrors: this.number(summary.failed)
-        },
-        groups: summary.groups.map(group => ({ fingerprint: group.key, title: this.domain.errorSource(group.key), source: this.domain.errorSource(group.key), severity: 'error' as const, count: this.number(group.count), firstSeenAt: group.firstSeenAt, lastSeenAt: group.lastSeenAt })),
-        events: { items: events, nextCursor: list.nextCursor, hasMore: list.nextCursor !== null },
-        availableSources: summary.byName.map(group => group.key)
       };
     }));
   }
@@ -84,14 +66,7 @@ export class ReportingService {
      return { id: item.id, occurredAt: item.occurredAt, command: item.name, userId: item.actorId ?? '', userName: item.actorId ?? this.i18n.translate('common.system'), channelName: item.channelId, durationMs: this.number(item.durationMs), succeeded: item.outcome === 'succeeded', status: this.status(item.outcome), outcome: this.domain.outcome(item.outcome), correlationId: item.correlationId };
   }
 
-  private errorItem(item: ReportItemDto): ErrorEventDto {
-    const source = item.action ?? item.name;
-     const sourceLabel = this.domain.errorSource(source);
-     return { id: item.id, occurredAt: item.occurredAt, title: item.metadata['errorType'] ?? this.domain.errorSource(item.name), message: this.i18n.translate('reports.errorIn', { source: sourceLabel }), source: sourceLabel, severity: this.errorSeverity(item), command: item.metadata['command'] ?? null, userId: item.actorId, userName: item.actorId, correlationId: item.correlationId, stackTrace: null, metadata: item.metadata };
-  }
-
   private status(outcome: string): ReportStatus { return outcome === 'succeeded' ? 'success' : outcome === 'rejected' ? 'warning' : outcome === 'failed' ? 'error' : 'info'; }
-  private errorSeverity(item: ReportItemDto): ErrorEventDto['severity'] { return item.severity === 'critical' ? 'critical' : item.severity === 'warning' ? 'warning' : 'error'; }
   private number(value: string | number | null | undefined): number { const result = Number(value ?? 0); return Number.isFinite(result) ? result : 0; }
   private utc(value: string): string { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toISOString(); }
 }

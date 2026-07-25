@@ -13,6 +13,8 @@ describe('translation catalogs', () => {
     'leaderboard-settings',
     'role-permissions',
     'reporting',
+    'analytics',
+    'bot-management',
     'self-roles',
     'custom-bot-identity',
     'xp',

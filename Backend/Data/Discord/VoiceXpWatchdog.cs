@@ -6,7 +6,8 @@ using Microsoft.Extensions.Options;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Xp;
-using Rankoon.Data.Reporting;
+using Rankoon.Data.Operations;
+using Rankoon.Data.Analytics;
 
 namespace Rankoon.Data.Discord;
 
@@ -14,7 +15,7 @@ public enum VoiceWatchdogState { Starting, Healthy, Degraded, Stale, Restarting,
 public sealed record VoiceWatchdogStatus(ulong GuildId, VoiceWatchdogState State, DateTimeOffset? LastRunAt, DateTimeOffset? LastPersistenceAt, int ConnectedUsers, int EligibleUsers, int ExcludedUsers, string? LastError, int IntervalSeconds);
 
 /// <summary>Rankoon-owned, per-guild voice reconciliation worker inspired by SharedVcWatchdog.</summary>
-public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, ServerBoosterXpMultiplierResolver boosterMultipliers, IReportWriter reports, TimeProvider timeProvider, IOptions<VoiceWatchdogOptions> options, ILogger<VoiceXpWatchdog> logger) : BackgroundService
+public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, ServerBoosterXpMultiplierResolver boosterMultipliers, IGuildAnalyticsRecorder analytics, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, IOptions<VoiceWatchdogOptions> options, ILogger<VoiceXpWatchdog> logger) : BackgroundService
 {
     private readonly ConcurrentDictionary<ulong, VoiceWatchdogStatus> _statuses = new();
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _guildGates = new();
@@ -37,6 +38,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
                 foreach (var guildId in guildIds)
                     if (await discord.ResolveAsync(guildId, stoppingToken) is { } context)
                         await ReconcileGuildAsync(context.Guild, stoppingToken);
+                health.Report("voice-xp-watchdog", WorkerHealthState.Healthy);
                 await Task.Delay(_interval, timeProvider, stoppingToken);
             }
         }
@@ -53,7 +55,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         catch (Exception exception)
         {
             logger.LogError(exception, "Voice XP event failed for user {UserId}", user.Id);
-            if (user is SocketGuildUser member) await reports.WriteErrorAsync(member.Guild.Id, "voice.xp.lifecycle", exception, user.Id, new Dictionary<string, object?> { ["userId"] = user.Id });
+            if (user is SocketGuildUser member) await errors.RecordAsync(new(exception, "discord", "voice.xp.lifecycle", GuildId: member.Guild.Id, ActorUserId: user.Id, Worker: "voice-xp-watchdog"));
         }
     }
 
@@ -126,7 +128,8 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         catch (Exception exception)
         {
             logger.LogError(exception, "Voice watchdog failed for guild {GuildId}", guild.Id);
-            await reports.WriteErrorAsync(guild.Id, "voice.watchdog", exception, metadata: new Dictionary<string, object?> { ["state"] = VoiceWatchdogState.Degraded });
+            health.Report("voice-xp-watchdog", WorkerHealthState.Degraded, exception.GetType().Name);
+            await errors.RecordAsync(new(exception, "worker", "voice.watchdog", GuildId: guild.Id, Worker: "voice-xp-watchdog", Context: new Dictionary<string, object?> { ["state"] = VoiceWatchdogState.Degraded }));
             _statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Degraded, timeProvider.GetUtcNow(), null, 0, 0, 0, exception.GetBaseException().GetType().Name, (int)_interval.TotalSeconds);
         }
     }
@@ -141,6 +144,11 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         var excluded = settings.ExcludedChannelIds.Contains(channel.Id) || (channel.CategoryId.HasValue && settings.ExcludedCategoryIds.Contains(channel.CategoryId.Value)) || member.Roles.Any(x => settings.ExcludedRoleIds.Contains(x.Id)) || member.VoiceState is { IsDeafened: true } || (settings.Voice.ExcludeAfkChannel && guild.AFKChannel?.Id == channel.Id);
         var humans = channel.ConnectedUsers.Count(x => !x.IsBot && x.VoiceState is not { IsDeafened: true });
         var eligible = !excluded && (!settings.Voice.RequireMultipleHumans || humans > 1) && totalSeconds >= settings.Voice.MinimumSessionSeconds;
+        if (!eligible)
+        {
+            var reason = excluded ? "excluded" : humans <= 1 && settings.Voice.RequireMultipleHumans ? "insufficientParticipants" : "minimumDuration";
+            analytics.TryRecord(new(guild.Id, GuildAnalyticsMetric.EventCount, Feature: GuildAnalyticsFeature.Voice, Outcome: GuildAnalyticsOutcome.Skipped, Operation: "voice.qualification", Source: "voice", Reason: reason, ChannelId: channel.Id, OccurredAt: new DateTimeOffset(now)));
+        }
         // The first qualifying settlement books the whole session, including time before the minimum was reached.
         var periodStart = PeriodStart(session, eligible);
         if (eligible && now > periodStart)

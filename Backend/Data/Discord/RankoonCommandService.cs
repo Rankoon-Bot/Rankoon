@@ -9,6 +9,7 @@ using Rankoon.Data.Auth;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Xp;
+using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.Discord;
 
@@ -41,7 +42,7 @@ public sealed class RankoonCommandSchemaProvider
     ];
 }
 
-public sealed class ApplicationCommandRegistrar(RankoonCommandSchemaProvider schema, IOptions<DiscordSettings> settings, IHttpClientFactory clients, RankoonDbContext database, TimeProvider timeProvider, ILogger<ApplicationCommandRegistrar> logger)
+public sealed class ApplicationCommandRegistrar(RankoonCommandSchemaProvider schema, IOptions<DiscordSettings> settings, IHttpClientFactory clients, RankoonDbContext database, IOperationalErrorRecorder errors, TimeProvider timeProvider, ILogger<ApplicationCommandRegistrar> logger)
 {
     private int platformRegistered;
 
@@ -71,12 +72,13 @@ public sealed class ApplicationCommandRegistrar(RankoonCommandSchemaProvider sch
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogWarning(exception, "Command registration failed for runtime {RuntimeId} guild {GuildId}", runtime.RuntimeId, runtime.Guild.Id);
+            await errors.RecordAsync(new(exception, "discord", "command.registration", GuildId: runtime.Guild.Id, Build: RankoonCommandSchemaProvider.Version), cancellationToken);
             return false;
         }
     }
 }
 
-public sealed class RankoonInteractionHandler(IXpService xp, VcHubService hubs, IReportWriter reports, ILogger<RankoonInteractionHandler> logger)
+public sealed class RankoonInteractionHandler(IXpService xp, VcHubService hubs, IReportWriter reports, Rankoon.Data.Operations.IOperationalErrorRecorder errors, ILogger<RankoonInteractionHandler> logger)
 {
     public async Task HandleAsync(SocketInteraction interaction)
     {
@@ -92,7 +94,7 @@ public sealed class RankoonInteractionHandler(IXpService xp, VcHubService hubs, 
         catch (Exception exception)
         {
             logger.LogError(exception, "Discord interaction {InteractionId} failed", interaction.Id);
-            await reports.WriteErrorAsync(guildId, "discord.command", exception, command.User.Id, new Dictionary<string, object?> { ["command"] = command.Data.Name, ["eventId"] = command.Id, ["channelId"] = command.ChannelId });
+            await errors.RecordAsync(new(exception, "discord", "command", GuildId: guildId, ActorUserId: command.User.Id, ChannelId: command.ChannelId, Command: command.Data.Name, CorrelationId: command.Id.ToString()));
         }
     }
 

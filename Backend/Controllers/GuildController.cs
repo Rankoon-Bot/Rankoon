@@ -10,6 +10,7 @@ using Rankoon.Data.MongoDb;
 using Rankoon.Data.Xp;
 using Rankoon.Data.Xp.Import;
 using Rankoon.Data.Reporting;
+using Rankoon.Data.Dashboard;
 using Rankoon.Api;
 
 namespace Rankoon.Controllers;
@@ -17,7 +18,7 @@ namespace Rankoon.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}")]
-public sealed class GuildController(IGuildAuthorizationService authorization, IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, LeaderboardService leaderboard, IXpImportService xpImport, VoiceXpWatchdog watchdog, VcHubService hubs, IReportWriter reports) : ControllerBase
+public sealed class GuildController(IGuildAuthorizationService authorization, IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, IXpImportService xpImport, VoiceXpWatchdog watchdog, VcHubService hubs, IReportWriter reports, IDashboardOverviewService dashboard) : ControllerBase
 {
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeGuildAsync(string guildId, string? moduleId = null)
     {
@@ -30,17 +31,12 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
     }
 
     [HttpGet("dashboard")]
-    public async Task<IActionResult> Dashboard(string guildId)
+    public async Task<IActionResult> Dashboard(string guildId, [FromQuery] string? period = null)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId); if (error != null) return error;
-        var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild; if (guild == null) return NotFound();
-        var stats = await database.GuildStats.Find(x => x.GuildId == id).FirstOrDefaultAsync() ?? new GuildStats { GuildId = id };
-        var botCount = guild.Users.Count(user => user.IsBot);
-        var activeVc = guild.VoiceChannels.Sum(x => x.ConnectedUsers.Count(user => !user.IsBot));
-        var activeTemp = await database.TemporaryVoiceChannels.CountDocumentsAsync(x => x.GuildId == id);
-        var top = await xp.GetLeaderboardAsync(id, 5, HttpContext.RequestAborted);
-        var leaderboardSettings = await leaderboard.GetOrCreateSettingsAsync(id, guild.Name, HttpContext.RequestAborted);
-        return Ok(new { guildName = guild.Name, leaderboardAlias = leaderboardSettings.Alias, memberCount = guild.MemberCount - botCount, botCount, activeVoiceMembers = activeVc, activeXpMembers = await database.MemberXp.CountDocumentsAsync(x => x.GuildId == id), stats = new { xpAwarded = decimal.Truncate(stats.XpAwarded), stats.Messages, stats.Reactions, stats.Threads, stats.EventInterests, stats.TemporaryChannelsCreated }, activeTemporaryChannels = activeTemp, processUptimeSeconds = (long)(DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalSeconds, watchdog = watchdog.GetStatus(id), leaderboard = top.Select(ToRank) });
+        var selected = string.IsNullOrWhiteSpace(period) ? DashboardPeriod.SevenDays : Enum.TryParse<DashboardPeriod>(period, true, out var value) && Enum.IsDefined(value) ? value : (DashboardPeriod?)null;
+        if (selected == null) return this.ApiError("dashboard.invalidPeriod");
+        return Ok(await dashboard.GetAsync(User, id, selected.Value, HttpContext.RequestAborted));
     }
 
     [HttpGet("resources")]

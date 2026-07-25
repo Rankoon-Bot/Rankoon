@@ -7,12 +7,13 @@ Ein modernes Dashboard zur Verwaltung des Rankoon Discord Bots, entwickelt mit A
 - **Discord OAuth2 Authentifizierung** - Sichere Anmeldung über Discord mit Backend-Token-System
 - **Modernes Dashboard Design** - Intuitive Benutzeroberfläche mit responsivem Design
 - **Angular Signals Store** - Moderne State Management Lösung
-- **Modular aufgebaut** - Erweiterbar für verschiedene Bot-Module:
+- **Modular aufgebaut** - Serververwaltung und Betrieb sind klar getrennt:
   - Server Konfiguration
   - Moderation (Automod, Warns, Bans)
   - Economy System
   - Fun & Games
-  - Logs & Analytics
+  - Server-Analytics mit Überblick, XP, Voice, Feature-Nutzung und Audit
+  - Bot Operations mit Vorfällen, Serverzustand und globaler Nutzung
 
 ## � Authentifizierung
 
@@ -160,7 +161,7 @@ npm test
 - [ ] Moderation Dashboard
 - [ ] Economy System Verwaltung
 - [ ] Custom Commands Editor
-- [ ] Analytics & Reporting
+- [x] Analytics & Reporting
 - [ ] Real-time Updates via WebSockets
 - [ ] Multi-Language Support
 

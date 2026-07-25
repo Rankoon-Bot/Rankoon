@@ -39,6 +39,10 @@
     "reporting": {
       "name": "Reports",
       "description": "View activity, command and error reports"
+    },
+    "analytics": {
+      "name": "Analytics",
+      "description": "View server analytics and the activity audit"
     }
   },
   "errors": {

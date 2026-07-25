@@ -74,7 +74,11 @@
     "xpAuditEntriesLoad": "XP-Verlauf konnte nicht geladen werden.",
     "xpAdjustmentSave": "Die XP-Korrektur konnte nicht gespeichert werden.",
     "xpAdjustmentReverse": "Die Gegenbuchung konnte nicht erstellt werden.",
-    "botManagementLoad": "Die Bot-Verwaltungsdaten konnten nicht geladen werden."
+    "botManagementLoad": "Die Bot-Verwaltungsdaten konnten nicht geladen werden.",
+    "analyticsLoad": "Die Server-Analytics konnten nicht geladen werden.",
+    "incidentsLoad": "Die Vorfälle konnten nicht geladen werden.",
+    "incidentLoad": "Die Vorfallsdetails konnten nicht geladen werden.",
+    "incidentAction": "Der Vorfall konnte nicht aktualisiert werden."
   },
   "apiErrors": {
     "request": {

@@ -6,6 +6,7 @@ public static class ReportCategories
 {
     public const string Activity = "activity";
     public const string Command = "command";
+    [Obsolete("Operational errors are stored as sanitized occurrences and incidents, not legacy reports.")]
     public const string Error = "error";
 }
 
