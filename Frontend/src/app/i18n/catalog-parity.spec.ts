@@ -1,4 +1,5 @@
 import { KNOWN_API_ERROR_KEYS } from '../models/api-error.model';
+import { SUPPORTED_LOCALES } from './locale.service';
 
 describe('translation catalogs', () => {
   const expectedKeyCount = 1393;
@@ -45,15 +46,20 @@ describe('translation catalogs', () => {
   const catalog = (lang: string) =>
     fetch(`/assets/i18n/${lang}.json`).then((response) => response.json());
 
-  it('keeps the consolidated English and German catalogs in parity', async () => {
-    const [en, de] = await Promise.all([catalog('en'), catalog('de')]);
-    expect(flatten(de).sort()).toEqual(flatten(en).sort());
-    expect(flatten(en)).toHaveSize(expectedKeyCount);
-    expect(Object.keys(en).sort()).toEqual(namespaces.sort());
+  it('keeps every consolidated language catalog in parity', async () => {
+    const catalogs = await Promise.all(
+      SUPPORTED_LOCALES.map((language) => catalog(language)),
+    );
+    const englishKeys = flatten(catalogs[0]).sort();
+    for (const translation of catalogs) {
+      expect(flatten(translation).sort()).toEqual(englishKeys);
+      expect(flatten(translation)).toHaveSize(expectedKeyCount);
+      expect(Object.keys(translation).sort()).toEqual([...namespaces].sort());
+    }
   });
 
   it('contains every frontend-known API error key', async () => {
-    for (const lang of ['en', 'de']) {
+    for (const lang of SUPPORTED_LOCALES) {
       const keys = flatten(await catalog(lang));
       for (const errorKey of KNOWN_API_ERROR_KEYS)
         expect(keys).toContain(`apiErrors.${errorKey}`);
@@ -61,13 +67,13 @@ describe('translation catalogs', () => {
     }
   });
 
-  it('contains English and German server booster settings copy', async () => {
+  it('contains server booster settings copy in every language', async () => {
     const requiredKeys = [
       'xp.boosterTitle', 'xp.boosterDescription', 'xp.boosterAddTier', 'xp.boosterRemove',
       'xp.boosterThresholdHint', 'xp.boosterLastTierHint', 'xp.boosterMonthsValidation',
       'xp.boosterDuplicateValidation', 'xp.boosterMultiplierValidation', 'xp.boosterOrderValidation'
     ];
-    for (const lang of ['en', 'de']) {
+    for (const lang of SUPPORTED_LOCALES) {
       const keys = flatten(await catalog(lang));
       for (const key of requiredKeys) expect(keys).toContain(key);
     }

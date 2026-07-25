@@ -7,7 +7,7 @@ import { routes } from './app.routes';
 import { authInterceptor } from './interceptors/auth.interceptor';
 import { TranslocoHttpLoader } from './i18n/transloco-http.loader';
 import { initializeTranslations } from './i18n/i18n.initializer';
-import { LocaleService } from './i18n/locale.service';
+import { LocaleService, SUPPORTED_LOCALES } from './i18n/locale.service';
 import { AuthService } from './services/auth.service';
 
 export const appConfig: ApplicationConfig = {
@@ -18,7 +18,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([authInterceptor])),
     provideTransloco({
       config: {
-        availableLangs: ['en', 'de'],
+        availableLangs: [...SUPPORTED_LOCALES],
         defaultLang: 'en',
         fallbackLang: 'en',
         reRenderOnLangChange: true,

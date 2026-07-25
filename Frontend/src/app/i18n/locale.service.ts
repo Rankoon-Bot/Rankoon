@@ -2,13 +2,16 @@ import { DOCUMENT } from '@angular/common';
 import { Injectable, inject, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 
-export type AppLocale = 'en' | 'de';
+export const SUPPORTED_LOCALES = ['en', 'de', 'es', 'pt', 'fr', 'it'] as const;
+export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 export const LOCALE_STORAGE_KEY = 'rankoon_locale';
 
 export function resolveLocale(persisted: string | null, browserLocales: readonly string[]): AppLocale {
   const normalize = (value: string): AppLocale | null => {
     const language = value.toLowerCase().split(/[-_]/)[0];
-    return language === 'en' || language === 'de' ? language : null;
+    return SUPPORTED_LOCALES.includes(language as AppLocale)
+      ? (language as AppLocale)
+      : null;
   };
   const persistedLocale = persisted ? normalize(persisted) : null;
   if (persistedLocale) return persistedLocale;
@@ -41,16 +44,16 @@ export class LocaleService {
   }
 
   number(value: string | number, options?: Intl.NumberFormatOptions): string {
-    return new Intl.NumberFormat(this.activeLocale(), options).format(Number(value));
+    return new Intl.NumberFormat(this.intlLocale(), options).format(Number(value));
   }
 
   date(value: string | Date, options: Intl.DateTimeFormatOptions): string {
-    return new Intl.DateTimeFormat(this.activeLocale(), options).format(new Date(value));
+    return new Intl.DateTimeFormat(this.intlLocale(), options).format(new Date(value));
   }
 
   plural(value: string | number, oneKey: string, otherKey: string, params: Record<string, string | number> = {}): string {
     const count = Number(value);
-    const key = new Intl.PluralRules(this.activeLocale()).select(count) === 'one' ? oneKey : otherKey;
+    const key = new Intl.PluralRules(this.intlLocale()).select(count) === 'one' ? oneKey : otherKey;
     return this.transloco.translate(key, { ...params, count: this.number(count) });
   }
 
@@ -61,6 +64,12 @@ export class LocaleService {
 
   private normalize(value: string, fallback: AppLocale | null = 'en'): AppLocale | null {
     const language = value.toLowerCase().split(/[-_]/)[0];
-    return language === 'en' || language === 'de' ? language : fallback;
+    return SUPPORTED_LOCALES.includes(language as AppLocale)
+      ? (language as AppLocale)
+      : fallback;
+  }
+
+  private intlLocale(): string {
+    return this.activeLocale() === 'pt' ? 'pt-PT' : this.activeLocale();
   }
 }

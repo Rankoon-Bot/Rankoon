@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { AppLocale, LocaleService } from '../../i18n/locale.service';
+import { AppLocale, LocaleService, SUPPORTED_LOCALES } from '../../i18n/locale.service';
 
 @Component({
   selector: 'app-language-switcher',
@@ -10,8 +10,9 @@ import { AppLocale, LocaleService } from '../../i18n/locale.service';
     <label class="language">
       <span class="sr-only">{{ 'language.label' | transloco }}</span>
       <select [value]="locale.locale()" (change)="change($event)" [attr.aria-label]="'language.label' | transloco">
-        <option value="en">EN</option>
-        <option value="de">DE</option>
+        @for (language of languages; track language) {
+          <option [value]="language">{{ language.toUpperCase() }}</option>
+        }
       </select>
     </label>
   `,
@@ -25,6 +26,7 @@ import { AppLocale, LocaleService } from '../../i18n/locale.service';
 })
 export class LanguageSwitcherComponent {
   readonly locale = inject(LocaleService);
+  readonly languages = SUPPORTED_LOCALES;
 
   change(event: Event): void {
     this.locale.setLocale((event.target as HTMLSelectElement).value as AppLocale);

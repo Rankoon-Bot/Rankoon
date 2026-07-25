@@ -1,4 +1,5 @@
 import { TranslocoTestingModule } from '@jsverse/transloco';
+import { SUPPORTED_LOCALES } from '../i18n/locale.service';
 
 export const testI18n = TranslocoTestingModule.forRoot({
   langs: {
@@ -27,8 +28,12 @@ export const testI18n = TranslocoTestingModule.forRoot({
         reporting: { name: 'Berichte', description: 'Berichte ansehen' }
       },
       rolePermissions: { saved: 'Rollenberechtigungen gespeichert.' }
-    }
+    },
+    es: { app: { title: 'Panel de control de Rankoon' } },
+    pt: { app: { title: 'Plataforma de controlo Rankoon' } },
+    fr: { app: { title: 'Centre de contrôle Rankoon' } },
+    it: { app: { title: 'Pannello di controllo Rankoon' } },
   },
-  translocoConfig: { availableLangs: ['en', 'de'], defaultLang: 'en', fallbackLang: 'en' },
+  translocoConfig: { availableLangs: [...SUPPORTED_LOCALES], defaultLang: 'en', fallbackLang: 'en' },
   preloadLangs: true
 });

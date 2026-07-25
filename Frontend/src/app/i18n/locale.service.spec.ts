@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { TranslocoService } from '@jsverse/transloco';
 import { testI18n } from '../testing/i18n-testing';
-import { LOCALE_STORAGE_KEY, LocaleService, resolveLocale } from './locale.service';
+import { LOCALE_STORAGE_KEY, LocaleService, resolveLocale, SUPPORTED_LOCALES } from './locale.service';
 
 describe('LocaleService', () => {
   beforeEach(() => {
@@ -30,9 +30,12 @@ describe('LocaleService', () => {
   });
 
   it('uses a supported browser language and falls back to English', () => {
-    expect(resolveLocale(null, ['fr-FR', 'de-AT'])).toBe('de');
-    expect(resolveLocale(null, ['fr-FR'])).toBe('en');
-    expect(resolveLocale('fr-FR', ['de-DE'])).toBe('de');
+    expect(resolveLocale(null, ['nl-NL', 'de-AT'])).toBe('de');
+    expect(resolveLocale(null, ['nl-NL'])).toBe('en');
+    expect(resolveLocale('fr-FR', ['de-DE'])).toBe('fr');
+    expect(resolveLocale(null, ['es-MX'])).toBe('es');
+    expect(resolveLocale(null, ['pt-BR'])).toBe('pt');
+    expect(resolveLocale(null, ['it-IT'])).toBe('it');
   });
 
   it('persists changes and updates document metadata and formatting', async () => {
@@ -45,5 +48,18 @@ describe('LocaleService', () => {
     expect(document.documentElement.lang).toBe('de');
     expect(document.title).toBe('Rankoon Kontrollzentrum');
     expect(locale.number(1234.5)).toContain(',');
+  });
+
+  it('activates every supported locale', async () => {
+    const locale = TestBed.inject(LocaleService);
+    const transloco = TestBed.inject(TranslocoService);
+
+    for (const language of SUPPORTED_LOCALES) {
+      locale.setLocale(language);
+      await transloco.load(language).toPromise();
+      expect(locale.locale()).toBe(language);
+      expect(transloco.getActiveLang()).toBe(language);
+      expect(document.documentElement.lang).toBe(language);
+    }
   });
 });
