@@ -1325,6 +1325,7 @@
     "loading": "Chargement des hubs vocaux...",
     "existingChannel": "Canal hub existant",
     "createByBot": "Créer avec un bot",
+    "useExisting": "Utiliser un salon vocal existant",
     "newName": "Nouveau nom du hub",
     "createPlaceholder": "Créer un canal vocal",
     "category": "Catégorie cible",
@@ -1709,5 +1710,7 @@
       "system_migration": "Migration du système",
       "other": "Autre entrée XP"
     }
-  }
+  },
+  "channelPicker": { "clear": "Clear channel", "filterTypes": "Filter channel types", "loading": "Loading channels...", "search": "Search channels", "empty": "No matching channels are available.", "noResults": "No channels match your search.", "unknown": "Unknown channel", "types": { "Text": "Text channel", "Voice": "Voice channel", "Category": "Category", "Announcement": "Announcement channel", "Forum": "Forum", "Stage": "Stage channel", "Thread": "Thread", "Unknown": "Unknown channel" } },
+  "saveBar": { "unsaved": "Unsaved changes", "reset": "Reset changes", "invalid": "Fix highlighted fields before saving." }
 }

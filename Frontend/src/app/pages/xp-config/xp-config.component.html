@@ -5,24 +5,6 @@
       <h1>{{ "nav.xp" | transloco }}</h1>
       <p>{{ "xp.subtitle" | transloco }}</p>
     </div>
-    <div class="page-actions">
-      <button
-        class="secondary"
-        type="button"
-        (click)="reset()"
-        [disabled]="saving() || !dirty()"
-      >
-        {{ "xp.resetChanges" | transloco }}
-      </button>
-      <button
-        class="primary"
-        type="button"
-        (click)="save()"
-        [disabled]="saving() || !config() || !dirty() || !isValid(config()!)"
-      >
-        {{ (saving() ? "common.saving" : "common.saveChanges") | transloco }}
-      </button>
-    </div>
   </header>
 
   @if (loading()) {
@@ -426,15 +408,16 @@
             <section>
               <h3>{{ "xp.channels" | transloco }}</h3>
               <div class="picker">
-                <select
-                  [(ngModel)]="selectedChannel"
-                  [attr.aria-label]="'xp.excludeChannelAria' | transloco"
-                >
-                  <option value="">{{ "xp.chooseChannel" | transloco }}</option>
-                  @for (channel of resources().channels; track channel.id) {
-                    <option [value]="channel.id">{{ channel.name }}</option>
-                  }</select
-                ><button
+                <rk-discord-channel-picker
+                  [channels]="channelOptions()"
+                  [value]="selectedChannel || null"
+                  [allowedTypes]="['Text', 'Voice', 'Announcement', 'Forum', 'Stage']"
+                  [placeholder]="'xp.chooseChannel' | transloco"
+                  [searchPlaceholder]="'channelPicker.search' | transloco"
+                  [emptyText]="'channelPicker.empty' | transloco"
+                  [noResultsText]="'channelPicker.noResults' | transloco"
+                  (valueChange)="selectedChannel = $event ?? ''"
+                /><button
                   class="secondary"
                   type="button"
                   (click)="excludeChannel()"
@@ -467,17 +450,16 @@
             <section>
               <h3>{{ "xp.categories" | transloco }}</h3>
               <div class="picker">
-                <select
-                  [(ngModel)]="selectedCategory"
-                  [attr.aria-label]="'xp.excludeCategoryAria' | transloco"
-                >
-                  <option value="">
-                    {{ "xp.chooseCategory" | transloco }}
-                  </option>
-                  @for (channel of categories(); track channel.id) {
-                    <option [value]="channel.id">{{ channel.name }}</option>
-                  }</select
-                ><button
+                <rk-discord-channel-picker
+                  [channels]="channelOptions()"
+                  [value]="selectedCategory || null"
+                  [allowedTypes]="['Category']"
+                  [placeholder]="'xp.chooseCategory' | transloco"
+                  [searchPlaceholder]="'channelPicker.search' | transloco"
+                  [emptyText]="'channelPicker.empty' | transloco"
+                  [noResultsText]="'channelPicker.noResults' | transloco"
+                  (valueChange)="selectedCategory = $event ?? ''"
+                /><button
                   class="secondary"
                   type="button"
                   (click)="excludeCategory()"
@@ -529,14 +511,16 @@
               <div class="rule-row">
                 <label
                   >{{ "xp.channel" | transloco
-                  }}<select [(ngModel)]="rule.channelId">
-                    <option value="">
-                      {{ "xp.chooseChannel" | transloco }}
-                    </option>
-                    @for (channel of resources().channels; track channel.id) {
-                      <option [value]="channel.id">{{ channel.name }}</option>
-                    }
-                  </select></label
+                  }}<rk-discord-channel-picker
+                    [channels]="channelOptions()"
+                    [value]="rule.channelId || null"
+                    [allowedTypes]="['Text', 'Voice', 'Announcement', 'Forum', 'Stage']"
+                    [placeholder]="'xp.chooseChannel' | transloco"
+                    [searchPlaceholder]="'channelPicker.search' | transloco"
+                    [emptyText]="'channelPicker.empty' | transloco"
+                    [noResultsText]="'channelPicker.noResults' | transloco"
+                    (valueChange)="rule.channelId = $event ?? ''"
+                  /></label
                 ><label
                   >{{ "xp.multiplier" | transloco
                   }}<input
@@ -567,14 +551,17 @@
           <div class="card-heading">
             <label class="wide-field"
               >{{ "xp.levelUpChannel" | transloco
-              }}<select [(ngModel)]="cfg.levelUpChannelId">
-                <option [ngValue]="null">
-                  {{ "xp.noNotification" | transloco }}
-                </option>
-                @for (channel of textChannels(); track channel.id) {
-                  <option [value]="channel.id">{{ channel.name }}</option>
-                }
-              </select></label
+              }}<rk-discord-channel-picker
+                [channels]="channelOptions()"
+                [value]="cfg.levelUpChannelId"
+                [allowedTypes]="['Text', 'Announcement']"
+                [placeholder]="'xp.noNotification' | transloco"
+                [searchPlaceholder]="'channelPicker.search' | transloco"
+                [emptyText]="'channelPicker.empty' | transloco"
+                [noResultsText]="'channelPicker.noResults' | transloco"
+                [clearable]="true"
+                (valueChange)="cfg.levelUpChannelId = $event"
+              /></label
             ><button class="secondary" type="button" (click)="addLevelRole()">
               {{ "xp.addLevelRole" | transloco }}
             </button>
@@ -708,4 +695,5 @@
       </details>
     }
   }
-</section>
+  <rk-sticky-save-bar [dirty]="dirty()" [saving]="saving()" [valid]="!!config() && isValid(config()!)" (save)="save()" (reset)="reset()" />
+  </section>

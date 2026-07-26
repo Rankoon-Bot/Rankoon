@@ -14,9 +14,9 @@
 .main-content {
   position: relative;
   flex: 1;
-  padding: var(--rk-space-6);
+  padding: var(--rk-page-gutter);
   overflow-y: auto;
-  transition: margin-left var(--rk-motion-base);
+  transition: margin-left var(--rk-motion-base) var(--rk-ease-enter);
   
   &.with-sidebar {
     margin-left: 0;
@@ -29,7 +29,7 @@
   z-index: var(--rk-z-overlay);
   display: grid;
   place-items: center;
-  background: var(--rk-overlay);
+  pointer-events: none;
 }
 
 .navigation-loading-spinner {
@@ -59,7 +59,7 @@
   }
 
   .main-content {
-    padding: var(--rk-space-4);
+    padding: var(--rk-page-gutter-mobile);
   }
 
   .main-content.with-sidebar {

@@ -1,5 +1,5 @@
 @mixin layout {
-  .report-page { max-width: 1280px; margin: 0 auto; display: grid; gap: var(--rk-space-6); }
+  .report-page { max-width: var(--rk-page-max); margin: 0 auto; display: grid; gap: var(--rk-space-6); }
   .page-header { display: flex; justify-content: space-between; align-items: end; gap: var(--rk-space-5); }
   .eyebrow { margin-bottom: var(--rk-space-2); color: var(--rk-brand); font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
   .page-header p:not(.eyebrow) { margin-top: var(--rk-space-2); color: var(--rk-text-muted); }

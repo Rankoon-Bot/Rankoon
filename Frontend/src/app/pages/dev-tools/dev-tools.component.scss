@@ -1,4 +1,4 @@
-.page { max-width: 1120px; margin: 0 auto; }
+.page { max-width: var(--rk-page-max); margin: 0 auto; }
 .page-header { display: flex; align-items: end; justify-content: space-between; gap: var(--rk-space-5); margin-bottom: var(--rk-space-5); }
 .page-header p:last-child, .card p, label, dt { color: var(--rk-text-muted); }
 .eyebrow { margin-bottom: var(--rk-space-2); color: var(--rk-brand); font-size: .72rem; font-weight: 700; letter-spacing: .12em; }

@@ -13,6 +13,6 @@
       <label>{{ 'leaderboardSettings.alias' | transloco }}<input name="alias" [(ngModel)]="alias" minlength="3" maxlength="48" pattern="[a-z0-9-]+" required></label>
       <div class="url-preview"><span>URL</span><strong>/rankings/{{ alias || ('leaderboardSettings.aliasPlaceholder' | transloco) }}</strong></div>
     </section>
-    <div class="actions"><button type="submit" [disabled]="saving() || !alias.trim()">{{ (saving() ? 'common.saving' : 'leaderboardSettings.save') | transloco }}</button></div>
   </form>
+  <rk-sticky-save-bar [dirty]="dirty()" [saving]="saving()" [valid]="valid()" (save)="save()" (reset)="reset()" />
 </section>

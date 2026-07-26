@@ -1,0 +1,21 @@
+<label class="rk-channel-picker" [class.rk-channel-picker--disabled]="disabled">
+  @if (label) { <span class="rk-channel-picker__label">{{ label }}</span> }
+  <button #trigger #origin="cdkOverlayOrigin" cdkOverlayOrigin class="rk-channel-picker__trigger" type="button" [disabled]="disabled" [attr.aria-label]="label || triggerLabel()" [attr.aria-expanded]="open()" [attr.aria-controls]="panelId" aria-haspopup="listbox" [attr.aria-required]="required" (click)="openPanel()" (keydown)="onTriggerKeydown($event)">
+    @if (selected(); as channel) { <span class="rk-channel-picker__icon" aria-hidden="true">{{ icon(channel.kind) }}</span><span class="rk-channel-picker__selection"><strong>{{ channel.name }}</strong><small>{{ typeLabel(channel.kind) }}@if (channel.categoryName) { · {{ channel.categoryName }} }</small></span> }
+    @else if (value) { <span class="rk-channel-picker__selection"><strong>{{ 'channelPicker.unknown' | transloco }}</strong><small>{{ value }}</small></span> }
+    @else { <span class="rk-channel-picker__placeholder">{{ placeholder }}</span> }
+    <span aria-hidden="true">⌄</span>
+  </button>
+  @if (clearable && value && !disabled) { <button class="rk-channel-picker__clear" type="button" (click)="clear($event)" [attr.aria-label]="'channelPicker.clear' | transloco">×</button> }
+  @if (helpText) { <small class="rk-channel-picker__help">{{ helpText }}</small> }
+  @if (errorText) { <small class="rk-channel-picker__error" role="alert">{{ errorText }}</small> }
+</label>
+<ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="origin" [cdkConnectedOverlayOpen]="open()" [cdkConnectedOverlayHasBackdrop]="true" [cdkConnectedOverlayBackdropClass]="'cdk-overlay-transparent-backdrop'" (backdropClick)="closePanel()" (detach)="closePanel()" [cdkConnectedOverlayPositions]="[{originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top'}, {originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom'}]">
+  <section class="rk-channel-picker__overlay" [id]="panelId" role="listbox" tabindex="0" [attr.aria-activedescendant]="activeOptionId()" (keydown)="onListKeydown($event)">
+    <input #search type="search" role="combobox" [(ngModel)]="query" (ngModelChange)="activeIndex.set(0)" [placeholder]="searchPlaceholder" [attr.aria-label]="searchPlaceholder" [attr.aria-controls]="panelId" [attr.aria-activedescendant]="activeOptionId()" aria-autocomplete="list" />
+    @if (allowedTypes.length > 1) { <div class="rk-channel-picker__filters" role="group" [attr.aria-label]="'channelPicker.filterTypes' | transloco"><button type="button" [class.is-active]="activeType() === 'All'" (click)="activeType.set('All')">{{ 'common.all' | transloco }}</button>@for (kind of allowedTypes; track kind) { <button type="button" [class.is-active]="activeType() === kind" (click)="activeType.set(kind)">{{ typeLabel(kind) }}</button> }</div> }
+    @if (loading) { <p class="rk-channel-picker__state" role="status">{{ 'channelPicker.loading' | transloco }}</p> }
+    @else if (!visible().length) { <p class="rk-channel-picker__state">{{ query() ? noResultsText : emptyText }}</p> }
+    @else { <div class="rk-channel-picker__results" aria-live="polite">@for (channel of visible(); track channel.id; let index = $index) { <button type="button" [id]="channel.id" role="option" [attr.aria-selected]="channel.id === value" [disabled]="channel.disabled" [class.is-active]="index === activeIndex()" (mouseenter)="activeIndex.set(index)" (click)="select(channel)"><span aria-hidden="true">{{ icon(channel.kind) }}</span><span><strong>{{ channel.name }}</strong><small>{{ typeLabel(channel.kind) }}@if (channel.categoryName) { · {{ channel.categoryName }} }</small></span></button> }</div> }
+  </section>
+</ng-template>

@@ -57,18 +57,22 @@ export class MainLayoutComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private navigationTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
     this.router.events.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
       if (event instanceof NavigationStart) {
-        this.isNavigating.set(true);
+        clearTimeout(this.navigationTimer);
+        this.navigationTimer = setTimeout(() => this.isNavigating.set(true), 180);
       } else if (
         event instanceof NavigationEnd ||
         event instanceof NavigationCancel ||
         event instanceof NavigationError ||
         event instanceof NavigationSkipped
       ) {
+        clearTimeout(this.navigationTimer);
         this.isNavigating.set(false);
+        this.layoutState.closeMobileNavigation();
       }
     });
 

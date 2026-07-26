@@ -1,5 +1,5 @@
 <div class="rk-page operations-shell">
   <header><p class="rk-page-header__eyebrow">{{ 'botManagement.eyebrow' | transloco }}</p><h1>{{ 'botManagement.title' | transloco }}</h1><p>{{ 'botManagement.description' | transloco }}</p></header>
-  <nav [attr.aria-label]="'botManagement.navigation' | transloco">@for (page of pages; track page) { <a [routerLink]="page" routerLinkActive="active">{{ ('botManagement.pages.' + page) | transloco }}</a> }</nav>
+  <rk-sub-navigation [items]="items()" [ariaLabel]="'botManagement.navigation' | transloco" />
   <router-outlet />
 </div>

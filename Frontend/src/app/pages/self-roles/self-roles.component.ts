@@ -11,13 +11,16 @@ import { GuildService, SelfRoleEmbed, SelfRoleMapping, SelfRolePanel, SelfRoleRe
 import { environment } from '../../../environments/environment';
 import { ToastService } from '../../services/toast.service';
 import { SELF_ROLE_MAX_EMBEDS, SELF_ROLE_MAX_FIELDS, SELF_ROLE_MAX_TEXT, copySelfRoleEmbeds, createSelfRoleEmbed, embedTextLength, embedValidation, finalDescription, legend, normalizeSelfRoleEmbeds } from './self-role-embed.utils';
+import { DiscordChannelPickerComponent } from '../../shared/ui/discord-channel-picker/discord-channel-picker.component';
+import { normalizeDiscordChannels } from '../../shared/ui/discord-channel-picker/discord-channel.models';
+import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-save-bar.component';
 
 type SelfRolePanelWithHealth = SelfRolePanel & { state?: 'Pending' | 'Published' | 'Disabled' | 'Degraded'; lastPublishedAt?: string; lastHealthCheckAt?: string; lastError?: string; lastErrorAt?: string; };
 
 @Component({
   selector: 'app-self-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe],
+  imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './self-roles.component.html',
   styleUrls: ['./self-roles.component.scss'],
@@ -43,6 +46,7 @@ export class SelfRolesComponent implements OnInit {
   readonly pickerTab = signal<'server' | 'unicode'>('server');
   readonly customSearch = signal('');
   readonly maxEmbeds = SELF_ROLE_MAX_EMBEDS;
+  private editorBaseline = '';
 
   ngOnInit(): void { this.load(); }
 
@@ -80,15 +84,20 @@ export class SelfRolesComponent implements OnInit {
 
   create(): void {
     this.editor.set({ channelId: '', embeds: [createSelfRoleEmbed('RoleMappings')], enabled: true, mappings: [], revision: 0 });
+    this.editorBaseline = this.serializeEditor();
     this.resetFeedback();
   }
 
   edit(panel: SelfRolePanel): void {
     this.editor.set(this.copyPanel(panel));
+    this.editorBaseline = this.serializeEditor();
     this.resetFeedback();
   }
 
-  cancel(): void { this.editor.set(null); this.resetFeedback(); }
+  cancel(): void { this.editor.set(null); this.editorBaseline = ''; this.resetFeedback(); }
+  dirty(): boolean { return !!this.editor() && this.serializeEditor() !== this.editorBaseline; }
+  reset(): void { if (this.editorBaseline) this.editor.set(JSON.parse(this.editorBaseline) as SelfRolePanel); this.resetFeedback(); }
+  channelOptions = () => normalizeDiscordChannels(this.textChannels());
 
   addMapping(): void {
     const panel = this.editor();
@@ -189,6 +198,7 @@ export class SelfRolesComponent implements OnInit {
       next: saved => {
         this.panels.update(items => panel.id ? items.map(item => item.id === saved.id ? saved : item) : [...items, saved]);
         this.editor.set(this.copyPanel(saved));
+        this.editorBaseline = this.serializeEditor();
         this.toast.success(this.i18n.translate('selfRoles.saved'));
       },
       error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message),
@@ -275,6 +285,7 @@ export class SelfRolesComponent implements OnInit {
     const { title: _title, description: _description, color: _color, ...current } = panel;
     return { ...current, embeds: copySelfRoleEmbeds(normalizeSelfRoleEmbeds(panel)), mappings: panel.mappings.map(mapping => ({ ...mapping, emoji: { ...mapping.emoji } })) };
   }
+  private serializeEditor(): string { return JSON.stringify(this.editor()); }
   touchEditor(): void { this.editor.update(panel => panel ? { ...panel, embeds: copySelfRoleEmbeds(panel.embeds), mappings: panel.mappings.map(mapping => ({ ...mapping, emoji: { ...mapping.emoji } })) } : null); }
   private resetFeedback(): void { this.error.set(''); this.validationErrors.set([]); }
 }

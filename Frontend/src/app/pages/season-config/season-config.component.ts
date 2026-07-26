@@ -4,10 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { catchError, finalize, forkJoin, Observable, of } from 'rxjs';
 import { ApiErrorService } from '../../services/api-error.service';
-import { GuildService, Season, SeasonPreview, SeasonSettings } from '../../services/guild.service';
+import { GuildResources, GuildService, Season, SeasonPreview, SeasonSettings } from '../../services/guild.service';
 import { LocaleService } from '../../i18n/locale.service';
 import { AppStore } from '../../store/app.store';
 import { ToastService } from '../../services/toast.service';
+import { DiscordChannelPickerComponent } from '../../shared/ui/discord-channel-picker/discord-channel-picker.component';
+import { DiscordChannelOption, normalizeDiscordChannels } from '../../shared/ui/discord-channel-picker/discord-channel.models';
+import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-save-bar.component';
 
 type SeasonAction = 'start' | 'close' | 'cancel' | 'resume' | 'delete';
 type PendingAction = { action: SeasonAction; season: Season } | { action: 'disable'; season: null };
@@ -25,7 +28,7 @@ export function defaultSeasonSettings(): SeasonSettings {
 @Component({
   selector: 'app-season-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe],
+  imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
   templateUrl: './season-config.component.html',
   styleUrls: ['./season-config.component.scss'],
 })
@@ -39,6 +42,7 @@ export class SeasonConfigComponent implements OnInit {
   @ViewChild('confirmDialog') private readonly confirmDialog?: ElementRef<HTMLDialogElement>;
 
   readonly settings = signal<SeasonSettings | null>(null);
+  readonly resources = signal<GuildResources>({ roles: [], channels: [] });
   readonly seasons = signal<Season[]>([]);
   readonly preview = signal<SeasonPreview[]>([]);
   readonly loading = signal(true);
@@ -50,6 +54,7 @@ export class SeasonConfigComponent implements OnInit {
   readonly advanced = signal(false);
   readonly pending = signal<PendingAction | null>(null);
   rotationInput = '';
+  private baseline = '';
 
   ngOnInit(): void { this.load(); }
 
@@ -57,9 +62,9 @@ export class SeasonConfigComponent implements OnInit {
     const guildId = this.store.selectedGuild()?.id;
     if (!guildId) { this.loading.set(false); this.error.set(this.i18n.translate('errors.noServer')); return; }
     this.loading.set(true); this.error.set('');
-    forkJoin({ settings: this.api.seasonConfig(guildId), seasons: this.api.seasons(guildId) })
+    forkJoin({ settings: this.api.seasonConfig(guildId), seasons: this.api.seasons(guildId), resources: this.api.resources(guildId).pipe(catchError(() => of({ roles: [], channels: [] }))) })
       .pipe(finalize(() => this.loading.set(false)))
-      .subscribe({ next: value => { this.settings.set(this.fromApi(value.settings)); this.seasons.set(value.seasons); this.refreshPreview(); }, error: error => this.error.set(this.apiErrors.resolve(error, 'errors.seasonsLoad').message) });
+      .subscribe({ next: value => { const settings = this.fromApi(value.settings); this.settings.set(settings); this.baseline = this.serialize(settings); this.seasons.set(value.seasons); this.resources.set(value.resources); this.refreshPreview(); }, error: error => this.error.set(this.apiErrors.resolve(error, 'errors.seasonsLoad').message) });
   }
 
   save(): void {
@@ -80,7 +85,7 @@ export class SeasonConfigComponent implements OnInit {
     this.saving.set(true); this.error.set('');
     this.api.saveSeasonConfig(guildId, this.toRequest(settings)).pipe(finalize(() => this.saving.set(false))).subscribe({
       next: saved => {
-        this.settings.set(this.fromApi(saved)); this.toast.success(this.i18n.translate('seasons.saved')); this.refreshPreview();
+        const settings = this.fromApi(saved); this.settings.set(settings); this.baseline = this.serialize(settings); this.toast.success(this.i18n.translate('seasons.saved')); this.refreshPreview();
         this.api.seasons(guildId).subscribe(items => this.seasons.set(items));
       },
       error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.seasonSave').message),
@@ -144,6 +149,9 @@ export class SeasonConfigComponent implements OnInit {
   }
 
   closeDialog(): void { this.confirmDialog?.nativeElement.close(); this.pending.set(null); }
+  dirty(): boolean { const settings = this.settings(); return !!settings && this.serialize(settings) !== this.baseline; }
+  reset(): void { if (!this.baseline) return; this.settings.set(JSON.parse(this.baseline) as SeasonSettings); this.refreshPreview(); }
+  channelOptions(): DiscordChannelOption[] { return normalizeDiscordChannels(this.resources().channels); }
   isActive(season: Season): boolean { return season.status === 'Active' || season.status === 'Closing'; }
   isCancelled(season: Season): boolean { return season.status.toLowerCase() === 'cancelled'; }
   isReopenable(season: Season): boolean { const status = season.status.toLowerCase(); return status === 'cancelled' || status === 'closed'; }
@@ -168,4 +176,5 @@ export class SeasonConfigComponent implements OnInit {
     const pad = (value: number) => value.toString().padStart(2, '0');
     return { ...settings, scheduleAnchorUtc: `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}` };
   }
+  private serialize(settings: SeasonSettings): string { return JSON.stringify(settings); }
 }

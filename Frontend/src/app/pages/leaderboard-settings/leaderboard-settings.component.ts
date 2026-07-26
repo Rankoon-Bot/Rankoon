@@ -8,8 +8,9 @@ import { AppStore } from '../../store/app.store';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ApiErrorService } from '../../services/api-error.service';
 import { ToastService } from '../../services/toast.service';
+import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-save-bar.component';
 
-@Component({ selector: 'app-leaderboard-settings', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslocoPipe], templateUrl: './leaderboard-settings.component.html', styleUrls: ['./leaderboard-settings.component.scss'] })
+@Component({ selector: 'app-leaderboard-settings', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslocoPipe, StickySaveBarComponent], templateUrl: './leaderboard-settings.component.html', styleUrls: ['./leaderboard-settings.component.scss'] })
 export class LeaderboardSettingsComponent implements OnInit {
   private readonly app = inject(AppStore);
   private readonly api = inject(GuildService);
@@ -22,6 +23,7 @@ export class LeaderboardSettingsComponent implements OnInit {
   readonly error = signal('');
   alias = '';
   visibility: LeaderboardVisibility = 'MembersOnly';
+  private baseline = '';
 
   ngOnInit(): void { this.load(); }
   load(): void {
@@ -32,12 +34,16 @@ export class LeaderboardSettingsComponent implements OnInit {
   }
   save(): void {
     const guildId = this.app.selectedGuild()?.id;
-    if (!guildId || !this.alias.trim() || this.saving()) return;
+    if (!guildId || !this.valid() || this.saving() || !this.dirty()) return;
     this.saving.set(true);
-    this.api.saveLeaderboardSettings(guildId, { alias: this.alias, visibility: this.visibility }).pipe(finalize(() => this.saving.set(false))).subscribe({
+    this.api.saveLeaderboardSettings(guildId, { alias: this.alias.trim(), visibility: this.visibility }).pipe(finalize(() => this.saving.set(false))).subscribe({
       next: settings => { this.apply(settings); this.toast.success(this.i18n.translate('leaderboardSettings.saved')); },
       error: response => this.toast.error(response.status === 409 ? this.i18n.translate('errors.aliasTaken') : this.apiErrors.resolve(response, 'errors.save').message),
     });
   }
-  private apply(settings: LeaderboardSettings): void { this.settings.set(settings); this.alias = settings.alias; this.visibility = settings.visibility; }
+  dirty(): boolean { return !!this.settings() && this.serialize() !== this.baseline; }
+  valid(): boolean { return /^[a-z0-9-]{3,48}$/.test(this.alias.trim()); }
+  reset(): void { const value = JSON.parse(this.baseline) as { alias: string; visibility: LeaderboardVisibility }; this.alias = value.alias; this.visibility = value.visibility; }
+  private apply(settings: LeaderboardSettings): void { this.settings.set(settings); this.alias = settings.alias; this.visibility = settings.visibility; this.baseline = this.serialize(); }
+  private serialize(): string { return JSON.stringify({ alias: this.alias.trim(), visibility: this.visibility }); }
 }

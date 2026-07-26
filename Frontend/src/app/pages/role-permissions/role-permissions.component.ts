@@ -9,11 +9,12 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ApiErrorService } from '../../services/api-error.service';
 import { LocaleService } from '../../i18n/locale.service';
 import { ToastService } from '../../services/toast.service';
+import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-save-bar.component';
 
 @Component({
   selector: 'app-role-permissions',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe],
+  imports: [CommonModule, FormsModule, TranslocoPipe, StickySaveBarComponent],
   templateUrl: './role-permissions.component.html',
   styleUrls: ['./role-permissions.component.scss']
 })
@@ -130,6 +131,11 @@ export class RolePermissionsComponent implements OnInit {
         this.saving.set(false);
       }
     });
+  }
+  reset(): void {
+    const data = this.data();
+    if (!data) return;
+    this.assignments.set(Object.fromEntries(data.roles.map(role => [role.id, [...role.moduleIds]])));
   }
 
   trackModule(_: number, module: PermissionModule): string { return module.id; }

@@ -1325,6 +1325,7 @@
     "loading": "VC-Hubs werden geladen...",
     "existingChannel": "Vorhandener Hub-Kanal",
     "createByBot": "Vom Bot erstellen",
+    "useExisting": "Vorhandenen Voice-Kanal verwenden",
     "newName": "Neuer Hub-Name",
     "createPlaceholder": "VC erstellen",
     "category": "Zielkategorie",
@@ -1709,5 +1710,20 @@
       "system_migration": "Systemmigration",
       "other": "Weitere XP-Buchung"
     }
+  },
+  "channelPicker": {
+    "clear": "Kanal entfernen",
+    "filterTypes": "Kanaltypen filtern",
+    "loading": "Kanäle werden geladen...",
+    "search": "Kanäle suchen",
+    "empty": "Keine passenden Kanäle verfügbar.",
+    "noResults": "Keine Kanäle für diese Suche gefunden.",
+    "unknown": "Unbekannter Kanal",
+    "types": { "Text": "Textkanal", "Voice": "Sprachkanal", "Category": "Kategorie", "Announcement": "Ankündigungskanal", "Forum": "Forum", "Stage": "Stage-Kanal", "Thread": "Thread", "Unknown": "Unbekannter Kanal" }
+  },
+  "saveBar": {
+    "unsaved": "Ungespeicherte Änderungen",
+    "reset": "Änderungen zurücksetzen",
+    "invalid": "Behebe die markierten Felder, bevor du speicherst."
   }
 }

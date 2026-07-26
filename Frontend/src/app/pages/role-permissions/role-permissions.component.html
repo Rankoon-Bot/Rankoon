@@ -5,9 +5,6 @@
       <h1>{{ 'rolePermissions.title' | transloco }}</h1>
       <p>{{ 'rolePermissions.subtitle' | transloco }}</p>
     </div>
-    <button class="primary" type="button" (click)="save()" [disabled]="loading() || saving() || !dirty() || forbidden()">
-      {{ (saving() ? 'common.saving' : dirty() ? 'common.saveChanges' : 'common.saved') | transloco }}
-    </button>
   </header>
 
   @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
@@ -59,4 +56,5 @@
     </section>
   }
   }
+  <rk-sticky-save-bar [dirty]="dirty()" [saving]="saving()" [valid]="!forbidden()" (save)="save()" (reset)="reset()" />
 </section>

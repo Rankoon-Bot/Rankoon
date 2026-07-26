@@ -37,7 +37,7 @@ p {
 button {
   font-family: inherit;
   cursor: pointer;
-  transition: background-color var(--rk-motion-base), border-color var(--rk-motion-base), color var(--rk-motion-base), transform var(--rk-motion-fast), box-shadow var(--rk-motion-base);
+  transition: background-color var(--rk-motion-fast) var(--rk-ease-enter), border-color var(--rk-motion-fast) var(--rk-ease-enter), color var(--rk-motion-fast) var(--rk-ease-enter), transform var(--rk-motion-instant) var(--rk-ease-enter), box-shadow var(--rk-motion-fast) var(--rk-ease-enter);
 
   &:disabled {
     cursor: not-allowed;
@@ -51,6 +51,13 @@ body.rk-navigation-open { overflow: hidden; }
   width: min(100%, var(--rk-page-max));
   margin: 0 auto;
 }
+.rk-page--narrow { width: min(100%, var(--rk-page-max-narrow)); }
+.rk-page--workspace { width: min(100%, var(--rk-page-max-workspace)); }
+
+.rk-page-shell { padding-bottom: calc(var(--rk-space-10) + env(safe-area-inset-bottom)); }
+.rk-page-shell:has(.rk-save-bar) { padding-bottom: calc(var(--rk-space-10) + var(--rk-control-height) + env(safe-area-inset-bottom)); }
+.main-content:has(.rk-save-bar) { padding-bottom: calc(var(--rk-page-gutter) + var(--rk-control-height) * 2 + env(safe-area-inset-bottom)); }
+.main-content.with-sidebar .rk-save-bar { left: calc(50% + var(--rk-sidebar-width) / 2); }
 
 .rk-page-header {
   display: flex;
@@ -94,6 +101,9 @@ body.rk-navigation-open { overflow: hidden; }
   color: var(--rk-text-strong);
   font-weight: 700;
 }
+.rk-button:active:not(:disabled) { transform: scale(.98); }
+.rk-button--secondary { background: var(--rk-surface-2); }
+.rk-button--icon { width: var(--rk-icon-button-size); min-width: var(--rk-icon-button-size); padding: 0; }
 
 .rk-button:hover:not(:disabled) { background: var(--rk-surface-3); border-color: var(--rk-info); }
 .rk-button--primary { background: var(--rk-brand); border-color: var(--rk-brand); }
@@ -155,7 +165,8 @@ input, textarea, select {
   font-family: inherit;
   border: 1px solid var(--rk-border-strong);
   border-radius: var(--rk-radius-md);
-  padding: 10px 12px;
+  min-height: var(--rk-control-height);
+  padding: var(--rk-space-2) var(--rk-input-padding-inline);
   font-size: 0.9rem;
   background: var(--rk-canvas-deep);
   color: var(--rk-text-strong);
@@ -167,6 +178,18 @@ input, textarea, select {
     box-shadow: var(--rk-focus-ring);
   }
 }
+
+.rk-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: rk-spin var(--rk-motion-spinner) linear infinite;
+}
+
+@keyframes rk-spin { to { transform: rotate(1turn); } }
 
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: none;
@@ -192,4 +215,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 768px) {
   .rk-page-header { align-items: stretch; flex-direction: column; gap: var(--rk-space-4); }
   .rk-panel { padding: var(--rk-space-4); }
+}
+
+@media (max-width: 768px) {
+  .main-content.with-sidebar .rk-save-bar { left: 50%; }
+  .main-content:has(.rk-save-bar) { padding-bottom: calc(var(--rk-page-gutter-mobile) + var(--rk-control-height) * 4 + env(safe-area-inset-bottom)); }
 }

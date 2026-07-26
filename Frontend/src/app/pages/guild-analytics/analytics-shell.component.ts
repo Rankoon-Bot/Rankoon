@@ -1,8 +1,12 @@
 import { Component } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoService } from '@jsverse/transloco';
+import { inject } from '@angular/core';
+import { SubNavigationComponent } from '../../shared/ui/sub-navigation/sub-navigation.component';
 
-@Component({ selector: 'app-analytics-shell', standalone: true, imports: [RouterLink, RouterLinkActive, RouterOutlet, TranslocoPipe], template: `<div class="rk-page shell"><nav class="tabs" [attr.aria-label]="'analytics.navigation' | transloco">@for (page of pages; track page) { <a [routerLink]="page" routerLinkActive="active">{{ ('analytics.pages.' + page + '.short') | transloco }}</a> }</nav><router-outlet /></div>`, styles: [`
-  .shell { display: grid; gap: var(--rk-space-5); }.tabs { display: flex; gap: var(--rk-space-1); overflow-x: auto; border-bottom: 1px solid var(--rk-border-subtle); }.tabs a { min-height: var(--rk-control-height); display: inline-flex; align-items: center; padding: 0 var(--rk-space-3); color: var(--rk-text-muted); border-bottom: var(--rk-space-1) solid transparent; white-space: nowrap; }.tabs a:hover { color: var(--rk-text-strong); }.tabs a.active { color: var(--rk-text-strong); border-color: var(--rk-brand); }
-`] })
-export class AnalyticsShellComponent { readonly pages = ['overview', 'xp', 'voice', 'features', 'audit'] as const; }
+@Component({ selector: 'app-analytics-shell', standalone: true, imports: [RouterOutlet, TranslocoPipe, SubNavigationComponent], template: `<div class="rk-page shell"><rk-sub-navigation [items]="items()" [ariaLabel]="'analytics.navigation' | transloco" /><router-outlet /></div>`, styles: [`.shell { display: grid; gap: var(--rk-space-5); }`] })
+export class AnalyticsShellComponent {
+  private readonly i18n = inject(TranslocoService);
+  items = () => ['overview', 'xp', 'voice', 'features', 'audit'].map(path => ({ path, label: this.i18n.translate(`analytics.pages.${path}.short`) }));
+}

@@ -10,7 +10,7 @@
 .refresh-btn:focus-visible { outline: none; box-shadow: var(--rk-focus-ring); }
 .refresh-btn:disabled { cursor: not-allowed; opacity: 0.6; }
 .access-notice { max-width: 600px; padding: var(--rk-space-3) var(--rk-space-4); margin: 0 auto var(--rk-space-5); color: var(--rk-warning); text-align: center; background: var(--rk-warning-subtle); border: 1px solid var(--rk-warning); border-radius: var(--rk-radius-md); }
-.server-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--rk-space-4); max-width: 1120px; margin: 0 auto; }
+.server-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--rk-space-4); max-width: var(--rk-page-max); margin: 0 auto; }
 .server-card { display: flex; align-items: center; gap: var(--rk-space-4); min-height: 100px; padding: var(--rk-space-5); cursor: pointer; background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); transition: transform var(--rk-motion-fast), border-color var(--rk-motion-base), background-color var(--rk-motion-base); }
 .server-card:hover { background: var(--rk-surface-2); border-color: var(--rk-info); transform: translateY(-2px); }
 .server-card.owner { border-color: color-mix(in srgb, var(--rk-warning) 60%, var(--rk-border-subtle)); }

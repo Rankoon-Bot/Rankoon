@@ -1,4 +1,4 @@
-.page { max-width: 1280px; margin: 0 auto; }
+.page { max-width: var(--rk-page-max); margin: 0 auto; }
 .page-header, .card-heading, .primary-card, .season-row, .dialog-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--rk-space-4); }
 .page-header { align-items: end; margin-bottom: var(--rk-space-6); }
 .page-header h1, h2, h3, p { margin: 0; }

@@ -1,4 +1,4 @@
-.page { max-width: 1280px; margin: 0 auto; }
+.page { max-width: var(--rk-page-max-workspace); margin: 0 auto; }
 .page-header, .editor > header, .section-heading, .mapping-top, .selection-row, footer, .panel-summary, .notice.error { display: flex; align-items: center; justify-content: space-between; gap: var(--rk-space-4); }
 .page-header { align-items: end; margin-bottom: var(--rk-space-6); }
 h1, h2, h3, p { margin-top: 0; }

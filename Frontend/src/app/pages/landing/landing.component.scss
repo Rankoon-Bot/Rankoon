@@ -1,4 +1,4 @@
-.landing { max-width: 1280px; margin: 0 auto; }
+.landing { max-width: var(--rk-page-max); margin: 0 auto; }
 .hero { padding: var(--rk-space-10) 0; border-bottom: 1px solid var(--rk-border-subtle); }
 .eyebrow, .overline { color: var(--rk-text-muted); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .eyebrow { display: inline-flex; align-items: center; gap: var(--rk-space-2); padding: var(--rk-space-2) var(--rk-space-3); color: var(--rk-info); background: var(--rk-info-subtle); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-sm); }

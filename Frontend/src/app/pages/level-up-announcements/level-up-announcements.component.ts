@@ -8,8 +8,11 @@ import { LevelUpAnnouncementSettings, LevelUpMessageTemplate, TemplateSchema } f
 import { AppStore } from '../../store/app.store';
 import { ApiErrorService } from '../../services/api-error.service';
 import { ToastService } from '../../services/toast.service';
+import { DiscordChannelPickerComponent } from '../../shared/ui/discord-channel-picker/discord-channel-picker.component';
+import { normalizeDiscordChannels } from '../../shared/ui/discord-channel-picker/discord-channel.models';
+import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-save-bar.component';
 
-@Component({ selector: 'app-level-up-announcements', standalone: true, imports: [CommonModule, FormsModule, TranslocoPipe], templateUrl: './level-up-announcements.component.html', styleUrls: ['./level-up-announcements.component.scss'] })
+@Component({ selector: 'app-level-up-announcements', standalone: true, imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent], templateUrl: './level-up-announcements.component.html', styleUrls: ['./level-up-announcements.component.scss'] })
 export class LevelUpAnnouncementsComponent implements OnInit {
   private readonly api = inject(GuildService); private readonly store = inject(AppStore); private readonly errors = inject(ApiErrorService); private readonly toast = inject(ToastService); private readonly i18n = inject(TranslocoService);
   readonly settings = signal<LevelUpAnnouncementSettings | null>(null); readonly resources = signal<GuildResources>({ roles: [], channels: [] }); readonly schema = signal<TemplateSchema | null>(null); readonly loading = signal(true); readonly saving = signal(false); readonly error = signal(''); readonly selectedId = signal<string | null>(null); readonly dirty = signal(false); readonly variationText = signal(''); readonly activeLine = signal(1); readonly activeLineLength = signal(0);
@@ -28,7 +31,7 @@ export class LevelUpAnnouncementsComponent implements OnInit {
   updateActiveLineCount(input: HTMLTextAreaElement): void { const cursor = input.selectionStart ?? 0; const before = input.value.slice(0, cursor); const line = before.split(/\r?\n/).length; const lineStart = Math.max(before.lastIndexOf('\n'), before.lastIndexOf('\r')) + 1; this.activeLine.set(line); this.activeLineLength.set(before.length - lineStart); }
   insertToken(token: string, input: HTMLTextAreaElement): void { const value = this.variationText(); const start = input.selectionStart ?? value.length; const updated = value.slice(0, start) + `{${token}}` + value.slice(input.selectionEnd ?? start); this.updateVariations(updated, input); setTimeout(() => { input.focus(); input.selectionStart = input.selectionEnd = Math.min(start + token.length + 2, input.value.length); this.updateActiveLineCount(input); }); }
   test(): void { const id = this.store.selectedGuild()?.id; const template = this.selected; if (!id || !template) return; this.api.testLevelUpAnnouncement(id, this.request(template)).subscribe({ next: () => this.toast.success(this.i18n.translate('levelUpAnnouncements.testSent')), error: e => this.toast.error(this.errors.resolve(e, 'errors.save').message) }); }
-  textChannels = () => this.resources().channels.filter(c => c.type.includes('Text'));
+   channelOptions = () => normalizeDiscordChannels(this.resources().channels);
   variationLineNumbers(): number[] { return Array.from({ length: Math.max(1, this.variationText().split(/\r?\n/).length) }, (_, index) => index + 1); }
   private request(template: LevelUpMessageTemplate) { return { template, level: 23, previousLevel: 22, totalXp: 12000, gainedXp: 50, source: 'message', rewardRoleAwarded: template.rewardRoleRequirement === 'Required' }; }
 }

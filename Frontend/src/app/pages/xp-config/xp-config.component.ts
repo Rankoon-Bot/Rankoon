@@ -14,11 +14,14 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { LocaleService } from '../../i18n/locale.service';
 import { ApiErrorService } from '../../services/api-error.service';
 import { ToastService } from '../../services/toast.service';
+import { DiscordChannelPickerComponent } from '../../shared/ui/discord-channel-picker/discord-channel-picker.component';
+import { DiscordChannelOption, normalizeDiscordChannels } from '../../shared/ui/discord-channel-picker/discord-channel.models';
+import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-save-bar.component';
 
 @Component({
   selector: 'app-xp-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe],
+  imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
   templateUrl: './xp-config.component.html',
   styleUrls: ['./xp-config.component.scss'],
 })
@@ -193,14 +196,7 @@ export class XpConfigComponent implements OnInit {
     this.config.set(JSON.parse(this.baseline()) as XpConfig);
   }
 
-  categories = () =>
-    this.resources().channels.filter((channel) =>
-      channel.type.includes('Category'),
-    );
-  textChannels = () =>
-    this.resources().channels.filter((channel) =>
-      channel.type.includes('Text'),
-    );
+  channelOptions = (): DiscordChannelOption[] => normalizeDiscordChannels(this.resources().channels);
 
   excludeRole(): void {
     const config = this.config();

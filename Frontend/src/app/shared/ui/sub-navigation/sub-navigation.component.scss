@@ -1,0 +1,4 @@
+.rk-sub-navigation { display: flex; gap: var(--rk-space-1); overflow-x: auto; border-bottom: 1px solid var(--rk-border-subtle); scrollbar-width: thin; }
+.rk-sub-navigation a { display: inline-flex; align-items: center; min-height: var(--rk-control-height); padding: 0 var(--rk-space-3); color: var(--rk-text-muted); border-bottom: var(--rk-space-1) solid transparent; white-space: nowrap; }
+.rk-sub-navigation a:hover { color: var(--rk-text-strong); }
+.rk-sub-navigation a.is-active { color: var(--rk-text-strong); border-color: var(--rk-brand); }

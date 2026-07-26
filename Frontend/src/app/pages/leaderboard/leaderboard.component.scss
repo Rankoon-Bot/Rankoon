@@ -1,4 +1,4 @@
-.page { max-width: 1280px; margin: 0 auto; }
+.page { max-width: var(--rk-page-max); margin: 0 auto; }
 .hero, .privacy, .ranking-head, .rank-row, .member, .toggle, .append-state { display: flex; align-items: center; }
 .hero { justify-content: space-between; gap: var(--rk-space-6); margin-bottom: var(--rk-space-6); }
 .hero p:last-child, .privacy p, .member p, .append-state { color: var(--rk-text-muted); }
