@@ -15,24 +15,65 @@ export function createVoiceHubNameTemplate(localizedSuffix: string): string {
   return `{username}${localizedSuffix}`;
 }
 
-@Component({ selector: 'app-vc-hubs', standalone: true, imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent], styleUrls: ['./vc-hubs.component.scss'], template: `
-<section class="page"><header><div><p class="eyebrow">{{ 'voiceHubs.eyebrow' | transloco }}</p><h1>{{ 'voiceHubs.title' | transloco }}</h1><p>{{ 'voiceHubs.subtitle' | transloco }}</p></div><button (click)="newHub()">{{ 'voiceHubs.add' | transloco }}</button></header>
-<p class="notice error" *ngIf="error()" role="alert"><span>{{ error() }}</span><button type="button" (click)="load()">{{ 'common.retry' | transloco }}</button></p><p class="loading" *ngIf="loading()" role="status">{{ 'voiceHubs.loading' | transloco }}</p>
-<div class="grid"><article class="hub" *ngFor="let hub of hubs()"><div class="hub-title"><h2>{{ hub.nameTemplate }}</h2><button type="button" (click)="edit(hub)">{{ 'common.edit' | transloco }}</button><button class="danger" type="button" *ngIf="hub.id" (click)="remove(hub)">{{ 'common.delete' | transloco }}</button></div></article></div>
-<article class="hub" *ngIf="editor() as hub"><div class="hub-title"><h2>{{ hub.nameTemplate }}</h2><label><input type="checkbox" [(ngModel)]="hub.enabled"> {{ 'common.active' | transloco }}</label></div><div class="fields"><label>{{ 'voiceHubs.existingChannel' | transloco }}<select [ngModel]="hub.joinChannelId ? 'existing' : 'create'" (ngModelChange)="setHubMode($event)"><option value="create">{{ 'voiceHubs.createByBot' | transloco }}</option><option value="existing">{{ 'voiceHubs.useExisting' | transloco }}</option></select></label><rk-discord-channel-picker *ngIf="hub.joinChannelId" [label]="'voiceHubs.existingChannel' | transloco" [channels]="channelOptions()" [value]="hub.joinChannelId.toString()" [allowedTypes]="['Voice']" [placeholder]="'voiceHubs.existingChannel' | transloco" [searchPlaceholder]="'channelPicker.search' | transloco" [emptyText]="'channelPicker.empty' | transloco" [noResultsText]="'channelPicker.noResults' | transloco" (valueChange)="hub.joinChannelId = +($event ?? 0)" /><label *ngIf="!hub.joinChannelId">{{ 'voiceHubs.newName' | transloco }}<input [(ngModel)]="hub.hubChannelName" [placeholder]="'voiceHubs.createPlaceholder' | transloco"></label><rk-discord-channel-picker [label]="'voiceHubs.category' | transloco" [channels]="channelOptions()" [value]="hub.categoryId" [allowedTypes]="['Category']" [placeholder]="'voiceHubs.noCategory' | transloco" [searchPlaceholder]="'channelPicker.search' | transloco" [emptyText]="'channelPicker.empty' | transloco" [noResultsText]="'channelPicker.noResults' | transloco" [clearable]="true" (valueChange)="hub.categoryId = $event" /><label>{{ 'common.name' | transloco }}<input [(ngModel)]="hub.nameTemplate" [placeholder]="defaultNameTemplate()"></label><label>{{ 'voiceHubs.limit' | transloco }}<input type="number" [(ngModel)]="hub.userLimit"></label><label>{{ 'voiceHubs.bitrate' | transloco }}<input type="number" [(ngModel)]="hub.bitrate"></label><label>{{ 'voiceHubs.maxChannels' | transloco }}<input type="number" min="1" [(ngModel)]="hub.maxChannelsPerOwner"></label></div><footer><span>{{ 'voiceHubs.commands' | transloco }}</span></footer></article>
-<rk-sticky-save-bar [dirty]="dirty()" [saving]="saving()" [valid]="valid()" [contextName]="editor()?.nameTemplate ?? ''" (save)="save()" (reset)="reset()" /></section>` })
+@Component({
+  selector: 'app-vc-hubs',
+  standalone: true,
+  imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
+  templateUrl: './vc-hubs.component.html',
+  styleUrls: ['./vc-hubs.component.scss'],
+})
 export class VcHubsComponent implements OnInit {
-  readonly appStore = inject(AppStore); private readonly api = inject(GuildService); private readonly i18n = inject(TranslocoService); private readonly apiErrors = inject(ApiErrorService); private readonly toast = inject(ToastService); readonly hubs = signal<VcHub[]>([]); readonly resources = signal<GuildResources | null>(null); readonly editor = signal<VcHub | null>(null); readonly error = signal(''); readonly loading = signal(false); readonly saving = signal(false); private baseline = ''; private editorIndex = -1;
+  readonly appStore = inject(AppStore);
+  private readonly api = inject(GuildService);
+  private readonly i18n = inject(TranslocoService);
+  private readonly apiErrors = inject(ApiErrorService);
+  private readonly toast = inject(ToastService);
+  readonly hubs = signal<VcHub[]>([]);
+  readonly resources = signal<GuildResources | null>(null);
+  readonly editor = signal<VcHub | null>(null);
+  readonly error = signal('');
+  readonly loading = signal(false);
+  readonly saving = signal(false);
+  private baseline: VcHub | null = null;
+  private editorIndex = -1;
+
   channelOptions = () => normalizeDiscordChannels(this.resources()?.channels ?? []);
   ngOnInit(): void { this.load(); }
-  load(): void { const id = this.appStore.selectedGuild()?.id; if (!id) return; this.loading.set(true); this.error.set(''); forkJoin({ hubs: this.api.hubs(id), resources: this.api.resources(id) }).pipe(finalize(() => this.loading.set(false))).subscribe({ next: result => { this.hubs.set(result.hubs); this.resources.set(result.resources); }, error: error => this.error.set(this.apiErrors.resolve(error, 'errors.voiceHubsLoad').message) }); }
+  load(): void {
+    const id = this.appStore.selectedGuild()?.id;
+    if (!id) return;
+    this.loading.set(true); this.error.set('');
+    forkJoin({ hubs: this.api.hubs(id), resources: this.api.resources(id) }).pipe(finalize(() => this.loading.set(false))).subscribe({
+      next: result => { this.hubs.set(result.hubs); this.resources.set(result.resources); this.editor.set(null); this.baseline = null; this.editorIndex = -1; },
+      error: error => this.error.set(this.apiErrors.resolve(error, 'errors.voiceHubsLoad').message),
+    });
+  }
   defaultNameTemplate(): string { return createVoiceHubNameTemplate(this.i18n.translate('voiceHubs.nameTemplateSuffix')); }
-  newHub(): void { const hub = { joinChannelId: 0, hubChannelName: this.i18n.translate('voiceHubs.createPlaceholder'), categoryId: null, nameTemplate: this.defaultNameTemplate(), userLimit: 0, bitrate: 64000, maxChannelsPerOwner: 1, enabled: true }; this.hubs.update(items => [...items, hub]); this.edit(hub); this.baseline = ''; }
-  edit(hub: VcHub): void { this.editorIndex = this.hubs().indexOf(hub); this.editor.set(structuredClone(hub)); this.baseline = JSON.stringify(this.editor()); }
-  setHubMode(mode: 'create' | 'existing'): void { const hub = this.editor(); if (!hub) return; hub.joinChannelId = mode === 'create' ? 0 : Number(this.channelOptions().find(channel => channel.kind === 'Voice')?.id ?? 0); }
-  dirty(): boolean { return !!this.editor() && JSON.stringify(this.editor()) !== this.baseline; }
+  newHub(): void {
+    const hub: VcHub = { joinChannelId: '0', hubChannelName: this.i18n.translate('voiceHubs.createPlaceholder'), categoryId: null, nameTemplate: this.defaultNameTemplate(), userLimit: 0, bitrate: 64000, maxChannelsPerOwner: 1, enabled: true };
+    this.hubs.update(items => [...items, hub]); this.editorIndex = this.hubs().length - 1; this.editor.set(structuredClone(hub)); this.baseline = null;
+  }
+  edit(hub: VcHub): void { this.editorIndex = this.hubs().indexOf(hub); this.editor.set(structuredClone(hub)); this.baseline = structuredClone(hub); }
+  setHubMode(mode: 'create' | 'existing'): void { const hub = this.editor(); if (hub) hub.joinChannelId = mode === 'create' ? '0' : this.channelOptions().find(channel => channel.kind === 'Voice')?.id ?? '0'; }
+  isExistingHub(hub: VcHub): boolean { return String(hub.joinChannelId) !== '0'; }
+  dirty(): boolean { return !!this.editor() && (this.baseline === null || JSON.stringify(this.editor()) !== JSON.stringify(this.baseline)); }
   valid(): boolean { const hub = this.editor(); return !!hub && !!hub.nameTemplate.trim() && hub.maxChannelsPerOwner >= 1; }
-  reset(): void { if (this.baseline) this.editor.set(JSON.parse(this.baseline) as VcHub); }
-  save(hub = this.editor()): void { const id = this.appStore.selectedGuild()?.id; if (!id || !hub || this.saving() || !this.valid()) return; const index = hub === this.editor() ? this.editorIndex : this.hubs().indexOf(hub); this.saving.set(true); const request = hub.id ? this.api.updateHub(id, hub) : this.api.createHub(id, hub); request.pipe(finalize(() => this.saving.set(false))).subscribe({ next: saved => { this.hubs.update(items => items.map((item, itemIndex) => itemIndex === index || (!!hub.id && item.id === hub.id) ? saved : item)); this.edit(saved); this.toast.success(this.i18n.translate('voiceHubs.saved')); }, error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message) }); }
-  remove(hub: VcHub): void { const id = this.appStore.selectedGuild()?.id; if (!id || !hub.id) return; this.api.deleteHub(id, hub.id).subscribe({ next: () => { this.hubs.update(items => items.filter(x => x.id !== hub.id)); if (this.editor()?.id === hub.id) { this.editor.set(null); this.baseline = ''; this.editorIndex = -1; } }, error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.voiceHubDelete').message) }); }
+  reset(): void {
+    if (!this.editor()) return;
+    if (this.baseline === null) { this.hubs.update(items => items.filter((_, index) => index !== this.editorIndex)); this.editor.set(null); this.editorIndex = -1; return; }
+    const restored = structuredClone(this.baseline); this.hubs.update(items => items.map((item, index) => index === this.editorIndex ? restored : item)); this.editor.set(structuredClone(restored));
+  }
+  save(hub = this.editor()): void {
+    const id = this.appStore.selectedGuild()?.id;
+    if (!id || !hub || this.saving() || !this.valid()) return;
+    const index = hub === this.editor() ? this.editorIndex : this.hubs().indexOf(hub);
+    this.saving.set(true);
+    const request = hub.id ? this.api.updateHub(id, hub) : this.api.createHub(id, hub);
+    request.pipe(finalize(() => this.saving.set(false))).subscribe({ next: saved => { this.hubs.update(items => items.map((item, itemIndex) => itemIndex === index || (!!hub.id && item.id === hub.id) ? saved : item)); this.edit(saved); this.toast.success(this.i18n.translate('voiceHubs.saved')); }, error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message) });
+  }
+  remove(hub: VcHub): void {
+    const id = this.appStore.selectedGuild()?.id;
+    if (!id || !hub.id) return;
+    this.api.deleteHub(id, hub.id).subscribe({ next: () => { this.hubs.update(items => items.filter(x => x.id !== hub.id)); if (this.editor()?.id === hub.id) { this.editor.set(null); this.baseline = null; this.editorIndex = -1; } }, error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.voiceHubDelete').message) });
+  }
 }

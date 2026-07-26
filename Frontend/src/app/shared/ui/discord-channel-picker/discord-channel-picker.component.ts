@@ -63,7 +63,7 @@ export class DiscordChannelPickerComponent {
   openPanel(): void { if (this.disabled) return; this.open.set(true); this.activeIndex.set(Math.max(0, this.visible().findIndex((channel) => channel.id === this.value))); setTimeout(() => this.searchInput?.nativeElement.focus()); }
   closePanel(restoreFocus = true): void { this.open.set(false); this.query.set(''); this.activeType.set('All'); if (restoreFocus) setTimeout(() => this.trigger?.nativeElement.focus()); }
   select(channel: DiscordChannelOption): void { if (channel.disabled) return; this.valueChange.emit(channel.id); this.closePanel(); }
-  clear(event: MouseEvent): void { event.stopPropagation(); this.valueChange.emit(null); }
+  reset(): void { if (!this.disabled && this.value !== null) this.valueChange.emit(null); this.closePanel(); }
   onTriggerKeydown(event: KeyboardEvent): void { if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); this.openPanel(); if (event.key === 'ArrowUp') this.activeIndex.set(Math.max(0, this.visible().length - 1)); } }
   onListKeydown(event: KeyboardEvent): void {
     const items = this.visible();

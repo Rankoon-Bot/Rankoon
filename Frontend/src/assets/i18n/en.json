@@ -1020,6 +1020,7 @@
     "description": "Configure safe messages for level progress.",
     "enabled": "Enable messages",
     "channel": "Target channel",
+    "channelRequired": "Choose a text channel before saving.",
     "notify": "Notify leveled-up user",
     "repetition": "Repeat protection",
     "save": "Save",
@@ -1713,6 +1714,7 @@
   },
   "channelPicker": {
     "clear": "Clear channel",
+    "reset": "Clear selection",
     "filterTypes": "Filter channel types",
     "loading": "Loading channels...",
     "search": "Search channels",

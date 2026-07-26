@@ -1020,6 +1020,7 @@
     "description": "Configurez des messages sécurisés pour la progression du niveau.",
     "enabled": "Activer les messages",
     "channel": "Canal cible",
+    "channelRequired": "Choisissez un salon textuel avant d’enregistrer.",
     "notify": "Notifier l'utilisateur ayant atteint le niveau",
     "repetition": "Protection contre les répétitions",
     "save": "Enregistrer",
@@ -1711,6 +1712,6 @@
       "other": "Autre entrée XP"
     }
   },
-  "channelPicker": { "clear": "Clear channel", "filterTypes": "Filter channel types", "loading": "Loading channels...", "search": "Search channels", "empty": "No matching channels are available.", "noResults": "No channels match your search.", "unknown": "Unknown channel", "types": { "Text": "Text channel", "Voice": "Voice channel", "Category": "Category", "Announcement": "Announcement channel", "Forum": "Forum", "Stage": "Stage channel", "Thread": "Thread", "Unknown": "Unknown channel" } },
+  "channelPicker": { "clear": "Clear channel", "reset": "Clear selection", "filterTypes": "Filter channel types", "loading": "Loading channels...", "search": "Search channels", "empty": "No matching channels are available.", "noResults": "No channels match your search.", "unknown": "Unknown channel", "types": { "Text": "Text channel", "Voice": "Voice channel", "Category": "Category", "Announcement": "Announcement channel", "Forum": "Forum", "Stage": "Stage channel", "Thread": "Thread", "Unknown": "Unknown channel" } },
   "saveBar": { "unsaved": "Unsaved changes", "reset": "Reset changes", "invalid": "Fix highlighted fields before saving." }
 }

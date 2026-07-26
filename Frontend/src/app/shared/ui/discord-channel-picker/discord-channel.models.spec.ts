@@ -5,7 +5,7 @@ describe('Discord channel normalization', () => {
     expect(normalizeDiscordChannelKind('GuildText')).toBe('Text');
     expect(normalizeDiscordChannelKind('GuildVoice')).toBe('Voice');
     expect(normalizeDiscordChannelKind('GuildCategory')).toBe('Category');
-    expect(normalizeDiscordChannelKind('GuildAnnouncement')).toBe('Announcement');
+    expect(normalizeDiscordChannelKind('GuildAnnouncement')).toBe('Text');
     expect(normalizeDiscordChannelKind('GuildForum')).toBe('Forum');
     expect(normalizeDiscordChannelKind('GuildStageVoice')).toBe('Stage');
     expect(normalizeDiscordChannelKind('PublicThread')).toBe('Thread');

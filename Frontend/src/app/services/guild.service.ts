@@ -93,7 +93,8 @@ export interface VoiceWatchdogStatus {
 export interface VcHub {
   id?: string;
   guildId?: string;
-  joinChannelId: number;
+  // Discord snowflakes exceed JavaScript's safe integer range. Keep API IDs as strings.
+  joinChannelId: string | number;
   hubChannelName: string;
   categoryId: string | null;
   nameTemplate: string;

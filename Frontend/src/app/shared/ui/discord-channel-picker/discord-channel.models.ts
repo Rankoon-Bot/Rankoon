@@ -30,7 +30,8 @@ export interface DiscordResourceChannel {
 
 export function normalizeDiscordChannelKind(rawType: string): DiscordChannelKind {
   const type = rawType.toLowerCase();
-  if (type.includes('announcement') || type.includes('news')) return 'Announcement';
+  // Rankoon treats Discord announcement/news channels as text destinations.
+  if (type.includes('announcement') || type.includes('news')) return 'Text';
   if (type.includes('forum')) return 'Forum';
   if (type.includes('stage')) return 'Stage';
   if (type.includes('thread')) return 'Thread';
@@ -41,5 +42,11 @@ export function normalizeDiscordChannelKind(rawType: string): DiscordChannelKind
 }
 
 export function normalizeDiscordChannels(channels: readonly DiscordResourceChannel[]): DiscordChannelOption[] {
-  return channels.map((channel) => ({ ...channel, rawType: channel.type, kind: normalizeDiscordChannelKind(channel.type) }));
+  return channels.map((channel) => ({
+    ...channel,
+    id: String(channel.id),
+    categoryId: channel.categoryId == null ? channel.categoryId : String(channel.categoryId),
+    rawType: channel.type,
+    kind: normalizeDiscordChannelKind(channel.type),
+  }));
 }

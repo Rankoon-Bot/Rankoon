@@ -52,4 +52,33 @@ describe('VcHubsComponent', () => {
     expect(TestBed.inject(ToastService).toasts()).toEqual([jasmine.objectContaining({ message: 'Delete denied', type: 'error' })]);
     expect(component.hubs()).toEqual([hub]);
   });
+
+  it('removes a new unsaved hub when changes are reset', () => {
+    const component = TestBed.createComponent(VcHubsComponent).componentInstance;
+    component.newHub();
+
+    expect(component.dirty()).toBeTrue();
+    expect(component.hubs()).toHaveSize(1);
+
+    component.reset();
+
+    expect(component.hubs()).toEqual([]);
+    expect(component.editor()).toBeNull();
+    expect(component.dirty()).toBeFalse();
+  });
+
+  it('restores an existing hub to its loaded baseline', () => {
+    const component = TestBed.createComponent(VcHubsComponent).componentInstance;
+    const hub = { id: 'hub-1', joinChannelId: 1, hubChannelName: 'Hub', categoryId: null, nameTemplate: '{username}', userLimit: 0, bitrate: 64000, maxChannelsPerOwner: 1, enabled: true };
+    component.hubs.set([hub]);
+    component.edit(hub);
+    component.editor()!.nameTemplate = 'Changed';
+
+    expect(component.dirty()).toBeTrue();
+    component.reset();
+
+    expect(component.editor()?.nameTemplate).toBe('{username}');
+    expect(component.hubs()[0].nameTemplate).toBe('{username}');
+    expect(component.dirty()).toBeFalse();
+  });
 });

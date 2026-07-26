@@ -1020,6 +1020,7 @@
     "description": "Konfiguriere sichere Nachrichten fuer Levelaufstiege.",
     "enabled": "Nachrichten aktivieren",
     "channel": "Zielkanal",
+    "channelRequired": "Wähle vor dem Speichern einen Textkanal aus.",
     "notify": "Aufgestiegenen Nutzer benachrichtigen",
     "repetition": "Wiederholungsschutz",
     "save": "Speichern",
@@ -1713,6 +1714,7 @@
   },
   "channelPicker": {
     "clear": "Kanal entfernen",
+    "reset": "Auswahl entfernen",
     "filterTypes": "Kanaltypen filtern",
     "loading": "Kanäle werden geladen...",
     "search": "Kanäle suchen",
