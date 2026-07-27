@@ -71,7 +71,18 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.NextAttemptAtUtc), new CreateIndexOptions { Name = "open_delivery" }),
                     new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId).Descending(x => x.CreatedAtUtc), new CreateIndexOptions { Name = "guild_user_recent" })
                 ], stoppingToken);
-                await database.VoiceSessions.Indexes.CreateOneAsync(new CreateIndexModel<VoiceSession>(Builders<VoiceSession>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
+                await database.VoiceSessions.Indexes.CreateManyAsync([
+                    // Existing installations created this unique key with MongoDB's default name.
+                    // Keep that name so index initialization remains an in-place, non-destructive upgrade.
+                    new CreateIndexModel<VoiceSession>(Builders<VoiceSession>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true }),
+                    new CreateIndexModel<VoiceSession>(Builders<VoiceSession>.IndexKeys.Ascending(x => x.RuntimeBootId).Ascending(x => x.State), new CreateIndexOptions { Name = "runtime_state" }),
+                    new CreateIndexModel<VoiceSession>(Builders<VoiceSession>.IndexKeys.Ascending(x => x.State).Ascending(x => x.DurableThroughUtc), new CreateIndexOptions { Name = "state_durable_through" }),
+                    new CreateIndexModel<VoiceSession>(Builders<VoiceSession>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.State), new CreateIndexOptions { Name = "guild_state" })
+                ], stoppingToken);
+                await database.VoiceRuntimeWatermarks.Indexes.CreateManyAsync([
+                    new CreateIndexModel<VoiceRuntimeWatermark>(Builders<VoiceRuntimeWatermark>.IndexKeys.Ascending(x => x.RuntimeId), new CreateIndexOptions { Unique = true, Name = "runtime_unique" }),
+                    new CreateIndexModel<VoiceRuntimeWatermark>(Builders<VoiceRuntimeWatermark>.IndexKeys.Ascending(x => x.RuntimeId).Ascending(x => x.BootId), new CreateIndexOptions { Name = "runtime_boot" })
+                ], stoppingToken);
                 await database.VoiceActivities.Indexes.CreateManyAsync([
                     new CreateIndexModel<VoiceActivityDay>(Builders<VoiceActivityDay>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId).Ascending(x => x.DayStartUtc).Ascending(x => x.Part), new CreateIndexOptions { Unique = true, Name = "guild_user_day_part_unique" }),
                     new CreateIndexModel<VoiceActivityDay>(Builders<VoiceActivityDay>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId).Descending(x => x.DayStartUtc).Ascending(x => x.Part), new CreateIndexOptions { Name = "guild_user_day_desc" }),

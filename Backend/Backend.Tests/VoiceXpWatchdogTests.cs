@@ -1,7 +1,9 @@
 using System.Reflection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
+using Rankoon.Data.MongoDb;
 using Rankoon.Data.Xp;
 using Xunit;
 
@@ -22,6 +24,32 @@ public sealed class VoiceXpWatchdogTests
     public void Voice_lifecycle_uses_a_background_recovery_worker()
     {
         Assert.True(typeof(BackgroundService).IsAssignableFrom(typeof(VoiceXpWatchdog)));
+    }
+
+    [Fact]
+    public void Voice_watchdog_singleton_is_registered_as_a_hosted_service()
+    {
+        var program = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Program.cs"));
+
+        Assert.Contains("AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>())", program, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Settings_cache_only_accepts_higher_revisions()
+    {
+        var database = new RankoonDbContext(Options.Create(new MongoDbSettings { ConnectionString = "mongodb://localhost:27017", DatabaseName = "rankoon-tests" }));
+        var cache = new GuildXpSettingsRuntimeCache(database);
+        var current = Snapshot(3, 30m);
+
+        cache.Apply(current);
+        cache.Apply(Snapshot(3, 99m));
+        cache.Apply(Snapshot(2, 98m));
+
+        Assert.True(cache.TryGet(1, out var cached));
+        Assert.Same(current, cached);
+
+        cache.Apply(Snapshot(4, 40m));
+        Assert.Equal(40m, cache.GetOrDefault(1)!.Voice.PointsPerMinute);
     }
 
     [Fact]
@@ -125,4 +153,8 @@ public sealed class VoiceXpWatchdogTests
     private static object? Invoke(string name, params object[] arguments) => typeof(VoiceXpWatchdog)
         .GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!
         .Invoke(null, arguments);
+
+    private static GuildXpSettingsSnapshot Snapshot(long revision, decimal pointsPerMinute) => new(1, true,
+        new VoiceXpSettings { Enabled = true, PointsPerMinute = pointsPerMinute }, new HashSet<ulong>(), new HashSet<ulong>(), new HashSet<ulong>(),
+        new Dictionary<ulong, decimal>(), new ServerBoosterXpSettings(), revision, DateTime.UnixEpoch);
 }

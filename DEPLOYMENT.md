@@ -92,6 +92,22 @@ voice uses `voice_activity_days` with unique `(guild_id, user_id, day_start_utc,
 part)`, session-cursor, open-projection, and guild-period indexes. Migration state
 is stored in `voice_ledger_migration_states` with a phase/update index.
 
+## Voice XP Reliability
+
+Voice XP settings are loaded into a process-local, revisioned runtime cache before
+voice processing starts. Settings writes persist first and then publish an
+in-process invalidation event; consumers only update runtime state and never save
+or republish settings. In-memory invalidations do not reach another application
+instance, so horizontal scaling requires a distributed invalidation bus or a slow
+revision safety sync.
+
+Voice activity is checkpointed independently from its projection. A checkpoint is
+durable before a session cursor advances, and pending activity can be projected by
+the repair worker after a restart. A fully unobserved Discord downtime interval is
+not technically provable. Rankoon therefore uses the conservative strategy: it
+does not award that unknown interval, preventing downtime from becoming a source
+of exploitable XP.
+
 The resumable legacy voice migration copies a fixed ledger high-water mark in
 `VoiceActivity__MigrationBatchSize` batches unless
 `VoiceLedgerMigration__CopyBatchSize` explicitly overrides it. It records generated

@@ -50,7 +50,10 @@ public sealed class VoiceActivityContractTests
     {
         var options = new VoiceActivityOptions();
 
-        Assert.Equal(20, options.ProjectionIntervalSeconds);
+        Assert.Equal(30, options.CheckpointIntervalSeconds);
+        Assert.Equal(30, options.ProjectionIntervalSeconds);
+        Assert.Equal(5, options.RuntimeWatermarkIntervalSeconds);
+        Assert.Equal(35, options.MaximumRecoveryGapSeconds);
         Assert.Equal(2000, options.MaximumSegmentsPerDocument);
         Assert.Equal(100, options.ProjectionBatchSize);
         Assert.Equal(500, options.MigrationBatchSize);

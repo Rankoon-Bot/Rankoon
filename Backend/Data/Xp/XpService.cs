@@ -4,6 +4,7 @@ using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Analytics;
+using Rankoon.Data.Discord;
 
 namespace Rankoon.Data.Xp;
 
@@ -22,7 +23,7 @@ public interface IXpService
 
 public sealed record XpGrantRequest(ulong GuildId, ulong UserId, string DisplayName, string Source, decimal Amount, string GrantKey, DateTime OccurredAtUtc, ulong? ChannelId = null, DateTime? PeriodStartsAtUtc = null, DateTime? PeriodEndsAtUtc = null, string? ReversesGrantKey = null, int? CooldownSeconds = null, bool SuppressReport = false, decimal? AppliedServerBoosterMultiplier = null);
 
-public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IGuildAnalyticsRecorder analytics, ILeaderboardRealtimePublisher realtime, ILevelTransitionService transitions, IXpProjectionCoordinator projectionCoordinator, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
+public sealed class XpService(RankoonDbContext database, ISeasonService seasons, IGuildAnalyticsRecorder analytics, ILeaderboardRealtimePublisher realtime, ILevelTransitionService transitions, IXpProjectionCoordinator projectionCoordinator, IGuildXpSettingsRuntimeCache settingsCache, IGuildXpSettingsChangePublisher settingsChanges, TimeProvider timeProvider, ILogger<XpService> logger) : IXpService
 {
     public async Task<GuildXpSettings> GetSettingsAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
@@ -57,7 +58,12 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             .Set(x => x.UpdatedAt, updatedAt);
         var saved = await database.GuildXpSettings.FindOneAndUpdateAsync(x => x.GuildId == settings.GuildId, update,
             new FindOneAndUpdateOptions<GuildXpSettings> { IsUpsert = true, ReturnDocument = ReturnDocument.After }, cancellationToken);
-        return saved ?? throw new InvalidOperationException("XP settings save did not return the persisted document.");
+        if (saved == null) throw new InvalidOperationException("XP settings save did not return the persisted document.");
+        var change = new GuildXpSettingsChanged(saved.GuildId, saved.Revision, GuildXpSettingsRuntimeCache.CreateSnapshot(saved), updatedAt);
+        settingsCache.Apply(change.Snapshot);
+        try { await settingsChanges.PublishAsync(change, cancellationToken); }
+        catch (Exception exception) when (exception is not OperationCanceledException) { logger.LogError(exception, "Guild XP settings {GuildId} were persisted but invalidation failed", saved.GuildId); }
+        return saved;
     }
 
     public async Task<bool> GrantAsync(ulong guildId, ulong userId, string displayName, string source, decimal amount, string key, ulong? channelId = null, CancellationToken cancellationToken = default)

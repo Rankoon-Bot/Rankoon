@@ -49,6 +49,7 @@ public class RankoonDbContext
     public IMongoCollection<GuildLevelUpAnnouncementSettings> GuildLevelUpAnnouncementSettings => _database.GetCollection<GuildLevelUpAnnouncementSettings>("guild_level_up_announcement_settings");
     public IMongoCollection<LevelTransitionEvent> LevelTransitionEvents => _database.GetCollection<LevelTransitionEvent>("level_transition_events");
     public IMongoCollection<VoiceSession> VoiceSessions => _database.GetCollection<VoiceSession>("voice_sessions");
+    public IMongoCollection<VoiceRuntimeWatermark> VoiceRuntimeWatermarks => _database.GetCollection<VoiceRuntimeWatermark>("voice_runtime_watermarks");
     public IMongoCollection<VoiceActivityDay> VoiceActivities => _database.GetCollection<VoiceActivityDay>("voice_activity_days");
     public IMongoCollection<VoiceLedgerMigrationState> VoiceLedgerMigrationStates => _database.GetCollection<VoiceLedgerMigrationState>("voice_ledger_migration_states");
     public IMongoCollection<XpProjectionLease> XpProjectionLeases => _database.GetCollection<XpProjectionLease>("xp_projection_leases");

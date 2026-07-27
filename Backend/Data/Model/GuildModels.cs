@@ -139,6 +139,7 @@ public sealed class XpLedgerEntry
     [BsonElement("level_transition_snapshot"), BsonIgnoreIfNull] public LevelTransitionSnapshot? LevelTransitionSnapshot { get; set; }
 }
 
+[BsonIgnoreExtraElements]
 public sealed class VoiceSession
 {
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
@@ -151,6 +152,27 @@ public sealed class VoiceSession
     [BsonElement("last_accrued_at")] public DateTime LastAccruedAt { get; set; }
     [BsonElement("eligible_seconds")] public long EligibleSeconds { get; set; }
     [BsonElement("revision")] public long Revision { get; set; }
+    // New cursor fields are additive. Legacy fields above remain readable until startup maintenance migrates open sessions.
+    [BsonElement("runtime_boot_id"), BsonIgnoreIfNull] public string? RuntimeBootId { get; set; }
+    [BsonElement("durable_through_utc"), BsonIgnoreIfNull] public DateTime? DurableThroughUtc { get; set; }
+    [BsonElement("last_observed_at_utc"), BsonIgnoreIfNull] public DateTime? LastObservedAtUtc { get; set; }
+    [BsonElement("durable_eligible_seconds"), BsonIgnoreIfNull] public long? DurableEligibleSeconds { get; set; }
+    [BsonElement("settings_revision"), BsonIgnoreIfNull] public long? SettingsRevision { get; set; }
+    [BsonElement("season_id"), BsonIgnoreIfNull, BsonRepresentation(BsonType.ObjectId)] public string? SeasonId { get; set; }
+    [BsonElement("state"), BsonIgnoreIfNull, BsonRepresentation(BsonType.String)] public VoicePersistedSessionState? State { get; set; }
+}
+
+public enum VoicePersistedSessionState { Open, CheckpointPending, Closing, Closed, RecoveryPending }
+public enum VoiceRuntimeWatermarkState { Starting, Ready, Processing, Disconnected, Degraded, Stopping, Stopped }
+public sealed class VoiceRuntimeWatermark
+{
+    [BsonId] public string Id { get; set; } = string.Empty;
+    [BsonElement("runtime_id")] public string RuntimeId { get; set; } = string.Empty;
+    [BsonElement("boot_id")] public string BootId { get; set; } = string.Empty;
+    [BsonElement("processed_through_utc")] public DateTime ProcessedThroughUtc { get; set; }
+    [BsonElement("processed_event_sequence")] public long ProcessedEventSequence { get; set; }
+    [BsonElement("state"), BsonRepresentation(BsonType.String)] public VoiceRuntimeWatermarkState State { get; set; }
+    [BsonElement("updated_at_utc")] public DateTime UpdatedAtUtc { get; set; }
 }
 
 public sealed class VcHub

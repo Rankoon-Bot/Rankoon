@@ -202,6 +202,10 @@ builder.Services.AddScoped<IGuildAuthorizationService, GuildAuthorizationService
 builder.Services.AddSingleton<IGuildModuleRegistry, GuildModuleRegistry>();
 builder.Services.AddSingleton<IGuildRolePermissionService, GuildRolePermissionService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.XpService>();
+builder.Services.AddSingleton<GuildXpSettingsRuntimeCache>();
+builder.Services.AddSingleton<IGuildXpSettingsRuntimeCache>(services => services.GetRequiredService<GuildXpSettingsRuntimeCache>());
+builder.Services.AddSingleton<IGuildXpSettingsChangeConsumer>(services => services.GetRequiredService<GuildXpSettingsRuntimeCache>());
+builder.Services.AddSingleton<IGuildXpSettingsChangePublisher, InProcessGuildXpSettingsChangePublisher>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelTransitionService, Rankoon.Data.Xp.LevelTransitionService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelUpTemplateRenderer, Rankoon.Data.Xp.LevelUpTemplateRenderer>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILevelUpRandom, Rankoon.Data.Xp.LevelUpRandom>();
@@ -229,6 +233,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.IGuildUserPresentationService, Ran
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILeaderboardRealtimePublisher, Rankoon.Data.Xp.LeaderboardRealtimePublisher>();
 builder.Services.AddSingleton<Rankoon.Data.Development.DevelopmentLeaderboardService>();
 builder.Services.AddSingleton<VoiceXpWatchdog>();
+builder.Services.AddSingleton<IGuildXpSettingsChangeConsumer>(services => services.GetRequiredService<VoiceXpWatchdog>());
 builder.Services.AddSingleton<VcHubService>();
 builder.Services.AddSingleton<GuildMembershipService>();
 builder.Services.AddSingleton<RankoonBotHostedService>();
@@ -250,6 +255,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.VoiceLedgerMigrationService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<LevelProgressionWorker>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
     builder.Services.AddHostedService(provider => (DiscordRuntimeEventDispatcher)provider.GetRequiredService<IDiscordRuntimeEventDispatcher>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<RankoonBotHostedService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VcHubService>());
@@ -377,15 +383,11 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
 {
     builder.Services.AddOptions<VoiceWatchdogOptions>()
         .Bind(builder.Configuration.GetSection(VoiceWatchdogOptions.SectionName))
-        .Validate(options => options.IntervalSeconds > 0, "VoiceWatchdog:IntervalSeconds must be greater than zero.")
+        .Validate(VoiceWatchdogOptions.IsValid, "VoiceWatchdog contains invalid intervals or concurrency.")
         .ValidateOnStart();
     builder.Services.AddOptions<VoiceActivityOptions>()
         .Bind(builder.Configuration.GetSection(VoiceActivityOptions.SectionName))
-        .Validate(options => options.ProjectionIntervalSeconds is >= 15 and <= 30, "VoiceActivity:ProjectionIntervalSeconds must be between 15 and 30.")
-        .Validate(options => options.MaximumSegmentsPerDocument is > 0 and <= Rankoon.Data.Xp.VoiceActivityAccumulator.MaximumSegmentsPerPart, "VoiceActivity:MaximumSegmentsPerDocument must be between 1 and 2000.")
-        .Validate(options => options.ProjectionBatchSize is >= 1 and <= 1000, "VoiceActivity:ProjectionBatchSize must be between 1 and 1000.")
-        .Validate(options => options.MigrationBatchSize is >= 1 and <= 1000, "VoiceActivity:MigrationBatchSize must be between 1 and 1000.")
-        .Validate(options => options.MaxWriteAttempts is >= 1 and <= 100, "VoiceActivity:MaxWriteAttempts must be between 1 and 100.")
+        .Validate(VoiceActivityOptions.IsValid, "VoiceActivity contains invalid checkpoint, watermark, projection, or batch values.")
         .ValidateOnStart();
     builder.Services.AddOptions<Rankoon.Data.Model.VoiceLedgerMigrationOptions>()
         .Bind(builder.Configuration.GetSection(Rankoon.Data.Model.VoiceLedgerMigrationOptions.SectionName))
