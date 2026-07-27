@@ -352,8 +352,8 @@ app.Use(async (context, next) =>
     }
     await next();
 });
-app.UseMiddleware<CsrfValidationMiddleware>();
 app.UseAuthentication();
+app.UseMiddleware<CsrfValidationMiddleware>();
 app.UseRateLimiter();
 app.UseAuthorization();
 

@@ -131,7 +131,7 @@ public sealed class OperationalIncident
     [BsonElement("affected_guild_count")] public long AffectedGuildCount { get; set; }
     [BsonElement("first_seen_at_utc")] public DateTime FirstSeenAtUtc { get; set; }
     [BsonElement("last_seen_at_utc")] public DateTime LastSeenAtUtc { get; set; }
-    [BsonElement("last_occurrence_id"), BsonIgnoreIfNull] public string? LastOccurrenceId { get; set; }
+    [BsonElement("last_occurrence_id"), BsonIgnoreIfNull, BsonRepresentation(BsonType.ObjectId)] public string? LastOccurrenceId { get; set; }
     [BsonElement("last_build"), BsonIgnoreIfNull] public string? LastBuild { get; set; }
     [BsonElement("acknowledged_at_utc"), BsonIgnoreIfNull] public DateTime? AcknowledgedAtUtc { get; set; }
     [BsonElement("acknowledged_by"), BsonIgnoreIfNull] public ulong? AcknowledgedBy { get; set; }

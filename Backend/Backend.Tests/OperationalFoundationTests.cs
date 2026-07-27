@@ -12,6 +12,8 @@ using Rankoon.Data.Model;
 using Rankoon.Data.Reporting;
 using Rankoon.Data.Utils;
 using System.Reflection;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace Backend.Tests;
@@ -142,6 +144,19 @@ public sealed class OperationalFoundationTests
         AssertBsonName<OperationalErrorOccurrence>(nameof(OperationalErrorOccurrence.TraceId), "trace_identifier");
         AssertBsonName<OperationalErrorOccurrence>(nameof(OperationalErrorOccurrence.Build), "build_version");
         AssertBsonName<OperationalIncident>(nameof(OperationalIncident.StatusNote), "note");
+    }
+
+    [Fact]
+    public void Operational_Incident_Deserializes_Last_Occurrence_ObjectId()
+    {
+        var occurrenceId = ObjectId.GenerateNewId();
+        var incident = BsonSerializer.Deserialize<OperationalIncident>(new BsonDocument
+        {
+            ["fingerprint"] = "fingerprint",
+            ["last_occurrence_id"] = occurrenceId
+        });
+
+        Assert.Equal(occurrenceId.ToString(), incident.LastOccurrenceId);
     }
 
     [Fact]

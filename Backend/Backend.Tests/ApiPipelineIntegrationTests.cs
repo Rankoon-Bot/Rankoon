@@ -125,6 +125,29 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
     }
 
     [Fact]
+    public async Task Authenticated_browser_request_accepts_issued_csrf_token()
+    {
+        var accessCookie = $"__Host-rankoon-access={CreateAccessToken()}";
+        using var bootstrapRequest = new HttpRequestMessage(HttpMethod.Get, "/api/auth/csrf");
+        bootstrapRequest.Headers.Add("Cookie", accessCookie);
+        using var bootstrapResponse = await _client.SendAsync(bootstrapRequest);
+        bootstrapResponse.EnsureSuccessStatusCode();
+        using var bootstrapJson = JsonDocument.Parse(await bootstrapResponse.Content.ReadAsStreamAsync());
+        var csrfToken = bootstrapJson.RootElement.GetProperty("token").GetString();
+        var csrfCookie = bootstrapResponse.Headers.GetValues("Set-Cookie")
+            .Select(value => value.Split(';', 2)[0])
+            .Single(value => value.StartsWith(".AspNetCore.Antiforgery.", StringComparison.Ordinal));
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/guilds/1/xp/import");
+        request.Headers.Add("Cookie", $"{accessCookie}; {csrfCookie}");
+        request.Headers.Add("X-CSRF-TOKEN", csrfToken);
+        request.Content = new StringContent("{\"guild\":{\"id\":1},\"players\":[]}", Encoding.UTF8, "application/json");
+        using var response = await _client.SendAsync(request);
+
+        await AssertCanonicalErrorAsync(response, HttpStatusCode.BadRequest, "xp.import.noValidMembers");
+    }
+
+    [Fact]
     public async Task Rate_limit_rejection_returns_retry_after_and_canonical_429()
     {
         const string path = "/api/guilds/1/reports/activity";
@@ -180,6 +203,13 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
 
     private static HttpRequestMessage CreateAuthenticatedRequest(HttpMethod method, string path)
     {
+        var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", CreateAccessToken());
+        return request;
+    }
+
+    private static string CreateAccessToken()
+    {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-test-secret-key-that-is-long-enough"));
         var token = new JwtSecurityToken(
             issuer: "Rankoon.Tests",
@@ -187,9 +217,7 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
             claims: [new Claim("discord_id", "123")],
             expires: DateTime.UtcNow.AddMinutes(5),
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
-        var request = new HttpRequestMessage(method, path);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
-        return request;
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private static async Task<JsonElement> AssertCanonicalErrorAsync(HttpResponseMessage response, HttpStatusCode statusCode, string errorKey)
