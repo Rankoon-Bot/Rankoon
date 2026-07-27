@@ -34,8 +34,14 @@ public sealed class BotManagementController(IBotOperatorAccessService access, IO
     }
     [HttpGet("errors/{occurrenceId}"), Authorize(Policy = AuthorizationPolicies.BotOperator)] public async Task<IActionResult> Error(string occurrenceId) => await operations.OccurrenceAsync(occurrenceId, HttpContext.RequestAborted) is { } value ? Ok(value) : NotFound();
 
-    [HttpPost("incidents/{fingerprint}/{action}"), Authorize(Policy = AuthorizationPolicies.BotOperator)]
-    public Task<IActionResult> TransitionCompatibility(string fingerprint, string action) => Transition(fingerprint, new(action, null));
+    [HttpPost("incidents/{fingerprint}/acknowledge"), Authorize(Policy = AuthorizationPolicies.BotOperator)]
+    public Task<IActionResult> Acknowledge(string fingerprint) => Transition(fingerprint, new("acknowledge", null));
+    [HttpPost("incidents/{fingerprint}/resolve"), Authorize(Policy = AuthorizationPolicies.BotOperator)]
+    public Task<IActionResult> Resolve(string fingerprint) => Transition(fingerprint, new("resolve", null));
+    [HttpPost("incidents/{fingerprint}/reopen"), Authorize(Policy = AuthorizationPolicies.BotOperator)]
+    public Task<IActionResult> Reopen(string fingerprint) => Transition(fingerprint, new("reopen", null));
+    [HttpPost("incidents/{fingerprint}/ignore"), Authorize(Policy = AuthorizationPolicies.BotOperator)]
+    public Task<IActionResult> Ignore(string fingerprint) => Transition(fingerprint, new("ignore", null));
 
     private bool TryRange<T>(string? value, Func<AnalyticsRange, CancellationToken, Task<T>> query, out Task<T> task) { if (GuildAnalyticsQueryService.TryParseRange(value, out var range)) { task = query(range, HttpContext.RequestAborted); return true; } task = Task.FromResult(default(T)!); return false; }
     private bool Actor(out ulong actor) => ulong.TryParse(User.FindFirst("discord_id")?.Value, out actor);

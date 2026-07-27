@@ -44,6 +44,16 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
         Assert.Contains("GET", response.Content.Headers.Allow);
     }
 
+    [Theory]
+    [InlineData("acknowledge")]
+    [InlineData("resolve")]
+    public async Task Incident_action_post_routes_are_mapped(string action)
+    {
+        using var response = await _client.PostAsync($"/api/bot-management/incidents/fingerprint/{action}", null);
+
+        await AssertCanonicalErrorAsync(response, HttpStatusCode.Unauthorized, "auth.unauthorized");
+    }
+
     [Fact]
     public async Task Refresh_does_not_bind_or_parse_a_json_token_body()
     {
