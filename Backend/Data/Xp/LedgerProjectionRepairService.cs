@@ -15,7 +15,10 @@ public sealed class LedgerProjectionRepairService(RankoonDbContext database, XpS
         {
             try
             {
-                var pending = await database.XpLedger.Find(x => x.ProjectionStatus == SeasonProjectionStatus.Pending).SortBy(x => x.CreatedAt).Limit(100).ToListAsync(stoppingToken);
+                var now = timeProvider.GetUtcNow().UtcDateTime;
+                var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, SeasonProjectionStatus.Pending) &
+                    (Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionLeaseOwner, null) | Builders<XpLedgerEntry>.Filter.Lte(x => x.ProjectionLeaseExpiresAtUtc, now));
+                var pending = await database.XpLedger.Find(filter).SortBy(x => x.CreatedAt).Limit(100).ToListAsync(stoppingToken);
                 foreach (var ledger in pending)
                 {
                     await xp.ProjectAsync(ledger, stoppingToken);
@@ -35,4 +38,7 @@ public sealed class LedgerProjectionRepairService(RankoonDbContext database, XpS
             }
         }
     }
+
+    internal static bool IsEligibleForRepair(XpLedgerEntry entry, DateTime nowUtc) => entry.ProjectionStatus == SeasonProjectionStatus.Pending &&
+        (entry.ProjectionLeaseOwner == null || entry.ProjectionLeaseExpiresAtUtc <= nowUtc);
 }
