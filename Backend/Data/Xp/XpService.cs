@@ -10,7 +10,7 @@ namespace Rankoon.Data.Xp;
 public interface IXpService
 {
     Task<GuildXpSettings> GetSettingsAsync(ulong guildId, CancellationToken cancellationToken = default);
-    Task SaveSettingsAsync(GuildXpSettings settings, CancellationToken cancellationToken = default);
+    Task<GuildXpSettings> SaveSettingsAsync(GuildXpSettings settings, CancellationToken cancellationToken = default);
     Task<bool> GrantAsync(ulong guildId, ulong userId, string displayName, string source, decimal amount, string key, ulong? channelId = null, CancellationToken cancellationToken = default);
     Task<bool> GrantAsync(XpGrantRequest request, CancellationToken cancellationToken = default);
     Task<bool> ReverseGrantAsync(string originalGrantKey, string reversalGrantKey, CancellationToken cancellationToken = default);
@@ -34,7 +34,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         return settings;
     }
 
-    public Task SaveSettingsAsync(GuildXpSettings settings, CancellationToken cancellationToken = default)
+    public async Task<GuildXpSettings> SaveSettingsAsync(GuildXpSettings settings, CancellationToken cancellationToken = default)
     {
         var updatedAt = timeProvider.GetUtcNow().UtcDateTime;
         settings.UpdatedAt = updatedAt;
@@ -55,7 +55,9 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             .Set(x => x.LevelUpChannelId, settings.LevelUpChannelId)
             .Inc(x => x.Revision, 1)
             .Set(x => x.UpdatedAt, updatedAt);
-        return database.GuildXpSettings.UpdateOneAsync(x => x.GuildId == settings.GuildId, update, new UpdateOptions { IsUpsert = true }, cancellationToken);
+        var saved = await database.GuildXpSettings.FindOneAndUpdateAsync(x => x.GuildId == settings.GuildId, update,
+            new FindOneAndUpdateOptions<GuildXpSettings> { IsUpsert = true, ReturnDocument = ReturnDocument.After }, cancellationToken);
+        return saved ?? throw new InvalidOperationException("XP settings save did not return the persisted document.");
     }
 
     public async Task<bool> GrantAsync(ulong guildId, ulong userId, string displayName, string source, decimal amount, string key, ulong? channelId = null, CancellationToken cancellationToken = default)
