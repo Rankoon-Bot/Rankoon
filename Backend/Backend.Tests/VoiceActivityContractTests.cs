@@ -66,4 +66,10 @@ public sealed class VoiceActivityContractTests
         Assert.True(VoiceActivityProjectionService.ProjectionDue(now, now, TimeSpan.FromSeconds(20), true));
         Assert.Equal(TimeSpan.FromSeconds(20), VoiceActivityProjectionRepairService.NextDelay(0, 100, 20));
     }
+
+    [Fact]
+    public void Active_projection_uses_the_configured_repair_batch_size()
+    {
+        Assert.Equal(17, VoiceActivityProjectionService.PendingBatchSize(new VoiceActivityOptions { ProjectionBatchSize = 17 }));
+    }
 }

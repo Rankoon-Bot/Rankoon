@@ -18,6 +18,7 @@ public interface IVoiceActivityProjectionService
 public sealed class VoiceActivityProjectionService(RankoonDbContext database, IXpProjectionCoordinator coordinator, ILevelTransitionService transitions, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider, IOptions<VoiceActivityOptions> configuredOptions) : IVoiceActivityProjectionService
 {
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(2);
+    private readonly VoiceActivityOptions options = configuredOptions.Value;
     private readonly TimeSpan projectionInterval = TimeSpan.FromSeconds(configuredOptions.Value.ProjectionIntervalSeconds);
 
     public async Task ProjectPendingAsync(ulong guildId, ulong userId, string? displayName, CancellationToken cancellationToken = default, bool immediate = false)
@@ -25,7 +26,7 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         using var measurement = RankoonPerformanceMetrics.Start("xp.voice.projection.pending", "voice_activity_projection");
         measurement.AddDatabaseOperation();
         var days = await database.VoiceActivities.Find(x => x.GuildId == guildId && x.UserId == userId && x.ProjectionStatus != VoiceActivityProjectionStatus.Applied)
-            .SortBy(x => x.DayStartUtc).ThenBy(x => x.Part).Limit(32).ToListAsync(cancellationToken);
+            .SortBy(x => x.DayStartUtc).ThenBy(x => x.Part).Limit(PendingBatchSize(options)).ToListAsync(cancellationToken);
         if (days.Count == 0) { measurement.Complete("empty"); return; }
         measurement.AddDatabaseOperation();
         var lastProjectedAtUtc = await database.VoiceActivities.Find(x => x.GuildId == guildId && x.UserId == userId && x.ProjectedAtUtc != null)
@@ -232,6 +233,8 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
 
     internal static bool ProjectionDue(DateTime nowUtc, DateTime? lastProjectedAtUtc, TimeSpan interval, bool immediate) =>
         immediate || lastProjectedAtUtc == null || nowUtc - lastProjectedAtUtc.Value >= interval;
+
+    internal static int PendingBatchSize(VoiceActivityOptions options) => options.ProjectionBatchSize;
 
     private static List<VoiceSeasonTotal> CopyTotals(IEnumerable<VoiceSeasonTotal> values) => values.Select(x => new VoiceSeasonTotal { SeasonId = x.SeasonId, EligibleSeconds = x.EligibleSeconds, AwardedXp = x.AwardedXp, ProjectedEligibleSeconds = x.ProjectedEligibleSeconds, ProjectedXp = x.ProjectedXp }).ToList();
     private static List<VoiceSeasonTotal> ProjectedTotals(IEnumerable<VoiceSeasonTotal> values) => values.Select(x => new VoiceSeasonTotal { SeasonId = x.SeasonId, EligibleSeconds = x.EligibleSeconds, AwardedXp = x.AwardedXp, ProjectedEligibleSeconds = x.EligibleSeconds, ProjectedXp = x.AwardedXp }).ToList();

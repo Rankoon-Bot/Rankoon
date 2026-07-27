@@ -91,6 +91,19 @@ public sealed class XpProjectionTests
         Assert.Equal(2m, target.TotalAwardedXp);
     }
 
+    [Fact]
+    public void Ledger_repair_only_reclaims_pending_entries_without_a_live_lease()
+    {
+        var now = new DateTime(2026, 7, 27, 12, 0, 0, DateTimeKind.Utc);
+        var pending = new XpLedgerEntry { ProjectionStatus = SeasonProjectionStatus.Pending };
+        var owned = new XpLedgerEntry { ProjectionStatus = SeasonProjectionStatus.Pending, ProjectionLeaseOwner = "worker", ProjectionLeaseExpiresAtUtc = now.AddMinutes(1) };
+        var expired = new XpLedgerEntry { ProjectionStatus = SeasonProjectionStatus.Pending, ProjectionLeaseOwner = "worker", ProjectionLeaseExpiresAtUtc = now.AddMinutes(-1) };
+
+        Assert.True(LedgerProjectionRepairService.IsEligibleForRepair(pending, now));
+        Assert.False(LedgerProjectionRepairService.IsEligibleForRepair(owned, now));
+        Assert.True(LedgerProjectionRepairService.IsEligibleForRepair(expired, now));
+    }
+
     [Theory]
     [InlineData(SeasonStatus.Active, true)]
     [InlineData(SeasonStatus.Closing, true)]
