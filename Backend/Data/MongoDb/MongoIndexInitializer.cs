@@ -209,7 +209,8 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
     {
         while (true)
         {
-            var ids = await collection.Find(filter).SortBy(id).Limit(repairBatchSize).Project(id).ToListAsync(cancellationToken);
+            var sortField = new ExpressionFieldDefinition<T>(id);
+            var ids = await collection.Find(filter).Sort(Builders<T>.Sort.Ascending(sortField)).Limit(repairBatchSize).Project(id).ToListAsync(cancellationToken);
             if (ids.Count == 0) return;
             await collection.UpdateManyAsync(filter & Builders<T>.Filter.In(id, ids), update, cancellationToken: cancellationToken);
         }
