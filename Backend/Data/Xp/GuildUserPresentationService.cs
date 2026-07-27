@@ -6,19 +6,19 @@ namespace Rankoon.Data.Xp;
 
 public interface IGuildUserPresentationService
 {
-    IReadOnlyDictionary<ulong, string?> ResolveIconUrls(ulong guildId, IEnumerable<ulong> userIds);
+    Task<IReadOnlyDictionary<ulong, string?>> ResolveIconUrlsAsync(ulong guildId, IEnumerable<ulong> userIds, CancellationToken cancellationToken = default);
 }
 
 // Deliberately reads only Discord.Net's socket cache; leaderboard rendering must not create REST fan-out.
 public sealed class GuildUserPresentationService(IGuildDiscordContextResolver discord) : IGuildUserPresentationService
 {
-    public IReadOnlyDictionary<ulong, string?> ResolveIconUrls(ulong guildId, IEnumerable<ulong> userIds)
+    public async Task<IReadOnlyDictionary<ulong, string?>> ResolveIconUrlsAsync(ulong guildId, IEnumerable<ulong> userIds, CancellationToken cancellationToken = default)
     {
         var ids = userIds.Distinct().ToArray();
         var iconUrls = ids.ToDictionary(id => id, _ => (string?)null);
         try
         {
-            var context = discord.ResolveAsync(guildId).GetAwaiter().GetResult();
+            var context = await discord.ResolveAsync(guildId, cancellationToken);
             foreach (var userId in ids)
                 iconUrls[userId] = context?.Guild.GetUser(userId) is { } user
                     ? CreateAvatarUrl(user)

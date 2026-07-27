@@ -34,7 +34,8 @@ public sealed class UserDiscordGuildProvider(RankoonDbContext database, IDiscord
             if (!string.IsNullOrEmpty(refreshed.refresh_token)) update = update.Set(x => x.ProtectedRefreshToken, tokens.ProtectRefreshToken(refreshed.refresh_token));
             await database.DiscordUsers.UpdateOneAsync(x => x.Id == user.Id, update, cancellationToken: cancellationToken);
         }
-        var key = $"discord_user_guilds_{discordUserId}_{(refresh ? "refresh" : "cached")}";
+        var key = $"discord_user_guilds_{discordUserId}";
+        if (refresh) cache.Remove(key);
         return await cache.GetOrCreateAsync<IReadOnlyList<DiscordGuildInfo>>(
             key,
             async _ => await discord.GetUserGuildsAsync(accessToken) ?? [],
