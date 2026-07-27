@@ -252,7 +252,6 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(provider => provider.GetRequiredService<LevelProgressionWorker>());
     builder.Services.AddHostedService(provider => (DiscordRuntimeEventDispatcher)provider.GetRequiredService<IDiscordRuntimeEventDispatcher>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<RankoonBotHostedService>());
-    builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VcHubService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<GuildMembershipService>());
     builder.Services.AddHostedService<CustomBotIdentityHostedService>();

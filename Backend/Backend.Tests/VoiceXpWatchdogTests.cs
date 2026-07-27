@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.Extensions.Hosting;
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.Xp;
@@ -8,6 +9,21 @@ namespace Backend.Tests;
 
 public sealed class VoiceXpWatchdogTests
 {
+    [Theory]
+    [InlineData(false, false, false, false)]
+    [InlineData(true, false, false, true)]
+    [InlineData(false, true, true, false)]
+    public void Voice_lifecycle_only_handles_channel_or_deafen_transitions(bool channelChanged, bool wasDeafened, bool isDeafened, bool expected)
+    {
+        Assert.Equal(expected, VoiceXpWatchdog.IsRelevantVoiceStateChange(channelChanged, wasDeafened, isDeafened));
+    }
+
+    [Fact]
+    public void Voice_lifecycle_is_not_a_background_poller()
+    {
+        Assert.False(typeof(BackgroundService).IsAssignableFrom(typeof(VoiceXpWatchdog)));
+    }
+
     [Fact]
     public void Season_boundaries_split_the_entire_accrual_interval()
     {
