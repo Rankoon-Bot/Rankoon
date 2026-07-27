@@ -22,7 +22,6 @@ public sealed class GuildContextResolutionTests
     {
         public List<ulong> ResolvedGuildIds { get; } = [];
         public IReadOnlyCollection<BotRuntimeSnapshot> GetRuntimeSnapshots() => [];
-        public CustomBotRuntimeStatus GetCustomRuntimeStatus() => new(0, 0, 0, 0, 0, false);
         public ValueTask<BotRuntimeContext?> ResolveGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
         {
             ResolvedGuildIds.Add(guildId);
@@ -32,7 +31,6 @@ public sealed class GuildContextResolutionTests
         public ValueTask<BotRuntimeContext?> GetCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default) => ValueTask.FromResult<BotRuntimeContext?>(null);
         public Task<CustomBotRuntimeStartResult> StartCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task StopCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task StopAllCustomRuntimesAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<CustomBotRuntimeStartResult> RestartCustomRuntimeAsync(string identityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }
