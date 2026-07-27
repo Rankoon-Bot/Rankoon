@@ -10,6 +10,7 @@ public interface IDiscordRuntimeEventDispatcher
 {
     void Attach(string runtimeId, BotIdentityMode mode, DiscordShardedClient client, ulong? assignedGuildId = null);
     void Detach(string runtimeId);
+    Task OnAuthorityChangedAsync(string runtimeId, ulong guildId);
 }
 
 public sealed class DiscordRuntimeEventDispatcher(
@@ -57,6 +58,8 @@ public sealed class DiscordRuntimeEventDispatcher(
     {
         if (bindings.TryRemove(runtimeId, out var binding)) binding.Unsubscribe();
     }
+
+    public Task OnAuthorityChangedAsync(string runtimeId, ulong guildId) => bindings.TryGetValue(runtimeId, out var binding) ? binding.ReconcileVoiceAsync(guildId) : Task.CompletedTask;
 
     private bool Allows(string runtimeId, ulong? assignedGuildId, ulong guildId) =>
         (!assignedGuildId.HasValue || assignedGuildId.Value == guildId) && authority.IsAuthoritative(guildId, runtimeId);
@@ -115,12 +118,34 @@ public sealed class DiscordRuntimeEventDispatcher(
         private Task UserLeftAsync(SocketGuild guild, SocketUser user) => Allowed(guild.Id) ? owner.memberships.UserLeftAsync(guild, user) : Task.CompletedTask;
         private async Task ReadyAsync(DiscordSocketClient shard)
         {
-            foreach (var guild in shard.Guilds.Where(x => Allowed(x.Id)))
+            await InitializeAvailableGuildsAsync();
+        }
+
+        public async Task InitializeAvailableGuildsAsync()
+        {
+            foreach (var guild in client.Guilds.Where(x => Allowed(x.Id)))
+                await InitializeGuildAsync(guild);
+        }
+
+        public Task ReconcileVoiceAsync(ulong guildId)
+        {
+            var guild = client.GetGuild(guildId);
+            return guild != null && Allowed(guild.Id) ? owner.voice.OnGuildReadyAsync(guild) : Task.CompletedTask;
+        }
+
+        private async Task InitializeGuildAsync(SocketGuild guild)
+        {
+            try
             {
                 var runtime = new BotRuntimeContext(runtimeId, mode, client, guild);
                 if (!await owner.commands.RegisterAsync(runtime)) owner.logger.LogWarning("Commands unavailable for runtime {RuntimeId} guild {GuildId}", runtimeId, guild.Id);
                 await owner.selfRoles.OnGuildReadyAsync(guild);
                 await owner.hubs.OnGuildReadyAsync(guild);
+                await owner.voice.OnGuildReadyAsync(guild);
+            }
+            catch (Exception exception)
+            {
+                owner.logger.LogError(exception, "Runtime {RuntimeId} initialization failed for guild {GuildId}", runtimeId, guild.Id);
             }
         }
 

@@ -7,7 +7,7 @@ using Rankoon.Data.Operations;
 namespace Rankoon.Data.Discord;
 
 /// <summary>Restores only policy-eligible custom runtimes after the platform gateway and indexes are available.</summary>
-public sealed class CustomBotIdentityHostedService(RankoonDbContext database, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityValidator validator, ApplicationCommandRegistrar commands, IBotRuntimeManager runtimes, IGuildBotAuthority authority, ICustomBotIdentityService identityService, IOperationalErrorRecorder errors, IOptions<CustomBotIdentityOptions> options, TimeProvider timeProvider, ILogger<CustomBotIdentityHostedService> logger) : IHostedService
+public sealed class CustomBotIdentityHostedService(RankoonDbContext database, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityValidator validator, ApplicationCommandRegistrar commands, IBotRuntimeManager runtimes, IGuildBotAuthority authority, IDiscordRuntimeEventDispatcher dispatcher, ICustomBotIdentityService identityService, IOperationalErrorRecorder errors, IOptions<CustomBotIdentityOptions> options, TimeProvider timeProvider, ILogger<CustomBotIdentityHostedService> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -26,6 +26,7 @@ public sealed class CustomBotIdentityHostedService(RankoonDbContext database, IC
                     await database.GuildBotIdentities.ReplaceOneAsync(x => x.Id == identity.Id, identity, cancellationToken: cancellationToken);
                     await database.CustomBotCapacityReservations.DeleteOneAsync(x => x.GuildId == identity.GuildId, cancellationToken);
                     await authority.RestorePlatformAuthorityAsync(identity.GuildId);
+                    await dispatcher.OnAuthorityChangedAsync("platform", identity.GuildId);
                     return;
                 }
                 var started = await runtimes.StartCustomRuntimeAsync(identity.Id!, cancellationToken);
@@ -42,6 +43,7 @@ public sealed class CustomBotIdentityHostedService(RankoonDbContext database, IC
                     return;
                 }
                 await authority.SetCustomAuthorityAsync(identity.GuildId, "custom:" + identity.Id);
+                await dispatcher.OnAuthorityChangedAsync("custom:" + identity.Id, identity.GuildId);
                 var now = timeProvider.GetUtcNow().UtcDateTime;
                 await database.GuildBotIdentities.UpdateOneAsync(x => x.Id == identity.Id,
                     Builders<GuildBotIdentity>.Update.Set(x => x.Status, BotIdentityStatus.Active).Set(x => x.LastErrorCode, null).Set(x => x.LastReadyAt, now).Set(x => x.UpdatedAt, now).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);

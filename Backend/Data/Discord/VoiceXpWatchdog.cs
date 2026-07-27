@@ -13,7 +13,7 @@ namespace Rankoon.Data.Discord;
 public enum VoiceWatchdogState { Starting, Healthy, Degraded, Stale, Restarting, Faulted, Stopped }
 public sealed record VoiceWatchdogStatus(ulong GuildId, VoiceWatchdogState State, DateTimeOffset? LastRunAt, DateTimeOffset? LastPersistenceAt, int ConnectedUsers, int EligibleUsers, int ExcludedUsers, string? LastError, int IntervalSeconds);
 
-public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, IVoiceActivityAccumulator voiceActivity, IVoiceActivityProjectionService projection, ServerBoosterXpMultiplierResolver boosterMultipliers, IGuildAnalyticsRecorder analytics, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, IOptions<VoiceWatchdogOptions> options, ILogger<VoiceXpWatchdog> logger) : BackgroundService
+public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, RankoonDbContext database, IXpService xp, IVoiceActivityAccumulator voiceActivity, IVoiceActivityProjectionService projection, ServerBoosterXpMultiplierResolver boosterMultipliers, IGuildAnalyticsRecorder analytics, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, IOptions<VoiceWatchdogOptions> options, ILogger<VoiceXpWatchdog> logger)
 {
     private readonly ConcurrentDictionary<ulong, VoiceWatchdogStatus> statuses = new();
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> guildGates = new();
@@ -26,33 +26,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         await ReconcileGuildAsync(guild, cancellationToken);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        var failures = 0;
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                var guildIds = await database.GuildXpSettings.Distinct(x => x.GuildId, Builders<GuildXpSettings>.Filter.Empty).ToListAsync(stoppingToken);
-                foreach (var guildId in guildIds)
-                    if (await discord.ResolveAsync(guildId, stoppingToken) is { } context) await ReconcileGuildAsync(context.Guild, stoppingToken);
-                failures = 0;
-                health.Report("voice-xp-watchdog", WorkerHealthState.Healthy);
-                await Task.Delay(interval, timeProvider, stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
-            catch (Exception exception)
-            {
-                failures++;
-                logger.LogError(exception, "Voice XP watchdog loop failed; continuing");
-                health.Report("voice-xp-watchdog", WorkerHealthState.Degraded, exception.GetType().Name);
-                try { await errors.RecordAsync(new(exception, "worker", "voice.watchdog.loop", Worker: "voice-xp-watchdog"), stoppingToken); }
-                catch (Exception recordingException) when (recordingException is not OperationCanceledException) { logger.LogWarning(recordingException, "Could not record voice watchdog loop failure"); }
-                var delay = TimeSpan.FromSeconds(Math.Min(300, interval.TotalSeconds * Math.Max(1, failures)));
-                await Task.Delay(delay, timeProvider, stoppingToken);
-            }
-        }
-    }
+    public Task OnGuildReadyAsync(SocketGuild guild, CancellationToken cancellationToken = default) => ReconcileGuildAsync(guild, cancellationToken);
 
     public async Task OnVoiceStateChangedAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)
     {
@@ -68,7 +42,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
     {
         if (user.IsBot || user is not SocketGuildUser member) return;
         var channelChanged = before.VoiceChannel?.Id != after.VoiceChannel?.Id;
-        if (!channelChanged && before.IsDeafened == after.IsDeafened) return;
+        if (!IsRelevantVoiceStateChange(channelChanged, before.IsDeafened, after.IsDeafened)) return;
         var gate = guildGates.GetOrAdd(member.Guild.Id, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync();
         try
@@ -143,6 +117,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
             var liveIds = connected.Select(x => x.Id).ToHashSet();
             await database.VoiceSessions.DeleteManyAsync(x => x.GuildId == guild.Id && !liveIds.Contains(x.UserId), cancellationToken);
             statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Healthy, timeProvider.GetUtcNow(), timeProvider.GetUtcNow(), connected.Length, eligibleCount, excludedCount, null, (int)interval.TotalSeconds);
+            health.Report("voice-xp-watchdog", WorkerHealthState.Healthy);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception exception)
@@ -204,6 +179,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
     }
 
     internal static decimal RoundAccrual(long seconds, decimal effectiveXpPerMinute) => decimal.Round(seconds / 60m * effectiveXpPerMinute, 6, MidpointRounding.AwayFromZero);
+    internal static bool IsRelevantVoiceStateChange(bool channelChanged, bool wasDeafened, bool isDeafened) => channelChanged || wasDeafened != isDeafened;
     private static IEnumerable<DateTime> SeasonBoundaries(IEnumerable<GuildSeason> seasons) => seasons.SelectMany(x => new[] { x.StartsAtUtc, x.EndsAtUtc });
     private async Task<IReadOnlyList<GuildSeason>> LoadSeasonsAsync(ulong guildId, DateTime start, DateTime end, CancellationToken cancellationToken = default) =>
         await database.GuildSeasons.Find(x => x.GuildId == guildId && x.StartsAtUtc < end && x.EndsAtUtc > start).ToListAsync(cancellationToken);
