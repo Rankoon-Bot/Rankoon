@@ -14,7 +14,7 @@ public interface IUserDiscordGuildProvider
     Task<bool> IsGuildMemberAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default);
 }
 
-public sealed class UserDiscordGuildProvider(RankoonDbContext database, IDiscordService discord, IDiscordOAuthTokenProtector tokens, TimeProvider timeProvider) : IUserDiscordGuildProvider
+public sealed class UserDiscordGuildProvider(RankoonDbContext database, IDiscordService discord, IDiscordOAuthTokenProtector tokens, TimeProvider timeProvider, IApplicationCache cache) : IUserDiscordGuildProvider
 {
     public async Task<IReadOnlyList<DiscordGuildInfo>> GetGuildsAsync(ulong discordUserId, bool refresh = false, CancellationToken cancellationToken = default)
     {
@@ -35,9 +35,9 @@ public sealed class UserDiscordGuildProvider(RankoonDbContext database, IDiscord
             await database.DiscordUsers.UpdateOneAsync(x => x.Id == user.Id, update, cancellationToken: cancellationToken);
         }
         var key = $"discord_user_guilds_{discordUserId}_{(refresh ? "refresh" : "cached")}";
-        return await CacheManager.GetOrSetAsync<IReadOnlyList<DiscordGuildInfo>>(
+        return await cache.GetOrCreateAsync<IReadOnlyList<DiscordGuildInfo>>(
             key,
-            async () => await discord.GetUserGuildsAsync(accessToken) ?? [],
+            async _ => await discord.GetUserGuildsAsync(accessToken) ?? [],
             timeProvider.GetUtcNow().Add(refresh ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(1)));
     }
 

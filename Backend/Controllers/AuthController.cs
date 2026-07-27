@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
@@ -6,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Rankoon.Data.Auth;
-using Rankoon.Data.Utils;
 using Rankoon.Api;
 using System.IdentityModel.Tokens.Jwt;
 
@@ -19,8 +17,8 @@ namespace Rankoon.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private static readonly ConcurrentDictionary<string, DateTimeOffset> ConsumedOAuthStates = new();
     private readonly IAuthService _authService;
+    private readonly IOAuthStateStore _oauthStates;
     private readonly IAuthCookieService? _authCookies;
     private readonly FrontendSettings _frontendSettings;
     private readonly TimeProvider _timeProvider;
@@ -34,6 +32,7 @@ public class AuthController : ControllerBase
         TimeProvider timeProvider,
         ILogger<AuthController> logger,
         IBotOperatorAccessService botOperatorAccess,
+        IOAuthStateStore oauthStates,
         IOAuthCallbackCookieService? callbackCookieService = null,
         IAuthCookieService? authCookies = null)
     {
@@ -43,6 +42,7 @@ public class AuthController : ControllerBase
         _timeProvider = timeProvider;
         _logger = logger;
         _botOperatorAccess = botOperatorAccess;
+        _oauthStates = oauthStates;
         _callbackCookieService = callbackCookieService;
     }
 
@@ -85,29 +85,14 @@ public class AuthController : ControllerBase
                 return OAuthFailureRedirect();
             }
 
-            var cachedState = await CacheManager.GetOrSetAsync<string>(
-                $"auth_state_{state}",
-                static () => Task.FromResult(string.Empty),
-                _timeProvider.GetUtcNow().AddMinutes(1)
-            );
-
-            if (string.IsNullOrEmpty(cachedState) || !FixedTimeEquals(cachedState, state!))
+            if (!_oauthStates.TryConsume(state!, out var oauthState)
+                || oauthState is null
+                || !FixedTimeEquals(oauthState.Value, state!))
             {
                 return OAuthFailureRedirect();
             }
 
-            RemoveExpiredStateGuards();
-            if (!ConsumedOAuthStates.TryAdd(state!, _timeProvider.GetUtcNow().AddMinutes(5)))
-            {
-                return OAuthFailureRedirect();
-            }
-
-            var returnUrl = await CacheManager.GetOrSetAsync<string>(
-                $"auth_return_{state}",
-                static () => Task.FromResult(string.Empty),
-            _timeProvider.GetUtcNow().AddMinutes(1));
-            CacheManager.Remove($"auth_state_{state}");
-            CacheManager.Remove($"auth_return_{state}");
+            var returnUrl = oauthState.ReturnUrl;
 
             var tokenResponse = await _authService.HandleCallbackAsync(code);
             if (tokenResponse == null || _callbackCookieService == null)
@@ -119,7 +104,7 @@ public class AuthController : ControllerBase
 
             var frontendCallbackUrl = $"{_frontendSettings.BaseUrl}{_frontendSettings.CallbackPath}";
             var finalUrl = IsSafeReturnUrl(returnUrl)
-                ? $"{frontendCallbackUrl}?return_url={Uri.EscapeDataString(returnUrl)}"
+                ? $"{frontendCallbackUrl}?return_url={Uri.EscapeDataString(returnUrl!)}"
                 : frontendCallbackUrl;
 
             _logger.LogInformation("User {UserId} authenticated successfully", tokenResponse.User.Id);
@@ -359,18 +344,6 @@ public class AuthController : ControllerBase
 
     private static bool FixedTimeEquals(string expected, string actual) =>
         CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(actual));
-
-    private void RemoveExpiredStateGuards()
-    {
-        var now = _timeProvider.GetUtcNow();
-        foreach (var entry in ConsumedOAuthStates)
-        {
-            if (entry.Value <= now)
-            {
-                ((ICollection<KeyValuePair<string, DateTimeOffset>>)ConsumedOAuthStates).Remove(entry);
-            }
-        }
-    }
 
     private static bool IsSafeReturnUrl(string? returnUrl)
     {

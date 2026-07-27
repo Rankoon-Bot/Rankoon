@@ -5,7 +5,6 @@ using Microsoft.Extensions.Options;
 using Rankoon.Controllers;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Model;
-using Rankoon.Data.Utils;
 using Xunit;
 
 namespace Backend.Tests;
@@ -16,7 +15,7 @@ public sealed class AuthControllerOAuthCallbackTests
     public async Task Callback_issues_cookies_and_redirects_without_tokens()
     {
         var state = Guid.NewGuid().ToString();
-        await StoreStateAsync(state, "/dashboard");
+        StoreState(state, "/dashboard");
         var cookies = new RecordingCookieService();
         var controller = CreateController(cookies);
 
@@ -37,7 +36,7 @@ public sealed class AuthControllerOAuthCallbackTests
     public async Task Callback_rejects_a_state_after_its_first_use()
     {
         var state = Guid.NewGuid().ToString();
-        await StoreStateAsync(state, "/dashboard");
+        StoreState(state, "/dashboard");
         var cookies = new RecordingCookieService();
         var controller = CreateController(cookies);
 
@@ -65,12 +64,12 @@ public sealed class AuthControllerOAuthCallbackTests
         Assert.Null(auth.LoginReturnUrl);
     }
 
-    private static async Task StoreStateAsync(string state, string returnUrl)
+    private static void StoreState(string state, string returnUrl)
     {
-        var expiration = DateTimeOffset.UtcNow.AddMinutes(5);
-        await CacheManager.GetOrSetAsync($"auth_state_{state}", () => Task.FromResult(state), expiration);
-        await CacheManager.GetOrSetAsync($"auth_return_{state}", () => Task.FromResult(returnUrl), expiration);
+        states.Store(state, returnUrl, DateTimeOffset.UtcNow.AddMinutes(5));
     }
+
+    private static readonly IOAuthStateStore states = new OAuthStateStore(TimeProvider.System);
 
     private static AuthController CreateController(RecordingCookieService cookies, StubAuthService? auth = null)
     {
@@ -80,6 +79,7 @@ public sealed class AuthControllerOAuthCallbackTests
             TimeProvider.System,
             NullLogger<AuthController>.Instance,
             new StubBotOperatorAccessService(),
+            states,
             cookies)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }

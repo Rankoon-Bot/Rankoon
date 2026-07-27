@@ -107,6 +107,7 @@ public sealed class AuthSessionControllerTests
         TimeProvider.System,
         NullLogger<AuthController>.Instance,
         new StubBotOperatorAccessService(),
+        new OAuthStateStore(TimeProvider.System),
         authCookies: cookies)
     {
         ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }

@@ -155,6 +155,8 @@ builder.Services.AddAntiforgery(options => options.HeaderName = builder.Configur
 builder.Services.AddSingleton<RankoonDbContext>();
 builder.Services.AddSingleton<AuthDataIntegrityInitializer>();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IApplicationCache, ApplicationCache>();
+builder.Services.AddSingleton<IOAuthStateStore, OAuthStateStore>();
 builder.Services.AddSingleton<ReportWriter>();
 builder.Services.AddSingleton<IReportWriter>(services => services.GetRequiredService<ReportWriter>());
 builder.Services.AddSingleton<IReportQueryService, ReportQueryService>();

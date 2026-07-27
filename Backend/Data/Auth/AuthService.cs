@@ -60,6 +60,8 @@ public class AuthService : IAuthService
     private readonly FrontendSettings _frontendSettings;
     private readonly TimeProvider _timeProvider;
     private readonly IDiscordOAuthTokenProtector _discordTokens;
+    private readonly IOAuthStateStore _oauthStates;
+    private readonly IApplicationCache _cache;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -72,6 +74,8 @@ public class AuthService : IAuthService
         IOptions<FrontendSettings> frontendSettings,
         TimeProvider timeProvider,
         IDiscordOAuthTokenProtector discordTokens,
+        IOAuthStateStore oauthStates,
+        IApplicationCache cache,
         ILogger<AuthService> logger)
     {
         _runtimePresence = runtimePresence;
@@ -83,6 +87,8 @@ public class AuthService : IAuthService
         _frontendSettings = frontendSettings.Value;
         _timeProvider = timeProvider;
         _discordTokens = discordTokens;
+        _oauthStates = oauthStates;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -90,20 +96,7 @@ public class AuthService : IAuthService
     {
         // Keep the OAuth state opaque; its associated return route is retained server-side.
         var state = Guid.NewGuid().ToString();
-        CacheManager.GetOrSetAsync<string>(
-            $"auth_state_{state}",
-            () => Task.FromResult(state),
-            _timeProvider.GetUtcNow().AddMinutes(5)
-        ).Wait();
-
-        if (!string.IsNullOrEmpty(returnUrl))
-        {
-            CacheManager.GetOrSetAsync<string>(
-                $"auth_return_{state}",
-                () => Task.FromResult(returnUrl),
-                _timeProvider.GetUtcNow().AddMinutes(5)
-            ).Wait();
-        }
+        _oauthStates.Store(state, returnUrl, _timeProvider.GetUtcNow().AddMinutes(5));
 
         return _discordService.GetAuthorizationUrl(state);
     }
@@ -377,9 +370,9 @@ public class AuthService : IAuthService
                 ? $"discord_user_guilds_refresh_{userId}"
                 : $"discord_user_guilds_{userId}";
             var cacheDuration = refresh ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(1);
-            var discordGuilds = await CacheManager.GetOrSetAsync<DiscordGuildInfo[]?>(
+            var discordGuilds = await _cache.GetOrCreateAsync<DiscordGuildInfo[]?>(
                 cacheKey,
-                () => _discordService.GetUserGuildsAsync(accessToken),
+                _ => _discordService.GetUserGuildsAsync(accessToken),
                 _timeProvider.GetUtcNow().Add(cacheDuration));
             if (discordGuilds == null)
             {
