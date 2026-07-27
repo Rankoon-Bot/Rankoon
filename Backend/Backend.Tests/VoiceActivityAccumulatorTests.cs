@@ -91,7 +91,7 @@ public sealed class VoiceActivityAccumulatorTests
         Assert.True(plan.RollOver);
         Assert.Equal(4, plan.Replacement!.Part);
         Assert.Single(plan.Replacement.Segments);
-        Assert.Single(plan.Replacement.SessionCursors);
+        Assert.Equal(2, plan.Replacement.SessionCursors.Count);
     }
 
     [Fact]
@@ -115,6 +115,21 @@ public sealed class VoiceActivityAccumulatorTests
         Assert.True(partial.PartialOverlap);
         Assert.Equal(2, partial.Segment!.EligibleSeconds);
         Assert.Equal(0.333333m, partial.Segment.AwardedXp);
+    }
+
+    [Fact]
+    public void Rollover_preserves_all_session_checkpoints_for_idempotent_retries()
+    {
+        var first = VoiceActivityAccumulator.Plan(null, Slice(Start, Start.AddSeconds(5), 1m) with { SessionId = "first" }).Replacement!;
+        var full = VoiceActivityAccumulator.Plan(first, Slice(Start.AddSeconds(5), Start.AddSeconds(10), 1m) with { SessionId = "second", ChannelId = 4 }, maxSegmentsPerPart: 1).Replacement!;
+        var rollover = VoiceActivityAccumulator.Plan(full, Slice(Start.AddSeconds(10), Start.AddSeconds(15), 1m) with { SessionId = "third", ChannelId = 5 }, maxSegmentsPerPart: 1).Replacement!;
+
+        var retry = VoiceActivityAccumulator.Plan(rollover, Slice(Start, Start.AddSeconds(5), 1m) with { SessionId = "first" });
+
+        Assert.Equal(2, rollover.Part);
+        Assert.Equal(["first", "second", "third"], rollover.SessionCursors.Select(x => x.SessionId).Order());
+        Assert.True(retry.Duplicate);
+        Assert.Null(retry.Replacement);
     }
 
     [Fact]

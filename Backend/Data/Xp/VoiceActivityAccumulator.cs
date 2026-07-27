@@ -100,8 +100,13 @@ public sealed class VoiceActivityAccumulator(RankoonDbContext database, IOptions
             ? NewDay(input, current?.Part + 1 ?? 0, segment)
             : Copy(current);
         if (!rollOver && current != null) replacement.Segments = merged;
-        if (rollOver && cursor != null)
-            replacement.SessionCursors.Add(new VoiceSessionCursor { SessionId = cursor.SessionId, ProcessedThroughUtc = cursor.ProcessedThroughUtc });
+        if (rollOver && current != null)
+        {
+            // Keep every durable session checkpoint so retries can find the newest part.
+            replacement.SessionCursors = current.SessionCursors
+                .Select(x => new VoiceSessionCursor { SessionId = x.SessionId, ProcessedThroughUtc = x.ProcessedThroughUtc })
+                .ToList();
+        }
         replacement.SessionCursors.RemoveAll(x => x.SessionId == input.SessionId);
         replacement.SessionCursors.Add(new VoiceSessionCursor { SessionId = input.SessionId, ProcessedThroughUtc = input.EndsAtUtc });
         Recalculate(replacement);
