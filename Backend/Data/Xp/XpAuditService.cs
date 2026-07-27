@@ -58,7 +58,7 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
         var rows = await database.MemberXp.Find(filter).SortBy(x => x.NormalizedDisplayName).ThenBy(x => x.UserId).Limit(take + 1).ToListAsync(ct);
         var more = rows.Count > take; var pageRows = rows.Take(take).ToArray();
         IReadOnlyDictionary<ulong, string?> icons;
-        try { icons = presentations.ResolveIconUrls(guildId, pageRows.Select(x => x.UserId)); } catch { icons = pageRows.ToDictionary(x => x.UserId, _ => (string?)null); }
+        try { icons = await presentations.ResolveIconUrlsAsync(guildId, pageRows.Select(x => x.UserId), ct); } catch { icons = pageRows.ToDictionary(x => x.UserId, _ => (string?)null); }
         var items = pageRows.Select(x => new XpAuditMemberItem(x.UserId, x.DisplayName, x.IsCurrentMember, x.TotalXp, Mee6LevelCurve.GetLevel(x.TotalXp), icons.GetValueOrDefault(x.UserId))).ToArray();
         return new(items, more ? WriteCursor(guildId, 0, fingerprint, rows[take - 1].NormalizedDisplayName, rows[take - 1].UserId, null, null) : null);
     }
@@ -79,7 +79,7 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
             var value = await database.SeasonMemberXp.Find(x => x.SeasonId == active.Id && x.UserId == userId).FirstOrDefaultAsync(ct);
             if (value != null) season = new(active.Id, active.Name, value.StartingXp, value.EarnedXp, value.ManualAdjustment, value.TotalXp, Mee6LevelCurve.GetLevel(value.TotalXp), await RankAsync(database.SeasonMemberXp, x => x.SeasonId == active.Id, value.TotalXp, userId, ct));
         }
-        string? icon = null; try { icon = presentations.ResolveIconUrls(guildId, [userId]).GetValueOrDefault(userId); } catch { }
+        string? icon = null; try { icon = (await presentations.ResolveIconUrlsAsync(guildId, [userId], ct)).GetValueOrDefault(userId); } catch { }
         var lastActivity = latest?.OccurredAtUtc;
         if (latestVoice != null && (lastActivity == null || latestVoice > lastActivity)) lastActivity = latestVoice;
         return new(member.UserId, member.DisplayName, member.IsCurrentMember, icon, lastActivity, lifetime, season, new(canAdjust, isSelf, isOwner));

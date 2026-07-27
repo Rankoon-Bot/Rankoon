@@ -366,9 +366,8 @@ public class AuthService : IAuthService
                 return null;
             }
 
-            var cacheKey = refresh
-                ? $"discord_user_guilds_refresh_{userId}"
-                : $"discord_user_guilds_{userId}";
+            var cacheKey = $"discord_user_guilds_{userId}";
+            if (refresh) _cache.Remove(cacheKey);
             var cacheDuration = refresh ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(1);
             var discordGuilds = await _cache.GetOrCreateAsync<DiscordGuildInfo[]?>(
                 cacheKey,
@@ -380,13 +379,19 @@ public class AuthService : IAuthService
                 return null;
             }
 
+            var guildIds = discordGuilds
+                .Select(guild => ulong.TryParse(guild.id, out var guildId) ? guildId : (ulong?)null)
+                .Where(guildId => guildId.HasValue)
+                .Select(guildId => guildId!.Value)
+                .ToArray();
+            var presences = await _runtimePresence.GetPresencesAsync(guildIds);
             var guildDtos = discordGuilds
                 .Where(g => ulong.TryParse(g.id, out var guildId)
-                    && (_runtimePresence.GetPresence(guildId).PlatformBotInstalled
-                        || _runtimePresence.GetPresence(guildId).CustomBotInstalled))
+                    && presences.TryGetValue(guildId, out var presence)
+                    && (presence.PlatformBotInstalled || presence.CustomBotInstalled))
                 .Select(g =>
                 {
-                    var presence = ulong.TryParse(g.id, out var guildId) ? _runtimePresence.GetPresence(guildId) : null;
+                    presences.TryGetValue(ulong.Parse(g.id), out var presence);
                     var botInstalled = presence?.PlatformBotInstalled == true || presence?.CustomBotInstalled == true;
                     return new GuildDto
                     {

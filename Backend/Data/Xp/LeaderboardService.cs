@@ -140,7 +140,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             publicVisible = member?.PublicLeaderboardVisible ?? preference?.PublicVisible ?? true;
         }
 
-        return new LeaderboardPageDto(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, WithIcons(settings.GuildId, items), nextCursor, hasMore, isMember, publicVisible);
+        return new LeaderboardPageDto(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, await WithIconsAsync(settings.GuildId, items, cancellationToken), nextCursor, hasMore, isMember, publicVisible);
     }
 
     public async Task<LeaderboardPageDto> GetScopedPageAsync(GuildLeaderboardSettings settings, bool isMember, ulong? currentUserId, SeasonLeaderboardScope scope, string? seasonId, string? cursor, int take, bool aroundCurrentUser, CancellationToken cancellationToken = default)
@@ -255,7 +255,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
     private async Task<LeaderboardPageDto> CreateSeasonPageAsync(GuildLeaderboardSettings settings, GuildSeason season, bool isMember, ulong? currentUserId, IReadOnlyList<LeaderboardEntryDto> items, bool hasMore, string? nextCursor, SeasonLeaderboardScope scope, IReadOnlyList<SeasonLeaderboardOption> history, SeasonLeaderboardOption? current, bool seasonsEnabled, CancellationToken cancellationToken)
     {
         var publicVisible = await GetPublicVisibilityAsync(settings.GuildId, currentUserId, cancellationToken);
-        return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, WithIcons(settings.GuildId, UniqueUsers(items)), nextCursor, hasMore, isMember, publicVisible, scope, season.Id, season.Name, history, current, seasonsEnabled);
+        return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, await WithIconsAsync(settings.GuildId, UniqueUsers(items), cancellationToken), nextCursor, hasMore, isMember, publicVisible, scope, season.Id, season.Name, history, current, seasonsEnabled);
     }
 
     public async Task<LeaderboardWindowDto> GetWindowAsync(GuildLeaderboardSettings settings, bool isMember, ulong? currentUserId, SeasonLeaderboardScope scope, string? seasonId, int offset, int take, bool aroundCurrentUser, IReadOnlyCollection<ulong> cachedUserIds, CancellationToken cancellationToken = default)
@@ -319,7 +319,7 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             cachedRows = await GetCachedStandingRowsAsync(filter, cachedUserIds.Except(standings.Select(x => x.UserId)).ToArray(), currentUserId, cancellationToken);
         }
 
-        (rows, cachedRows) = WithIcons(settings.GuildId, rows, cachedRows);
+        (rows, cachedRows) = await WithIconsAsync(settings.GuildId, rows, cachedRows, cancellationToken);
         var returnedIds = rows.Concat(cachedRows).Select(x => x.Entry.UserId).ToHashSet(StringComparer.Ordinal);
         var removed = cachedUserIds.Select(x => x.ToString()).Where(id => !returnedIds.Contains(id)).ToArray();
         return new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, rows, cachedRows, removed, offset, totalCount, isMember, publicVisible, scope, resolvedSeasonId, seasonName, history, currentOption, seasonSettings?.Enabled == true);
@@ -368,12 +368,12 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
     private static LeaderboardEntryDto ToEntry(long rank, SeasonMemberXp member, ulong? currentUserId) => new(rank, member.UserId.ToString(), member.DisplayName, null, decimal.Truncate(member.TotalXp), Mee6LevelCurve.GetLevel(member.TotalXp), member.MessageCount, member.VoiceSeconds, currentUserId == member.UserId);
     private static LeaderboardEntryDto ToEntry(SeasonFinalStanding standing, ulong? currentUserId) => new(standing.Rank, standing.UserId.ToString(), standing.DisplayName, null, decimal.Truncate(standing.TotalXp), standing.Level, standing.MessageCount, standing.VoiceSeconds, currentUserId == standing.UserId);
 
-    private IReadOnlyList<LeaderboardEntryDto> WithIcons(ulong guildId, IReadOnlyList<LeaderboardEntryDto> entries)
+    private async Task<IReadOnlyList<LeaderboardEntryDto>> WithIconsAsync(ulong guildId, IReadOnlyList<LeaderboardEntryDto> entries, CancellationToken cancellationToken)
     {
         IReadOnlyDictionary<ulong, string?> iconUrls;
         try
         {
-            iconUrls = presentations.ResolveIconUrls(guildId, entries.Select(entry => ulong.TryParse(entry.UserId, out var id) ? id : 0).Where(id => id != 0));
+            iconUrls = await presentations.ResolveIconUrlsAsync(guildId, entries.Select(entry => ulong.TryParse(entry.UserId, out var id) ? id : 0).Where(id => id != 0), cancellationToken);
         }
         catch
         {
@@ -382,9 +382,9 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         return entries.Select(entry => ulong.TryParse(entry.UserId, out var id) && iconUrls.TryGetValue(id, out var iconUrl) ? entry with { IconUrl = iconUrl } : entry).ToList();
     }
 
-    private (IReadOnlyList<LeaderboardWindowRowDto> Rows, IReadOnlyList<LeaderboardWindowRowDto> CachedRows) WithIcons(ulong guildId, IReadOnlyList<LeaderboardWindowRowDto> rows, IReadOnlyList<LeaderboardWindowRowDto> cachedRows)
+    private async Task<(IReadOnlyList<LeaderboardWindowRowDto> Rows, IReadOnlyList<LeaderboardWindowRowDto> CachedRows)> WithIconsAsync(ulong guildId, IReadOnlyList<LeaderboardWindowRowDto> rows, IReadOnlyList<LeaderboardWindowRowDto> cachedRows, CancellationToken cancellationToken)
     {
-        var entries = WithIcons(guildId, rows.Concat(cachedRows).Select(row => row.Entry).ToList());
+        var entries = await WithIconsAsync(guildId, rows.Concat(cachedRows).Select(row => row.Entry).ToList(), cancellationToken);
         var icons = entries.GroupBy(entry => entry.UserId, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().IconUrl, StringComparer.Ordinal);
         return (rows.Select(row => row with { Entry = row.Entry with { IconUrl = icons[row.Entry.UserId] } }).ToList(), cachedRows.Select(row => row with { Entry = row.Entry with { IconUrl = icons[row.Entry.UserId] } }).ToList());
     }
