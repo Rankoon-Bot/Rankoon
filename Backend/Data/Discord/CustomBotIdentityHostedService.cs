@@ -55,8 +55,7 @@ public sealed class CustomBotIdentityHostedService(RankoonDbContext database, IC
     }
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        var identities = await database.GuildBotIdentities.Find(x => x.Mode == BotIdentityMode.Custom).ToListAsync(cancellationToken);
-        foreach (var identity in identities.Where(x => x.Id != null)) await runtimes.StopCustomRuntimeAsync(identity.Id!, cancellationToken);
+        await runtimes.StopAllCustomRuntimesAsync(cancellationToken);
     }
     private async Task MarkFailedAsync(GuildBotIdentity identity, string errorCode, CancellationToken cancellationToken)
     {

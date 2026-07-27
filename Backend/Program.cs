@@ -390,6 +390,10 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
     builder.Services.AddOptions<Rankoon.Data.Model.VoiceLedgerMigrationOptions>()
         .Bind(builder.Configuration.GetSection(Rankoon.Data.Model.VoiceLedgerMigrationOptions.SectionName))
         .ValidateOnStart();
+    builder.Services.AddOptions<MongoStartupMaintenanceOptions>()
+        .Bind(builder.Configuration.GetSection(MongoStartupMaintenanceOptions.SectionName))
+        .Validate(options => options.RepairBatchSize is >= 1 and <= 1000, "MongoStartupMaintenance:RepairBatchSize must be between 1 and 1000.")
+        .ValidateOnStart();
     builder.Services.AddOptions<AnalyticsRetentionOptions>().Bind(builder.Configuration.GetSection(AnalyticsRetentionOptions.SectionName)).ValidateOnStart();
     builder.Services.AddOptions<ReportingRetentionOptions>().Bind(builder.Configuration.GetSection(ReportingRetentionOptions.SectionName)).ValidateOnStart();
     builder.Services.Configure<MongoDbSettings>(
@@ -413,6 +417,11 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
         .Validate(options => options.MaxActiveGuilds is null or > 0, "CustomBotIdentity:MaxActiveGuilds must be greater than zero when configured.")
         .Validate(options => !options.Enabled || options.FingerprintKey.Length >= 32, "CustomBotIdentity:FingerprintKey must contain at least 32 characters when enabled.")
         .Validate(options => options.StartupParallelism is >= 1 and <= 4, "CustomBotIdentity:StartupParallelism must be between one and four.")
+        .Validate(options => options.MaxConcurrentRuntimes > 0, "CustomBotIdentity:MaxConcurrentRuntimes must be greater than zero.")
+        .Validate(options => options.RuntimeStartQueueCapacity > 0, "CustomBotIdentity:RuntimeStartQueueCapacity must be greater than zero.")
+        .Validate(options => options.RuntimeStartRetries is >= 0 and <= 5, "CustomBotIdentity:RuntimeStartRetries must be between zero and five.")
+        .Validate(options => options.RuntimeRetryDelaySeconds is >= 1 and <= 60, "CustomBotIdentity:RuntimeRetryDelaySeconds must be between one and 60.")
+        .Validate(options => options.RuntimeShutdownTimeoutSeconds is >= 1 and <= 120, "CustomBotIdentity:RuntimeShutdownTimeoutSeconds must be between one and 120.")
         .ValidateOnStart();
 }
 

@@ -8,6 +8,30 @@ namespace Backend.Tests;
 public sealed class CustomBotIdentityTests
 {
     [Fact]
+    public void RuntimeDefaultsBoundGatewayClientsAndAvoidDownloadingAllMembers()
+    {
+        var options = new CustomBotIdentityOptions();
+
+        Assert.Equal(10, options.MaxConcurrentRuntimes);
+        Assert.Equal(20, options.RuntimeStartQueueCapacity);
+        Assert.Equal(2, options.RuntimeStartRetries);
+        Assert.False(options.DownloadAllMembers);
+    }
+
+    [Fact]
+    public void RuntimeStatusReportsCapacityAndQueue()
+    {
+        var status = new CustomBotRuntimeStatus(3, 2, 4, 10, 20, false);
+
+        Assert.Equal(3, status.Active);
+        Assert.Equal(2, status.Starting);
+        Assert.Equal(4, status.Queued);
+        Assert.Equal(10, status.MaximumActive);
+        Assert.Equal(20, status.QueueCapacity);
+        Assert.False(status.IsStopping);
+    }
+
+    [Fact]
     public void DisabledFeatureBlocksActivation() =>
         Assert.Equal(CustomBotAccessReason.FeatureDisabled, Decide(new() { Enabled = false }).Reason);
 
