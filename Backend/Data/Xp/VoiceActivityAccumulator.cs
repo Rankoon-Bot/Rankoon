@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
+using Rankoon.Data.Performance;
 
 namespace Rankoon.Data.Xp;
 
@@ -42,34 +43,47 @@ public sealed class VoiceActivityAccumulator(RankoonDbContext database, IOptions
 
     public async Task<VoiceAccrualResult> AccrueAsync(VoiceAccrualSlice input, CancellationToken cancellationToken = default)
     {
+        using var measurement = RankoonPerformanceMetrics.Start("xp.voice.accrual", "voice_activity_accumulator");
         var slice = Normalize(input);
         Validate(slice);
         var dayStart = slice.StartsAtUtc.Date;
         for (var attempt = 0; attempt < options.MaxWriteAttempts; attempt++)
         {
-            var current = await database.VoiceActivities.Find(x => x.GuildId == slice.GuildId && x.UserId == slice.UserId && x.DayStartUtc == dayStart && x.SessionCursors.Any(c => c.SessionId == slice.SessionId)).SortByDescending(x => x.Part).FirstOrDefaultAsync(cancellationToken)
-                ?? await database.VoiceActivities.Find(x => x.GuildId == slice.GuildId && x.UserId == slice.UserId && x.DayStartUtc == dayStart).SortByDescending(x => x.Part).FirstOrDefaultAsync(cancellationToken);
+            measurement.AddDatabaseOperation();
+            var current = await database.VoiceActivities.Find(x => x.GuildId == slice.GuildId && x.UserId == slice.UserId && x.DayStartUtc == dayStart && x.SessionCursors.Any(c => c.SessionId == slice.SessionId)).SortByDescending(x => x.Part).FirstOrDefaultAsync(cancellationToken);
+            if (current == null)
+            {
+                measurement.AddDatabaseOperation();
+                current = await database.VoiceActivities.Find(x => x.GuildId == slice.GuildId && x.UserId == slice.UserId && x.DayStartUtc == dayStart).SortByDescending(x => x.Part).FirstOrDefaultAsync(cancellationToken);
+            }
             var plan = Plan(current, slice, Math.Min(options.MaximumSegmentsPerDocument, MaximumSegmentsPerPart));
             if (plan.Duplicate)
+            {
+                measurement.Complete("duplicate");
                 return new(false, true, plan.PartialOverlap, plan.GapDetected, current!.SessionCursors.Single(x => x.SessionId == slice.SessionId).ProcessedThroughUtc, current.Part, current.Revision);
+            }
 
             var replacement = plan.Replacement!;
             if (plan.RollOver || current == null)
             {
                 try
                 {
+                    measurement.AddDatabaseOperation();
                     await database.VoiceActivities.InsertOneAsync(replacement, cancellationToken: cancellationToken);
                     LogGap(slice, plan);
+                    measurement.Complete("applied");
                     return new(true, false, plan.PartialOverlap, plan.GapDetected, slice.EndsAtUtc, replacement.Part, replacement.Revision);
                 }
                 catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
             }
             else
             {
+                measurement.AddDatabaseOperation();
                 var result = await database.VoiceActivities.ReplaceOneAsync(x => x.Id == current.Id && x.Revision == current.Revision, replacement, cancellationToken: cancellationToken);
                 if (result.ModifiedCount == 1)
                 {
                     LogGap(slice, plan);
+                    measurement.Complete("applied");
                     return new(true, false, plan.PartialOverlap, plan.GapDetected, slice.EndsAtUtc, replacement.Part, replacement.Revision);
                 }
             }

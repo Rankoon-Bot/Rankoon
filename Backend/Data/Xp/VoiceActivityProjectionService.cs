@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
+using Rankoon.Data.Performance;
 
 namespace Rankoon.Data.Xp;
 
@@ -21,13 +22,17 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
 
     public async Task ProjectPendingAsync(ulong guildId, ulong userId, string? displayName, CancellationToken cancellationToken = default, bool immediate = false)
     {
+        using var measurement = RankoonPerformanceMetrics.Start("xp.voice.projection.pending", "voice_activity_projection");
+        measurement.AddDatabaseOperation();
         var days = await database.VoiceActivities.Find(x => x.GuildId == guildId && x.UserId == userId && x.ProjectionStatus != VoiceActivityProjectionStatus.Applied)
             .SortBy(x => x.DayStartUtc).ThenBy(x => x.Part).Limit(32).ToListAsync(cancellationToken);
-        if (days.Count == 0) return;
+        if (days.Count == 0) { measurement.Complete("empty"); return; }
+        measurement.AddDatabaseOperation();
         var lastProjectedAtUtc = await database.VoiceActivities.Find(x => x.GuildId == guildId && x.UserId == userId && x.ProjectedAtUtc != null)
             .SortByDescending(x => x.ProjectedAtUtc).Project(x => x.ProjectedAtUtc).FirstOrDefaultAsync(cancellationToken);
-        if (!ProjectionDue(timeProvider.GetUtcNow().UtcDateTime, lastProjectedAtUtc, projectionInterval, immediate)) return;
+        if (!ProjectionDue(timeProvider.GetUtcNow().UtcDateTime, lastProjectedAtUtc, projectionInterval, immediate)) { measurement.Complete("deferred"); return; }
         foreach (var day in days) await ProjectAsync(day, displayName, cancellationToken);
+        measurement.Complete();
     }
 
     public async Task ProjectAsync(VoiceActivityDay day, string? displayName, CancellationToken cancellationToken = default)
