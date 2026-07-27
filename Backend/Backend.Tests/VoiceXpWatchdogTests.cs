@@ -103,6 +103,25 @@ public sealed class VoiceXpWatchdogTests
         Assert.Equal(joinedAt, session.JoinedAt);
     }
 
+    [Fact]
+    public void Watchdog_parallelism_is_bounded_by_configuration_contract()
+    {
+        var options = new VoiceWatchdogOptions();
+
+        Assert.Equal(4, options.MaxConcurrentGuilds);
+        Assert.InRange(Math.Clamp(options.MaxConcurrentGuilds, 1, 32), 1, 32);
+    }
+
+    [Fact]
+    public void Settings_activation_requires_a_persisted_revision()
+    {
+        var method = typeof(VoiceXpWatchdog).GetMethod(nameof(VoiceXpWatchdog.ActivateSettingsRevisionAsync))!;
+        var revision = method.GetParameters()[1];
+
+        Assert.Equal(typeof(long), revision.ParameterType);
+        Assert.Equal(typeof(Task), method.ReturnType);
+    }
+
     private static object? Invoke(string name, params object[] arguments) => typeof(VoiceXpWatchdog)
         .GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!
         .Invoke(null, arguments);

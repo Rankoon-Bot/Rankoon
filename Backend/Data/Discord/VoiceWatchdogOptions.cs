@@ -5,4 +5,5 @@ public sealed class VoiceWatchdogOptions
 {
     public const string SectionName = "VoiceWatchdog";
     public int IntervalSeconds { get; set; } = 5;
+    public int MaxConcurrentGuilds { get; set; } = 4;
 }
