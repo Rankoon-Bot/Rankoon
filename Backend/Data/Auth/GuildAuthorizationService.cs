@@ -66,7 +66,11 @@ public sealed class GuildAuthorizationService(
     {
         var context = await guildResolver.ResolveAsync(guildId, cancellationToken);
         var userId = GetDiscordUserId(user);
-        if (context == null || userId == null) return [];
+        if (userId == null) return [];
+        if (context == null)
+            return await userGuilds.IsGuildOwnerAsync(userId.Value, guildId, cancellationToken)
+                ? modules.Modules.Select(module => module.Id).ToArray()
+                : [];
         var guild = context.Guild;
         if (guild.OwnerId == userId.Value) return modules.Modules.Select(module => module.Id).ToArray();
 

@@ -10,7 +10,7 @@ namespace Rankoon.Data.Auth;
 public interface IUserDiscordGuildProvider
 {
     Task<IReadOnlyList<DiscordGuildInfo>> GetGuildsAsync(ulong discordUserId, bool refresh = false, CancellationToken cancellationToken = default);
-    Task<bool> IsGuildOwnerAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default);
+    Task<bool> IsGuildOwnerAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default, bool refresh = false);
     Task<bool> IsGuildMemberAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default);
 }
 
@@ -35,15 +35,16 @@ public sealed class UserDiscordGuildProvider(RankoonDbContext database, IDiscord
             await database.DiscordUsers.UpdateOneAsync(x => x.Id == user.Id, update, cancellationToken: cancellationToken);
         }
         var key = $"discord_user_guilds_{discordUserId}";
-        if (refresh) cache.Remove(key);
+        if (refresh)
+            return await discord.GetUserGuildsAsync(accessToken) ?? [];
         return await cache.GetOrCreateAsync<IReadOnlyList<DiscordGuildInfo>>(
             key,
             async _ => await discord.GetUserGuildsAsync(accessToken) ?? [],
-            timeProvider.GetUtcNow().Add(refresh ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(1)));
+            timeProvider.GetUtcNow().AddMinutes(1));
     }
 
-    public async Task<bool> IsGuildOwnerAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default) =>
-        (await GetGuildsAsync(discordUserId, cancellationToken: cancellationToken)).Any(guild => guild.owner && guild.id == guildId.ToString());
+    public async Task<bool> IsGuildOwnerAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default, bool refresh = false) =>
+        (await GetGuildsAsync(discordUserId, refresh, cancellationToken)).Any(guild => guild.owner && guild.id == guildId.ToString());
 
     public async Task<bool> IsGuildMemberAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default) =>
         (await GetGuildsAsync(discordUserId, cancellationToken: cancellationToken)).Any(guild => guild.id == guildId.ToString());

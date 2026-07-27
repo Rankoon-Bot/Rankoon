@@ -13,7 +13,7 @@ public sealed record CustomBotRevisionRequest(long? Revision);
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}/custom-bot-identity")]
-public sealed class CustomBotIdentityController(IGuildAuthorizationService authorization, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityService identities) : ControllerBase
+public sealed class CustomBotIdentityController(IGuildAuthorizationService authorization, IGuildDiscordContextResolver guildResolver, IUserDiscordGuildProvider userGuilds, ICustomBotIdentityAccessPolicy policy, ICustomBotIdentityService identities) : ControllerBase
 {
     [HttpGet("access")]
     public async Task<IActionResult> Access(string guildId)
@@ -95,7 +95,13 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
     {
         if (!ulong.TryParse(guildId, out var id)) return (0, 0, this.ApiError("guild.invalidId"));
         var userId = authorization.GetDiscordUserId(User);
-        if (userId == null || !await authorization.IsOwnerAsync(User, id, HttpContext.RequestAborted)) return (0, 0, this.ApiError("customBotIdentity.ownerRequired"));
+        if (userId == null) return (0, 0, this.ApiError("customBotIdentity.ownerRequired"));
+        var context = await guildResolver.ResolveAsync(id, HttpContext.RequestAborted);
+        if (context?.Guild.OwnerId == userId.Value) return (id, userId.Value, null);
+        var oauthOwner = await userGuilds.IsGuildOwnerAsync(userId.Value, id, HttpContext.RequestAborted);
+        if (!oauthOwner) return (0, 0, this.ApiError("customBotIdentity.ownerRequired"));
+        if (context != null && !await userGuilds.IsGuildOwnerAsync(userId.Value, id, HttpContext.RequestAborted, refresh: true))
+            return (0, 0, this.ApiError("customBotIdentity.ownerRequired"));
         return (id, userId.Value, null);
     }
     private IActionResult ToResult(CustomBotOperationResult result)
