@@ -7,6 +7,7 @@ import { AuthStore, User } from '../store/auth.store';
 import { AppStore, Guild } from '../store/app.store';
 import { environment } from '../../environments/environment';
 import { ApiErrorService } from './api-error.service';
+import { GuildAccessService } from './guild-access.service';
 
 interface BackendSessionResponse {
     user: User;
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly authStore = inject(AuthStore);
     private readonly appStore = inject(AppStore);
     private readonly apiErrors = inject(ApiErrorService);
+    private readonly guildAccess = inject(GuildAccessService);
     private readonly API_BASE_URL = environment.apiBaseUrl;
     private refreshInFlight$: Observable<boolean> | null = null;
     private csrfToken: string | null = null;
@@ -216,6 +218,7 @@ export class AuthService {
         this.guildsRequest$ = null;
         this.guildsRefreshAvailableAt = 0;
         this.operatorAccessRequestUserId = null;
+        this.guildAccess.clearCache();
     }
 
     private validateSession(): Observable<BackendSessionResponse> {

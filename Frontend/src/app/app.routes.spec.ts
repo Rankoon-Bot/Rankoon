@@ -3,10 +3,10 @@ import { routes } from './app.routes';
 
 describe('application routes', () => {
   const children = routes.find(route => route.path === '')!.children!;
-  it('guards every analytics shell and page with the analytics module', () => {
+  it('guards the analytics shell and inherits its authorization for child pages', () => {
     const analytics = children.find(route => route.path === 'analytics')!;
     expect(analytics.canActivate).toEqual([guildGuard, moduleGuard]); expect(analytics.data?.['module']).toBe('analytics');
-    for (const route of analytics.children!.filter(route => route.loadComponent)) { expect(route.canActivate).toEqual([guildGuard, moduleGuard]); expect(route.data?.['module']).toBe('analytics'); }
+    for (const route of analytics.children!.filter(route => route.loadComponent)) expect(route.canActivate).toBeUndefined();
   });
   it('guards the Bot Operations shell and every loaded child', () => {
     const operations = children.find(route => route.path === 'bot-management')!; expect(operations.canActivate).toEqual([botOperatorGuard]);

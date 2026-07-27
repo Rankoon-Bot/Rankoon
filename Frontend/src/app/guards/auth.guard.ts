@@ -47,7 +47,7 @@ function capabilityGuardFor(kind: 'settings' | 'module' | 'owner'): CanActivateF
     if (!(guild?.rankoonManaged ?? guild?.botInstalled)) return router.createUrlTree(['/server-selection']);
 
     const requiredModule = route.data['module'] as GuildModuleId | undefined;
-    return access.loadCapabilities(guild.id, true).pipe(
+    return access.loadCapabilities(guild.id).pipe(
       map(capabilities => {
         const allowed = kind === 'owner'
           ? capabilities.isOwner

@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { environment } from '../../environments/environment';
 import { GuildService, SeasonSettings, SelfRolePanel } from './guild.service';
 
@@ -14,13 +14,49 @@ describe('GuildService permissions API', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    service.invalidateResourceCache();
+    http.verify();
+  });
 
   it('loads guild capabilities', () => {
     service.capabilities('guild-1').subscribe(response => expect(response.moduleIds).toEqual(['xp']));
     const request = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/capabilities`);
     expect(request.request.method).toBe('GET');
     request.flush({ guildId: 'guild-1', isOwner: false, canAccessSettings: true, moduleIds: ['xp'], leaderboardAlias: 'guild-one' });
+  });
+
+  it('coalesces and expires guild resource requests', fakeAsync(() => {
+    const first = jasmine.createSpy('first');
+    const second = jasmine.createSpy('second');
+
+    service.resources('guild-1').subscribe(first);
+    service.resources('guild-1').subscribe(second);
+    const request = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/resources`);
+    request.flush({ roles: [], channels: [] });
+
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(1);
+    service.resources('guild-1').subscribe();
+    http.expectNone(`${environment.apiBaseUrl}/guilds/guild-1/resources`);
+
+    tick(60_001);
+    service.resources('guild-1').subscribe();
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/resources`).flush({ roles: [], channels: [] });
+  }));
+
+  it('invalidates both guild resource caches on demand', () => {
+    service.resources('guild-1').subscribe();
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/resources`).flush({ roles: [], channels: [] });
+    service.selfRoleResources('guild-1').subscribe();
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/self-role-resources`).flush({ roles: [], channels: [], emojis: [] });
+
+    service.invalidateResourceCache('guild-1');
+    service.resources('guild-1').subscribe();
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/resources`).flush({ roles: [], channels: [] });
+    service.selfRoleResources('guild-1').subscribe();
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/self-role-resources`).flush({ roles: [], channels: [], emojis: [] });
+    expect(service).toBeTruthy();
   });
 
   it('posts MEE6 and Custom payloads unchanged to the generic XP import endpoint', () => {

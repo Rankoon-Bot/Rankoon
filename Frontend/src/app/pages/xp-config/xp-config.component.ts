@@ -62,7 +62,7 @@ export class XpConfigComponent implements OnInit {
     forkJoin({
       config: this.api.config(id),
       resources: this.api
-        .resources(id)
+        .resources(id, true)
         .pipe(catchError(() => of({ roles: [], channels: [] }))),
       watchdog: this.api.voiceWatchdog(id).pipe(catchError(() => of(null))),
     })

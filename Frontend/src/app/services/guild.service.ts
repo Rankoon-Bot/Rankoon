@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { finalize, shareReplay, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   GuildCapabilities,
@@ -340,7 +341,12 @@ export interface CustomBotOperation {
 
 @Injectable({ providedIn: 'root' })
 export class GuildService {
+  private readonly RESOURCE_CACHE_MS = 60_000;
   private readonly http = inject(HttpClient);
+  private readonly resourcesCache = new Map<string, { value: GuildResources; expiresAt: number }>();
+  private readonly resourcesRequests = new Map<string, Observable<GuildResources>>();
+  private readonly selfRoleResourcesCache = new Map<string, { value: SelfRoleResources; expiresAt: number }>();
+  private readonly selfRoleResourcesRequests = new Map<string, Observable<SelfRoleResources>>();
   private url(guildId: string, path: string): string {
     return `${environment.apiBaseUrl}/guilds/${guildId}/${path}`;
   }
@@ -422,8 +428,20 @@ export class GuildService {
       permissions,
     );
   }
-  resources(guildId: string): Observable<GuildResources> {
-    return this.http.get<GuildResources>(this.url(guildId, 'resources'));
+  resources(guildId: string, refresh = false): Observable<GuildResources> {
+    const cached = this.resourcesCache.get(guildId);
+    if (!refresh && cached && cached.expiresAt > Date.now()) return of(cached.value);
+
+    const inFlight = this.resourcesRequests.get(guildId);
+    if (inFlight) return inFlight;
+
+    const request = this.http.get<GuildResources>(this.url(guildId, 'resources')).pipe(
+      tap(value => this.resourcesCache.set(guildId, { value, expiresAt: Date.now() + this.RESOURCE_CACHE_MS })),
+      finalize(() => this.resourcesRequests.delete(guildId)),
+      shareReplay({ bufferSize: 1, refCount: false }),
+    );
+    this.resourcesRequests.set(guildId, request);
+    return request;
   }
   config(guildId: string): Observable<XpConfig> {
     return this.http.get<XpConfig>(this.url(guildId, 'xp/config'));
@@ -608,9 +626,28 @@ export class GuildService {
     );
   }
   selfRoleResources(guildId: string): Observable<SelfRoleResources> {
-    return this.http.get<SelfRoleResources>(
-      this.url(guildId, 'self-role-resources'),
+    const cached = this.selfRoleResourcesCache.get(guildId);
+    if (cached && cached.expiresAt > Date.now()) return of(cached.value);
+
+    const inFlight = this.selfRoleResourcesRequests.get(guildId);
+    if (inFlight) return inFlight;
+
+    const request = this.http.get<SelfRoleResources>(this.url(guildId, 'self-role-resources')).pipe(
+      tap(value => this.selfRoleResourcesCache.set(guildId, { value, expiresAt: Date.now() + this.RESOURCE_CACHE_MS })),
+      finalize(() => this.selfRoleResourcesRequests.delete(guildId)),
+      shareReplay({ bufferSize: 1, refCount: false }),
     );
+    this.selfRoleResourcesRequests.set(guildId, request);
+    return request;
+  }
+  invalidateResourceCache(guildId?: string): void {
+    if (guildId) {
+      this.resourcesCache.delete(guildId);
+      this.selfRoleResourcesCache.delete(guildId);
+      return;
+    }
+    this.resourcesCache.clear();
+    this.selfRoleResourcesCache.clear();
   }
   createSelfRolePanel(
     guildId: string,
