@@ -93,7 +93,12 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
 
     private async Task WaitForIntervalOrActivationAsync(CancellationToken cancellationToken)
     {
-        await activationSignal.WaitAsync(interval, timeProvider, cancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var signal = activationSignal.WaitAsync(timeout.Token);
+        var delay = Task.Delay(interval, timeProvider, cancellationToken);
+        await Task.WhenAny(signal, delay);
+        timeout.Cancel();
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     public async Task OnVoiceStateChangedAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)

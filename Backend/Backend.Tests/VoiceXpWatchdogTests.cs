@@ -19,9 +19,9 @@ public sealed class VoiceXpWatchdogTests
     }
 
     [Fact]
-    public void Voice_lifecycle_is_not_a_background_poller()
+    public void Voice_lifecycle_uses_a_background_recovery_worker()
     {
-        Assert.False(typeof(BackgroundService).IsAssignableFrom(typeof(VoiceXpWatchdog)));
+        Assert.True(typeof(BackgroundService).IsAssignableFrom(typeof(VoiceXpWatchdog)));
     }
 
     [Fact]

@@ -17,6 +17,7 @@ public sealed class PerformanceTelemetryTests
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity => activities.Add(activity)
         };
+        ActivitySource.AddActivityListener(activityListener);
         var measurements = new List<(string Name, long Value)>();
         using var meterListener = new MeterListener();
         meterListener.InstrumentPublished = (instrument, listener) =>
