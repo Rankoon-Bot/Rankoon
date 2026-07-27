@@ -8,18 +8,16 @@
 5. Rankoon verifies and consumes state, exchanges the code, reads the Discord user,
    and creates or updates the stored Discord user and OAuth tokens.
 6. Rankoon issues a JWT access token and a hashed, family-associated refresh token,
-   then redirects to the frontend callback with `token`, `refresh_token`,
-   `expires_at`, and an accepted `return_url` in the query.
-7. The frontend sends `Authorization: Bearer <token>` and replaces both values
-   after `POST /api/auth/refresh`.
+   stores both only in `HttpOnly` cookies, and redirects without credentials in the URL.
+7. Angular loads the token-free session contract. State-changing browser calls include
+   an antiforgery request token held only in application memory.
 
 ## Refresh And Logout
 
-1. The client posts its refresh token to `/api/auth/refresh`.
-2. Rankoon hashes it, supports a legacy plaintext record, and atomically marks the
+1. The browser posts to `/api/auth/refresh`; the HttpOnly refresh cookie is the only credential.
+2. Rankoon hashes it and atomically marks the
    matching unexpired token revoked as `Rotated`.
-3. It creates a replacement hashed token in the same family and returns it with a
-   new access token.
+3. It creates a replacement hashed token in the same family and sets replacement cookies.
 4. A second use of a consumed token marks replay and revokes the whole family.
 5. `POST /api/auth/logout` revokes every unrevoked token in the token's family.
 

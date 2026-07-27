@@ -2,6 +2,7 @@ using System.Text.Json;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MongoDB.Driver;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Discord;
@@ -50,6 +51,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
     [HttpGet("xp/config")]
     public async Task<IActionResult> GetXpConfig(string guildId) { var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); return error ?? Ok(await xp.GetSettingsAsync(id, HttpContext.RequestAborted)); }
     [HttpPut("xp/config")]
+    [EnableRateLimiting(RateLimitPolicies.XpSettings)]
     public async Task<IActionResult> SaveXpConfig(string guildId, [FromBody] GuildXpSettings settings)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
@@ -94,6 +96,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
 
     [HttpPost("xp/import")]
     [HttpPost("xp/import/mee6")]
+    [EnableRateLimiting(RateLimitPolicies.XpImport)]
     public async Task<IActionResult> ImportXpJson(string guildId, [FromBody] JsonElement payload)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;

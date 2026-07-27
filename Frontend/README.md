@@ -22,7 +22,7 @@ Das Dashboard nutzt ein modernes Auth-System:
 1. **Frontend leitet zur Discord OAuth weiter** (Discord Callback geht ans Backend)
 2. **Backend verarbeitet Discord Auth** und generiert eigenes JWT Token
 3. **Backend redirected zur Frontend Callback-Seite** mit dem Token als Query-Parameter
-4. **Frontend speichert und validiert das Backend-Token**
+4. **Frontend initializes its HttpOnly cookie session with the backend**
 
 ### Auth-Flow im Detail:
 
@@ -30,8 +30,8 @@ Das Dashboard nutzt ein modernes Auth-System:
 1. User klickt "Login" → Discord OAuth (redirect_uri = backend/auth/discord/callback)
 2. Discord → Backend Callback mit authorization code
 3. Backend → Tauscht code gegen Discord tokens, generiert eigenes JWT
-4. Backend → Redirected zu frontend/auth/callback?token=jwt_token
-5. Frontend → Validiert Token beim Backend und speichert es
+4. Backend → Sets HttpOnly access and refresh cookies, then redirects to frontend/auth/callback without credentials in the URL
+5. Frontend → Loads the token-free session contract and keeps only user state in memory
 ```
 
 ## �🛠️ Installation

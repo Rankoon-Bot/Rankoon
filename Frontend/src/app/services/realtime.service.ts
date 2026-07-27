@@ -29,7 +29,7 @@ export class RealtimeService {
   private connection?: HubConnection;
   private starting?: Promise<void>;
   private lifecycle = Promise.resolve();
-  private lastToken: string | null = null;
+  private lastAuthenticated = false;
 
   readonly leaderboardEntryChanges$ = this.entryChangesSubject.asObservable();
   readonly leaderboardChanges$ = this.changesSubject.asObservable();
@@ -39,9 +39,9 @@ export class RealtimeService {
 
   constructor() {
     effect(() => {
-      const token = this.auth.token();
-      if (token === this.lastToken) return;
-      this.lastToken = token;
+      const authenticated = this.auth.isAuthenticated();
+      if (authenticated === this.lastAuthenticated) return;
+      this.lastAuthenticated = authenticated;
       void this.serialize(() => this.restart());
     });
   }
@@ -94,7 +94,7 @@ export class RealtimeService {
     if (this.connection?.state === 'Connected') return;
     if (this.starting) return this.starting;
     this.connection = new HubConnectionBuilder()
-      .withUrl(`${environment.apiBaseUrl.replace(/\/api$/, '')}/hubs/leaderboard`, { accessTokenFactory: () => this.auth.token() ?? '' })
+      .withUrl(`${environment.apiBaseUrl.replace(/\/api$/, '')}/hubs/leaderboard`, { withCredentials: true })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)
       .build();

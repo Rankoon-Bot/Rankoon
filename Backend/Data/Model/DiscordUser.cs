@@ -55,16 +55,24 @@ public class DiscordUser
     public bool Verified { get; set; }
 
     /// <summary>
-    /// Discord access token
+    /// Protected Discord access token. Plaintext values are accepted only while the
+    /// one-time migration is in progress.
     /// </summary>
     [BsonElement("access_token")]
-    public string? AccessToken { get; set; }
+    public string? ProtectedAccessToken { get; set; }
 
     /// <summary>
-    /// Discord refresh token
+    /// Protected Discord refresh token. Plaintext values are accepted only while the
+    /// one-time migration is in progress.
     /// </summary>
     [BsonElement("refresh_token")]
-    public string? RefreshToken { get; set; }
+    public string? ProtectedRefreshToken { get; set; }
+
+    /// <summary>
+    /// Version of the data-protection format applied to the OAuth token fields.
+    /// </summary>
+    [BsonElement("oauth_token_protection_version")]
+    public int? OAuthTokenProtectionVersion { get; set; }
 
     /// <summary>
     /// When the Discord token expires

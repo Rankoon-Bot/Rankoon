@@ -55,13 +55,11 @@ export class AuthCallbackComponent implements OnInit {
   }
 
   private handleAuthCallback(): void {
-    const token = this.route.snapshot.queryParams['token'];
-    const refreshToken = this.route.snapshot.queryParams['refresh_token'];
     const errorKey = this.route.snapshot.queryParams['errorKey'];
     const errorMessage = this.route.snapshot.queryParams['message'];
-
     const requestedReturnUrl = this.route.snapshot.queryParams['return_url'];
     const returnUrl = this.isSafeReturnUrl(requestedReturnUrl) ? requestedReturnUrl : '/dashboard';
+    this.clearCallbackQuery();
 
     if (errorKey) {
       this.authService.clearLocalAuth();
@@ -69,19 +67,7 @@ export class AuthCallbackComponent implements OnInit {
       return;
     }
 
-    if (!token) {
-      this.authService.clearLocalAuth();
-      this.authStore.setError(this.i18n.translate('errors.authTokenMissing'));
-      return;
-    }
-
-    if (!refreshToken) {
-      this.authService.clearLocalAuth();
-      this.authStore.setError(this.i18n.translate('errors.authRefreshTokenMissing'));
-      return;
-    }
-
-    this.authService.handleTokenCallback(token, refreshToken).subscribe({
+    this.authService.handleSessionCallback().subscribe({
       next: (success) => {
         if (success) {
           void this.router.navigateByUrl(returnUrl);
@@ -102,5 +88,10 @@ export class AuthCallbackComponent implements OnInit {
       && returnUrl.startsWith('/')
       && !returnUrl.startsWith('//')
       && !returnUrl.includes('\\');
+  }
+
+  private clearCallbackQuery(): void {
+    if (typeof window === 'undefined') return;
+    window.history.replaceState(window.history.state, document.title, window.location.pathname);
   }
 }

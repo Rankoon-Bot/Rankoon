@@ -45,23 +45,21 @@ public sealed class ApiPipelineIntegrationTests : IClassFixture<RankoonApplicati
     }
 
     [Fact]
-    public async Task Malformed_json_returns_canonical_validation_error()
+    public async Task Refresh_does_not_bind_or_parse_a_json_token_body()
     {
         using var content = new StringContent("{\"refreshToken\":", Encoding.UTF8, "application/json");
         using var response = await _client.PostAsync("/api/auth/refresh", content);
 
-        var error = await AssertCanonicalErrorAsync(response, HttpStatusCode.BadRequest, "request.malformedJson");
-        Assert.Equal(JsonValueKind.Object, error.GetProperty("errors").ValueKind);
+        await AssertCanonicalErrorAsync(response, HttpStatusCode.Unauthorized, "auth.refreshTokenInvalid");
     }
 
     [Fact]
-    public async Task Missing_request_body_returns_canonical_model_validation_error()
+    public async Task Refresh_without_cookie_returns_canonical_auth_error()
     {
         using var content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
         using var response = await _client.PostAsync("/api/auth/refresh", content);
 
-        var error = await AssertCanonicalErrorAsync(response, HttpStatusCode.BadRequest, "request.validationFailed");
-        Assert.Equal(JsonValueKind.Object, error.GetProperty("errors").ValueKind);
+        await AssertCanonicalErrorAsync(response, HttpStatusCode.Unauthorized, "auth.refreshTokenInvalid");
     }
 
     [Theory]

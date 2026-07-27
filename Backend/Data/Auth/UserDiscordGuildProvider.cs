@@ -14,26 +14,31 @@ public interface IUserDiscordGuildProvider
     Task<bool> IsGuildMemberAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default);
 }
 
-public sealed class UserDiscordGuildProvider(RankoonDbContext database, IDiscordService discord) : IUserDiscordGuildProvider
+public sealed class UserDiscordGuildProvider(RankoonDbContext database, IDiscordService discord, IDiscordOAuthTokenProtector tokens, TimeProvider timeProvider) : IUserDiscordGuildProvider
 {
     public async Task<IReadOnlyList<DiscordGuildInfo>> GetGuildsAsync(ulong discordUserId, bool refresh = false, CancellationToken cancellationToken = default)
     {
         var user = await database.DiscordUsers.Find(x => x.DiscordId == discordUserId.ToString()).FirstOrDefaultAsync(cancellationToken);
-        if (user?.AccessToken is not { Length: > 0 }) return [];
-        if (user.TokenExpiresAt <= DateTime.UtcNow && user.RefreshToken is { Length: > 0 })
+        if (user is null) return [];
+        var accessToken = tokens.ReadAccessToken(user);
+        if (string.IsNullOrEmpty(accessToken)) return [];
+        if (user.TokenExpiresAt <= timeProvider.GetUtcNow().UtcDateTime && tokens.ReadRefreshToken(user) is { Length: > 0 } refreshToken)
         {
-            var refreshed = await discord.RefreshTokenAsync(user.RefreshToken);
+            var refreshed = await discord.RefreshTokenAsync(refreshToken);
             if (refreshed == null) return [];
-            user.AccessToken = refreshed.access_token;
-            user.RefreshToken = refreshed.refresh_token;
-            user.TokenExpiresAt = DateTime.UtcNow.AddSeconds(refreshed.expires_in);
-            await database.DiscordUsers.ReplaceOneAsync(x => x.Id == user.Id, user, cancellationToken: cancellationToken);
+            accessToken = refreshed.access_token;
+            var update = Builders<DiscordUser>.Update
+                .Set(x => x.ProtectedAccessToken, tokens.ProtectAccessToken(accessToken))
+                .Set(x => x.OAuthTokenProtectionVersion, DiscordOAuthTokenProtector.CurrentVersion)
+                .Set(x => x.TokenExpiresAt, timeProvider.GetUtcNow().UtcDateTime.AddSeconds(refreshed.expires_in));
+            if (!string.IsNullOrEmpty(refreshed.refresh_token)) update = update.Set(x => x.ProtectedRefreshToken, tokens.ProtectRefreshToken(refreshed.refresh_token));
+            await database.DiscordUsers.UpdateOneAsync(x => x.Id == user.Id, update, cancellationToken: cancellationToken);
         }
         var key = $"discord_user_guilds_{discordUserId}_{(refresh ? "refresh" : "cached")}";
         return await CacheManager.GetOrSetAsync<IReadOnlyList<DiscordGuildInfo>>(
             key,
-            async () => await discord.GetUserGuildsAsync(user.AccessToken) ?? [],
-            DateTimeOffset.UtcNow.Add(refresh ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(1)));
+            async () => await discord.GetUserGuildsAsync(accessToken) ?? [],
+            timeProvider.GetUtcNow().Add(refresh ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(1)));
     }
 
     public async Task<bool> IsGuildOwnerAsync(ulong discordUserId, ulong guildId, CancellationToken cancellationToken = default) =>

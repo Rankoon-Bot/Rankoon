@@ -6,29 +6,29 @@ import { testI18n } from '../../testing/i18n-testing';
 import { AuthCallbackComponent } from './auth-callback.component';
 
 describe('AuthCallbackComponent', () => {
-  it('passes access and refresh callback tokens separately to AuthService', () => {
-    const auth = jasmine.createSpyObj<AuthService>('AuthService', ['handleTokenCallback', 'clearLocalAuth']);
+  it('bootstraps the cookie session without passing callback credentials', () => {
+    const auth = jasmine.createSpyObj<AuthService>('AuthService', ['handleSessionCallback', 'clearLocalAuth']);
     const router = jasmine.createSpyObj<Router>('Router', ['navigate', 'navigateByUrl']);
-    auth.handleTokenCallback.and.returnValue(of(true));
+    auth.handleSessionCallback.and.returnValue(of(true));
     router.navigate.and.resolveTo(true);
     TestBed.configureTestingModule({
       imports: [AuthCallbackComponent, testI18n],
       providers: [
         { provide: AuthService, useValue: auth },
         { provide: Router, useValue: router },
-        { provide: ActivatedRoute, useValue: { snapshot: { queryParams: { token: 'access', refresh_token: 'refresh', return_url: '/dashboard' } } } }
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParams: { return_url: '/dashboard' } } } }
       ]
     });
 
     TestBed.createComponent(AuthCallbackComponent).detectChanges();
-    expect(auth.handleTokenCallback).toHaveBeenCalledOnceWith('access', 'refresh');
+    expect(auth.handleSessionCallback).toHaveBeenCalledOnceWith();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/dashboard');
   });
 
   it('rejects an external callback return route', () => {
-    const auth = jasmine.createSpyObj<AuthService>('AuthService', ['handleTokenCallback', 'clearLocalAuth']);
+    const auth = jasmine.createSpyObj<AuthService>('AuthService', ['handleSessionCallback', 'clearLocalAuth']);
     const router = jasmine.createSpyObj<Router>('Router', ['navigate', 'navigateByUrl']);
-    auth.handleTokenCallback.and.returnValue(of(true));
+    auth.handleSessionCallback.and.returnValue(of(true));
     router.navigate.and.resolveTo(true);
     router.navigateByUrl.and.resolveTo(true);
     TestBed.configureTestingModule({
@@ -36,7 +36,7 @@ describe('AuthCallbackComponent', () => {
       providers: [
         { provide: AuthService, useValue: auth },
         { provide: Router, useValue: router },
-        { provide: ActivatedRoute, useValue: { snapshot: { queryParams: { token: 'access', refresh_token: 'refresh', return_url: '//attacker.example' } } } }
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParams: { return_url: '//attacker.example' } } } }
       ]
     });
 

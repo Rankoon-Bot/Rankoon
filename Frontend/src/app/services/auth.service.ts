@@ -8,22 +8,19 @@ import { AppStore, Guild } from '../store/app.store';
 import { environment } from '../../environments/environment';
 import { ApiErrorService } from './api-error.service';
 
-export interface BackendTokenResponse {
+interface BackendSessionResponse {
+    user: User;
+}
+
+interface CsrfResponse {
     token: string;
-    user: User;
-    expiresAt: string;
 }
 
-export interface BackendRefreshResponse {
-    accessToken: string;
-    refreshToken: string;
-    user: User;
-    expiresAt: string;
-}
-
-export const ACCESS_TOKEN_STORAGE_KEY = 'rankoon_token';
-export const REFRESH_TOKEN_STORAGE_KEY = 'rankoon_refresh_token';
-export const ACCESS_TOKEN_EXPIRATION_STORAGE_KEY = 'rankoon_token_expires_at';
+const LEGACY_AUTH_STORAGE_KEYS = [
+    'rankoon_token',
+    'rankoon_refresh_token',
+    'rankoon_token_expires_at'
+];
 
 @Injectable({
     providedIn: 'root'
@@ -36,105 +33,62 @@ export class AuthService {
     private readonly authStore = inject(AuthStore);
     private readonly appStore = inject(AppStore);
     private readonly apiErrors = inject(ApiErrorService);
-
-    private readonly DISCORD_CLIENT_ID = environment.discordClientId;
-    private readonly DISCORD_REDIRECT_URI = environment.discordRedirectUri; // Backend URL
     private readonly API_BASE_URL = environment.apiBaseUrl;
-    private readonly TOKEN_REFRESH_BUFFER_MS = 60_000;
     private refreshInFlight$: Observable<boolean> | null = null;
-    private guildsCache: { token: string; guilds: Guild[]; expiresAt: number } | null = null;
+    private csrfToken: string | null = null;
+    private csrfRequest$: Observable<string> | null = null;
+    private guildsCache: { session: number; guilds: Guild[]; expiresAt: number } | null = null;
     private guildsRequest$: Observable<Guild[]> | null = null;
     private botInviteUrlRequest$: Observable<string> | null = null;
     private guildsRefreshAvailableAt = 0;
-    private authGeneration = 0;
-    private operatorAccessRequestToken: string | null = null;
+    private sessionGeneration = 0;
+    private operatorAccessRequestUserId: string | null = null;
 
-    /**
-     * Initiates Discord OAuth2 login flow - gets login URL from backend
-     */
     login(returnUrl?: string): void {
         const url = new URL(`${this.API_BASE_URL}/auth/login`, window.location.origin);
-        if (this.isSafeReturnUrl(returnUrl)) {
-            url.searchParams.set('returnUrl', returnUrl);
-        }
-        this.http.get<{ loginUrl: string }>(url.toString()).subscribe({
-            next: (res) => {
-                if (res?.loginUrl) {
-                    window.location.href = res.loginUrl;
-                }
+        if (this.isSafeReturnUrl(returnUrl)) url.searchParams.set('returnUrl', returnUrl);
+        this.http.get<{ loginUrl: string }>(url.toString(), { withCredentials: true }).subscribe({
+            next: response => {
+                if (response?.loginUrl) window.location.href = response.loginUrl;
             },
-            error: (err) => {
-                this.authStore.setError(this.apiErrors.resolve(err, 'errors.loginStart').message);
-            }
+            error: error => this.authStore.setError(this.apiErrors.resolve(error, 'errors.loginStart').message)
         });
     }
 
-    /**
-     * Handles callback with backend token from query parameter
-     */
-    handleTokenCallback(token: string, refreshToken: string): Observable<boolean> {
+    handleSessionCallback(): Observable<boolean> {
+        return this.initializeSession();
+    }
+
+    initializeSession(): Observable<boolean> {
+        this.clearLegacyAuthStorage();
         this.authStore.setLoading(true);
         this.authStore.setError(null);
-
-        this.authStore.setToken(token);
-        return this.validateBackendToken().pipe(
-            tap(response => {
-                this.saveTokenToStorage(response.token);
-                this.saveTokenExpirationToStorage(response.expiresAt);
-                this.saveRefreshTokenToStorage(refreshToken);
-                this.authStore.setToken(response.token);
-                this.authStore.setUser(response.user);
-                this.authStore.setLoading(false);
-            }),
+        return this.validateSession().pipe(
+            tap(response => this.authStore.setAuthData(response.user)),
             map(() => true),
             catchError(error => {
-                this.clearLocalAuth();
-                this.authStore.setError(this.apiErrors.resolve(error, 'errors.signIn').message);
-                this.authStore.setLoading(false);
-                return of(false);
-            })
+                if (error.status !== 401) {
+                    this.clearLocalAuth();
+                    return of(false);
+                }
+                return this.refreshToken();
+            }),
+            finalize(() => this.authStore.setLoading(false))
         );
     }
 
-    /**
-     * Validates backend token and gets user info
-     */
-    private validateBackendToken(): Observable<BackendTokenResponse> {
-        return this.http.get<BackendTokenResponse>(`${this.API_BASE_URL}/auth/validate`);
-    }
-
-    /**
-     * Refreshes the backend token
-     */
     refreshToken(): Observable<boolean> {
-        if (this.refreshInFlight$) {
-            return this.refreshInFlight$;
-        }
+        if (this.refreshInFlight$) return this.refreshInFlight$;
 
-        const refreshToken = this.loadRefreshTokenFromStorage();
-        if (!refreshToken) {
-            this.clearLocalAuth();
-            return of(false);
-        }
-
-        const authGeneration = this.authGeneration;
-        this.refreshInFlight$ = this.http.post<BackendRefreshResponse>(`${this.API_BASE_URL}/auth/refresh`, {
-            refreshToken
-        }).pipe(
+        const generation = this.sessionGeneration;
+        this.refreshInFlight$ = this.http.post<BackendSessionResponse>(`${this.API_BASE_URL}/auth/refresh`, undefined, { withCredentials: true }).pipe(
             map(response => {
-                if (authGeneration !== this.authGeneration) {
-                    return false;
-                }
-
-                this.saveTokenToStorage(response.accessToken);
-                this.saveTokenExpirationToStorage(response.expiresAt);
-                this.saveRefreshTokenToStorage(response.refreshToken);
-                this.authStore.setToken(response.accessToken);
-                this.authStore.setUser(response.user);
+                if (generation !== this.sessionGeneration) return false;
+                this.authStore.setAuthData(response.user);
                 return true;
             }),
-            catchError(error => {
-                if (authGeneration === this.authGeneration) {
+            catchError(() => {
+                if (generation === this.sessionGeneration) {
                     this.clearLocalAuth();
                     void this.router.navigate(['/login']);
                 }
@@ -143,158 +97,94 @@ export class AuthService {
             finalize(() => this.refreshInFlight$ = null),
             shareReplay({ bufferSize: 1, refCount: false })
         );
-
         return this.refreshInFlight$;
     }
 
-    /**
-     * Returns a usable access token, refreshing it before it expires.
-     */
-    ensureValidAccessToken(): Observable<string | null> {
-        const token = this.authStore.token();
-        if (!token || !this.isTokenExpiringSoon(token)) {
-            return of(token);
-        }
+    getCsrfToken(): Observable<string> {
+        if (this.csrfToken) return of(this.csrfToken);
+        if (this.csrfRequest$) return this.csrfRequest$;
 
-        return this.refreshToken().pipe(
-            map(refreshed => refreshed ? this.authStore.token() : null)
+        const generation = this.sessionGeneration;
+        this.csrfRequest$ = this.http.get<CsrfResponse>(`${this.API_BASE_URL}/auth/csrf`, { withCredentials: true }).pipe(
+            map(response => response.token),
+            tap(token => {
+                if (generation === this.sessionGeneration) this.csrfToken = token;
+            }),
+            finalize(() => this.csrfRequest$ = null),
+            shareReplay({ bufferSize: 1, refCount: false })
         );
+        return this.csrfRequest$;
     }
 
-    /**
-     * Restores a persisted session before the router evaluates protected routes.
-     */
-    initializeSession(): Observable<boolean> {
-        const token = this.loadTokenFromStorage();
-        if (!token) {
-            return this.refreshToken();
-        }
-
-        this.authStore.setLoading(true);
-        this.authStore.setToken(token);
-        return this.validateBackendToken().pipe(
-            tap(response => {
-                this.saveTokenToStorage(response.token);
-                this.saveTokenExpirationToStorage(response.expiresAt);
-                this.authStore.setAuthData(response.user, response.token);
-            }),
-            map(() => true),
-            catchError(error => {
-                if (error.status !== 401) {
-                    this.clearLocalAuth();
-                    return of(false);
-                }
-
-                return this.refreshToken();
-            }),
-            tap(() => this.authStore.setLoading(false))
-        );
+    renewCsrfToken(): Observable<string> {
+        this.csrfToken = null;
+        this.csrfRequest$ = null;
+        return this.getCsrfToken();
     }
 
-    /**
-     * Logs out the user
-     */
     logout(): void {
-        const refreshToken = this.loadRefreshTokenFromStorage();
-
-        if (refreshToken) {
-            this.http.post(`${this.API_BASE_URL}/auth/logout`, { refreshToken }).subscribe({
-                error: (error) => console.warn('Logout notification failed:', error)
-            });
-        }
-
+        this.http.post(`${this.API_BASE_URL}/auth/logout`, undefined, { withCredentials: true }).subscribe({
+            error: error => console.warn('Logout notification failed:', error)
+        });
         this.clearLocalAuth();
         void this.router.navigate(['/login']);
     }
 
-    /**
-     * Checks if user is authenticated
-     */
     isAuthenticated(): boolean {
         return this.authStore.isAuthenticated();
     }
 
-    /**
-     * Gets current user info from backend
-     */
     getCurrentUser(): Observable<User | null> {
-        const token = this.authStore.token();
-        if (!token) {
-            return of(null);
-        }
-
-        return this.http.get<User>(`${this.API_BASE_URL}/auth/me`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        }).pipe(
+        if (!this.authStore.isAuthenticated()) return of(null);
+        return this.http.get<User>(`${this.API_BASE_URL}/auth/me`, { withCredentials: true }).pipe(
             tap(user => this.authStore.setUser(user)),
             catchError(error => {
-                console.error('Failed to fetch user info:', error);
-                if (error.status === 401) {
-                    this.logout();
-                }
+                if (error.status === 401) this.logout();
                 return of(null);
             })
         );
     }
 
     refreshBotOperatorAccess(): void {
-        const token = this.authStore.token();
         const user = this.authStore.user();
-        if (!token || !user || this.operatorAccessRequestToken === token) return;
-        this.operatorAccessRequestToken = token;
+        if (!user || this.operatorAccessRequestUserId === user.id) return;
+        this.operatorAccessRequestUserId = user.id;
         this.http.get<{ isBotOperator: boolean }>(`${this.API_BASE_URL}/bot-management/access`).pipe(
             retry({ count: 3, delay: error => error?.status === 503 ? timer(2_000) : throwError(() => error) }),
             catchError(() => {
-                this.operatorAccessRequestToken = null;
+                this.operatorAccessRequestUserId = null;
                 return of(null);
             })
         ).subscribe(access => {
-            if (access && this.authStore.token() === token) this.authStore.setUser({ ...user, isBotOperator: access.isBotOperator });
+            if (access && this.authStore.user()?.id === user.id) {
+                this.authStore.setUser({ ...user, isBotOperator: access.isBotOperator });
+            }
         });
     }
 
-    /**
-     * Gets user's Discord guilds from backend
-     */
     getUserGuilds(refresh = false): Observable<Guild[]> {
-        const token = this.authStore.token();
-        if (!token) {
-            return of([]);
-        }
+        if (!this.authStore.isAuthenticated()) return of([]);
 
         const now = Date.now();
         const cachedGuilds = this.guildsCache;
-        const cacheValid = cachedGuilds?.token === token && cachedGuilds.expiresAt > now;
+        const cacheValid = cachedGuilds?.session === this.sessionGeneration && cachedGuilds.expiresAt > now;
         const refreshCoolingDown = refresh && this.guildsRefreshAvailableAt > now;
-        if (cacheValid && (!refresh || refreshCoolingDown)) {
-            return of(cachedGuilds.guilds);
-        }
-
-        if (this.guildsRequest$) {
-            return this.guildsRequest$;
-        }
-
-        if (refresh) {
-            this.guildsRefreshAvailableAt = now + this.GUILDS_REFRESH_COOLDOWN_MS;
-        }
+        if (cacheValid && (!refresh || refreshCoolingDown)) return of(cachedGuilds.guilds);
+        if (this.guildsRequest$) return this.guildsRequest$;
+        if (refresh) this.guildsRefreshAvailableAt = now + this.GUILDS_REFRESH_COOLDOWN_MS;
 
         this.guildsRequest$ = this.http.get<Guild[]>(`${this.API_BASE_URL}/auth/guilds`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
             params: refresh ? { refresh: 'true' } : undefined
         }).pipe(
             tap(guilds => this.guildsCache = {
-                token,
+                session: this.sessionGeneration,
                 guilds,
                 expiresAt: Date.now() + this.GUILDS_CACHE_MS
             }),
             catchError(error => {
-                console.error('Failed to fetch user guilds:', error);
                 if (error.status === 401) {
-                    this.logout();
+                    this.clearLocalAuth();
+                    void this.router.navigate(['/login']);
                     return of([]);
                 }
                 return throwError(() => error);
@@ -302,7 +192,6 @@ export class AuthService {
             finalize(() => this.guildsRequest$ = null),
             shareReplay({ bufferSize: 1, refCount: false })
         );
-
         return this.guildsRequest$;
     }
 
@@ -316,106 +205,29 @@ export class AuthService {
         return this.botInviteUrlRequest$;
     }
 
-    /**
-     * Loads token from localStorage and validates it
-     */
-    private loadTokenFromStorage(): string | null {
-        return typeof window === 'undefined' ? null : localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
-    }
-
-    /**
-     * Saves token to localStorage
-     */
-    private saveTokenToStorage(token: string): void {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
-        }
-    }
-
-    /**
-     * Clears token from localStorage
-     */
-    private clearTokenFromStorage(): void {
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-        }
-    }
-
-    private isTokenExpiringSoon(token: string): boolean {
-        const expiresAt = this.loadTokenExpirationFromStorage() ?? this.getJwtExpiration(token);
-        return expiresAt !== null && expiresAt - Date.now() <= this.TOKEN_REFRESH_BUFFER_MS;
-    }
-
-    private getJwtExpiration(token: string): number | null {
-        try {
-            const payload = token.split('.')[1];
-            if (!payload || typeof window === 'undefined') {
-                return null;
-            }
-
-            const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-            const expiresAt = JSON.parse(json).exp;
-            return typeof expiresAt === 'number' ? expiresAt * 1_000 : null;
-        } catch {
-            return null;
-        }
-    }
-
-    private loadTokenExpirationFromStorage(): number | null {
-        if (typeof window === 'undefined') {
-            return null;
-        }
-
-        const expiresAt = localStorage.getItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY);
-        const timestamp = expiresAt ? Date.parse(expiresAt) : NaN;
-        return Number.isNaN(timestamp) ? null : timestamp;
-    }
-
-    private saveTokenExpirationToStorage(expiresAt: string): void {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY, expiresAt);
-        }
-    }
-
-    private clearTokenExpirationFromStorage(): void {
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY);
-        }
-    }
-
-    private loadRefreshTokenFromStorage(): string | null {
-        return typeof window === 'undefined' ? null : localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
-    }
-
-    private saveRefreshTokenToStorage(token: string): void {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
-        }
-    }
-
-    private clearRefreshTokenFromStorage(): void {
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-        }
-    }
-
-    private isSafeReturnUrl(returnUrl?: string): returnUrl is string {
-        return !!returnUrl
-            && returnUrl.startsWith('/')
-            && !returnUrl.startsWith('//')
-            && !returnUrl.includes('\\');
-    }
-
     clearLocalAuth(): void {
-        this.authGeneration++;
-        this.clearTokenFromStorage();
-        this.clearTokenExpirationFromStorage();
-        this.clearRefreshTokenFromStorage();
+        this.sessionGeneration++;
+        this.clearLegacyAuthStorage();
         this.authStore.clearAuth();
         this.appStore.clearState();
+        this.csrfToken = null;
+        this.csrfRequest$ = null;
         this.guildsCache = null;
         this.guildsRequest$ = null;
         this.guildsRefreshAvailableAt = 0;
-        this.operatorAccessRequestToken = null;
+        this.operatorAccessRequestUserId = null;
+    }
+
+    private validateSession(): Observable<BackendSessionResponse> {
+        return this.http.get<BackendSessionResponse>(`${this.API_BASE_URL}/auth/validate`, { withCredentials: true });
+    }
+
+    private clearLegacyAuthStorage(): void {
+        if (typeof window === 'undefined') return;
+        for (const key of LEGACY_AUTH_STORAGE_KEYS) localStorage.removeItem(key);
+    }
+
+    private isSafeReturnUrl(returnUrl?: string): returnUrl is string {
+        return !!returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') && !returnUrl.includes('\\');
     }
 }

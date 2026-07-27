@@ -1,61 +1,62 @@
-import { HttpContextToken, HttpInterceptorFn } from '@angular/common/http';
+import { HttpContextToken, HttpEvent, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, switchMap, throwError } from 'rxjs';
+import { Observable, catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
-import { AuthStore } from '../store/auth.store';
 
 const REFRESH_RETRY_ATTEMPTED = new HttpContextToken(() => false);
+const CSRF_REQUEST = new HttpContextToken(() => false);
+const CSRF_RETRY_ATTEMPTED = new HttpContextToken(() => false);
+
+function requiresCsrf(method: string): boolean {
+  return !['GET', 'HEAD', 'OPTIONS'].includes(method);
+}
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const isApiRequest = req.url.includes('/api/');
   const isAuthRequest = req.url.includes('/api/auth/');
-  const isRefreshRequest = req.url.includes('/api/auth/refresh');
+  const isCsrfRequest = req.url.includes('/api/auth/csrf');
 
-  if (!isApiRequest || isRefreshRequest) {
+  if (!isApiRequest) {
     return next(req);
   }
 
-  const authStore = inject(AuthStore);
   const authService = inject(AuthService);
-  const token = authStore.token();
+  const credentialedRequest = req.clone({ withCredentials: true });
 
-  if (!token) {
-    return next(req);
+  if (isCsrfRequest || credentialedRequest.context.get(CSRF_REQUEST)) {
+    return next(credentialedRequest);
   }
 
-  if (isAuthRequest) {
-    return next(req.clone({ headers: req.headers.set('Authorization', `Bearer ${token}`) }));
-  }
-
-  return authService.ensureValidAccessToken().pipe(
-    switchMap(accessToken => {
-      if (!accessToken) {
-        return throwError(() => new Error('Unable to refresh access token'));
+  const send = (request: HttpRequest<unknown>): Observable<HttpEvent<unknown>> => next(request).pipe(
+    catchError(error => {
+      if (error.status === 403 && requiresCsrf(request.method) && !request.context.get(CSRF_RETRY_ATTEMPTED)) {
+        return authService.renewCsrfToken().pipe(
+          switchMap(token => send(request.clone({
+            headers: request.headers.set('X-CSRF-Token', token),
+            context: request.context.set(CSRF_RETRY_ATTEMPTED, true)
+          })))
+        );
       }
 
-      const authReq = req.clone({ headers: req.headers.set('Authorization', `Bearer ${accessToken}`) });
-      return next(authReq).pipe(
-        catchError(error => {
-          if (error.status !== 401 || req.context.get(REFRESH_RETRY_ATTEMPTED)) {
-            return throwError(() => error);
-          }
+      if (isAuthRequest || error.status !== 401 || request.context.get(REFRESH_RETRY_ATTEMPTED)) {
+        return throwError(() => error);
+      }
 
-          // A server-side invalidation or clock skew can still cause a 401 despite a local expiry check.
-          return authService.refreshToken().pipe(
-            switchMap(refreshed => {
-              const refreshedToken = authStore.token();
-              if (!refreshed || !refreshedToken) {
-                return throwError(() => error);
-              }
-
-              return next(req.clone({
-                context: req.context.set(REFRESH_RETRY_ATTEMPTED, true),
-                headers: req.headers.set('Authorization', `Bearer ${refreshedToken}`)
-              }));
-            })
-          );
-        })
+      return authService.refreshToken().pipe(
+        switchMap(refreshed => refreshed
+          ? send(request.clone({ context: request.context.set(REFRESH_RETRY_ATTEMPTED, true) }))
+          : throwError(() => error)
+        )
       );
     })
+  );
+
+  if (!requiresCsrf(credentialedRequest.method)) return send(credentialedRequest);
+
+  return authService.getCsrfToken().pipe(
+    switchMap(token => send(credentialedRequest.clone({
+      headers: credentialedRequest.headers.set('X-CSRF-Token', token),
+      context: credentialedRequest.context.set(CSRF_REQUEST, true)
+    })))
   );
 };

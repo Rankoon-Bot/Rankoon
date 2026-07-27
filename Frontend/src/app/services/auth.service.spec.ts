@@ -7,9 +7,9 @@ import { AuthStore, User } from '../store/auth.store';
 import { Guild } from '../store/app.store';
 import { testI18n } from '../testing/i18n-testing';
 import { authInterceptor } from '../interceptors/auth.interceptor';
-import { ACCESS_TOKEN_EXPIRATION_STORAGE_KEY, ACCESS_TOKEN_STORAGE_KEY, AuthService, REFRESH_TOKEN_STORAGE_KEY } from './auth.service';
+import { AuthService } from './auth.service';
 
-describe('AuthService token contracts', () => {
+describe('AuthService cookie-session contracts', () => {
   const user: User = { id: 'user-1', discordId: 'discord-1', username: 'user', displayName: 'User', avatar: 'avatar' };
   const router = jasmine.createSpyObj<Router>('Router', ['navigate']);
   let service: AuthService;
@@ -32,170 +32,108 @@ describe('AuthService token contracts', () => {
 
   afterEach(() => { http.verify(); localStorage.clear(); router.navigate.calls.reset(); });
 
-  it('persists callback access and refresh tokens after access-token validation', () => {
-    service.handleTokenCallback('callback-access', 'callback-refresh').subscribe(result => expect(result).toBeTrue());
-    const request = http.expectOne(`${environment.apiBaseUrl}/auth/validate`);
-    expect(store.token()).toBe('callback-access');
-    request.flush({ token: 'callback-access', user, expiresAt: '2026-07-19T12:00:00Z' });
-
-    expect(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)).toBe('callback-access');
-    expect(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBe('callback-refresh');
-    expect(store.user()).toEqual(user);
-  });
-
-  it('restores a persisted session only after server-side token validation', () => {
-    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, 'persisted-access');
-
+  it('bootstraps the session from a credentialed token-free validation response', () => {
+    localStorage.setItem('rankoon_token', 'legacy-access');
     service.initializeSession().subscribe(result => expect(result).toBeTrue());
     const request = http.expectOne(`${environment.apiBaseUrl}/auth/validate`);
-    expect(request.request.headers.get('Authorization')).toBe('Bearer persisted-access');
-    expect(store.isAuthenticated()).toBeFalse();
-    request.flush({ token: 'validated-access', user, expiresAt: '2026-07-19T12:00:00Z' });
+    expect(request.request.withCredentials).toBeTrue();
+    expect(request.request.headers.has('Authorization')).toBeFalse();
+    request.flush({ user });
 
-    expect(store.token()).toBe('validated-access');
     expect(store.user()).toEqual(user);
-  });
-
-  it('refreshes an expired persisted access token before allowing the session', () => {
-    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, 'expired-access');
-    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'valid-refresh');
-
-    service.initializeSession().subscribe(result => expect(result).toBeTrue());
-    http.expectOne(`${environment.apiBaseUrl}/auth/validate`).flush(
-      { errorKey: 'auth.tokenInvalid', message: 'Expired token' },
-      { status: 401, statusText: 'Unauthorized' }
-    );
-    const refreshRequest = http.expectOne(`${environment.apiBaseUrl}/auth/refresh`);
-    expect(refreshRequest.request.body).toEqual({ refreshToken: 'valid-refresh' });
-    refreshRequest.flush({ accessToken: 'new-access', refreshToken: 'new-refresh', user, expiresAt: '2026-07-19T13:00:00Z' });
-
     expect(store.isAuthenticated()).toBeTrue();
-    expect(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)).toBe('new-access');
+    expect(localStorage.getItem('rankoon_token')).toBeNull();
   });
 
-  it('sends the refresh-token request shape and rotates both returned tokens', () => {
-    store.setAuthData(user, 'old-access');
-    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, 'old-access');
-    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'old-refresh');
+  it('refreshes a rejected validation once using cookie credentials and no request body', () => {
+    service.initializeSession().subscribe(result => expect(result).toBeTrue());
+    http.expectOne(`${environment.apiBaseUrl}/auth/validate`).flush({}, { status: 401, statusText: 'Unauthorized' });
+    http.expectOne(`${environment.apiBaseUrl}/auth/csrf`).flush({ token: 'csrf' });
+    const refresh = http.expectOne(`${environment.apiBaseUrl}/auth/refresh`);
+    expect(refresh.request.body).toBeNull();
+    expect(refresh.request.headers.get('X-CSRF-Token')).toBe('csrf');
+    refresh.flush({ user });
 
-    service.refreshToken().subscribe(result => expect(result).toBeTrue());
-    const request = http.expectOne(`${environment.apiBaseUrl}/auth/refresh`);
-    expect(request.request.body).toEqual({ refreshToken: 'old-refresh' });
-    request.flush({ accessToken: 'new-access', refreshToken: 'new-refresh', user, expiresAt: '2026-07-19T13:00:00Z' });
-
-    expect(store.token()).toBe('new-access');
-    expect(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)).toBe('new-access');
-    expect(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBe('new-refresh');
+    expect(store.user()).toEqual(user);
   });
 
-  it('coalesces concurrent refresh requests into one rotation', () => {
-    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'old-refresh');
+  it('coalesces concurrent refresh requests', () => {
     const results: boolean[] = [];
-
     service.refreshToken().subscribe(result => results.push(result));
     service.refreshToken().subscribe(result => results.push(result));
-    const request = http.expectOne(`${environment.apiBaseUrl}/auth/refresh`);
-    request.flush({ accessToken: 'new-access', refreshToken: 'new-refresh', user, expiresAt: '2026-07-19T13:00:00Z' });
+    http.expectOne(`${environment.apiBaseUrl}/auth/csrf`).flush({ token: 'csrf' });
+    http.expectOne(`${environment.apiBaseUrl}/auth/refresh`).flush({ user });
 
     expect(results).toEqual([true, true]);
   });
 
-  it('caches guild requests and throttles forced refreshes', fakeAsync(() => {
+  it('adds cookie credentials and a memory-only CSRF header to unsafe API requests', () => {
+    client.post('/api/protected', {}).subscribe();
+    http.expectOne(`${environment.apiBaseUrl}/auth/csrf`).flush({ token: 'csrf' });
+    const request = http.expectOne('/api/protected');
+    expect(request.request.withCredentials).toBeTrue();
+    expect(request.request.headers.get('X-CSRF-Token')).toBe('csrf');
+    expect(request.request.headers.has('Authorization')).toBeFalse();
+    request.flush({});
+
+    client.post('/api/another-protected', {}).subscribe();
+    const cachedRequest = http.expectOne('/api/another-protected');
+    expect(cachedRequest.request.headers.get('X-CSRF-Token')).toBe('csrf');
+    cachedRequest.flush({});
+  });
+
+  it('silently refreshes and retries a rejected API request without bearer credentials', () => {
+    client.get('/api/protected').subscribe();
+    http.expectOne('/api/protected').flush({}, { status: 401, statusText: 'Unauthorized' });
+    http.expectOne(`${environment.apiBaseUrl}/auth/csrf`).flush({ token: 'csrf' });
+    http.expectOne(`${environment.apiBaseUrl}/auth/refresh`).flush({ user });
+    const retried = http.expectOne('/api/protected');
+    expect(retried.request.withCredentials).toBeTrue();
+    expect(retried.request.headers.has('Authorization')).toBeFalse();
+    retried.flush({});
+  });
+
+  it('clears known legacy auth keys without reading or sending their values', () => {
+    localStorage.setItem('rankoon_token', 'legacy-access');
+    localStorage.setItem('rankoon_refresh_token', 'legacy-refresh');
+    localStorage.setItem('rankoon_token_expires_at', 'legacy-expiry');
+    store.setAuthData(user);
+
+    service.clearLocalAuth();
+
+    expect(localStorage.getItem('rankoon_token')).toBeNull();
+    expect(localStorage.getItem('rankoon_refresh_token')).toBeNull();
+    expect(localStorage.getItem('rankoon_token_expires_at')).toBeNull();
+    expect(store.user()).toBeNull();
+  });
+
+  it('logs out with cookie credentials and no body', () => {
+    store.setAuthData(user);
+    service.logout();
+    http.expectOne(`${environment.apiBaseUrl}/auth/csrf`).flush({ token: 'csrf' });
+    const request = http.expectOne(`${environment.apiBaseUrl}/auth/logout`);
+    expect(request.request.body).toBeNull();
+    expect(request.request.withCredentials).toBeTrue();
+    request.flush({});
+
+    expect(store.user()).toBeNull();
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('caches guild requests and throttles forced refreshes per session', fakeAsync(() => {
     const guilds: Guild[] = [{
       id: 'guild-1', name: 'Guild', icon: null, owner: true, permissions: '8', features: [], botInstalled: true, inviteUrl: ''
     }];
-    store.setAuthData(user, 'access');
+    store.setAuthData(user);
 
     service.getUserGuilds().subscribe(result => expect(result).toEqual(guilds));
     http.expectOne(`${environment.apiBaseUrl}/auth/guilds`).flush(guilds);
-
     service.getUserGuilds().subscribe(result => expect(result).toEqual(guilds));
     http.expectNone(`${environment.apiBaseUrl}/auth/guilds`);
-
     service.getUserGuilds(true).subscribe(result => expect(result).toEqual(guilds));
-    const refreshRequest = http.expectOne(request =>
-      request.url === `${environment.apiBaseUrl}/auth/guilds` && request.params.get('refresh') === 'true');
-    refreshRequest.flush(guilds);
-
-    service.getUserGuilds(true).subscribe(result => expect(result).toEqual(guilds));
-    http.expectNone(request => request.url === `${environment.apiBaseUrl}/auth/guilds`);
-
+    http.expectOne(request => request.url === `${environment.apiBaseUrl}/auth/guilds` && request.params.get('refresh') === 'true').flush(guilds);
     tick(120_001);
     service.getUserGuilds().subscribe(result => expect(result).toEqual(guilds));
     http.expectOne(`${environment.apiBaseUrl}/auth/guilds`).flush(guilds);
   }));
-
-  it('retrieves the guild-independent bot invite URL', () => {
-    service.getBotInviteUrl().subscribe(url => expect(url).toBe('https://discord.com/oauth2/authorize?client_id=bot'));
-    http.expectOne(`${environment.apiBaseUrl}/auth/bot-invite`).flush({ inviteUrl: 'https://discord.com/oauth2/authorize?client_id=bot' });
-  });
-
-  it('refreshes an access token that is close to expiry before sending an API request', () => {
-    store.setAuthData(user, 'expiring-access');
-    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'valid-refresh');
-    localStorage.setItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY, new Date(Date.now() + 30_000).toISOString());
-
-    client.get('/api/protected').subscribe();
-    const refreshRequest = http.expectOne(`${environment.apiBaseUrl}/auth/refresh`);
-    expect(refreshRequest.request.headers.has('Authorization')).toBeFalse();
-    refreshRequest.flush({ accessToken: 'new-access', refreshToken: 'new-refresh', user, expiresAt: '2099-01-01T00:00:00Z' });
-
-    const protectedRequest = http.expectOne('/api/protected');
-    expect(protectedRequest.request.headers.get('Authorization')).toBe('Bearer new-access');
-    protectedRequest.flush({});
-  });
-
-  it('silently refreshes and retries an API request rejected with 401', () => {
-    store.setAuthData(user, 'current-access');
-    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'valid-refresh');
-    localStorage.setItem(ACCESS_TOKEN_EXPIRATION_STORAGE_KEY, '2099-01-01T00:00:00Z');
-
-    client.get('/api/protected').subscribe();
-    http.expectOne('/api/protected').flush({}, { status: 401, statusText: 'Unauthorized' });
-    http.expectOne(`${environment.apiBaseUrl}/auth/refresh`).flush({ accessToken: 'new-access', refreshToken: 'new-refresh', user, expiresAt: '2099-01-01T01:00:00Z' });
-
-    const retriedRequest = http.expectOne('/api/protected');
-    expect(retriedRequest.request.headers.get('Authorization')).toBe('Bearer new-access');
-    retriedRequest.flush({});
-  });
-
-  it('sends the refresh token on logout and immediately clears local authentication', () => {
-    store.setAuthData(user, 'access');
-    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, 'access');
-    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'refresh');
-
-    service.logout();
-    const request = http.expectOne(`${environment.apiBaseUrl}/auth/logout`);
-    expect(request.request.body).toEqual({ refreshToken: 'refresh' });
-    expect(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)).toBeNull();
-    expect(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBeNull();
-    expect(store.token()).toBeNull();
-    expect(store.user()).toBeNull();
-    expect(router.navigate).toHaveBeenCalledWith(['/login']);
-    request.flush({ messageKey: 'auth.logoutSucceeded', message: 'Logged out successfully.' });
-  });
-
-  it('clears both token types when callback validation fails', () => {
-    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, 'stale-access');
-    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'stale-refresh');
-    service.handleTokenCallback('invalid-access', 'new-refresh').subscribe(result => expect(result).toBeFalse());
-    http.expectOne(`${environment.apiBaseUrl}/auth/validate`).flush({ errorKey: 'auth.tokenInvalid', message: 'Invalid token' }, { status: 401, statusText: 'Unauthorized' });
-
-    expect(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)).toBeNull();
-    expect(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBeNull();
-    expect(store.token()).toBeNull();
-  });
-
-  it('clears both token types and returns to login when refresh fails', () => {
-    store.setAuthData(user, 'access');
-    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, 'access');
-    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, 'invalid-refresh');
-    service.refreshToken().subscribe(result => expect(result).toBeFalse());
-    http.expectOne(`${environment.apiBaseUrl}/auth/refresh`).flush({ errorKey: 'auth.refreshTokenInvalid', message: 'Refresh expired' }, { status: 401, statusText: 'Unauthorized' });
-
-    expect(localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)).toBeNull();
-    expect(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY)).toBeNull();
-    expect(store.token()).toBeNull();
-    expect(router.navigate).toHaveBeenCalledWith(['/login']);
-  });
 });

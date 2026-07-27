@@ -52,6 +52,39 @@ public sealed class CustomBotIdentityTests
         finally { if (directory.Exists) directory.Delete(true); }
     }
 
+    [Fact]
+    public void TokenProtectorDecryptsCiphertextFromTheSameKeyRing()
+    {
+        var directory = new DirectoryInfo(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+        try
+        {
+            var first = new CustomBotTokenProtector(DataProtectionProvider.Create(directory, builder => builder.SetApplicationName("Rankoon")), Options.Create(new CustomBotIdentityOptions { FingerprintKey = new string('k', 32) }));
+            var second = new CustomBotTokenProtector(DataProtectionProvider.Create(directory, builder => builder.SetApplicationName("Rankoon")), Options.Create(new CustomBotIdentityOptions { FingerprintKey = new string('k', 32) }));
+
+            Assert.Equal("secret.discord.bot.token", second.Unprotect(first.Protect("secret.discord.bot.token")));
+        }
+        finally { if (directory.Exists) directory.Delete(true); }
+    }
+
+    [Fact]
+    public void TokenProtectorRejectsCiphertextFromAnotherKeyRing()
+    {
+        var firstDirectory = new DirectoryInfo(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+        var secondDirectory = new DirectoryInfo(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+        try
+        {
+            var first = new CustomBotTokenProtector(DataProtectionProvider.Create(firstDirectory, builder => builder.SetApplicationName("Rankoon")), Options.Create(new CustomBotIdentityOptions { FingerprintKey = new string('k', 32) }));
+            var second = new CustomBotTokenProtector(DataProtectionProvider.Create(secondDirectory, builder => builder.SetApplicationName("Rankoon")), Options.Create(new CustomBotIdentityOptions { FingerprintKey = new string('k', 32) }));
+
+            Assert.Throws<System.Security.Cryptography.CryptographicException>(() => second.Unprotect(first.Protect("secret.discord.bot.token")));
+        }
+        finally
+        {
+            if (firstDirectory.Exists) firstDirectory.Delete(true);
+            if (secondDirectory.Exists) secondDirectory.Delete(true);
+        }
+    }
+
     private static CustomBotAccessDecision Decide(CustomBotIdentityOptions options, bool reservation = false, int count = 0) =>
         CustomBotIdentityAccessPolicy.Decide(options, 42, false, reservation, count);
 }

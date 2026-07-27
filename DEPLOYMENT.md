@@ -23,10 +23,12 @@ After the first publication, set the package visibility to **Public** in the Git
 Create an environment file from `deploy/.env.example`, fill in the values, then start the image:
 
 ```sh
+docker volume create rankoon-data-protection
 docker run -d \
   --name rankoon \
   --restart unless-stopped \
   --env-file .env \
+  -v rankoon-data-protection:/var/lib/rankoon/data-protection-keys \
   -p 8080:8080 \
   ghcr.io/<owner>/<repository>:latest
 ```
@@ -45,6 +47,40 @@ OAuth callback tokens are returned in a URL query string; prevent proxies and
 logs from retaining full callback URLs.
 
 Optional settings from `Backend/appsettings.json` can be overridden using the same convention, for example `Jwt__Issuer`, `Jwt__Audience`, or `Serilog__MinimumLevel__Default`. The container listens on port `8080` by default; override `ASPNETCORE_URLS` only when a different in-container port is required.
+
+## Data Protection Key Ring
+
+`DATAPROTECTION__KEYRINGPATH` is required outside the `Development` environment.
+Rankoon validates it during startup by creating and removing a probe file. The
+directory must be readable and writable by the application user, persistent
+across image replacement, and outside `/app`; `/app` is part of the image and
+is not a safe key-ring location. The application name is fixed as `Rankoon`, so
+all instances sharing this key ring can decrypt the same protected data.
+
+The Docker images declare `/var/lib/rankoon/data-protection-keys` as the
+key-ring volume. Use the named-volume mount in the run command above. For a
+bind mount or a network volume, grant its directory read/write access to the
+non-root user configured by the image before starting Rankoon. Do not run the
+application as root merely to bypass a permission failure.
+
+All replicas of one Rankoon deployment must mount the same key ring with
+read/write access. A replica using a different ring cannot decrypt custom bot
+tokens written by the others; those tokens fail safely during unprotection and
+must not be replaced by an empty or newly generated ring. Do not share a ring
+between unrelated deployments.
+
+Back up the complete key-ring directory as an encrypted, access-controlled
+unit before upgrades and test restoring it before relying on the backup. Keep
+the backup for at least as long as protected custom-bot tokens can exist. If
+the key ring is lost, destroyed, or replaced, existing protected values cannot
+be recovered. Restore the original ring to recover them; otherwise affected
+custom bot tokens must be entered again by their owners. Never place key-ring
+files in source control or expose them through a web-server mount.
+
+Development is the sole environment allowed to run without a configured key
+ring, using ASP.NET Core's local fallback. This fallback is intentionally
+ephemeral and must not be used for custom-bot tokens that need to survive a
+restart or deployment.
 
 ## MongoDB Startup
 

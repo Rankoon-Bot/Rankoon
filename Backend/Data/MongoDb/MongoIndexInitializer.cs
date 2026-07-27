@@ -7,7 +7,7 @@ using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.MongoDb;
 
-public sealed class MongoIndexInitializer(RankoonDbContext database, XpService xp, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<MongoIndexInitializer> logger) : BackgroundService
+public sealed class MongoIndexInitializer(RankoonDbContext database, XpService xp, AuthDataIntegrityInitializer authData, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<MongoIndexInitializer> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -15,6 +15,7 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
         {
             try
             {
+                await authData.InitializeAsync(stoppingToken);
                 await DropObsoleteGuildRolePermissionIndexAsync(stoppingToken);
                 await DropIndexIfPresentAsync(database.GuildAnalyticsBuckets.Indexes, "bucket_dimensions_unique", stoppingToken);
                 var obsoleteHoldbackFilter = Builders<GuildXpSettings>.Filter.Exists("Voice.HoldbackThreshold");
@@ -169,6 +170,13 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
+                return;
+            }
+            catch (AuthDataIntegrityException exception)
+            {
+                logger.LogCritical(exception, "MongoDB auth data integrity initialization stopped; manual reconciliation is required");
+                health.Report("mongo-auth-data", WorkerHealthState.Unhealthy, "Manual reconciliation required");
+                await errors.RecordAsync(new(exception, "worker", "mongo.auth-data-integrity", Worker: "mongo-auth-data"), stoppingToken);
                 return;
             }
             catch (Exception exception)

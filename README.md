@@ -127,7 +127,7 @@ Voice sessions are reconciled every 5 seconds by default and settled when a memb
 
 Custom Bot Identity is disabled by default. Set `CUSTOMBOTIDENTITY__ENABLED=true` and configure a separate, long random `CUSTOMBOTIDENTITY__FINGERPRINTKEY` to allow guild owners to connect one custom Discord bot application to one guild. `CUSTOMBOTIDENTITY__MAXACTIVEGUILDS` limits reserved identities; omit it for no limit. An empty `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS` allowlist permits every guild, while indexed values such as `CUSTOMBOTIDENTITY__ALLOWEDGUILDIDS__0=123456789012345678` restrict access.
 
-Custom bot tokens are encrypted using ASP.NET Core Data Protection and never returned by the API. Production deployments must set `DATAPROTECTION__KEYRINGPATH` to a persistently mounted directory; otherwise encrypted tokens cannot be recovered after a redeploy. Keep `CUSTOMBOTIDENTITY__FINGERPRINTKEY` stable and separate from JWT and Discord secrets. `CUSTOMBOTIDENTITY__STARTUPPARALLELISM` controls staggered runtime restoration and must be between `1` and `4`.
+Custom bot tokens are encrypted using ASP.NET Core Data Protection and never returned by the API. Outside Development, `DATAPROTECTION__KEYRINGPATH` must name a persistent, readable/writable directory outside the application image; startup rejects an invalid ring without logging secrets. Keep `CUSTOMBOTIDENTITY__FINGERPRINTKEY` stable and separate from JWT and Discord secrets. `CUSTOMBOTIDENTITY__STARTUPPARALLELISM` controls staggered runtime restoration and must be between `1` and `4`. See [deployment key-ring operations](DEPLOYMENT.md#data-protection-key-ring) for Docker volumes, backups, recovery, and multi-instance permissions.
 Eligible intervals are split at persisted season and UTC-day boundaries, producing
 exact compressed voice segments rather than interval ledger grants. The first
 qualifying settlement includes time since joining, including the configured
@@ -364,10 +364,12 @@ host is reachable from the Rankoon container.
 
    ```sh
    docker build -f Backend/Dockerfile -t rankoon:local .
+   docker volume create rankoon-data-protection
    docker run -d \
      --name rankoon \
      --restart unless-stopped \
      --env-file .env \
+     -v rankoon-data-protection:/var/lib/rankoon/data-protection-keys \
      -p 8080:8080 \
      rankoon:local
    ```
@@ -410,9 +412,10 @@ Selected optional overrides include:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `ASPNETCORE_URLS` | `http://+:8080` in Docker | HTTP listener inside the container |
+| `DATAPROTECTION__KEYRINGPATH` | Required outside Development | Persistent, non-image directory for ASP.NET Core Data Protection keys; shared by replicas of one deployment |
 | `Jwt__Issuer` | `Rankoon` | JWT issuer |
 | `Jwt__Audience` | `RankoonUsers` | JWT audience |
-| `Jwt__AccessTokenExpirationMinutes` | `60` | Access-token lifetime |
+| `Jwt__AccessTokenExpirationMinutes` | `15` | Access-token lifetime |
 | `Jwt__RefreshTokenExpirationDays` | `30` | Refresh-token lifetime |
 | `RateLimiting__LeaderboardPermitLimit` | `90` | Public leaderboard requests per minute and partition |
 | `RateLimiting__ReportsPermitLimit` | `60` | Report requests per minute and partition |

@@ -73,6 +73,11 @@ public sealed class GuildAuthorizationService(
         var member = await ResolveMemberAsync(user, guildId, cancellationToken);
         if (member == null) return [];
 
+        // Discord administrators must not depend on a separately persisted Rankoon role
+        // grant. Otherwise a stale or manually edited policy can hide modules that the
+        // Discord permission model authoritatively grants them, including XP seasons.
+        if (member.GuildPermissions.Administrator) return modules.Modules.Select(module => module.Id).ToArray();
+
         var policy = await permissions.GetOrInitializeAsync(guild, cancellationToken);
         var roleIds = guild.Roles
             .Where(role => !role.IsManaged && !role.IsEveryone && member.RoleIds.Contains(role.Id))

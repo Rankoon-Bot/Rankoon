@@ -31,6 +31,9 @@ public class RankoonDbContext
     public IMongoCollection<RefreshToken> RefreshTokens =>
         _database.GetCollection<RefreshToken>("refresh_tokens");
 
+    public IMongoCollection<AuthDataMigrationLock> AuthDataMigrationLocks =>
+        _database.GetCollection<AuthDataMigrationLock>("auth_data_migration_locks");
+
     public IMongoCollection<GuildXpSettings> GuildXpSettings => _database.GetCollection<GuildXpSettings>("guild_xp_settings");
     public IMongoCollection<GuildSeasonSettings> GuildSeasonSettings => _database.GetCollection<GuildSeasonSettings>("guild_season_settings");
     public IMongoCollection<GuildSeason> GuildSeasons => _database.GetCollection<GuildSeason>("guild_seasons");

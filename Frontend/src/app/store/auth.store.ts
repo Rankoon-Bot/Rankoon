@@ -13,7 +13,6 @@ export interface User {
 
 export interface AuthState {
   user: User | null;
-  token: string | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -24,28 +23,22 @@ export interface AuthState {
 export class AuthStore {
   // Private writable signals
   private readonly _user = signal<User | null>(null);
-  private readonly _token = signal<string | null>(null);
   private readonly _isLoading = signal<boolean>(false);
   private readonly _error = signal<string | null>(null);
 
   // Public readonly computed signals
   readonly user = this._user.asReadonly();
-  readonly token = this._token.asReadonly();
   readonly isLoading = this._isLoading.asReadonly();
   readonly error = this._error.asReadonly();
 
   // Computed properties
-  readonly isAuthenticated = computed(() => this._user() !== null && this._token() !== null);
+  readonly isAuthenticated = computed(() => this._user() !== null);
   readonly hasError = computed(() => this._error() !== null);
   readonly isBotOperator = computed(() => this._user()?.isBotOperator === true);
 
   // Actions
   setUser(user: User | null): void {
     this._user.set(user);
-  }
-
-  setToken(token: string | null): void {
-    this._token.set(token);
   }
 
   setLoading(isLoading: boolean): void {
@@ -56,15 +49,13 @@ export class AuthStore {
     this._error.set(error);
   }
 
-  setAuthData(user: User, token: string): void {
+  setAuthData(user: User): void {
     this._user.set(user);
-    this._token.set(token);
     this._error.set(null);
   }
 
   clearAuth(): void {
     this._user.set(null);
-    this._token.set(null);
     this._isLoading.set(false);
     this._error.set(null);
   }
@@ -73,7 +64,6 @@ export class AuthStore {
   getState(): AuthState {
     return {
       user: this._user(),
-      token: this._token(),
       isLoading: this._isLoading(),
       error: this._error()
     };

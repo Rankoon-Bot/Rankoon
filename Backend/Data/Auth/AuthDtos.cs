@@ -1,4 +1,5 @@
 using Rankoon.Data.Model;
+using System.Text.Json.Serialization;
 
 namespace Rankoon.Data.Auth;
 
@@ -46,6 +47,23 @@ public record TokenResponse
     public string RefreshToken { get; init; } = string.Empty;
     public DateTime ExpiresAt { get; init; }
     public DiscordUserDto User { get; init; } = new();
+}
+/// <summary>
+/// Public session state. Authentication credentials are intentionally never serialized.
+/// </summary>
+public sealed record SessionResponse
+{
+    [JsonPropertyName("authenticated")]
+    public bool Authenticated { get; init; } = true;
+    [JsonPropertyName("user")]
+    public DiscordUserDto User { get; init; } = new();
+    [JsonPropertyName("expiresAt")]
+    public DateTimeOffset ExpiresAt { get; init; }
+}
+
+public sealed record CsrfBootstrapResponse
+{
+    public string Token { get; init; } = string.Empty;
 }
 
 /// <summary>
@@ -95,12 +113,4 @@ public record GuildDto
     public BotIdentityMode? ActiveBotIdentity { get; init; }
     public bool AuthoritativeRuntimeAvailable { get; init; }
     public string InviteUrl { get; init; } = string.Empty;
-}
-
-/// <summary>
-/// Request for refreshing tokens
-/// </summary>
-public record RefreshTokenRequest
-{
-    public string RefreshToken { get; init; } = string.Empty;
 }

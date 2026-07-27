@@ -5,9 +5,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -80,32 +81,45 @@ builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, BotOperator
 builder.Services.AddSignalR(options => options.MaximumParallelInvocationsPerClient = 1).AddJsonProtocol(options =>
     options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddSingleton<LeaderboardSubscriptionRegistry>();
-var leaderboardPermitLimit = builder.Configuration.GetValue("RateLimiting:LeaderboardPermitLimit", 90);
-var reportsPermitLimit = builder.Configuration.GetValue("RateLimiting:ReportsPermitLimit", 60);
-var botManagementPermitLimit = builder.Configuration.GetValue("RateLimiting:BotManagementPermitLimit", 30);
-var rateLimitQueueLimit = builder.Configuration.GetValue("RateLimiting:QueueLimit", 2);
+var rateLimiting = builder.Configuration.GetSection(RateLimitingOptions.SectionName).Get<RateLimitingOptions>() ?? new RateLimitingOptions();
+builder.Services.AddOptions<RateLimitingOptions>()
+    .Bind(builder.Configuration.GetSection(RateLimitingOptions.SectionName))
+    .Validate(RateLimitPolicies.IsValid, "RateLimiting contains an invalid limit, duration, queue size, concurrency limit, retry interval, or trusted proxy IP.")
+    .ValidateOnStart();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+    foreach (var proxy in rateLimiting.TrustedProxyIps)
+        if (System.Net.IPAddress.TryParse(proxy, out var address)) options.KnownProxies.Add(address);
+});
 builder.Services.AddRateLimiter(options =>
 {
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context => RateLimitPolicies.CreateConcurrency(context, rateLimiting));
     options.OnRejected = async (context, cancellationToken) =>
     {
-        IReadOnlyDictionary<string, object?>? parameters = null;
+        var seconds = rateLimiting.RejectionRetryAfterSeconds;
         if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
         {
-            var seconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
-            context.HttpContext.Response.Headers.RetryAfter = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            parameters = new Dictionary<string, object?> { ["retryAfterSeconds"] = seconds };
+            seconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
         }
-        await ApiErrorFactory.WriteAsync(context.HttpContext, "rateLimit.exceeded", parameters);
+        await ApiErrorFactory.WriteRateLimitedAsync(context.HttpContext, seconds);
     };
-    options.AddPolicy("leaderboard", context =>
-        RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
-            new FixedWindowRateLimiterOptions { PermitLimit = leaderboardPermitLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = rateLimitQueueLimit }));
-    options.AddPolicy("reports", context =>
-        RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
-            new FixedWindowRateLimiterOptions { PermitLimit = reportsPermitLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = rateLimitQueueLimit }));
-    options.AddPolicy("bot-management", context =>
-        RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirst("discord_id")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous", _ =>
-            new FixedWindowRateLimiterOptions { PermitLimit = botManagementPermitLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = rateLimitQueueLimit }));
+    options.AddPolicy(RateLimitPolicies.Leaderboard, context => RateLimitPolicies.Create(context, RateLimitPolicies.Leaderboard, rateLimiting.Leaderboard));
+    options.AddPolicy(RateLimitPolicies.Reports, context => RateLimitPolicies.Create(context, RateLimitPolicies.Reports, rateLimiting.Reports));
+    options.AddPolicy(RateLimitPolicies.BotManagement, context => RateLimitPolicies.Create(context, RateLimitPolicies.BotManagement, rateLimiting.BotManagement));
+    options.AddPolicy(RateLimitPolicies.OAuthLogin, context => RateLimitPolicies.Create(context, RateLimitPolicies.OAuthLogin, rateLimiting.OAuthLogin));
+    options.AddPolicy(RateLimitPolicies.OAuthCallback, context => RateLimitPolicies.Create(context, RateLimitPolicies.OAuthCallback, rateLimiting.OAuthCallback));
+    options.AddPolicy(RateLimitPolicies.OAuthRefresh, context => RateLimitPolicies.Create(context, RateLimitPolicies.OAuthRefresh, rateLimiting.OAuthRefresh));
+    options.AddPolicy(RateLimitPolicies.OAuthLogout, context => RateLimitPolicies.Create(context, RateLimitPolicies.OAuthLogout, rateLimiting.OAuthLogout));
+    options.AddPolicy(RateLimitPolicies.CustomBotValidation, context => RateLimitPolicies.Create(context, RateLimitPolicies.CustomBotValidation, rateLimiting.CustomBotValidation));
+    options.AddPolicy(RateLimitPolicies.CustomBotSave, context => RateLimitPolicies.Create(context, RateLimitPolicies.CustomBotSave, rateLimiting.CustomBotSave));
+    options.AddPolicy(RateLimitPolicies.CustomBotActivate, context => RateLimitPolicies.Create(context, RateLimitPolicies.CustomBotActivate, rateLimiting.CustomBotActivate));
+    options.AddPolicy(RateLimitPolicies.CustomBotRestart, context => RateLimitPolicies.Create(context, RateLimitPolicies.CustomBotRestart, rateLimiting.CustomBotRestart));
+    options.AddPolicy(RateLimitPolicies.XpImport, context => RateLimitPolicies.Create(context, RateLimitPolicies.XpImport, rateLimiting.XpImport));
+    options.AddPolicy(RateLimitPolicies.XpSettings, context => RateLimitPolicies.Create(context, RateLimitPolicies.XpSettings, rateLimiting.XpSettings));
 });
 builder.Services.Configure<HostOptions>(options =>
     options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
@@ -134,13 +148,12 @@ var dcConfig = new DiscordSocketConfig()
 builder.Services.AddSingleton(new DiscordShardedClient(dcConfig));
 builder.Services.AddSingleton(new GatewayIntentState(dcConfig.GatewayIntents));
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
-var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Rankoon");
-var dataProtectionKeyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
-if (!string.IsNullOrWhiteSpace(dataProtectionKeyRingPath))
-    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyRingPath));
+builder.Services.AddRankoonDataProtection(builder.Configuration, builder.Environment);
+builder.Services.AddAntiforgery(options => options.HeaderName = builder.Configuration["AuthCookies:CsrfHeaderName"] ?? "X-CSRF-TOKEN");
 
 // Register database context
 builder.Services.AddSingleton<RankoonDbContext>();
+builder.Services.AddSingleton<AuthDataIntegrityInitializer>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ReportWriter>();
 builder.Services.AddSingleton<IReportWriter>(services => services.GetRequiredService<ReportWriter>());
@@ -161,6 +174,8 @@ builder.Services.AddHttpClient<IDiscordService, DiscordService>();
 builder.Services.AddSingleton<IBotInfoCache, BotInfoCache>();
 builder.Services.AddSingleton<IBotOperatorAccessService, BotOperatorAccessService>();
 builder.Services.AddSingleton<ICustomBotTokenProtector, CustomBotTokenProtector>();
+builder.Services.AddSingleton<IDiscordOAuthTokenProtector, DiscordOAuthTokenProtector>();
+builder.Services.AddSingleton<DiscordOAuthTokenMigrationService>();
 builder.Services.AddSingleton<ICustomBotIdentityAccessPolicy, CustomBotIdentityAccessPolicy>();
 builder.Services.AddSingleton<IPlatformBotRuntime, PlatformBotRuntime>();
 builder.Services.AddSingleton<IGuildBotAuthority, GuildBotAuthority>();
@@ -176,6 +191,10 @@ builder.Services.AddSingleton<RankoonInteractionHandler>();
 builder.Services.AddSingleton<IDiscordRuntimeEventDispatcher, DiscordRuntimeEventDispatcher>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddSingleton<BrowserSessionService>();
+builder.Services.AddSingleton<Rankoon.Controllers.IAuthCookieService>(services => services.GetRequiredService<BrowserSessionService>());
+builder.Services.AddSingleton<Rankoon.Controllers.IOAuthCallbackCookieService>(services => services.GetRequiredService<BrowserSessionService>());
+builder.Services.AddSingleton<IBrowserSessionService>(services => services.GetRequiredService<BrowserSessionService>());
 builder.Services.AddScoped<IUserDiscordGuildProvider, UserDiscordGuildProvider>();
 builder.Services.AddScoped<IGuildAuthorizationService, GuildAuthorizationService>();
 builder.Services.AddSingleton<IGuildModuleRegistry, GuildModuleRegistry>();
@@ -223,6 +242,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(services => services.GetRequiredService<ReportWriter>());
     builder.Services.AddHostedService(services => services.GetRequiredService<GuildAnalyticsRecorder>());
     builder.Services.AddHostedService<MongoIndexInitializer>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<DiscordOAuthTokenMigrationService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LedgerProjectionRepairService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.VoiceActivityProjectionRepairService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.VoiceLedgerMigrationService>());
@@ -244,6 +264,7 @@ if (jwtSettings == null || string.IsNullOrEmpty(jwtSettings.SecretKey))
 }
 
 var key = Encoding.ASCII.GetBytes(jwtSettings.SecretKey);
+var authCookieOptions = builder.Configuration.GetSection(AuthCookieOptions.SectionName).Get<AuthCookieOptions>() ?? new AuthCookieOptions();
 
 builder.Services.AddAuthentication(options =>
 {
@@ -269,7 +290,8 @@ builder.Services.AddAuthentication(options =>
     {
         OnMessageReceived = context =>
         {
-            if (context.Request.Path.StartsWithSegments("/hubs/leaderboard") && context.Request.Query.TryGetValue("access_token", out var token))
+            if (!context.Request.Headers.ContainsKey("Authorization") &&
+                context.Request.Cookies.TryGetValue(authCookieOptions.AccessCookieName, out var token))
                 context.Token = token;
             return Task.CompletedTask;
         },
@@ -313,6 +335,17 @@ app.UseStatusCodePages(async statusContext =>
         await ApiErrorFactory.WriteAsync(context, definition.Key, statusCode: statusCode);
     }
 });
+app.UseForwardedHeaders();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/auth"))
+    {
+        context.Response.Headers.CacheControl = "no-store, no-cache, max-age=0";
+        context.Response.Headers.Pragma = "no-cache";
+    }
+    await next();
+});
+app.UseMiddleware<CsrfValidationMiddleware>();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
@@ -362,8 +395,16 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
         builder.Configuration.GetSection(MongoDbSettings.SectionName));
     builder.Services.Configure<DiscordSettings>(
         builder.Configuration.GetSection(DiscordSettings.SectionName));
-    builder.Services.Configure<JwtSettings>(
-        builder.Configuration.GetSection(JwtSettings.SectionName));
+    builder.Services.AddOptions<JwtSettings>()
+        .Bind(builder.Configuration.GetSection(JwtSettings.SectionName))
+        .Validate(options => options.AccessTokenExpirationMinutes is >= 5 and <= 30, "Jwt:AccessTokenExpirationMinutes must be between 5 and 30.")
+        .ValidateOnStart();
+    builder.Services.AddOptions<AuthCookieOptions>()
+        .Bind(builder.Configuration.GetSection(AuthCookieOptions.SectionName))
+        .Validate(options => builder.Environment.IsDevelopment() || options.Secure, "AuthCookies:Secure must be true outside Development.")
+        .Validate(options => builder.Environment.IsDevelopment() || (IsHostCookieName(options.AccessCookieName) && IsHostCookieName(options.RefreshCookieName)), "Auth cookie names must use the __Host- prefix outside Development.")
+        .Validate(options => !string.IsNullOrWhiteSpace(options.CsrfHeaderName), "AuthCookies:CsrfHeaderName is required.")
+        .ValidateOnStart();
     builder.Services.Configure<FrontendSettings>(
         builder.Configuration.GetSection(FrontendSettings.SectionName));
     builder.Services.AddOptions<CustomBotIdentityOptions>()
@@ -383,5 +424,8 @@ static bool IsJsonException(Exception? exception)
     }
     return false;
 }
+
+static bool IsHostCookieName(string? name) =>
+    !string.IsNullOrWhiteSpace(name) && name.StartsWith("__Host-", StringComparison.Ordinal);
 
 public partial class Program;

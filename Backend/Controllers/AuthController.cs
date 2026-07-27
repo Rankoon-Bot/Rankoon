@@ -1,9 +1,14 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Utils;
 using Rankoon.Api;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Rankoon.Controllers;
 
@@ -14,24 +19,31 @@ namespace Rankoon.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private static readonly ConcurrentDictionary<string, DateTimeOffset> ConsumedOAuthStates = new();
     private readonly IAuthService _authService;
+    private readonly IAuthCookieService? _authCookies;
     private readonly FrontendSettings _frontendSettings;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<AuthController> _logger;
     private readonly IBotOperatorAccessService _botOperatorAccess;
+    private readonly IOAuthCallbackCookieService? _callbackCookieService;
 
     public AuthController(
         IAuthService authService,
         IOptions<FrontendSettings> frontendSettings,
         TimeProvider timeProvider,
         ILogger<AuthController> logger,
-        IBotOperatorAccessService botOperatorAccess)
+        IBotOperatorAccessService botOperatorAccess,
+        IOAuthCallbackCookieService? callbackCookieService = null,
+        IAuthCookieService? authCookies = null)
     {
         _authService = authService;
+        _authCookies = authCookies;
         _frontendSettings = frontendSettings.Value;
         _timeProvider = timeProvider;
         _logger = logger;
         _botOperatorAccess = botOperatorAccess;
+        _callbackCookieService = callbackCookieService;
     }
 
     /// <summary>
@@ -40,6 +52,7 @@ public class AuthController : ControllerBase
     /// <param name="returnUrl">Optional return URL after successful authentication</param>
     /// <returns>Login URL for Discord OAuth</returns>
     [HttpGet("login")]
+    [EnableRateLimiting(RateLimitPolicies.OAuthLogin)]
     public IActionResult GetLoginUrl([FromQuery] string? returnUrl = null)
     {
         try
@@ -59,13 +72,15 @@ public class AuthController : ControllerBase
     /// </summary>
     /// <param name="code">Authorization code from Discord</param>
     /// <param name="state">State parameter for CSRF protection</param>
-    /// <returns>Redirect to frontend with token</returns>
+    /// <returns>Redirect to the frontend after issuing authentication cookies</returns>
     [HttpGet("callback")]
+    [EnableRateLimiting(RateLimitPolicies.OAuthCallback)]
     public async Task<IActionResult> Callback([FromQuery] string? code, [FromQuery] string? state = null)
     {
+        SetOAuthCallbackSecurityHeaders();
         try
         {
-            if (string.IsNullOrEmpty(code))
+            if (string.IsNullOrEmpty(code) || !IsValidOAuthState(state))
             {
                 return OAuthFailureRedirect();
             }
@@ -76,50 +91,36 @@ public class AuthController : ControllerBase
                 _timeProvider.GetUtcNow().AddMinutes(1)
             );
 
-            if (string.IsNullOrEmpty(cachedState))
+            if (string.IsNullOrEmpty(cachedState) || !FixedTimeEquals(cachedState, state!))
             {
-                _logger.LogWarning("Invalid or expired state parameter for Discord OAuth callback");
-                throw new InvalidOperationException("Invalid or expired state parameter");
+                return OAuthFailureRedirect();
             }
 
-            CacheManager.Remove($"auth_state_{state}");
-
-
-            if (cachedState != state)
+            RemoveExpiredStateGuards();
+            if (!ConsumedOAuthStates.TryAdd(state!, _timeProvider.GetUtcNow().AddMinutes(5)))
             {
-                _logger.LogWarning("State parameter mismatch during Discord OAuth callback");
-                throw new InvalidOperationException("State parameter mismatch");
+                return OAuthFailureRedirect();
             }
 
             var returnUrl = await CacheManager.GetOrSetAsync<string>(
                 $"auth_return_{state}",
                 static () => Task.FromResult(string.Empty),
-                _timeProvider.GetUtcNow().AddMinutes(1));
+            _timeProvider.GetUtcNow().AddMinutes(1));
+            CacheManager.Remove($"auth_state_{state}");
             CacheManager.Remove($"auth_return_{state}");
 
-
             var tokenResponse = await _authService.HandleCallbackAsync(code);
-            if (tokenResponse == null)
+            if (tokenResponse == null || _callbackCookieService == null)
             {
-                throw new InvalidOperationException("Failed to handle OAuth callback");
+                return OAuthFailureRedirect();
             }
 
+            await _callbackCookieService.SetTokensAsync(tokenResponse, Response, HttpContext.RequestAborted);
 
-            // Build frontend callback URL with our token
             var frontendCallbackUrl = $"{_frontendSettings.BaseUrl}{_frontendSettings.CallbackPath}";
-            var parameters = new List<string>
-            {
-                $"token={Uri.EscapeDataString(tokenResponse.AccessToken)}",
-                $"refresh_token={Uri.EscapeDataString(tokenResponse.RefreshToken)}",
-                $"expires_at={Uri.EscapeDataString(tokenResponse.ExpiresAt.ToString("O"))}"
-            };
-
-            if (IsSafeReturnUrl(returnUrl))
-            {
-                parameters.Add($"return_url={Uri.EscapeDataString(returnUrl)}");
-            }
-
-            var finalUrl = $"{frontendCallbackUrl}?{string.Join("&", parameters)}";
+            var finalUrl = IsSafeReturnUrl(returnUrl)
+                ? $"{frontendCallbackUrl}?return_url={Uri.EscapeDataString(returnUrl)}"
+                : frontendCallbackUrl;
 
             _logger.LogInformation("User {UserId} authenticated successfully", tokenResponse.User.Id);
 
@@ -128,73 +129,72 @@ public class AuthController : ControllerBase
         catch (Exception)
         {
             _logger.LogError("Error handling OAuth callback");
-
-            // Redirect to frontend with error
             return OAuthFailureRedirect();
         }
     }
 
     /// <summary>
-    /// Refresh JWT tokens using refresh token
+    /// Refresh the session using the HttpOnly refresh-token cookie.
     /// </summary>
-    /// <param name="request">Refresh token request</param>
-    /// <returns>New tokens</returns>
+    /// <returns>The refreshed session without credentials.</returns>
     [HttpPost("refresh")]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+    [EnableRateLimiting(RateLimitPolicies.OAuthRefresh)]
+    public async Task<IActionResult> RefreshToken()
     {
         try
         {
-            if (string.IsNullOrEmpty(request.RefreshToken))
+            var authCookies = GetAuthCookies();
+            var refreshToken = authCookies.GetRefreshToken(HttpContext.Request);
+            if (string.IsNullOrEmpty(refreshToken))
             {
-                return this.ApiError("auth.refreshTokenRequired");
-            }
-
-            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-            var tokenResponse = await _authService.RefreshTokenAsync(request.RefreshToken, ipAddress);
-
-            if (tokenResponse == null)
-            {
+                authCookies.DeleteAuthCookies(HttpContext.Response);
                 return this.ApiError("auth.refreshTokenInvalid");
             }
 
-            return Ok(tokenResponse);
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var tokenResponse = await _authService.RefreshTokenAsync(refreshToken, ipAddress);
+
+            if (tokenResponse == null)
+            {
+                authCookies.DeleteAuthCookies(HttpContext.Response);
+                return this.ApiError("auth.refreshTokenInvalid");
+            }
+
+            authCookies.SetAuthCookies(HttpContext.Response, tokenResponse);
+            return Ok(CreateSessionResponse(tokenResponse.User, tokenResponse.ExpiresAt));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error refreshing token");
+            _authCookies?.DeleteAuthCookies(HttpContext.Response);
             return this.ApiError("server.internal");
         }
     }
 
     /// <summary>
-    /// Logout user by revoking refresh token
+    /// Logout user by revoking the refresh-token family represented by the HttpOnly cookie.
     /// </summary>
-    /// <param name="request">Refresh token to revoke</param>
-    /// <returns>Success status</returns>
+    /// <returns>No content. Logout is idempotent.</returns>
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+    [EnableRateLimiting(RateLimitPolicies.OAuthLogout)]
+    public async Task<IActionResult> Logout()
     {
         try
         {
-            if (string.IsNullOrEmpty(request.RefreshToken))
+            var authCookies = GetAuthCookies();
+            var refreshToken = authCookies.GetRefreshToken(HttpContext.Request);
+            if (!string.IsNullOrEmpty(refreshToken))
             {
-                return this.ApiError("auth.refreshTokenRequired");
+                await _authService.RevokeTokenAsync(refreshToken);
             }
 
-            var success = await _authService.RevokeTokenAsync(request.RefreshToken);
-
-            if (success)
-            {
-                return Ok(new { messageKey = "auth.logoutSucceeded", message = "Logged out successfully." });
-            }
-            else
-            {
-                return this.ApiError("auth.logoutFailed");
-            }
+            authCookies.DeleteAuthCookies(HttpContext.Response);
+            return NoContent();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during logout");
+            _authCookies?.DeleteAuthCookies(HttpContext.Response);
             return this.ApiError("server.internal");
         }
     }
@@ -243,9 +243,9 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Validate if the current JWT token is valid and return token info
+    /// Validate the current JWT token and return session state without credentials.
     /// </summary>
-    /// <returns>Token verification response</returns>
+    /// <returns>Current session state.</returns>
     [HttpGet("validate")]
     [Authorize]
     public async Task<IActionResult> ValidateToken()
@@ -264,23 +264,14 @@ public class AuthController : ControllerBase
                 return this.ApiError("auth.tokenInvalid");
             }
 
-            // Get the current token from Authorization header
-            var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
-            var token = authHeader?.Substring("Bearer ".Length).Trim();
-
-            if (string.IsNullOrEmpty(token))
+            var expClaim = User.FindFirst(JwtRegisteredClaimNames.Exp)?.Value;
+            if (!long.TryParse(expClaim, out var exp))
             {
-                return this.ApiError("auth.tokenMissing");
+                return this.ApiError("auth.tokenInvalid");
             }
 
-            // Get token expiration from claims
-            var expClaim = User.FindFirst("exp")?.Value;
-            DateTime expiresAt = DateTime.UtcNow.AddHours(1); // Default fallback
-
-            if (!string.IsNullOrEmpty(expClaim) && long.TryParse(expClaim, out var exp))
-            {
-                expiresAt = DateTimeOffset.FromUnixTimeSeconds(exp).DateTime;
-            }
+            var expiresAt = DateTimeOffset.FromUnixTimeSeconds(exp);
+            if (expiresAt <= _timeProvider.GetUtcNow()) return this.ApiError("auth.tokenInvalid");
 
             var userDto = new DiscordUserDto
             {
@@ -294,14 +285,7 @@ public class AuthController : ControllerBase
                 IsBotOperator = await IsBotOperatorAsync(user.DiscordId, HttpContext.RequestAborted)
             };
 
-            var response = new
-            {
-                token = token,
-                user = userDto,
-                expiresAt = expiresAt.ToString("O") // ISO 8601 format
-            };
-
-            return Ok(response);
+            return Ok(CreateSessionResponse(userDto, expiresAt));
         }
         catch (Exception ex)
         {
@@ -354,11 +338,66 @@ public class AuthController : ControllerBase
     private async Task<bool> IsBotOperatorAsync(string discordId, CancellationToken cancellationToken) =>
         ulong.TryParse(discordId, out var userId) && (await _botOperatorAccess.GetAccessAsync(userId, cancellationToken)).IsAuthorized;
 
-    private static bool IsSafeReturnUrl(string? returnUrl) =>
-        !string.IsNullOrWhiteSpace(returnUrl)
-        && returnUrl.StartsWith('/')
-        && !returnUrl.StartsWith("//")
-        && !returnUrl.Contains('\\')
-        && Uri.TryCreate(returnUrl, UriKind.Relative, out _);
+    private static SessionResponse CreateSessionResponse(DiscordUserDto user, DateTime expiresAt) =>
+        CreateSessionResponse(user, new DateTimeOffset(DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc)));
 
+    private static SessionResponse CreateSessionResponse(DiscordUserDto user, DateTimeOffset expiresAt) =>
+        new() { User = user, ExpiresAt = expiresAt };
+
+    private IAuthCookieService GetAuthCookies() =>
+        _authCookies ?? throw new InvalidOperationException("Authentication cookie service is not configured.");
+
+    private void SetOAuthCallbackSecurityHeaders()
+    {
+        Response.Headers["Cache-Control"] = "no-store, no-cache, max-age=0";
+        Response.Headers["Pragma"] = "no-cache";
+        Response.Headers["Referrer-Policy"] = "no-referrer";
+    }
+
+    private static bool IsValidOAuthState(string? state) =>
+        state?.Length == 36 && Guid.TryParseExact(state, "D", out _);
+
+    private static bool FixedTimeEquals(string expected, string actual) =>
+        CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(actual));
+
+    private void RemoveExpiredStateGuards()
+    {
+        var now = _timeProvider.GetUtcNow();
+        foreach (var entry in ConsumedOAuthStates)
+        {
+            if (entry.Value <= now)
+            {
+                ((ICollection<KeyValuePair<string, DateTimeOffset>>)ConsumedOAuthStates).Remove(entry);
+            }
+        }
+    }
+
+    private static bool IsSafeReturnUrl(string? returnUrl)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl)
+            || returnUrl.Any(char.IsControl)
+            || returnUrl.Contains('\\')
+            || !Uri.TryCreate(returnUrl, UriKind.Relative, out _))
+        {
+            return false;
+        }
+
+        var decoded = Uri.UnescapeDataString(returnUrl);
+        return decoded.StartsWith('/') && !decoded.StartsWith("//") && !decoded.Contains('\\');
+    }
+
+}
+
+/// <summary>Issues BFF-owned authentication cookies after a successful OAuth callback.</summary>
+public interface IOAuthCallbackCookieService
+{
+    Task SetTokensAsync(TokenResponse tokens, HttpResponse response, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Defines the BFF-owned cookie boundary used by refresh and logout endpoints.</summary>
+public interface IAuthCookieService
+{
+    string? GetRefreshToken(HttpRequest request);
+    void SetAuthCookies(HttpResponse response, TokenResponse tokens);
+    void DeleteAuthCookies(HttpResponse response);
 }

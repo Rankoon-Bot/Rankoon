@@ -59,6 +59,7 @@ public class AuthService : IAuthService
     private readonly JwtSettings _jwtSettings;
     private readonly FrontendSettings _frontendSettings;
     private readonly TimeProvider _timeProvider;
+    private readonly IDiscordOAuthTokenProtector _discordTokens;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -70,6 +71,7 @@ public class AuthService : IAuthService
         IOptions<JwtSettings> jwtSettings,
         IOptions<FrontendSettings> frontendSettings,
         TimeProvider timeProvider,
+        IDiscordOAuthTokenProtector discordTokens,
         ILogger<AuthService> logger)
     {
         _runtimePresence = runtimePresence;
@@ -80,6 +82,7 @@ public class AuthService : IAuthService
         _jwtSettings = jwtSettings.Value;
         _frontendSettings = frontendSettings.Value;
         _timeProvider = timeProvider;
+        _discordTokens = discordTokens;
         _logger = logger;
     }
 
@@ -175,7 +178,7 @@ public class AuthService : IAuthService
         {
             var now = _timeProvider.GetUtcNow().UtcDateTime;
             var tokenHash = HashRefreshToken(refreshToken);
-            var tokenIdentityFilter = TokenIdentityFilter(refreshToken, tokenHash);
+            var tokenIdentityFilter = TokenIdentityFilter(tokenHash);
             var candidate = await _dbContext.RefreshTokens.Find(tokenIdentityFilter).FirstOrDefaultAsync();
             if (candidate == null)
             {
@@ -190,7 +193,7 @@ public class AuthService : IAuthService
                 tokenIdentityFilter);
             var consumeUpdate = Builders<RefreshToken>.Update
                 .Set(t => t.TokenHash, tokenHash)
-                .Set(t => t.Token, string.Empty)
+                .Unset(t => t.Token)
                 .Set(t => t.FamilyId, familyId)
                 .Set(t => t.Revoked, true)
                 .Set(t => t.RevokedAt, now)
@@ -274,7 +277,7 @@ public class AuthService : IAuthService
         {
             var now = _timeProvider.GetUtcNow().UtcDateTime;
             var tokenHash = HashRefreshToken(refreshToken);
-            var tokenIdentityFilter = TokenIdentityFilter(refreshToken, tokenHash);
+            var tokenIdentityFilter = TokenIdentityFilter(tokenHash);
             var storedToken = await _dbContext.RefreshTokens.Find(tokenIdentityFilter).FirstOrDefaultAsync();
             if (storedToken == null) return false;
 
@@ -285,7 +288,7 @@ public class AuthService : IAuthService
 
             var update = Builders<RefreshToken>.Update
                 .Set(t => t.TokenHash, tokenHash)
-                .Set(t => t.Token, string.Empty)
+                .Unset(t => t.Token)
                 .Set(t => t.Revoked, true)
                 .Set(t => t.RevokedAt, now)
                 .Set(t => t.RevokedReason, "User logout");
@@ -327,26 +330,28 @@ public class AuthService : IAuthService
             }
 
             // Check if Discord token is still valid
-            if (user.TokenExpiresAt <= DateTime.UtcNow)
+            var accessToken = _discordTokens.ReadAccessToken(user);
+            if (user.TokenExpiresAt <= _timeProvider.GetUtcNow().UtcDateTime)
             {
                 _logger.LogWarning("Discord token expired for user: {UserId}", userId);
                 
                 // Try to refresh the Discord token
-                if (!string.IsNullOrEmpty(user.RefreshToken))
+                if (_discordTokens.ReadRefreshToken(user) is { Length: > 0 } refreshToken)
                 {
-                    var refreshedToken = await _discordService.RefreshTokenAsync(user.RefreshToken);
+                    var refreshedToken = await _discordService.RefreshTokenAsync(refreshToken);
                     if (refreshedToken != null)
                     {
                         // Update user with new token
                         var filter = Builders<DiscordUser>.Filter.Eq(u => u.Id, userId);
                         var update = Builders<DiscordUser>.Update
-                            .Set(u => u.AccessToken, refreshedToken.access_token)
-                            .Set(u => u.RefreshToken, refreshedToken.refresh_token)
-                            .Set(u => u.TokenExpiresAt, DateTime.UtcNow.AddSeconds(refreshedToken.expires_in))
-                            .Set(u => u.UpdatedAt, DateTime.UtcNow);
+                            .Set(u => u.ProtectedAccessToken, _discordTokens.ProtectAccessToken(refreshedToken.access_token))
+                            .Set(u => u.OAuthTokenProtectionVersion, DiscordOAuthTokenProtector.CurrentVersion)
+                            .Set(u => u.TokenExpiresAt, _timeProvider.GetUtcNow().UtcDateTime.AddSeconds(refreshedToken.expires_in))
+                            .Set(u => u.UpdatedAt, _timeProvider.GetUtcNow().UtcDateTime);
+                        if (!string.IsNullOrEmpty(refreshedToken.refresh_token)) update = update.Set(u => u.ProtectedRefreshToken, _discordTokens.ProtectRefreshToken(refreshedToken.refresh_token));
 
                         await _dbContext.DiscordUsers.UpdateOneAsync(filter, update);
-                        user.AccessToken = refreshedToken.access_token;
+                        accessToken = refreshedToken.access_token;
                     }
                     else
                     {
@@ -362,7 +367,7 @@ public class AuthService : IAuthService
             }
 
             // Get guilds from Discord API
-            if (string.IsNullOrEmpty(user.AccessToken))
+            if (string.IsNullOrEmpty(accessToken))
             {
                 _logger.LogError("No access token available for user: {UserId}", userId);
                 return null;
@@ -374,8 +379,8 @@ public class AuthService : IAuthService
             var cacheDuration = refresh ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(1);
             var discordGuilds = await CacheManager.GetOrSetAsync<DiscordGuildInfo[]?>(
                 cacheKey,
-                () => _discordService.GetUserGuildsAsync(user.AccessToken),
-                DateTimeOffset.UtcNow.Add(cacheDuration));
+                () => _discordService.GetUserGuildsAsync(accessToken),
+                _timeProvider.GetUtcNow().Add(cacheDuration));
             if (discordGuilds == null)
             {
                 _logger.LogError("Failed to fetch guilds from Discord for user: {UserId}", userId);
@@ -440,10 +445,8 @@ public class AuthService : IAuthService
     private static string HashRefreshToken(string refreshToken) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
 
-    private static FilterDefinition<RefreshToken> TokenIdentityFilter(string refreshToken, string tokenHash) =>
-        Builders<RefreshToken>.Filter.Or(
-            Builders<RefreshToken>.Filter.Eq(t => t.TokenHash, tokenHash),
-            Builders<RefreshToken>.Filter.Eq(t => t.Token, refreshToken));
+    private static FilterDefinition<RefreshToken> TokenIdentityFilter(string tokenHash) =>
+        Builders<RefreshToken>.Filter.Eq(t => t.TokenHash, tokenHash);
 
     private async Task<bool> RevokeFamilyAsync(string familyId, string reason, DateTime now)
     {

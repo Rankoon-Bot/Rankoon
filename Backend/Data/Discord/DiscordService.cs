@@ -50,6 +50,8 @@ public class DiscordService : IDiscordService
     private readonly RankoonDbContext _dbContext;
     private readonly HttpClient _httpClient;
     private readonly ILogger<DiscordService> _logger;
+    private readonly IDiscordOAuthTokenProtector _tokens;
+    private readonly TimeProvider _timeProvider;
 
     private const string TokenEndpoint = "https://discord.com/api/oauth2/token";
     private const string UserEndpoint = "https://discord.com/api/users/@me";
@@ -60,12 +62,16 @@ public class DiscordService : IDiscordService
         IOptions<DiscordSettings> discordSettings,
         RankoonDbContext dbContext,
         HttpClient httpClient,
-        ILogger<DiscordService> logger)
+        ILogger<DiscordService> logger,
+        IDiscordOAuthTokenProtector tokens,
+        TimeProvider timeProvider)
     {
         _discordSettings = discordSettings.Value;
         _dbContext = dbContext;
         _httpClient = httpClient;
         _logger = logger;
+        _tokens = tokens;
+        _timeProvider = timeProvider;
     }
 
     public string GetAuthorizationUrl(string state)
@@ -224,7 +230,8 @@ public class DiscordService : IDiscordService
         var filter = Builders<DiscordUser>.Filter.Eq(u => u.DiscordId, userInfo.id);
         var existingUser = await _dbContext.DiscordUsers.Find(filter).FirstOrDefaultAsync();
 
-        var expiresAt = DateTime.UtcNow.AddSeconds(tokenResponse.expires_in);
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var expiresAt = now.AddSeconds(tokenResponse.expires_in);
 
         if (existingUser != null)
         {
@@ -236,11 +243,12 @@ public class DiscordService : IDiscordService
                 .Set(u => u.Email, userInfo.email)
                 .Set(u => u.Avatar, userInfo.avatar)
                 .Set(u => u.Verified, userInfo.verified ?? false)
-                .Set(u => u.AccessToken, tokenResponse.access_token)
-                .Set(u => u.RefreshToken, tokenResponse.refresh_token)
+                .Set(u => u.ProtectedAccessToken, _tokens.ProtectAccessToken(tokenResponse.access_token))
+                .Set(u => u.OAuthTokenProtectionVersion, DiscordOAuthTokenProtector.CurrentVersion)
                 .Set(u => u.TokenExpiresAt, expiresAt)
-                .Set(u => u.UpdatedAt, DateTime.UtcNow)
-                .Set(u => u.LastLogin, DateTime.UtcNow);
+                .Set(u => u.UpdatedAt, now)
+                .Set(u => u.LastLogin, now);
+            if (!string.IsNullOrEmpty(tokenResponse.refresh_token)) update = update.Set(u => u.ProtectedRefreshToken, _tokens.ProtectRefreshToken(tokenResponse.refresh_token));
 
             await _dbContext.DiscordUsers.UpdateOneAsync(filter, update);
             
@@ -260,10 +268,11 @@ public class DiscordService : IDiscordService
                 Email = userInfo.email,
                 Avatar = userInfo.avatar,
                 Verified = userInfo.verified ?? false,
-                AccessToken = tokenResponse.access_token,
-                RefreshToken = tokenResponse.refresh_token,
+                ProtectedAccessToken = _tokens.ProtectAccessToken(tokenResponse.access_token),
+                ProtectedRefreshToken = string.IsNullOrEmpty(tokenResponse.refresh_token) ? null : _tokens.ProtectRefreshToken(tokenResponse.refresh_token),
+                OAuthTokenProtectionVersion = DiscordOAuthTokenProtector.CurrentVersion,
                 TokenExpiresAt = expiresAt,
-                LastLogin = DateTime.UtcNow
+                LastLogin = now
             };
 
             await _dbContext.DiscordUsers.InsertOneAsync(newUser);

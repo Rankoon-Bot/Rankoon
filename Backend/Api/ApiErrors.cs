@@ -204,6 +204,12 @@ public static class ApiErrorFactory
         return context.Response.WriteAsJsonAsync(Create(context, errorKey, parameters), cancellationToken: context.RequestAborted);
     }
 
+    public static Task WriteRateLimitedAsync(HttpContext context, int retryAfterSeconds)
+    {
+        context.Response.Headers.RetryAfter = retryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return WriteAsync(context, "rateLimit.exceeded", new Dictionary<string, object?> { ["retryAfterSeconds"] = retryAfterSeconds });
+    }
+
     public static ApiValidationError Validation(string errorKey, IReadOnlyDictionary<string, object?>? parameters = null)
     {
         var definition = ApiErrorCatalog.Get(errorKey);

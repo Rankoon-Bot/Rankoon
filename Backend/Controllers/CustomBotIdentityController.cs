@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Rankoon.Api;
 using Rankoon.Data.Auth;
 using Rankoon.Data.Discord;
@@ -29,6 +30,7 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
     }
 
     [HttpPost("token"), HttpPut("token")]
+    [EnableRateLimiting(RateLimitPolicies.CustomBotSave)]
     public async Task<IActionResult> StoreToken(string guildId, [FromBody] CustomBotTokenRequest request)
     {
         var id = await AuthorizeOwnerAsync(guildId); if (id.Error != null) return id.Error;
@@ -44,6 +46,7 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
     }
 
     [HttpPost("validate")]
+    [EnableRateLimiting(RateLimitPolicies.CustomBotValidation)]
     public async Task<IActionResult> Validate(string guildId)
     {
         var id = await AuthorizeOwnerAsync(guildId); if (id.Error != null) return id.Error;
@@ -51,6 +54,7 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
     }
 
     [HttpPost("activate")]
+    [EnableRateLimiting(RateLimitPolicies.CustomBotActivate)]
     public async Task<IActionResult> Activate(string guildId, [FromBody] CustomBotRevisionRequest request)
     {
         var id = await AuthorizeOwnerAsync(guildId); if (id.Error != null) return id.Error;
@@ -58,6 +62,7 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
     }
 
     [HttpPost("restart")]
+    [EnableRateLimiting(RateLimitPolicies.CustomBotRestart)]
     public async Task<IActionResult> Restart(string guildId)
     {
         var id = await AuthorizeOwnerAsync(guildId); if (id.Error != null) return id.Error;
