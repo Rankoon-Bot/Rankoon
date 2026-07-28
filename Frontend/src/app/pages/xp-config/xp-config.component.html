@@ -164,7 +164,7 @@
                 }}</b></label
               >
             </div>
-            <div class="fields two">
+            <div class="fields">
               <label
                 >{{ "xp.xpPerMinute" | transloco
                 }}<span class="input-with-suffix"
@@ -174,39 +174,7 @@
                     step="0.1"
                     [(ngModel)]="cfg.voice.pointsPerMinute"
                   /><b>XP</b></span
-                ></label
-              ><label
-                >{{ "xp.minimumDuration" | transloco
-                }}<span class="input-with-suffix"
-                  ><input
-                    type="number"
-                    min="0"
-                    max="86400"
-                    [(ngModel)]="cfg.voice.minimumSessionSeconds"
-                  /><b>{{ "xp.secondsUnit" | transloco }}</b></span
-                ></label
-              >
-            </div>
-            <div class="switch-list">
-              <label class="switch"
-                ><input
-                  type="checkbox"
-                  [(ngModel)]="cfg.voice.requireMultipleHumans"
-                /><span
-                  ><b>{{ "xp.multiplePeople" | transloco }}</b
-                  ><small>{{
-                    "xp.multiplePeopleHint" | transloco
-                  }}</small></span
-                ></label
-              ><label class="switch"
-                ><input
-                  type="checkbox"
-                  [(ngModel)]="cfg.voice.excludeAfkChannel"
-                /><span
-                  ><b>{{ "xp.excludeAfk" | transloco }}</b
-                  ><small>{{ "xp.excludeAfkHint" | transloco }}</small></span
-                ></label
-              >
+                ></label>
             </div>
             <div
               class="voice-service-status"
@@ -355,6 +323,63 @@
             >
           </article>
         </div>
+      </section>
+
+      <section class="content-section" aria-labelledby="voice-eligibility-title">
+        <div class="section-heading">
+          <p class="section-kicker">{{ "xp.voiceEligibilityKicker" | transloco }}</p>
+          <h2 id="voice-eligibility-title">{{ "xp.voiceEligibilityTitle" | transloco }}</h2>
+          <p>{{ "xp.voiceEligibilityDescription" | transloco }}</p>
+        </div>
+        <article class="card eligibility-card" [class.source-disabled]="!cfg.voice.enabled">
+          @if (!cfg.voice.enabled) {
+            <p class="voice-disabled-note" role="note">{{ "xp.voiceEligibilityDisabled" | transloco }}</p>
+          }
+          <div class="preset-row" aria-label="Voice XP presets">
+            <span>{{ "xp.presets" | transloco }}</span>
+            <button type="button" class="secondary" (click)="applyVoicePreset('relaxed')">{{ "xp.presetRelaxed" | transloco }}</button>
+            <button type="button" class="secondary" (click)="applyVoicePreset('balanced')">{{ "xp.presetBalanced" | transloco }}</button>
+            <button type="button" class="secondary" (click)="applyVoicePreset('strict')">{{ "xp.presetStrict" | transloco }}</button>
+          </div>
+          <div class="eligibility-grid">
+            <section class="eligibility-group">
+              <div><h3>{{ "xp.participantsTitle" | transloco }}</h3><p>{{ "xp.participantsHint" | transloco }}</p></div>
+              <label>{{ "xp.minimumHumanParticipants" | transloco }}
+                <input type="number" min="1" max="99" step="1" [(ngModel)]="cfg.voice.eligibility.minimumHumanParticipants" />
+              </label>
+              @if (cfg.voice.eligibility.minimumHumanParticipants < 1 || cfg.voice.eligibility.minimumHumanParticipants > 99) {
+                <p class="validation-inline" role="alert">{{ "xp.minimumParticipantsValidation" | transloco }}</p>
+              }
+              <label>{{ "xp.participantCounting" | transloco }}
+                <select [(ngModel)]="cfg.voice.eligibility.participantCountingMode">
+                  <option value="AllConnectedHumans">{{ "xp.allConnectedHumans" | transloco }}</option>
+                  <option value="EligibleHumansOnly">{{ "xp.eligibleHumansOnly" | transloco }}</option>
+                </select>
+              </label>
+              <small>{{ "xp.botsNeverCount" | transloco }}</small>
+            </section>
+
+            <section class="eligibility-group voice-state-group">
+              <div><h3>{{ "xp.voiceStatusTitle" | transloco }}</h3><p>{{ "xp.voiceStatusHint" | transloco }}</p></div>
+              <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.eligibility.awardWhileSelfMuted" /><span><b>{{ "xp.awardSelfMute" | transloco }}</b><small>{{ "xp.awardSelfMuteHint" | transloco }}</small></span></label>
+              <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.eligibility.awardWhileSelfDeafened" /><span><b>{{ "xp.awardSelfDeafen" | transloco }}</b><small>{{ "xp.awardSelfDeafenHint" | transloco }}</small></span></label>
+              <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.eligibility.awardWhileGuildMuted" /><span><b>{{ "xp.awardGuildMute" | transloco }}</b><small>{{ "xp.awardGuildMuteHint" | transloco }}</small></span></label>
+              <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.eligibility.awardWhileGuildDeafened" /><span><b>{{ "xp.awardGuildDeafen" | transloco }}</b><small>{{ "xp.awardGuildDeafenHint" | transloco }}</small></span></label>
+              <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.eligibility.awardWhileSuppressed" /><span><b>{{ "xp.awardSuppressed" | transloco }}</b><small>{{ "xp.awardSuppressedHint" | transloco }}</small></span></label>
+            </section>
+
+            <section class="eligibility-group">
+              <div><h3>{{ "xp.channelsInactivityTitle" | transloco }}</h3><p>{{ "xp.channelsInactivityHint" | transloco }}</p></div>
+              <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.eligibility.awardInAfkChannel" /><span><b>{{ "xp.awardAfk" | transloco }}</b><small>{{ "xp.awardAfkHint" | transloco }}</small></span></label>
+              <small>{{ "xp.exclusionsLinkedHint" | transloco }}</small>
+              <div class="duration-fields">
+                <label>{{ "xp.minimumDuration" | transloco }}<span class="input-with-suffix"><input type="number" min="0" max="86400" [(ngModel)]="cfg.voice.minimumSessionSeconds" /><b>{{ "xp.secondsUnit" | transloco }}</b></span></label>
+                <label class="switch"><input type="checkbox" [(ngModel)]="cfg.voice.eligibility.resetMinimumSessionWhenIneligible" /><span><b>{{ "xp.resetMinimumDuration" | transloco }}</b><small>{{ "xp.resetMinimumDurationHint" | transloco }}</small></span></label>
+              </div>
+            </section>
+          </div>
+          <div class="voice-summary"><strong>{{ "xp.currentVoiceRules" | transloco }}</strong><p>{{ voiceSummary(cfg) }}</p></div>
+        </article>
       </section>
 
       <section class="content-section" aria-labelledby="xp-rules-title">

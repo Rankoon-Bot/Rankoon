@@ -2,6 +2,7 @@ using Discord;
 using Discord.WebSocket;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
+using Rankoon.Data.Xp;
 using Rankoon.Data.MongoDb;
 
 namespace Rankoon.Data.Diagnostics;
@@ -59,7 +60,8 @@ public sealed class BotPermissionDiagnosticService(DiscordShardedClient discord,
         bool IsExcluded(SocketGuildChannel channel) => settings.ExcludedChannelIds.Contains(channel.Id) || (CategoryId(channel) is ulong categoryId && settings.ExcludedCategoryIds.Contains(categoryId));
         var guildChannels = guild.Channels.OfType<SocketGuildChannel>().ToList();
         var text = guildChannels.Where(channel => Kind(channel) == "Text" && !IsExcluded(channel)).ToList();
-        var voice = guildChannels.Where(channel => (Kind(channel) is "Voice" or "Stage") && !IsExcluded(channel) && (!settings.Voice.ExcludeAfkChannel || channel.Id != guild.AFKChannel?.Id)).ToList();
+        VoiceXpSettingsNormalizer.NormalizeLegacy(settings.Voice);
+        var voice = guildChannels.Where(channel => (Kind(channel) is "Voice" or "Stage") && !IsExcluded(channel) && (settings.Voice.Eligibility!.AwardInAfkChannel || channel.Id != guild.AFKChannel?.Id)).ToList();
 
         AddFeature(DiagnosticFeatureKeys.TextXp, settings.Enabled && settings.Message.Enabled, text);
         AddFeature(DiagnosticFeatureKeys.ReactionXp, settings.Enabled && settings.Reaction.Enabled, text);

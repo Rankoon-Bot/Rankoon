@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, finalize, forkJoin, of } from 'rxjs';
 import {
@@ -25,7 +25,7 @@ import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-s
   templateUrl: './xp-config.component.html',
   styleUrls: ['./xp-config.component.scss'],
 })
-export class XpConfigComponent implements OnInit {
+export class XpConfigComponent {
   private readonly appStore = inject(AppStore);
   private readonly api = inject(GuildService);
   private readonly i18n = inject(TranslocoService);
@@ -40,17 +40,22 @@ export class XpConfigComponent implements OnInit {
   readonly loadError = signal('');
   readonly saving = signal(false);
   private readonly baseline = signal('');
+  private loadRequest = 0;
 
   selectedRole = '';
   selectedChannel = '';
   selectedCategory = '';
 
-  ngOnInit(): void {
-    this.load();
+  constructor() {
+    effect(() => {
+      this.appStore.selectedGuild()?.id;
+      this.load();
+    });
   }
 
   load(): void {
     const id = this.appStore.selectedGuild()?.id;
+    const request = ++this.loadRequest;
     if (!id) {
       this.loading.set(false);
       this.loadError.set(this.i18n.translate('errors.noServer'));
@@ -66,19 +71,22 @@ export class XpConfigComponent implements OnInit {
         .pipe(catchError(() => of({ roles: [], channels: [] }))),
       watchdog: this.api.voiceWatchdog(id).pipe(catchError(() => of(null))),
     })
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(finalize(() => {
+        if (request === this.loadRequest) this.loading.set(false);
+      }))
       .subscribe({
         next: (result) => {
+          if (request !== this.loadRequest || this.appStore.selectedGuild()?.id !== id) return;
           this.normalizeConfig(result.config);
           this.config.set(result.config);
           this.baseline.set(this.serialize(result.config));
           this.resources.set(result.resources);
           this.watchdog.set(result.watchdog);
         },
-        error: (error) =>
-          this.loadError.set(
-            this.apiErrors.resolve(error, 'errors.xpLoad').message,
-          ),
+        error: (error) => {
+          if (request === this.loadRequest)
+            this.loadError.set(this.apiErrors.resolve(error, 'errors.xpLoad').message);
+        },
       });
   }
 
@@ -95,6 +103,7 @@ export class XpConfigComponent implements OnInit {
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: (saved) => {
+          if (this.appStore.selectedGuild()?.id !== id) return;
           this.normalizeConfig(saved);
           this.config.set(saved);
           this.baseline.set(this.serialize(saved));
@@ -250,6 +259,71 @@ export class XpConfigComponent implements OnInit {
     return config.enabled && config.voice.enabled;
   }
 
+  applyVoicePreset(preset: 'relaxed' | 'balanced' | 'strict'): void {
+    const config = this.config();
+    if (!config) return;
+    const eligibility = config.voice.eligibility;
+    if (preset === 'relaxed') {
+      Object.assign(eligibility, {
+        minimumHumanParticipants: 1,
+        participantCountingMode: 'AllConnectedHumans',
+        awardWhileSelfMuted: true,
+        awardWhileSelfDeafened: true,
+        awardWhileGuildMuted: true,
+        awardWhileGuildDeafened: true,
+        awardWhileSuppressed: true,
+        awardInAfkChannel: true,
+        resetMinimumSessionWhenIneligible: false,
+      });
+    } else if (preset === 'balanced') {
+      Object.assign(eligibility, {
+        minimumHumanParticipants: 2,
+        participantCountingMode: 'EligibleHumansOnly',
+        awardWhileSelfMuted: true,
+        awardWhileSelfDeafened: false,
+        awardWhileGuildMuted: true,
+        awardWhileGuildDeafened: false,
+        awardWhileSuppressed: true,
+        awardInAfkChannel: false,
+        resetMinimumSessionWhenIneligible: true,
+      });
+    } else {
+      Object.assign(eligibility, {
+        minimumHumanParticipants: 2,
+        participantCountingMode: 'EligibleHumansOnly',
+        awardWhileSelfMuted: false,
+        awardWhileSelfDeafened: false,
+        awardWhileGuildMuted: false,
+        awardWhileGuildDeafened: false,
+        awardWhileSuppressed: false,
+        awardInAfkChannel: false,
+        resetMinimumSessionWhenIneligible: true,
+      });
+    }
+  }
+
+  voiceSummary(config: XpConfig): string {
+    const rules = config.voice.eligibility;
+    const people = this.i18n.translate(
+      rules.minimumHumanParticipants === 1 ? 'xp.voiceSummaryPerson' : 'xp.voiceSummaryPeople',
+      { count: rules.minimumHumanParticipants },
+    );
+    const counting = this.i18n.translate(
+      rules.participantCountingMode === 'EligibleHumansOnly' ? 'xp.voiceSummaryEligible' : 'xp.voiceSummaryConnected',
+    );
+    const allowed = [
+      ['awardWhileSelfMuted', 'xp.selfMuteShort'], ['awardWhileSelfDeafened', 'xp.selfDeafenShort'],
+      ['awardWhileGuildMuted', 'xp.guildMuteShort'], ['awardWhileGuildDeafened', 'xp.guildDeafenShort'],
+      ['awardWhileSuppressed', 'xp.stageSuppressionShort'], ['awardInAfkChannel', 'xp.afkShort'],
+    ].filter(([property]) => rules[property as keyof typeof rules] === true).map(([, key]) => this.i18n.translate(key));
+    return this.i18n.translate('xp.voiceSummary', {
+      people,
+      counting,
+      allowed: allowed.length ? allowed.join(', ') : this.i18n.translate('xp.voiceSummaryNone'),
+      duration: this.i18n.translate(rules.resetMinimumSessionWhenIneligible ? 'xp.voiceSummaryContinuous' : 'xp.voiceSummaryAccumulated'),
+    });
+  }
+
   voiceStatusTone(
     status: VoiceWatchdogStatus | null,
   ): 'success' | 'warning' | 'danger' | 'neutral' {
@@ -303,6 +377,11 @@ export class XpConfigComponent implements OnInit {
       config.message.cooldownSeconds >= 0 &&
       config.voice.pointsPerMinute >= 0 &&
       config.voice.minimumSessionSeconds >= 0 &&
+      config.voice.minimumSessionSeconds <= 86400 &&
+      Number.isInteger(Number(config.voice.eligibility.minimumHumanParticipants)) &&
+      config.voice.eligibility.minimumHumanParticipants >= 1 &&
+      config.voice.eligibility.minimumHumanParticipants <= 99 &&
+      ['AllConnectedHumans', 'EligibleHumansOnly'].includes(config.voice.eligibility.participantCountingMode) &&
       config.reaction.points >= 0 &&
       config.reaction.cooldownSeconds >= 0 &&
       config.eventInterest.points >= 0 &&
@@ -425,6 +504,12 @@ export class XpConfigComponent implements OnInit {
   }
 
   private normalizeConfig(config: XpConfig): void {
+    config.voice.settingsVersion ??= 2;
+    config.voice.eligibility ??= {
+      awardWhileSelfMuted: true, awardWhileSelfDeafened: true, awardWhileGuildMuted: true,
+      awardWhileGuildDeafened: false, awardWhileSuppressed: true, awardInAfkChannel: false,
+      minimumHumanParticipants: 2, participantCountingMode: 'EligibleHumansOnly', resetMinimumSessionWhenIneligible: true,
+    };
     config.serverBooster ??= { enabled: false, tiers: [] };
     config.serverBooster.tiers ??= [];
     config.serverBooster.tiers.sort(

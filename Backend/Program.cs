@@ -238,6 +238,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.GuildUserAvatarHydrationWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILeaderboardRealtimePublisher, Rankoon.Data.Xp.LeaderboardRealtimePublisher>();
 builder.Services.AddSingleton<Rankoon.Data.Development.DevelopmentLeaderboardService>();
 builder.Services.AddSingleton<VoiceXpWatchdog>();
+builder.Services.AddSingleton<VoiceXpEligibilityEvaluator>();
 builder.Services.AddSingleton<IGuildXpSettingsChangeConsumer>(services => services.GetRequiredService<VoiceXpWatchdog>());
 builder.Services.AddSingleton<VcHubService>();
 builder.Services.AddSingleton<GuildMembershipService>();

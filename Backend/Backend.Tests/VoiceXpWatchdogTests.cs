@@ -11,13 +11,16 @@ namespace Backend.Tests;
 
 public sealed class VoiceXpWatchdogTests
 {
-    [Theory]
-    [InlineData(false, false, false, false)]
-    [InlineData(true, false, false, true)]
-    [InlineData(false, true, true, false)]
-    public void Voice_lifecycle_only_handles_channel_or_deafen_transitions(bool channelChanged, bool wasDeafened, bool isDeafened, bool expected)
+    [Fact]
+    public void Voice_lifecycle_handles_every_relevant_state_transition()
     {
-        Assert.Equal(expected, VoiceXpWatchdog.IsRelevantVoiceStateChange(channelChanged, wasDeafened, isDeafened));
+        var baseline = new RelevantVoiceState(1, false, false, false, false, false);
+        Assert.False(VoiceXpWatchdog.IsRelevantVoiceStateChange(baseline, baseline));
+        Assert.All(new[]
+        {
+            baseline with { ChannelId = 2 }, baseline with { IsGuildMuted = true }, baseline with { IsGuildDeafened = true },
+            baseline with { IsSelfMuted = true }, baseline with { IsSelfDeafened = true }, baseline with { IsSuppressed = true }
+        }, changed => Assert.True(VoiceXpWatchdog.IsRelevantVoiceStateChange(baseline, changed)));
     }
 
     [Fact]
@@ -78,17 +81,6 @@ public sealed class VoiceXpWatchdogTests
         }, segments);
     }
 
-    [Fact]
-    public void First_qualifying_settlement_starts_at_session_join()
-    {
-        var joinedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var session = new VoiceSession { JoinedAt = joinedAt, LastAccruedAt = joinedAt.AddMinutes(2), EligibleSeconds = 0 };
-
-        var start = (DateTime)Invoke("PeriodStart", session, true)!;
-
-        Assert.Equal(joinedAt, start);
-    }
-
     [Theory]
     [InlineData(true, true, true)]
     [InlineData(true, false, false)]
@@ -121,13 +113,13 @@ public sealed class VoiceXpWatchdogTests
     }
 
     [Fact]
-    public void Hard_ineligibility_advances_first_accrual_without_changing_join_time()
+    public void Legacy_session_derives_qualifying_progress_without_changing_join_time()
     {
         var joinedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var eligibleAt = joinedAt.AddMinutes(3);
         var session = new VoiceSession { JoinedAt = joinedAt, EligibilityStartedAt = eligibleAt, LastAccruedAt = eligibleAt.AddMinutes(1), EligibleSeconds = 0 };
 
-        Assert.Equal(eligibleAt, (DateTime)Invoke("PeriodStart", session, true)!);
+        Assert.Equal(60L, (long)Invoke("EffectiveQualifyingSeconds", session)!);
         Assert.Equal(joinedAt, session.JoinedAt);
     }
 

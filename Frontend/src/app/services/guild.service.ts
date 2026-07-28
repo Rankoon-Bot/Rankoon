@@ -56,8 +56,18 @@ export interface XpConfig {
     enabled: boolean;
     pointsPerMinute: number;
     minimumSessionSeconds: number;
-    requireMultipleHumans: boolean;
-    excludeAfkChannel: boolean;
+    settingsVersion: number;
+    eligibility: {
+      awardWhileSelfMuted: boolean;
+      awardWhileSelfDeafened: boolean;
+      awardWhileGuildMuted: boolean;
+      awardWhileGuildDeafened: boolean;
+      awardWhileSuppressed: boolean;
+      awardInAfkChannel: boolean;
+      minimumHumanParticipants: number;
+      participantCountingMode: 'AllConnectedHumans' | 'EligibleHumansOnly';
+      resetMinimumSessionWhenIneligible: boolean;
+    };
   };
   reaction: {
     enabled: boolean;

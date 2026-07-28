@@ -1,6 +1,7 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Bson.Serialization.IdGenerators;
+using System.Text.Json.Serialization;
 
 namespace Rankoon.Data.Model;
 
@@ -27,7 +28,32 @@ public sealed class GuildXpSettings
 
 public sealed class MessageXpSettings { public bool Enabled { get; set; } = true; public int MinimumPoints { get; set; } = 5; public int MaximumPoints { get; set; } = 50; public int MinimumCharacters { get; set; } = 1; public int MaximumCharacters { get; set; } = 500; public int CooldownSeconds { get; set; } = 60; }
 [BsonIgnoreExtraElements]
-public sealed class VoiceXpSettings { public bool Enabled { get; set; } = true; public decimal PointsPerMinute { get; set; } = 10; public int MinimumSessionSeconds { get; set; } = 60; public bool RequireMultipleHumans { get; set; } = true; public bool ExcludeAfkChannel { get; set; } = true; }
+public sealed class VoiceXpSettings
+{
+    public const int CurrentVersion = 2;
+    public bool Enabled { get; set; } = true;
+    public decimal PointsPerMinute { get; set; } = 10;
+    public int MinimumSessionSeconds { get; set; } = 60;
+    [BsonElement("settings_version"), BsonIgnoreIfNull] public int? SettingsVersion { get; set; }
+    [BsonElement("eligibility"), BsonIgnoreIfNull] public VoiceXpEligibilitySettings? Eligibility { get; set; }
+    [JsonIgnore, BsonElement("RequireMultipleHumans"), BsonIgnoreIfNull] public bool? RequireMultipleHumans { get; set; } = true;
+    [JsonIgnore, BsonElement("ExcludeAfkChannel"), BsonIgnoreIfNull] public bool? ExcludeAfkChannel { get; set; } = true;
+}
+
+public enum VoiceXpParticipantCountingMode { AllConnectedHumans, EligibleHumansOnly }
+
+public sealed class VoiceXpEligibilitySettings
+{
+    public bool AwardWhileSelfMuted { get; set; } = true;
+    public bool AwardWhileSelfDeafened { get; set; } = true;
+    public bool AwardWhileGuildMuted { get; set; } = true;
+    public bool AwardWhileGuildDeafened { get; set; }
+    public bool AwardWhileSuppressed { get; set; } = true;
+    public bool AwardInAfkChannel { get; set; }
+    public int MinimumHumanParticipants { get; set; } = 2;
+    [BsonRepresentation(BsonType.String)] public VoiceXpParticipantCountingMode ParticipantCountingMode { get; set; } = VoiceXpParticipantCountingMode.AllConnectedHumans;
+    public bool ResetMinimumSessionWhenIneligible { get; set; } = true;
+}
 public sealed class ReactionXpSettings { public bool Enabled { get; set; } = true; public int Points { get; set; } = 2; public int CooldownSeconds { get; set; } = 30; public bool ReverseOnRemove { get; set; } = true; }
 public sealed class EventInterestXpSettings { public bool Enabled { get; set; } = true; public int Points { get; set; } = 10; }
 public sealed class ThreadXpSettings { public bool Enabled { get; set; } = true; public int CreatePoints { get; set; } = 15; public int MessagePoints { get; set; } = 5; public int CooldownSeconds { get; set; } = 60; }
@@ -151,6 +177,8 @@ public sealed class VoiceSession
     [BsonElement("eligibility_started_at")] public DateTime? EligibilityStartedAt { get; set; }
     [BsonElement("last_accrued_at")] public DateTime LastAccruedAt { get; set; }
     [BsonElement("eligible_seconds")] public long EligibleSeconds { get; set; }
+    [BsonElement("qualifying_seconds")] public long QualifyingSeconds { get; set; }
+    [BsonElement("pending_eligibility_intervals")] public List<VoiceEligibilityInterval> PendingEligibilityIntervals { get; set; } = [];
     [BsonElement("revision")] public long Revision { get; set; }
     // New cursor fields are additive. Legacy fields above remain readable until startup maintenance migrates open sessions.
     [BsonElement("runtime_boot_id"), BsonIgnoreIfNull] public string? RuntimeBootId { get; set; }
@@ -161,6 +189,10 @@ public sealed class VoiceSession
     [BsonElement("season_id"), BsonIgnoreIfNull, BsonRepresentation(BsonType.ObjectId)] public string? SeasonId { get; set; }
     [BsonElement("state"), BsonIgnoreIfNull, BsonRepresentation(BsonType.String)] public VoicePersistedSessionState? State { get; set; }
 }
+
+public sealed record VoiceEligibilityInterval(
+    [property: BsonElement("starts_at_utc")] DateTime StartsAtUtc,
+    [property: BsonElement("ends_at_utc")] DateTime EndsAtUtc);
 
 public enum VoicePersistedSessionState { Open, CheckpointPending, Closing, Closed, RecoveryPending }
 public enum VoiceRuntimeWatermarkState { Starting, Ready, Processing, Disconnected, Degraded, Stopping, Stopped }

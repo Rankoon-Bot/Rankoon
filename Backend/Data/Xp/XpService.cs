@@ -29,6 +29,8 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
     {
         var settings = await database.GuildXpSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
         settings ??= new GuildXpSettings { GuildId = guildId };
+        settings.Voice ??= new VoiceXpSettings();
+        VoiceXpSettingsNormalizer.NormalizeLegacy(settings.Voice);
         settings.ServerBooster ??= new ServerBoosterXpSettings();
         settings.ServerBooster.Tiers ??= [];
         ServerBoosterXpSettingsValidator.Normalize(settings.ServerBooster);
@@ -37,6 +39,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
 
     public async Task<GuildXpSettings> SaveSettingsAsync(GuildXpSettings settings, CancellationToken cancellationToken = default)
     {
+        VoiceXpSettingsNormalizer.NormalizeLegacy(settings.Voice);
         var updatedAt = timeProvider.GetUtcNow().UtcDateTime;
         settings.UpdatedAt = updatedAt;
         var update = Builders<GuildXpSettings>.Update

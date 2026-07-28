@@ -55,6 +55,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
     public async Task<IActionResult> SaveXpConfig(string guildId, [FromBody] GuildXpSettings settings)
     {
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
+        if (settings.Voice != null) VoiceXpSettingsNormalizer.NormalizeLegacy(settings.Voice);
         var validationErrors = ValidateXpSettings(settings);
         if (validationErrors.Count > 0)
         {
@@ -67,7 +68,8 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
             return this.ApiError("xp.settingsInvalid", errors: errors);
         }
         settings.GuildId = id;
-        settings.Voice.MinimumSessionSeconds = Math.Clamp(settings.Voice.MinimumSessionSeconds, 0, 86400);
+        settings.Voice!.MinimumSessionSeconds = Math.Clamp(settings.Voice.MinimumSessionSeconds, 0, 86400);
+        VoiceXpSettingsNormalizer.NormalizeLegacy(settings.Voice);
         ServerBoosterXpSettingsValidator.Normalize(settings.ServerBooster);
         // Settle open intervals with the persisted revision before changing their qualification or rate.
         await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
@@ -188,6 +190,15 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
         if (settings.Message.CooldownSeconds < 0) errors.Add(("message.cooldownSeconds", "xp.settings.messageCooldown"));
         if (settings.Voice.PointsPerMinute < 0) errors.Add(("voice.pointsPerMinute", "xp.settings.voicePoints"));
         if (settings.Voice.MinimumSessionSeconds is < 0 or > 86400) errors.Add(("voice.timing", "xp.settings.voiceTiming"));
+        if (settings.Voice.Eligibility == null)
+            errors.Add(("voice.eligibility", "xp.settings.voiceEligibilityRequired"));
+        else
+        {
+            if (settings.Voice.Eligibility.MinimumHumanParticipants is < 1 or > 99)
+                errors.Add(("voice.eligibility.minimumHumanParticipants", "xp.settings.voiceMinimumParticipants"));
+            if (!Enum.IsDefined(settings.Voice.Eligibility.ParticipantCountingMode))
+                errors.Add(("voice.eligibility.participantCountingMode", "xp.settings.voiceParticipantCountingMode"));
+        }
         if (settings.Reaction.Points < 0 || settings.Reaction.CooldownSeconds < 0) errors.Add(("reaction", "xp.settings.reaction"));
         if (settings.EventInterest.Points < 0) errors.Add(("eventInterest.points", "xp.settings.eventInterest"));
         if (settings.Thread.CreatePoints < 0 || settings.Thread.MessagePoints < 0 || settings.Thread.CooldownSeconds < 0) errors.Add(("thread", "xp.settings.thread"));

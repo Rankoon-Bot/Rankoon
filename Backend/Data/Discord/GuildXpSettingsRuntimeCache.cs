@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using Microsoft.Extensions.DependencyInjection;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
+using Rankoon.Data.Xp;
 
 namespace Rankoon.Data.Discord;
 
@@ -48,8 +49,8 @@ public sealed class GuildXpSettingsRuntimeCache(RankoonDbContext database) : IGu
     public ValueTask HandleAsync(GuildXpSettingsChanged change, CancellationToken cancellationToken = default) { Apply(change.Snapshot); return ValueTask.CompletedTask; }
     public static GuildXpSettingsSnapshot CreateSnapshot(GuildXpSettings settings)
     {
-        var voice = settings.Voice ?? new VoiceXpSettings(); var booster = settings.ServerBooster ?? new ServerBoosterXpSettings();
-        return new(settings.GuildId, settings.Enabled, new VoiceXpSettings { Enabled = voice.Enabled, PointsPerMinute = voice.PointsPerMinute, MinimumSessionSeconds = voice.MinimumSessionSeconds, RequireMultipleHumans = voice.RequireMultipleHumans, ExcludeAfkChannel = voice.ExcludeAfkChannel },
+        var voice = VoiceXpSettingsNormalizer.CloneNormalized(settings.Voice); var booster = settings.ServerBooster ?? new ServerBoosterXpSettings();
+        return new(settings.GuildId, settings.Enabled, voice,
             (settings.ExcludedChannelIds ?? []).ToHashSet(), (settings.ExcludedCategoryIds ?? []).ToHashSet(), (settings.ExcludedRoleIds ?? []).ToHashSet(), (settings.ChannelMultipliers ?? []).GroupBy(x => x.ChannelId).ToDictionary(x => x.Key, x => x.Last().Multiplier),
             new ServerBoosterXpSettings { Enabled = booster.Enabled, Tiers = (booster.Tiers ?? []).Select(x => new ServerBoosterXpTier { MinimumBoostMonths = x.MinimumBoostMonths, Multiplier = x.Multiplier }).ToList() }, settings.Revision, settings.UpdatedAt);
     }
