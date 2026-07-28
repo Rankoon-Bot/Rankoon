@@ -132,7 +132,7 @@ var dcConfig = new DiscordSocketConfig()
     LogLevel = LogSeverity.Info,
     MessageCacheSize = 0,
     AuditLogCacheSize = 0,
-    AlwaysDownloadUsers = true,
+    AlwaysDownloadUsers = false,
     AlwaysDownloadDefaultStickers = false,
     TotalShards = 1,
     UseInteractionSnowflakeDate = false,
@@ -230,6 +230,11 @@ builder.Services.AddSingleton<IDiscordAnnouncementSender, DiscordAnnouncementSen
 builder.Services.AddSingleton<LevelProgressionWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.IGuildUserPresentationService, Rankoon.Data.Xp.GuildUserPresentationService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.IGuildUserAvatarCacheRepository, Rankoon.Data.Xp.GuildUserAvatarCacheRepository>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.IGuildUserAvatarUrlFactory, Rankoon.Data.Xp.GuildUserAvatarUrlFactory>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.GuildUserAvatarObservationWorker>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.IGuildUserAvatarObserver>(services => services.GetRequiredService<Rankoon.Data.Xp.GuildUserAvatarObservationWorker>());
+builder.Services.AddSingleton<Rankoon.Data.Xp.GuildUserAvatarHydrationWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ILeaderboardRealtimePublisher, Rankoon.Data.Xp.LeaderboardRealtimePublisher>();
 builder.Services.AddSingleton<Rankoon.Data.Development.DevelopmentLeaderboardService>();
 builder.Services.AddSingleton<VoiceXpWatchdog>();
@@ -256,6 +261,8 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<LevelProgressionWorker>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.GuildUserAvatarObservationWorker>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.GuildUserAvatarHydrationWorker>());
     builder.Services.AddHostedService(provider => (DiscordRuntimeEventDispatcher)provider.GetRequiredService<IDiscordRuntimeEventDispatcher>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<RankoonBotHostedService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VcHubService>());
@@ -384,6 +391,10 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
     builder.Services.AddOptions<VoiceWatchdogOptions>()
         .Bind(builder.Configuration.GetSection(VoiceWatchdogOptions.SectionName))
         .Validate(VoiceWatchdogOptions.IsValid, "VoiceWatchdog contains invalid intervals or concurrency.")
+        .ValidateOnStart();
+    builder.Services.AddOptions<Rankoon.Data.Xp.GuildUserAvatarHydrationOptions>()
+        .Bind(builder.Configuration.GetSection(Rankoon.Data.Xp.GuildUserAvatarHydrationOptions.SectionName))
+        .Validate(Rankoon.Data.Xp.GuildUserAvatarHydrationOptions.IsValid, "GuildUserAvatarHydration contains invalid batch, concurrency, polling, or lease settings.")
         .ValidateOnStart();
     builder.Services.AddOptions<VoiceActivityOptions>()
         .Bind(builder.Configuration.GetSection(VoiceActivityOptions.SectionName))

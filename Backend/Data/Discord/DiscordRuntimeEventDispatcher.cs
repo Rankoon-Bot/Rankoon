@@ -21,6 +21,7 @@ public sealed class DiscordRuntimeEventDispatcher(
     VcHubService hubs,
     SelfRoleReactionService selfRoles,
     GuildMembershipService memberships,
+    Rankoon.Data.Xp.IGuildUserAvatarObserver avatars,
     ApplicationCommandRegistrar commands,
     RankoonInteractionHandler interactions,
     ILogger<DiscordRuntimeEventDispatcher> logger) : IDiscordRuntimeEventDispatcher, IHostedService
@@ -31,6 +32,7 @@ public sealed class DiscordRuntimeEventDispatcher(
     private readonly VcHubService hubs = hubs;
     private readonly SelfRoleReactionService selfRoles = selfRoles;
     private readonly GuildMembershipService memberships = memberships;
+    private readonly Rankoon.Data.Xp.IGuildUserAvatarObserver avatars = avatars;
     private readonly ApplicationCommandRegistrar commands = commands;
     private readonly RankoonInteractionHandler interactions = interactions;
     private readonly ILogger<DiscordRuntimeEventDispatcher> logger = logger;
@@ -98,23 +100,32 @@ public sealed class DiscordRuntimeEventDispatcher(
             client.ShardReady -= ReadyAsync;
         }
 
-        private Task MessageAsync(SocketMessage message) => message.Channel is SocketGuildChannel channel && Allowed(channel.Guild.Id) ? owner.activity.OnMessageAsync(message) : Task.CompletedTask;
+        private Task MessageAsync(SocketMessage message)
+        {
+            if (message is SocketUserMessage { Author: SocketGuildUser user } && Allowed(user.Guild.Id)) owner.avatars.Observe(user);
+            return message.Channel is SocketGuildChannel channel && Allowed(channel.Guild.Id) ? owner.activity.OnMessageAsync(message) : Task.CompletedTask;
+        }
         private Task ReactionAddedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) => GuildId(channel, reaction) is { } guildId && Allowed(guildId) ? DispatchReactionAddedAsync(message, channel, reaction) : Task.CompletedTask;
         private Task ReactionRemovedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) => GuildId(channel, reaction) is { } guildId && Allowed(guildId) ? DispatchReactionRemovedAsync(message, channel, reaction) : Task.CompletedTask;
-        private async Task DispatchReactionAddedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) { await owner.activity.OnReactionAsync(message, channel, reaction); await owner.selfRoles.OnReactionAddedAsync(client, message, channel, reaction); }
-        private async Task DispatchReactionRemovedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) { await owner.activity.OnReactionRemovedAsync(message, channel, reaction); await owner.selfRoles.OnReactionRemovedAsync(client, message, channel, reaction); }
+        private async Task DispatchReactionAddedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) { if (reaction.User.IsSpecified && reaction.User.Value is SocketGuildUser user) owner.avatars.Observe(user); await owner.activity.OnReactionAsync(message, channel, reaction); await owner.selfRoles.OnReactionAddedAsync(client, message, channel, reaction); }
+        private async Task DispatchReactionRemovedAsync(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) { if (reaction.User.IsSpecified && reaction.User.Value is SocketGuildUser user) owner.avatars.Observe(user); await owner.activity.OnReactionRemovedAsync(message, channel, reaction); await owner.selfRoles.OnReactionRemovedAsync(client, message, channel, reaction); }
         private Task ThreadAsync(SocketThreadChannel thread) => Allowed(thread.Guild.Id) ? owner.activity.OnThreadAsync(thread) : Task.CompletedTask;
         private Task EventUserAddedAsync(Cacheable<SocketUser, RestUser, IUser, ulong> user, SocketGuildEvent guildEvent) => Allowed(guildEvent.Guild.Id) ? owner.activity.OnEventInterestAsync(user, guildEvent) : Task.CompletedTask;
         private Task EventUserRemovedAsync(Cacheable<SocketUser, RestUser, IUser, ulong> user, SocketGuildEvent guildEvent) => Allowed(guildEvent.Guild.Id) ? owner.activity.OnEventInterestRemovedAsync(user, guildEvent) : Task.CompletedTask;
         private async Task VoiceAsync(SocketUser user, SocketVoiceState before, SocketVoiceState after)
         {
             if (user is not SocketGuildUser member || !Allowed(member.Guild.Id)) return;
+            owner.avatars.Observe(member);
             await owner.voice.OnVoiceStateChangedAsync(user, before, after);
             await owner.hubs.OnVoiceStateChangedAsync(user, before, after);
         }
         private Task ChannelDestroyedAsync(SocketChannel channel) => channel is SocketGuildChannel guildChannel && Allowed(guildChannel.Guild.Id) ? owner.hubs.OnChannelDestroyedAsync(channel) : Task.CompletedTask;
-        private Task InteractionAsync(SocketInteraction interaction) => interaction.GuildId is { } guildId && Allowed(guildId) ? owner.interactions.HandleAsync(interaction) : Task.CompletedTask;
-        private Task UserJoinedAsync(SocketGuildUser user) => Allowed(user.Guild.Id) ? owner.memberships.UserJoinedAsync(user) : Task.CompletedTask;
+        private Task InteractionAsync(SocketInteraction interaction)
+        {
+            if (interaction.User is SocketGuildUser user && Allowed(user.Guild.Id)) owner.avatars.Observe(user);
+            return interaction.GuildId is { } guildId && Allowed(guildId) ? owner.interactions.HandleAsync(interaction) : Task.CompletedTask;
+        }
+        private Task UserJoinedAsync(SocketGuildUser user) { if (Allowed(user.Guild.Id)) owner.avatars.Observe(user); return Allowed(user.Guild.Id) ? owner.memberships.UserJoinedAsync(user) : Task.CompletedTask; }
         private Task UserLeftAsync(SocketGuild guild, SocketUser user) => Allowed(guild.Id) ? owner.memberships.UserLeftAsync(guild, user) : Task.CompletedTask;
         private async Task ReadyAsync(DiscordSocketClient shard)
         {

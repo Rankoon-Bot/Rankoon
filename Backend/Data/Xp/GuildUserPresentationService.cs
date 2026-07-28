@@ -1,6 +1,6 @@
-using Discord;
 using Discord.WebSocket;
 using Rankoon.Data.Discord;
+using Rankoon.Data.Model;
 
 namespace Rankoon.Data.Xp;
 
@@ -9,39 +9,56 @@ public interface IGuildUserPresentationService
     Task<IReadOnlyDictionary<ulong, string?>> ResolveIconUrlsAsync(ulong guildId, IEnumerable<ulong> userIds, CancellationToken cancellationToken = default);
 }
 
-// Deliberately reads only Discord.Net's socket cache; leaderboard rendering must not create REST fan-out.
-public sealed class GuildUserPresentationService(IGuildDiscordContextResolver discord) : IGuildUserPresentationService
+// This service only reads the socket cache. REST hydration is intentionally delegated to a worker.
+public sealed class GuildUserPresentationService(
+    IGuildDiscordContextResolver discord,
+    IGuildUserAvatarCacheRepository cache,
+    IGuildUserAvatarUrlFactory urls,
+    TimeProvider timeProvider,
+    ILogger<GuildUserPresentationService> logger) : IGuildUserPresentationService
 {
+    public static string CreateDefaultAvatarUrl(ulong userId) => new GuildUserAvatarUrlFactory().CreateDefaultAvatarUrl(userId);
+
     public async Task<IReadOnlyDictionary<ulong, string?>> ResolveIconUrlsAsync(ulong guildId, IEnumerable<ulong> userIds, CancellationToken cancellationToken = default)
     {
         var ids = userIds.Distinct().ToArray();
-        var iconUrls = ids.ToDictionary(id => id, _ => (string?)null);
+        if (ids.Length == 0) return new Dictionary<ulong, string?>();
+        IReadOnlyDictionary<ulong, GuildUserAvatarCacheEntry> persisted = new Dictionary<ulong, GuildUserAvatarCacheEntry>();
+        try { persisted = await cache.GetManyAsync(guildId, ids, cancellationToken); }
+        catch (Exception exception) when (exception is not OperationCanceledException) { logger.LogError(exception, "Unable to load avatar cache for guild {GuildId}", guildId); }
+
+        GuildDiscordContext? context = null;
+        try { context = await discord.ResolveAsync(guildId, cancellationToken); }
+        catch (Exception exception) when (exception is not OperationCanceledException) { logger.LogWarning(exception, "Unable to resolve Discord context for guild {GuildId}", guildId); }
+
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var updates = new List<GuildUserAvatarCacheEntry>();
+        var missing = new List<ulong>();
+        var result = new Dictionary<ulong, string?>(ids.Length);
+        foreach (var userId in ids)
+        {
+            var socketUser = context?.Guild.GetUser(userId);
+            if (socketUser != null)
+            {
+                var observed = GuildUserAvatarObservation.Create(socketUser, now);
+                result[userId] = urls.CreateUrl(guildId, userId, observed.AvatarId, observed.GuildAvatarId, observed.DefaultAvatarIndex);
+                persisted.TryGetValue(userId, out var existing);
+                if (existing == null || !GuildUserAvatarObservation.Matches(existing, observed)) updates.Add(GuildUserAvatarObservation.Apply(existing, observed, now));
+                continue;
+            }
+            if (persisted.TryGetValue(userId, out var entry)) result[userId] = urls.CreateUrl(guildId, userId, entry.AvatarId, entry.GuildAvatarId, entry.DefaultAvatarIndex);
+            else { result[userId] = urls.CreateDefaultAvatarUrl(userId); missing.Add(userId); }
+        }
+
         try
         {
-            var context = await discord.ResolveAsync(guildId, cancellationToken);
-            foreach (var userId in ids)
-                iconUrls[userId] = context?.Guild.GetUser(userId) is { } user
-                    ? CreateAvatarUrl(user)
-                    : CreateDefaultAvatarUrl(userId);
+            if (missing.Count > 0) await cache.EnsureHydrationRequestedAsync(guildId, missing, cancellationToken);
+            if (updates.Count > 0) await cache.BulkUpsertAsync(updates, cancellationToken);
         }
-        catch
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            // A cache race must not make the public leaderboard unavailable.
-            foreach (var userId in ids)
-                iconUrls[userId] = CreateDefaultAvatarUrl(userId);
+            logger.LogError(exception, "Unable to persist {SocketUpdates} avatar updates and request {HydrationRequests} hydrations for guild {GuildId}", updates.Count, missing.Count, guildId);
         }
-
-        return iconUrls;
+        return result;
     }
-
-    private static string CreateAvatarUrl(SocketGuildUser user)
-    {
-        // This matches the authenticated-header avatar URL format, using hashes already held by Discord.Net.
-        if (!string.IsNullOrEmpty(user.DisplayAvatarId))
-            return $"https://cdn.discordapp.com/avatars/{user.Id}/{user.DisplayAvatarId}.{Extension(user.DisplayAvatarId)}?size=128";
-        return user.GetDefaultAvatarUrl();
-    }
-
-    internal static string CreateDefaultAvatarUrl(ulong userId) => $"https://cdn.discordapp.com/embed/avatars/{(userId >> 22) % 6}.png";
-    private static string Extension(string avatarId) => avatarId.StartsWith("a_", StringComparison.Ordinal) ? "gif" : "webp";
 }

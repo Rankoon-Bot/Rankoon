@@ -311,7 +311,7 @@ public sealed class BotRuntimeManager(RankoonDbContext database, ICustomBotToken
         catch { }
         finally { client.Dispose(); }
     }
-    private static DiscordSocketConfig CreateConfig(CustomBotIdentityOptions options) => new() { LogLevel = LogSeverity.Warning, MessageCacheSize = 0, AuditLogCacheSize = 0, AlwaysDownloadUsers = options.DownloadAllMembers, AlwaysDownloadDefaultStickers = false, TotalShards = 1, GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildVoiceStates | GatewayIntents.GuildMessages | GatewayIntents.GuildMessageReactions | GatewayIntents.GuildScheduledEvents | GatewayIntents.GuildMembers | GatewayIntents.MessageContent };
+    private static DiscordSocketConfig CreateConfig(CustomBotIdentityOptions options) => new() { LogLevel = LogSeverity.Warning, MessageCacheSize = 0, AuditLogCacheSize = 0, AlwaysDownloadUsers = false, AlwaysDownloadDefaultStickers = false, TotalShards = 1, GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildVoiceStates | GatewayIntents.GuildMessages | GatewayIntents.GuildMessageReactions | GatewayIntents.GuildScheduledEvents | GatewayIntents.GuildMembers | GatewayIntents.MessageContent };
 }
 
 public interface IGuildDiscordContextResolver

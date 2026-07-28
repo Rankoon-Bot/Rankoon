@@ -44,6 +44,11 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                 await database.SeasonCoordinatorLeases.Indexes.CreateOneAsync(new CreateIndexModel<SeasonCoordinatorLease>(Builders<SeasonCoordinatorLease>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }), cancellationToken: stoppingToken);
                 await database.SeasonAnnouncementDeliveries.Indexes.CreateOneAsync(new CreateIndexModel<SeasonAnnouncementDelivery>(Builders<SeasonAnnouncementDelivery>.IndexKeys.Ascending(x => x.DeliveryKey), new CreateIndexOptions { Unique = true, Name = "delivery_key_unique" }), cancellationToken: stoppingToken);
                 await database.MemberXp.Indexes.CreateOneAsync(new CreateIndexModel<MemberXp>(Builders<MemberXp>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
+                await database.GuildUserAvatarCache.Indexes.CreateManyAsync([
+                    new CreateIndexModel<GuildUserAvatarCacheEntry>(Builders<GuildUserAvatarCacheEntry>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true, Name = "guild_user_unique" }),
+                    new CreateIndexModel<GuildUserAvatarCacheEntry>(Builders<GuildUserAvatarCacheEntry>.IndexKeys.Ascending(x => x.NeedsHydration).Ascending(x => x.NextHydrationAttemptAtUtc), new CreateIndexOptions { Name = "hydration_ready" }),
+                    new CreateIndexModel<GuildUserAvatarCacheEntry>(Builders<GuildUserAvatarCacheEntry>.IndexKeys.Ascending(x => x.HydrationLeaseUntilUtc), new CreateIndexOptions { Name = "hydration_lease_until" })
+                ], stoppingToken);
                 await database.DevelopmentMockMembers.Indexes.CreateOneAsync(new CreateIndexModel<DevelopmentMockMember>(Builders<DevelopmentMockMember>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true, Name = "guild_user_unique" }), cancellationToken: stoppingToken);
                 await database.MemberXp.Indexes.CreateManyAsync([
                     new CreateIndexModel<MemberXp>(Builders<MemberXp>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.NormalizedDisplayName).Ascending(x => x.UserId), new CreateIndexOptions { Name = "guild_name_user" }),

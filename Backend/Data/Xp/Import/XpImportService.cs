@@ -17,6 +17,7 @@ public sealed class XpImportService(
     GuildMembershipService memberships,
     LevelRoleService levelRoles,
     ILeaderboardRealtimePublisher realtime,
+    IGuildUserAvatarCacheRepository avatars,
     TimeProvider timeProvider,
     ILogger<XpImportService> logger) : IXpImportService
 {
@@ -56,6 +57,8 @@ public sealed class XpImportService(
         });
 
         memberships.QueueGuild(guildId);
+        try { await avatars.EnsureHydrationRequestedAsync(guildId, userIds.Distinct().ToArray(), cancellationToken); }
+        catch (Exception exception) when (exception is not OperationCanceledException) { logger.LogWarning(exception, "Unable to queue avatar hydration after XP import for guild {GuildId}", guildId); }
         await realtime.PublishGuildAsync(guildId, cancellationToken);
         return new(parsed.Format, parsed.Members.Count, parsed.SkippedInvalid, parsed.SkippedForeignGuild, parsed.DuplicateUsers);
     }
