@@ -124,6 +124,20 @@ public sealed class VoiceXpWatchdogTests
     }
 
     [Fact]
+    public void Pending_eligibility_windows_merge_only_when_contiguous()
+    {
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var intervals = new List<VoiceEligibilityInterval>();
+        Invoke("AppendPendingInterval", intervals, start, start.AddSeconds(30));
+        Invoke("AppendPendingInterval", intervals, start.AddSeconds(30), start.AddSeconds(60));
+        Invoke("AppendPendingInterval", intervals, start.AddSeconds(90), start.AddSeconds(120));
+
+        Assert.Equal(2, intervals.Count);
+        Assert.Equal(start.AddSeconds(60), intervals[0].EndsAtUtc);
+        Assert.Equal(start.AddSeconds(90), intervals[1].StartsAtUtc);
+    }
+
+    [Fact]
     public void Watchdog_parallelism_is_bounded_by_configuration_contract()
     {
         var options = new VoiceWatchdogOptions();

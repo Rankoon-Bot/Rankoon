@@ -123,6 +123,37 @@ describe('XpConfigComponent server booster settings', () => {
 
   afterEach(() => http.verify());
 
+  it('applies visible eligibility presets as normal dirty changes and resets them', () => {
+    component.applyVoicePreset('strict');
+    const eligibility = component.config()!.voice.eligibility;
+    expect(eligibility.minimumHumanParticipants).toBe(2);
+    expect(eligibility.participantCountingMode).toBe('EligibleHumansOnly');
+    expect(eligibility.awardWhileSelfMuted).toBeFalse();
+    expect(eligibility.awardWhileSuppressed).toBeFalse();
+    expect(component.dirty()).toBeTrue();
+
+    component.reset();
+    expect(component.config()!.voice.eligibility.awardWhileSelfMuted).toBeTrue();
+    expect(component.dirty()).toBeFalse();
+  });
+
+  it('builds the live summary from the current form values', () => {
+    component.applyVoicePreset('relaxed');
+    const summary = component.voiceSummary(component.config()!);
+    expect(summary).toContain('1 human');
+    expect(summary).toContain('self-mute');
+    expect(summary).toContain('accumulated');
+  });
+
+  it('validates participant limits and keeps eligibility visible while voice XP is disabled', () => {
+    const config = component.config()!;
+    config.voice.eligibility.minimumHumanParticipants = 100;
+    config.voice.enabled = false;
+    fixture.detectChanges();
+    expect(component.isValid(config)).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('These rules are kept');
+  });
+
   it('starts disabled and hides tiers while retaining and sorting them', () => {
     expect(component.config()!.serverBooster.enabled).toBeFalse();
     expect(

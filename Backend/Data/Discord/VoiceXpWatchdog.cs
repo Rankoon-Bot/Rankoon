@@ -258,16 +258,18 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         var result = eligibilityEvaluator.Evaluate(new(participant, channel.Participants, channel.IsExcludedChannel, channel.IsExcludedCategory, channel.IsAfkChannel,
             qualifyingSeconds, intervalSeconds, settings.Voice.MinimumSessionSeconds, channel.AllConnectedHumanCount, channel.EligibleHumanCount), eligibility);
         var pending = session.PendingEligibilityIntervals ?? [];
+        var minimumSessionSatisfied = session.MinimumSessionSatisfied ?? session.EligibleSeconds > 0;
         var intervalsToAward = new List<VoiceEligibilityInterval>();
         if (result.Qualifies)
         {
             qualifyingSeconds += intervalSeconds;
-            if (session.EligibleSeconds > 0) intervalsToAward.Add(new(session.LastAccruedAt, now));
+            if (minimumSessionSatisfied) intervalsToAward.Add(new(session.LastAccruedAt, now));
             else
             {
-                pending.Add(new(session.LastAccruedAt, now));
+                AppendPendingInterval(pending, session.LastAccruedAt, now);
                 if (result.EligibleAfterMinimumDuration)
                 {
+                    minimumSessionSatisfied = true;
                     intervalsToAward.AddRange(pending);
                     pending = [];
                 }
@@ -276,6 +278,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         else if (eligibility.ResetMinimumSessionWhenIneligible)
         {
             qualifyingSeconds = 0;
+            minimumSessionSatisfied = false;
             pending = [];
         }
 
@@ -312,12 +315,14 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
 
         var sessionUpdate = Builders<VoiceSession>.Update.Set(x => x.LastAccruedAt, now)
             .Set(x => x.QualifyingSeconds, qualifyingSeconds).Set(x => x.PendingEligibilityIntervals, pending)
+            .Set(x => x.MinimumSessionSatisfied, minimumSessionSatisfied)
             .Inc(x => x.EligibleSeconds, totalEligibleSeconds).Inc(x => x.Revision, 1);
         if (!result.Qualifies && eligibility.ResetMinimumSessionWhenIneligible) sessionUpdate = sessionUpdate.Set(x => x.EligibilityStartedAt, now);
         await database.VoiceSessions.UpdateOneAsync(x => x.GuildId == session.GuildId && x.UserId == session.UserId && x.SessionId == session.SessionId && x.Revision == session.Revision,
             sessionUpdate, cancellationToken: cancellationToken);
         session.LastAccruedAt = now;
         session.QualifyingSeconds = qualifyingSeconds;
+        session.MinimumSessionSatisfied = minimumSessionSatisfied;
         session.PendingEligibilityIntervals = pending;
         if (!result.Qualifies && eligibility.ResetMinimumSessionWhenIneligible) session.EligibilityStartedAt = now;
         session.EligibleSeconds += totalEligibleSeconds;
@@ -345,11 +350,19 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
     };
 
     private Task StartSessionAsync(ulong guildId, ulong userId, ulong channelId, DateTime now, CancellationToken cancellationToken) => UpsertSessionAsync(NewSession(guildId, userId, channelId, now), cancellationToken);
-    private static VoiceSession NewSession(ulong guildId, ulong userId, ulong channelId, DateTime now) => new() { GuildId = guildId, UserId = userId, ChannelId = channelId, SessionId = Guid.NewGuid().ToString("N"), JoinedAt = now, EligibilityStartedAt = now, LastAccruedAt = now, PendingEligibilityIntervals = [] };
+    private static VoiceSession NewSession(ulong guildId, ulong userId, ulong channelId, DateTime now) => new() { GuildId = guildId, UserId = userId, ChannelId = channelId, SessionId = Guid.NewGuid().ToString("N"), JoinedAt = now, EligibilityStartedAt = now, LastAccruedAt = now, MinimumSessionSatisfied = false, PendingEligibilityIntervals = [] };
     private Task UpsertSessionAsync(VoiceSession session, CancellationToken cancellationToken) => database.VoiceSessions.UpdateOneAsync(x => x.GuildId == session.GuildId && x.UserId == session.UserId,
         Builders<VoiceSession>.Update.SetOnInsert(x => x.GuildId, session.GuildId).SetOnInsert(x => x.UserId, session.UserId).Set(x => x.ChannelId, session.ChannelId).Set(x => x.SessionId, session.SessionId)
             .Set(x => x.JoinedAt, session.JoinedAt).Set(x => x.EligibilityStartedAt, session.EligibilityStartedAt).Set(x => x.LastAccruedAt, session.LastAccruedAt).Set(x => x.EligibleSeconds, 0)
-            .Set(x => x.QualifyingSeconds, 0).Set(x => x.PendingEligibilityIntervals, new List<VoiceEligibilityInterval>()).Set(x => x.Revision, 0), new UpdateOptions { IsUpsert = true }, cancellationToken);
+            .Set(x => x.QualifyingSeconds, 0).Set(x => x.MinimumSessionSatisfied, false).Set(x => x.PendingEligibilityIntervals, new List<VoiceEligibilityInterval>()).Set(x => x.Revision, 0), new UpdateOptions { IsUpsert = true }, cancellationToken);
+
+    private static void AppendPendingInterval(List<VoiceEligibilityInterval> intervals, DateTime start, DateTime end)
+    {
+        if (intervals.Count > 0 && intervals[^1].EndsAtUtc == start)
+            intervals[^1] = intervals[^1] with { EndsAtUtc = end };
+        else
+            intervals.Add(new(start, end));
+    }
 
     private static VoiceChannelEvaluationSnapshot BuildChannelSnapshot(SocketGuild guild, SocketVoiceChannel channel, GuildXpSettings settings, ulong? replacedUserId = null, RelevantVoiceState? replacementState = null)
     {

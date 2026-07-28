@@ -178,6 +178,7 @@ public sealed class VoiceSession
     [BsonElement("last_accrued_at")] public DateTime LastAccruedAt { get; set; }
     [BsonElement("eligible_seconds")] public long EligibleSeconds { get; set; }
     [BsonElement("qualifying_seconds")] public long QualifyingSeconds { get; set; }
+    [BsonElement("minimum_session_satisfied"), BsonIgnoreIfNull] public bool? MinimumSessionSatisfied { get; set; }
     [BsonElement("pending_eligibility_intervals")] public List<VoiceEligibilityInterval> PendingEligibilityIntervals { get; set; } = [];
     [BsonElement("revision")] public long Revision { get; set; }
     // New cursor fields are additive. Legacy fields above remain readable until startup maintenance migrates open sessions.
