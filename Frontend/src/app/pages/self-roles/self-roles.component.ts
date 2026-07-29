@@ -251,7 +251,10 @@ export class SelfRolesComponent implements OnInit {
       .subscribe({
         next: repaired => {
           this.panels.update(items => items.map(item => item.id === repaired.id ? repaired : item));
-          if (this.editor()?.id === repaired.id) this.editor.set(this.copyPanel(repaired));
+          if (this.editor()?.id === repaired.id) {
+            this.editor.set(this.copyPanel(repaired));
+            this.editorBaseline = this.serializeEditor();
+          }
           this.toast.success(this.i18n.translate('selfRoles.repaired'));
         },
         error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message),

@@ -29,7 +29,7 @@ interface MenuItem {
       <nav class="sidebar-nav" [attr.aria-label]="'nav.dashboard' | transloco">
         <ul class="nav-list">
           <li *ngFor="let item of menuItems()" class="nav-item" routerLinkActive="active">
-            <a 
+            <a
                 [routerLink]="item.route" (click)="layoutState.closeMobileNavigation()"
               routerLinkActive="active"
               class="nav-link"
@@ -101,9 +101,10 @@ export class SidebarComponent {
     const hasAnalytics = capabilities.isOwner || capabilities.moduleIds.includes('analytics') || capabilities.moduleIds.includes('reporting');
     if (hasModule('xp')) items.push({
        label: this.i18n.translate('nav.xp'),
-       route: '/xp',
+       route: '/xp/settings',
        icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 3.1 6.3L22 9.3l-5 4.9 1.2 6.8-6.2-3.3-6.2 3.3L7 14.2 2 9.3l6.9-1z"/></svg>`,
         children: [
+            { label: this.i18n.translate('nav.xpSettings'), route: '/xp/settings', icon: '' },
             { label: this.i18n.translate('nav.seasons'), route: '/xp/seasons', icon: '' },
             ...(hasModule('xp-announcements') ? [{ label: this.i18n.translate('nav.levelUpAnnouncements'), route: '/xp/level-up-announcements', icon: '' }] : []),
            ...(hasModule('xp-audit') ? [{ label: this.i18n.translate('nav.xpAudit'), route: '/xp/audit', icon: '' }] : []),

@@ -48,7 +48,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
             MarkFailure(panel, exception);
             try
             {
-                await database.SelfRolePanels.InsertOneAsync(panel, cancellationToken: cancellationToken);
+                await database.SelfRolePanels.InsertOneAsync(panel, cancellationToken: CancellationToken.None);
             }
             catch
             {
@@ -104,21 +104,22 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
+                var newMessageRemoved = true;
                 if (publishAttempted)
                 {
                     try
                     {
                         if (createsMessage)
                         {
-                            if (panel.MessageId != 0 && panel.MessageId != existing.MessageId) await DeleteMessageAsync(guild, panel);
+                            if (panel.MessageId != 0 && panel.MessageId != existing.MessageId) newMessageRemoved = await TryDeleteMessageAsync(guild, panel);
                         }
                         else await PublishAsync(guild, existing, isNew: false);
                     }
                     catch (Exception compensationException) { logger.LogWarning(compensationException, "Could not compensate failed self-role update for panel {PanelId}", panelId); }
                 }
-                if (createsMessage) panel.MessageId = 0;
+                if (createsMessage && newMessageRemoved) panel.MessageId = 0;
                 MarkFailure(panel, exception);
-                var result = await database.SelfRolePanels.ReplaceOneAsync(x => x.Id == panelId && x.GuildId == guild.Id && x.Revision == existing.Revision, panel, cancellationToken: cancellationToken);
+                var result = await database.SelfRolePanels.ReplaceOneAsync(x => x.Id == panelId && x.GuildId == guild.Id && x.Revision == existing.Revision, panel, cancellationToken: CancellationToken.None);
                 if (result.MatchedCount == 0) throw new SelfRoleValidationException("selfRoles.revisionConflict");
                 if (panel.ChannelId != existing.ChannelId) await TryDeleteMessageAsync(guild, existing);
                 logger.LogWarning(exception, "Saved changes to self-role panel {PanelId} as degraded after its Discord publish failed", panelId);
@@ -128,16 +129,20 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
             {
                 var result = await database.SelfRolePanels.ReplaceOneAsync(x => x.Id == panelId && x.GuildId == guild.Id && x.Revision == existing.Revision, panel, cancellationToken: cancellationToken);
                 if (result.MatchedCount == 0) throw new SelfRoleValidationException("selfRoles.revisionConflict");
-                if (createsMessage) await DeleteMessageAsync(guild, existing);
-                return panel;
             }
             catch
             {
                 // Restore the previous published configuration when its persistence did not succeed.
-                if (createsMessage) await DeleteMessageAsync(guild, panel);
-                else await PublishAsync(guild, existing, isNew: false);
+                if (createsMessage) await TryDeleteMessageAsync(guild, panel);
+                else
+                {
+                    try { await PublishAsync(guild, existing, isNew: false); }
+                    catch (Exception compensationException) { logger.LogWarning(compensationException, "Could not restore self-role panel {PanelId} after persistence failed", panelId); }
+                }
                 throw;
             }
+            if (createsMessage) await TryDeleteMessageAsync(guild, existing);
+            return panel;
         }
         finally { updateLock.Release(); }
     }
@@ -190,7 +195,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
     public async Task ReconcileAsync(IEnumerable<SocketGuild> guilds, CancellationToken cancellationToken = default)
     {
         foreach (var guild in guilds)
-        foreach (var panel in await database.SelfRolePanels.Find(x => x.GuildId == guild.Id && x.Enabled).ToListAsync(cancellationToken))
+        foreach (var panel in await database.SelfRolePanels.Find(x => x.GuildId == guild.Id && x.Enabled && x.State != SelfRolePanelState.Degraded).ToListAsync(cancellationToken))
         {
             try
             {
@@ -418,9 +423,17 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
         catch (global::Discord.Net.HttpException exception) when (exception.HttpCode == System.Net.HttpStatusCode.NotFound) { }
     }
 
-    private async Task TryDeleteMessageAsync(SocketGuild guild, SelfRolePanel panel)
+    private async Task<bool> TryDeleteMessageAsync(SocketGuild guild, SelfRolePanel panel)
     {
-        try { await DeleteMessageAsync(guild, panel); }
-        catch (Exception exception) { logger.LogWarning(exception, "Could not remove orphaned self-role message {MessageId} for panel {PanelId}", panel.MessageId, panel.Id); }
+        try
+        {
+            await DeleteMessageAsync(guild, panel);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Could not remove orphaned self-role message {MessageId} for panel {PanelId}", panel.MessageId, panel.Id);
+            return false;
+        }
     }
 }

@@ -20,4 +20,15 @@ describe('SidebarComponent', () => {
     expect(routes).toContain('/analytics/overview'); expect(routes).toContain('/analytics/audit'); expect(routes).toContain('/bot-management/incidents'); expect(routes).not.toContain('/logs/errors');
     app.clearState(); auth.clearAuth();
   });
+
+  it('links XP and its first child to settings', () => {
+    TestBed.configureTestingModule({ imports: [SidebarComponent, testI18n], providers: [provideRouter([]), { provide: CustomBotIdentityAccessService, useValue: { load: () => {}, clear: () => {}, visible: signal(false) } }, { provide: BuildInfoService, useValue: { buildVersion: signal('test') } }] });
+    const app = TestBed.inject(AppStore);
+    const guild: Guild = { id: '1', name: 'Guild', icon: null, owner: true, permissions: '', features: [], botInstalled: true, inviteUrl: '' };
+    app.setSelectedGuild(guild); app.setGuildCapabilities({ guildId: '1', isOwner: true, canAccessSettings: true, moduleIds: ['xp'], leaderboardAlias: 'guild' });
+    const fixture = TestBed.createComponent(SidebarComponent); fixture.detectChanges();
+    const xp = fixture.componentInstance.menuItems().find(item => item.label === 'nav.xp');
+    expect(xp?.route).toBe('/xp/settings'); expect(xp?.children?.[0].route).toBe('/xp/settings');
+    app.clearState();
+  });
 });

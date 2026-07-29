@@ -87,6 +87,11 @@ export const routes: Routes = [
       },
       {
         path: 'xp',
+        redirectTo: 'xp/settings',
+        pathMatch: 'full',
+      },
+      {
+        path: 'xp/settings',
         loadComponent: () =>
           import('./pages/xp-config/xp-config.component').then(
             (c) => c.XpConfigComponent,

@@ -14,7 +14,7 @@ import { AnalyticsFormatterService } from '../../shared/analytics-chart/analytic
 
 type DashboardMetric = 'xp' | 'voice' | 'activities' | 'members';
 
-const ROUTES: Record<string, string> = { xp: '/xp', seasons: '/xp/seasons', 'level-up-announcements': '/xp/level-up-announcements', leaderboard: '/server-config/leaderboard', 'xp-audit': '/xp/audit', 'voice-hubs': '/vc-hubs', 'self-roles': '/self-roles', analytics: '/analytics/overview', reporting: '/analytics/overview', diagnostics: '/diagnostics/permissions', 'dashboard-access': '/server-config/roles', 'bot-identity': '/server-config/bot-identity' };
+const ROUTES: Record<string, string> = { xp: '/xp/settings', seasons: '/xp/seasons', 'level-up-announcements': '/xp/level-up-announcements', leaderboard: '/server-config/leaderboard', 'xp-audit': '/xp/audit', 'voice-hubs': '/vc-hubs', 'self-roles': '/self-roles', analytics: '/analytics/overview', reporting: '/analytics/overview', diagnostics: '/diagnostics/permissions', 'dashboard-access': '/server-config/roles', 'bot-identity': '/server-config/bot-identity' };
 
 @Component({ selector: 'app-dashboard', standalone: true, imports: [CommonModule, RouterLink, TranslocoPipe, AnalyticsLineChartComponent], templateUrl: './dashboard.component.html', styleUrls: ['./dashboard.component.scss'] })
 export class DashboardComponent {
