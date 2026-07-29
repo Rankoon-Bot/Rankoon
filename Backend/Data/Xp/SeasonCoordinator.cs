@@ -88,8 +88,7 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
     private async Task PrepareAsync(GuildSeasonSettings settings, IReadOnlyList<GuildSeason> existing, CancellationToken cancellationToken)
     {
         if (settings.ScheduleKind == SeasonScheduleKind.Manual) return;
-        var scheduled = existing.Count(x => x.Status == SeasonStatus.Scheduled);
-        var missing = settings.PreparedSeasonCount - scheduled;
+        var missing = settings.PreparedSeasonCount - CountPrepared(existing);
         if (missing <= 0) return;
         var firstSequence = existing.Count == 0 ? 1 : existing.Max(x => x.Sequence) + 1;
         var generator = new SeasonScheduleGenerator();
@@ -103,4 +102,6 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
             catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
         }
     }
+
+    public static int CountPrepared(IEnumerable<GuildSeason> seasons) => seasons.Count(x => x.Status is SeasonStatus.Scheduled or SeasonStatus.Active or SeasonStatus.Closing);
 }

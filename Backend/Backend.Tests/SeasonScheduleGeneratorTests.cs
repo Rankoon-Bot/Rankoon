@@ -190,6 +190,35 @@ public sealed class SeasonScheduleGeneratorTests
         Assert.Equal(DateTime.UnixEpoch.AddDays(3600), generated[0].StartsAtUtc);
     }
 
+    [Fact]
+    public void Active_season_counts_towards_the_prepared_total()
+    {
+        var seasons = new[]
+        {
+            new GuildSeason { Status = SeasonStatus.Active, Sequence = 1 },
+            new GuildSeason { Status = SeasonStatus.Scheduled, Sequence = 2 },
+            new GuildSeason { Status = SeasonStatus.Scheduled, Sequence = 3 },
+            new GuildSeason { Status = SeasonStatus.Scheduled, Sequence = 4 },
+            new GuildSeason { Status = SeasonStatus.Scheduled, Sequence = 5 },
+            new GuildSeason { Status = SeasonStatus.Scheduled, Sequence = 6 },
+            new GuildSeason { Status = SeasonStatus.Cancelled, Sequence = 7 }
+        };
+
+        Assert.Equal(6, SeasonCoordinator.CountPrepared(seasons));
+    }
+
+    [Fact]
+    public void Fresh_six_season_schedule_is_numbered_one_through_six()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", DateTime.UnixEpoch);
+        settings.FixedDurationDays = 30;
+
+        var generated = new SeasonScheduleGenerator().Generate(settings, "Guild", 1, 6);
+
+        Assert.Equal(new long[] { 1, 2, 3, 4, 5, 6 }, generated.Select(x => x.Sequence));
+        Assert.Equal(new[] { "Season 1", "Season 2", "Season 3", "Season 4", "Season 5", "Season 6" }, generated.Select(x => x.Name));
+    }
+
     private static GuildSeasonSettings Settings(SeasonScheduleKind kind, string timeZoneId, DateTime anchor) => new()
     {
         GuildId = 1,

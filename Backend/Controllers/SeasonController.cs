@@ -105,18 +105,20 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
         {
             var now = timeProvider.GetUtcNow().UtcDateTime;
             var existing = await database.GuildSeasons.Find(x => x.GuildId == id).SortBy(x => x.Sequence).ToListAsync(HttpContext.RequestAborted);
+            var missing = request.Count - SeasonCoordinator.CountPrepared(existing);
+            if (missing <= 0) return Ok(Array.Empty<GuildSeason>());
             var firstSequence = existing.Count == 0 ? 1 : existing.Max(x => x.Sequence) + 1;
             const int batchSize = 120;
             const int maximumOccurrences = 36_600;
             var generated = new List<SeasonScheduleCandidate>();
             var generator = new SeasonScheduleGenerator();
-            for (var offset = 0; offset < maximumOccurrences && generated.Count < request.Count; offset += batchSize)
+            for (var offset = 0; offset < maximumOccurrences && generated.Count < missing; offset += batchSize)
             {
                 HttpContext.RequestAborted.ThrowIfCancellationRequested();
                 var batch = generator.Generate(settings, "Guild", offset + 1, Math.Min(batchSize, maximumOccurrences - offset), occurrenceOffset: offset);
-                generated.AddRange(batch.Where(candidate => candidate.EndsAtUtc > now && existing.All(season => candidate.EndsAtUtc <= season.StartsAtUtc || candidate.StartsAtUtc >= season.EndsAtUtc)).Take(request.Count - generated.Count));
+                generated.AddRange(batch.Where(candidate => candidate.EndsAtUtc > now && existing.All(season => candidate.EndsAtUtc <= season.StartsAtUtc || candidate.StartsAtUtc >= season.EndsAtUtc)).Take(missing - generated.Count));
             }
-            if (generated.Count != request.Count) return this.ApiError("season.planConflict");
+            if (generated.Count != missing) return this.ApiError("season.planConflict");
             var previousSeasonId = existing.OrderByDescending(x => x.Sequence).FirstOrDefault()?.Id;
             var planned = new List<GuildSeason>();
             foreach (var candidate in generated)
