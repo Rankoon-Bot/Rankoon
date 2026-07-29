@@ -279,6 +279,7 @@
       "discordPermissions": "Dem Bot fehlen Berechtigungen in diesem Kanal. Erteile Kanal ansehen, Nachrichten senden, Links einbetten, Reaktionen hinzufügen, Nachrichtenverlauf anzeigen und Nachrichten verwalten.",
       "emojiInvalid": "Eine Selbstrollen-Zuordnung enthält ein ungültiges Emoji.",
       "emojiRejected": "Discord hat das Emoji {{emoji}} abgelehnt. Wähle ein anderes Emoji oder prüfe, ob es auf diesem Server verfügbar ist.",
+      "publishFailed": "Das Selbstrollen-Panel wurde gespeichert, konnte aber nicht auf Discord veröffentlicht werden. Korrigiere die Bot-Berechtigungen und repariere anschließend das Panel.",
       "revisionConflict": "Das Selbstrollen-Panel wurde seit dem Laden geändert. Bitte lade es neu.",
       "tooManyEmbeds": "Ein Selbstrollen-Panel unterstützt maximal 10 Embeds.",
       "invalidEmbedStructure": "Die Embed-Struktur ist ungültig.",

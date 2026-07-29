@@ -139,6 +139,7 @@ public static class ApiErrorCatalog
         ["selfRoles.discordPermissions"] = new("selfRoles.discordPermissions", "The bot is missing permissions in the selected channel. Grant View Channel, Send Messages, Embed Links, Add Reactions, Read Message History, and Manage Messages.", StatusCodes.Status400BadRequest),
         ["selfRoles.emojiInvalid"] = new("selfRoles.emojiInvalid", "A self-role mapping contains an invalid emoji.", StatusCodes.Status400BadRequest),
         ["selfRoles.emojiRejected"] = new("selfRoles.emojiRejected", "Discord rejected a self-role emoji.", StatusCodes.Status400BadRequest),
+        ["selfRoles.publishFailed"] = new("selfRoles.publishFailed", "The self-role panel was saved, but could not be published to Discord. Fix the bot permissions and repair the panel.", StatusCodes.Status502BadGateway),
         ["selfRoles.revisionConflict"] = new("selfRoles.revisionConflict", "The self-role panel changed since it was loaded. Reload and try again.", StatusCodes.Status409Conflict)
         , ["levelAnnouncements.revisionConflict"] = new("levelAnnouncements.revisionConflict", "Level-up announcement settings changed since they were loaded.", StatusCodes.Status409Conflict)
         , ["levelAnnouncements.settingsInvalid"] = new("levelAnnouncements.settingsInvalid", "Level-up announcement settings are invalid.", StatusCodes.Status400BadRequest)

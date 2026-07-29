@@ -201,7 +201,15 @@ export class SelfRolesComponent implements OnInit {
         this.editorBaseline = this.serializeEditor();
         this.toast.success(this.i18n.translate('selfRoles.saved'));
       },
-      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message),
+      error: error => {
+        const saved = error?.error?.parameters?.savedPanel as SelfRolePanelWithHealth | undefined;
+        if (saved?.id) {
+          this.panels.update(items => items.some(item => item.id === saved.id) ? items.map(item => item.id === saved.id ? saved : item) : [...items, saved]);
+          this.editor.set(this.copyPanel(saved));
+          this.editorBaseline = this.serializeEditor();
+        }
+        this.toast.error(this.apiErrors.resolve(error, 'errors.save').message);
+      },
     });
   }
 

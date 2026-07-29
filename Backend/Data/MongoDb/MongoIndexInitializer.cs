@@ -101,9 +101,10 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                 await database.XpProjectionLeases.Indexes.CreateOneAsync(new CreateIndexModel<XpProjectionLease>(Builders<XpProjectionLease>.IndexKeys.Ascending(x => x.ExpiresAtUtc), new CreateIndexOptions { Name = "expires" }), cancellationToken: stoppingToken);
                 await database.TemporaryVoiceChannels.Indexes.CreateOneAsync(new CreateIndexModel<TemporaryVoiceChannel>(Builders<TemporaryVoiceChannel>.IndexKeys.Ascending(x => x.ChannelId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
                 await database.GuildStats.Indexes.CreateOneAsync(new CreateIndexModel<GuildStats>(Builders<GuildStats>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
+                await DropIndexIfPresentAsync(database.SelfRolePanels.Indexes, "guild_message_unique", stoppingToken);
                 await database.SelfRolePanels.Indexes.CreateManyAsync([
                     new CreateIndexModel<SelfRolePanel>(Builders<SelfRolePanel>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UpdatedAt), new CreateIndexOptions { Name = "guild_updated" }),
-                    new CreateIndexModel<SelfRolePanel>(Builders<SelfRolePanel>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.MessageId), new CreateIndexOptions { Unique = true, Name = "guild_message_unique" })
+                    new CreateIndexModel<SelfRolePanel>(Builders<SelfRolePanel>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.MessageId), new CreateIndexOptions<SelfRolePanel> { Unique = true, Name = "guild_message_nonzero_unique", PartialFilterExpression = new BsonDocument("message_id", new BsonDocument("$gt", 0)) })
                 ], stoppingToken);
                 await database.SelfRoleAssignments.Indexes.CreateOneAsync(new CreateIndexModel<SelfRoleAssignment>(Builders<SelfRoleAssignment>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.PanelId).Ascending(x => x.MappingId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true, Name = "panel_mapping_user_unique" }), cancellationToken: stoppingToken);
                 await database.GuildBotIdentities.Indexes.CreateManyAsync([
