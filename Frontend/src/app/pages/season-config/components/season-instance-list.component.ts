@@ -14,6 +14,10 @@ export class SeasonInstanceListComponent {
   private readonly locale = inject(LocaleService);
   @Input() seasons: Season[] = [];
   @Input() mode: 'planned' | 'past' = 'planned';
-  visible(): Season[] { return this.mode === 'planned' ? this.seasons.filter(item => item.status === 'Scheduled') : this.seasons.filter(item => item.status === 'Closed' || item.status === 'Cancelled'); }
+  @Input() limit = 24;
+  visible(): Season[] {
+    const filtered = this.mode === 'planned' ? this.seasons.filter(item => item.status === 'Scheduled') : this.seasons.filter(item => item.status === 'Closed' || item.status === 'Cancelled');
+    return this.mode === 'past' ? filtered.slice(0, this.limit) : filtered;
+  }
   format(value: string): string { return this.locale.date(value, { dateStyle: 'medium' }); }
 }

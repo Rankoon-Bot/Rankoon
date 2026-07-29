@@ -178,6 +178,18 @@ public sealed class SeasonScheduleGeneratorTests
         Assert.Equal("Autumn", generated[0].Name);
     }
 
+    [Fact]
+    public void Generates_a_later_occurrence_batch_without_restarting_at_the_anchor()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", DateTime.UnixEpoch);
+        settings.FixedDurationDays = 30;
+
+        var generated = new SeasonScheduleGenerator().Generate(settings, "Guild", 121, 1, occurrenceOffset: 120);
+
+        Assert.Equal(121, generated[0].Sequence);
+        Assert.Equal(DateTime.UnixEpoch.AddDays(3600), generated[0].StartsAtUtc);
+    }
+
     private static GuildSeasonSettings Settings(SeasonScheduleKind kind, string timeZoneId, DateTime anchor) => new()
     {
         GuildId = 1,

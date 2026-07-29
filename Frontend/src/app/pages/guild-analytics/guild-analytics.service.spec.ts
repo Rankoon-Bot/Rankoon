@@ -24,4 +24,14 @@ describe('GuildAnalyticsService', () => {
     expect(request.request.params.get('cursor')).toBe('next value');
     request.flush({ generatedAt: '', period: {}, kpis: [], trend: [], breakdown: [], insights: [], items: [], nextCursor: null });
   });
+
+  it('requests timeline buckets and custom bounds', () => {
+    service.timeline('guild-1', { range: 'custom', bucket: 'week', from: '2026-07-01T00:00:00Z', to: '2026-07-29T00:00:00Z' }).subscribe();
+    const request = http.expectOne(req => req.url.endsWith('/guilds/guild-1/analytics/timeline'));
+    expect(request.request.params.get('range')).toBe('custom');
+    expect(request.request.params.get('bucket')).toBe('week');
+    expect(request.request.params.get('from')).toBe('2026-07-01T00:00:00Z');
+    expect(request.request.params.get('to')).toBe('2026-07-29T00:00:00Z');
+    request.flush({ rangeStart: '', rangeEnd: '', timeZone: 'UTC', bucketSize: 'week', generatedAt: '', summary: {}, buckets: [], previousBuckets: [] });
+  });
 });

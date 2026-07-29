@@ -26,7 +26,7 @@ import { SeasonStatusSummaryComponent } from './components/season-status-summary
 import { SeasonTimelinePreviewComponent } from './components/season-timeline-preview.component';
 
 export type SeasonAction = 'start' | 'close' | 'cancel' | 'resume' | 'delete';
-type PendingAction = { action: SeasonAction; season: Season };
+type PendingAction = { action: SeasonAction; season: Season; guildId: string };
 export type SchedulePreset = 'monthly' | 'quarterly' | 'custom';
 
 const SUPPORTED_TOKENS = ['{number}', '{year}', '{endYear}', '{month}', '{monthName}', '{quarter}', '{rotation}', '{start:yyyy-MM-dd}', '{end:yyyy-MM-dd}'] as const;
@@ -108,13 +108,25 @@ export class SeasonConfigComponent {
   private loadRequest = 0;
   private previewRequest = 0;
   private loadedGuild: Guild | null = null;
+  private suppressNextGuildReload = false;
+  private approvedGuildChangeId: string | null = null;
 
   constructor() {
     effect(() => {
       const selected = this.store.selectedGuild();
+      if (this.suppressNextGuildReload && selected?.id === this.loadedGuild?.id) {
+        this.suppressNextGuildReload = false;
+        return;
+      }
       if (this.loadedGuild && selected?.id !== this.loadedGuild.id && this.dirty() && !window.confirm(this.i18n.translate('seasons.unsavedLeave'))) {
+        this.suppressNextGuildReload = true;
         this.store.setSelectedGuild(this.loadedGuild);
         return;
+      }
+      if (this.loadedGuild && selected?.id !== this.loadedGuild.id) {
+        this.approvedGuildChangeId = selected?.id ?? null;
+        this.confirmDialog?.close();
+        this.pending.set(null);
       }
       this.load();
     });
@@ -128,7 +140,7 @@ export class SeasonConfigComponent {
   }
 
   canDeactivate(): boolean {
-    return !this.dirty() || window.confirm(this.i18n.translate('seasons.unsavedLeave'));
+    return !this.dirty() || this.store.selectedGuild()?.id === this.approvedGuildChangeId || window.confirm(this.i18n.translate('seasons.unsavedLeave'));
   }
 
   load(): void {
@@ -158,6 +170,7 @@ export class SeasonConfigComponent {
         this.seasons.set(this.sortSeasons(value.seasons));
         this.resources.set(value.resources);
         this.loadedGuild = this.store.selectedGuild();
+        this.approvedGuildChangeId = null;
         this.serverErrors.set({});
         this.refreshPreview();
       },
@@ -298,23 +311,29 @@ export class SeasonConfigComponent {
   namePreview(settings: SeasonSettings, count = 5): string[] {
     if (!this.namingValid(settings)) return [];
     const first = this.preview()[0];
-    return Array.from({ length: count }, (_, index) => {
-      const item = this.preview()[index] ?? first;
-      const sequence = Number(item?.sequence ?? index + 1);
+    const dateDependent = /\{(?:year|endYear|month|monthName|quarter|start:|end:)/.test(settings.nameTemplate);
+    const previewCount = dateDependent ? Math.min(count, Math.max(1, this.preview().length)) : count;
+    return Array.from({ length: previewCount }, (_, index) => {
+      const exactItem = this.preview()[index];
+      const item = exactItem ?? this.preview().at(-1) ?? first;
+      const sequence = Number(exactItem?.sequence ?? Number(first?.sequence ?? 1) + index);
       const rotationIndex = settings.rotation.length ? ((sequence - 1 + settings.rotationOffset) % settings.rotation.length + settings.rotation.length) % settings.rotation.length : 0;
       const rotation = settings.rotation.length ? settings.rotation[rotationIndex] : '';
       const start = item ? new Date(item.startsAtUtc) : new Date();
       const end = item ? new Date(item.endsAtUtc) : start;
+      const startParts = this.seasonDateParts(start, settings.timeZoneId);
+      const endParts = this.seasonDateParts(end, settings.timeZoneId);
       return settings.nameTemplate.replace(TOKEN_PATTERN, (_, token: string) => {
         if (token === 'number') return String(sequence);
         if (/^number:0+$/.test(token)) return String(sequence).padStart(token.length - 7, '0');
         if (token === 'rotation') return rotation;
-        if (token === 'year' || token === 'endYear') return String(start.getFullYear());
-        if (token === 'month') return String(start.getMonth() + 1);
-        if (token === 'monthName') return this.locale.date(start, { month: 'long' });
-        if (token === 'quarter') return String(Math.floor(start.getMonth() / 3) + 1);
-        if (/^start:[yMd-]+$/.test(token)) return this.locale.date(start, { year: 'numeric', month: '2-digit', day: '2-digit' });
-        if (/^end:[yMd-]+$/.test(token)) return this.locale.date(end, { year: 'numeric', month: '2-digit', day: '2-digit' });
+        if (token === 'year') return startParts.year;
+        if (token === 'endYear') return endParts.year;
+        if (token === 'month') return String(Number(startParts.month));
+        if (token === 'monthName') return new Intl.DateTimeFormat(this.locale.locale(), { month: 'long', timeZone: settings.timeZoneId }).format(start);
+        if (token === 'quarter') return String(Math.floor((Number(startParts.month) - 1) / 3) + 1);
+        if (/^start:[yMd-]+$/.test(token)) return this.formatDatePattern(startParts, token.slice(6));
+        if (/^end:[yMd-]+$/.test(token)) return this.formatDatePattern(endParts, token.slice(4));
         return `{${token}}`;
       });
     });
@@ -337,7 +356,7 @@ export class SeasonConfigComponent {
   plan(): void {
     const guildId = this.store.selectedGuild()?.id;
     const settings = this.settings();
-    if (!guildId || !settings || this.dirty() || settings.scheduleKind === 'Manual' || !this.valid(settings) || this.planning()) return;
+    if (!guildId || !settings?.enabled || this.dirty() || settings.scheduleKind === 'Manual' || !this.valid(settings) || this.planning()) return;
     this.planning.set(true);
     this.api.planSeasons(guildId, settings.preparedSeasonCount).pipe(finalize(() => this.planning.set(false))).subscribe({
       next: planned => {
@@ -349,18 +368,24 @@ export class SeasonConfigComponent {
   }
 
   requestAction(action: SeasonAction, season: Season): void {
+    const guildId = this.store.selectedGuild()?.id;
+    if (!guildId) return;
     if (this.dirty()) {
       this.pageError.set(this.i18n.translate('seasons.unsaved'));
       return;
     }
-    this.pending.set({ action, season });
+    this.pending.set({ action, season, guildId });
     this.confirmDialog?.open();
   }
 
   confirmAction(): void {
-    const guildId = this.store.selectedGuild()?.id;
     const pending = this.pending();
-    if (!guildId || !pending?.season.id || this.actionBusy()) return;
+    if (!pending?.season.id || this.actionBusy()) return;
+    const guildId = pending.guildId;
+    if (this.store.selectedGuild()?.id !== guildId) {
+      this.closeDialog();
+      return;
+    }
     const request: Observable<unknown> = pending.action === 'start' ? this.api.startSeason(guildId, pending.season.id)
       : pending.action === 'close' ? this.api.closeSeason(guildId, pending.season.id)
       : pending.action === 'resume' ? this.api.resumeSeason(guildId, pending.season.id)
@@ -369,10 +394,12 @@ export class SeasonConfigComponent {
     this.actionBusy.set(true);
     request.pipe(finalize(() => this.actionBusy.set(false))).subscribe({
       next: () => {
+        if (this.store.selectedGuild()?.id !== guildId) return;
         this.confirmDialog?.close();
         this.pending.set(null);
         this.toast.success(this.i18n.translate(`seasons.${pending.action}Succeeded`));
-        this.reloadAfterAction(guildId);
+        if (this.dirty()) this.reloadSeasons(guildId);
+        else this.reloadAfterAction(guildId);
       },
       error: error => {
         this.confirmDialog?.close();
@@ -531,7 +558,25 @@ export class SeasonConfigComponent {
     document.getElementById('season-enabled')?.focus();
   }
 
+  scrollToStep(step: number): void {
+    const target = document.getElementById(`season-step-${step}`);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target?.querySelector<HTMLElement>('input, select, button, [tabindex]')?.focus({ preventScroll: true });
+  }
+
   private percentageValid(value: number): boolean { return Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100; }
+  private seasonDateParts(value: Date, timeZone: string): { year: string; month: string; day: string } {
+    const parts = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).formatToParts(value);
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value ?? '';
+    return { year: part('year'), month: part('month'), day: part('day') };
+  }
+  private formatDatePattern(parts: { year: string; month: string; day: string }, pattern: string): string {
+    return pattern.replace(/yyyy|yyy|yy|y|MM|M|dd|d/g, token => {
+      if (token.startsWith('y')) return token.length === 2 ? parts.year.slice(-2) : token.length === 1 ? String(Number(parts.year)) : parts.year.padStart(token.length, '0');
+      const value = token.startsWith('M') ? parts.month : parts.day;
+      return token.length === 1 ? String(Number(value)) : value;
+    });
+  }
   private hasDuplicateRotation(settings: SeasonSettings): boolean { return new Set(settings.rotation.map(name => name.trim().toLocaleLowerCase())).size !== settings.rotation.length; }
   private unknownTokens(settings: SeasonSettings): string[] {
     return [...settings.nameTemplate.matchAll(TOKEN_PATTERN)].map(match => match[1]).filter(token => !['number', 'year', 'endYear', 'month', 'monthName', 'quarter', 'rotation'].includes(token) && !/^number:0+$/.test(token) && !/^(start|end):[yMd-]+$/.test(token));

@@ -310,11 +310,16 @@
     "noComparison": "Sem comparação",
     "breakdown": "Discriminação",
     "insights": "Informações",
+    "filters": "Filters", "from": "From", "to": "To", "metric": "Metric", "source": "Source", "bucket": "Bucket size", "compare": "Compare with previous period", "refresh": "Refresh analytics", "xpView": "XP view", "previousPeriod": "Previous period", "lastUpdated": "Last updated: {{value}}", "chartDescription": "{{metric}}, {{bucket}} buckets, {{from}} to {{to}}, {{timeZone}}", "lessThanPercent": "< {{value}}%",
+    "axes": { "date": "Date" }, "units": { "xp": "{{value}} XP", "count": "{{value}} activities", "duration": "{{value}}", "members": "{{value}} members", "percent": "{{value}}" }, "duration": { "hours": "{{value}}h", "minutes": "{{value}}m", "seconds": "{{value}}s" },
+    "chart": { "legend": "Chart series", "loading": "Loading chart data...", "empty": "No data for this selection.", "aria": "{{yAxis}} by {{xAxis}}, {{count}} data points", "incomplete": "Ongoing period" }, "buckets": { "auto": "Automatic", "day": "Daily", "week": "Weekly" }, "sources": { "all": "All sources", "voice": "Voice", "messages": "Messages", "reactions": "Reactions", "other": "Other" }, "views": { "total": "Total", "sources": "By source" },
+    "metrics": { "totalXp": "Total XP", "voiceXp": "Voice XP", "messageXp": "Message XP", "reactionXp": "Reaction XP", "otherXp": "Other XP", "qualifiedVoice": "Qualified voice time", "activeVoiceMembers": "Active voice members", "voiceActivities": "Rated voice activities", "activities": "All rated activities", "messageActivities": "Message activities", "reactionActivities": "Reaction activities", "levelUps": "Level-ups", "activeMembers": "Active members" },
+    "definitions": { "title": "Metric definitions", "activeMembers": "Members who received XP from at least one rated activity in the selected period.", "qualifiedVoice": "Time in voice that met the server's rules and counted toward rewards.", "activities": "Messages, reactions, voice intervals, and other actions that met the rules and were counted.", "awardedXp": "XP actually granted to members for rated activity in the selected period." }, "summary": { "title": "Selected metric summary", "total": "Total in period", "average": { "day": "Average per day", "week": "Average per week" }, "strongest": { "day": "Strongest day", "week": "Strongest week" }, "change": "Change from previous period", "incompleteComparison": "The current period includes an ongoing bucket; comparison is provisional." },
     "ranges": {
       "24h": "24 horas",
       "7d": "7 dias",
       "30d": "30 dias",
-      "90d": "90 dias"
+      "90d": "90 dias", "custom": "Custom"
     },
     "pages": {
       "overview": {
@@ -614,6 +619,7 @@
     "qualifiedVoiceTime": "Tempo de voz qualificado",
     "qualifiedActivities": "Atividades qualificadas",
     "communityActivity": "Atividade comunitária",
+    "activityOverTime": "Activity over time", "chartDescription": "{{metric}}, {{bucket}}, {{range}}, {{timeZone}}", "sourceBreakdown": "XP by source", "metrics": { "xp": "Total XP", "voice": "Qualified voice time", "activities": "Rated activities", "members": "Active members" },
     "noActivity": "Nenhuma atividade registada neste período.",
     "recentEvents": "Eventos recentes",
     "noRecentEvents": "Sem evento administrativo recente.",

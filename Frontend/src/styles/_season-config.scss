@@ -1,4 +1,6 @@
 app-season-config {
+  .retention-note, .impact-copy { padding: var(--rk-space-3); margin: var(--rk-space-4) 0 0; color: var(--rk-text-muted); background: var(--rk-canvas-deep); border-left: 3px solid var(--rk-info); border-radius: var(--rk-radius-sm); }
+  .gap-control { display: grid; gap: var(--rk-space-3); }
   .token-list { display: flex; flex-wrap: wrap; gap: var(--rk-space-2); }
   .token-list button { min-height: var(--rk-control-height-compact); padding: 0 var(--rk-space-2); color: var(--rk-info); background: var(--rk-info-subtle); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-sm); font-family: monospace; }
   .token-list button:hover { border-color: var(--rk-info); }
@@ -37,7 +39,7 @@ app-season-config {
   .advanced-toggle span:first-child { display: grid; gap: var(--rk-space-1); }
   .advanced-toggle strong { color: var(--rk-text-strong); }
   .advanced-toggle span:last-child { color: var(--rk-info); font-size: var(--rk-font-section-title); }
-  .advanced-content { padding: 0 var(--rk-space-6) var(--rk-space-6); border-top: 1px solid var(--rk-border-subtle); animation: season-reveal var(--rk-motion-base) var(--rk-ease-enter); }
+  .advanced-content { min-width: 0; padding: 0 var(--rk-space-6) var(--rk-space-6); margin: 0; border: 0; border-top: 1px solid var(--rk-border-subtle); animation: season-reveal var(--rk-motion-base) var(--rk-ease-enter); }
   .advanced-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: var(--rk-space-5); }
   .instances-section, .operations-section { margin-top: var(--rk-space-8); }
   .section-heading { margin-bottom: var(--rk-space-4); }

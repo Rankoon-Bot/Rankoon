@@ -15,7 +15,7 @@ public sealed class SeasonSettingsValidationException(IReadOnlyList<SeasonSettin
 
 public sealed class SeasonScheduleGenerator
 {
-    public IReadOnlyList<SeasonScheduleCandidate> Generate(GuildSeasonSettings settings, string guildName, long firstSequence, int count, CultureInfo? culture = null)
+    public IReadOnlyList<SeasonScheduleCandidate> Generate(GuildSeasonSettings settings, string guildName, long firstSequence, int count, CultureInfo? culture = null, int occurrenceOffset = 0)
     {
         Validate(settings);
         if (settings.ScheduleKind == SeasonScheduleKind.Manual) return [];
@@ -26,10 +26,11 @@ public sealed class SeasonScheduleGenerator
         var result = new List<SeasonScheduleCandidate>(count);
         for (var index = 0; index < count; index++)
         {
-            var startLocal = AddPeriod(localStart, settings, index);
+            var occurrence = checked(occurrenceOffset + index);
+            var startLocal = AddPeriod(localStart, settings, occurrence);
             var endLocal = settings.ScheduleKind == SeasonScheduleKind.FixedDuration
                 ? startLocal.AddDays(settings.FixedDurationDays!.Value)
-                : AddPeriod(localStart, settings, index + 1).AddDays(-settings.GapDays);
+                : AddPeriod(localStart, settings, occurrence + 1).AddDays(-settings.GapDays);
             var startsAtUtc = ToUtc(startLocal, zone);
             var endsAtUtc = ToUtc(endLocal, zone);
             if (endsAtUtc <= startsAtUtc) throw new ArgumentException("The configured season duration must be positive.", nameof(settings));

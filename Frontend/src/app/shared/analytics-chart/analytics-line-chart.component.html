@@ -1,0 +1,52 @@
+<div class="analytics-chart" [attr.aria-busy]="loading()">
+  <div class="legend" role="group" [attr.aria-label]="'analytics.chart.legend' | transloco">
+    @for (item of series(); track item.key; let index = $index) {
+      <button type="button" [class.disabled]="hidden().has(item.key)" [attr.aria-pressed]="!hidden().has(item.key)" (click)="toggle(item.key)">
+        <i [class]="seriesClass(item, index)" aria-hidden="true"></i>{{ item.label }}
+      </button>
+    }
+  </div>
+  @if (loading() && !points().length) {
+    <div class="state" role="status"><span class="rk-skeleton"></span>{{ 'analytics.chart.loading' | transloco }}</div>
+  } @else if (error()) {
+    <div class="state error" role="alert">{{ error() }}</div>
+  } @else if (!points().length) {
+    <div class="state"><span class="mascot-slot" aria-hidden="true"></span>{{ 'analytics.chart.empty' | transloco }}</div>
+  } @else {
+    <div class="plot-wrap">
+      <span class="y-title">{{ yAxisLabel() }}</span>
+      <svg viewBox="0 0 1000 340" role="img" [attr.aria-label]="'analytics.chart.aria' | transloco:{ xAxis: xAxisLabel(), yAxis: yAxisLabel(), count: points().length }" (pointermove)="pointer($event)" (pointerdown)="pointer($event)" (pointerleave)="clear()">
+        @for (tick of ticks(); track $index) {
+          <line class="grid" x1="72" x2="960" [attr.y1]="24 + $index * 64" [attr.y2]="24 + $index * 64" />
+          <text class="axis-value" x="64" [attr.y]="29 + $index * 64">{{ formatter.value(tick, unit()) }}</text>
+        }
+        @for (item of visibleSeries(); track item.key; let index = $index) {
+          <path class="line" [class]="'line ' + seriesClass(item, index)" [attr.d]="path(item.key)" />
+        }
+        @if (selected(); as active) {
+          <line class="crosshair" [attr.x1]="active.x" [attr.x2]="active.x" y1="24" y2="280" />
+          @for (item of visibleSeries(); track item.key; let index = $index) { <circle class="marker" [class]="seriesClass(item, index)" [attr.cx]="active.x" [attr.cy]="y(active.values[item.key])" r="5" /> }
+        }
+        @for (item of plot(); track item.point.timestamp; let index = $index) {
+          <circle class="hit" [attr.cx]="item.x" cy="152" r="12" [attr.tabindex]="selectedIndex() === index || selectedIndex() === null && index === 0 ? 0 : -1" (focus)="select(index)" (keydown)="key($event, index)" (click)="select(index)"><title>{{ formatter.date(item.point.timestamp, true, timeZone()) }}</title></circle>
+        }
+        @for (index of xTicks(); track index) { <text class="x-tick" [attr.x]="plot()[index].x" y="310">{{ formatter.date(plot()[index].point.timestamp, false, timeZone()) }}</text> }
+        <text class="x-title" x="516" y="336">{{ xAxisLabel() }}</text>
+      </svg>
+      @if (selected(); as active) {
+        <div class="tooltip" role="status" [style.left.%]="active.x / 10">
+          <strong>{{ formatter.date(active.point.timestamp, true, timeZone()) }}</strong>
+          @if (active.point.isIncomplete) { <em>{{ 'analytics.chart.incomplete' | transloco }}</em> }
+          @for (item of visibleSeries(); track item.key; let index = $index) {
+            <span><i [class]="seriesClass(item, index)" aria-hidden="true"></i>{{ item.label }} <b>{{ formatter.value(active.values[item.key], unit()) }}</b>
+              @if (showDelta() && delta(item.key) !== null) { <small>({{ delta(item.key)! >= 0 ? '+' : '' }}{{ formatter.value(delta(item.key)!, unit()) }})</small> }
+            </span>
+          }
+        </div>
+      }
+    </div>
+    <details><summary>{{ 'analytics.accessibleData' | transloco }}</summary><ul>
+      @for (point of points(); track point.timestamp) { <li><time>{{ formatter.date(point.timestamp, true, timeZone()) }}</time>@for (item of visibleSeries(); track item.key) { <span>{{ item.label }}: {{ formatter.value(point.values[item.key] || 0, unit()) }}</span> }</li> }
+    </ul></details>
+  }
+</div>

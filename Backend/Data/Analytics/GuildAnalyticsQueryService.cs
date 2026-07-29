@@ -29,6 +29,7 @@ public interface IGuildAnalyticsQueryService
     Task<GuildAnalyticsXpResponse> XpAsync(ulong guildId, AnalyticsRange range, CancellationToken cancellationToken);
     Task<GuildAnalyticsVoiceResponse> VoiceAsync(ulong guildId, AnalyticsRange range, CancellationToken cancellationToken);
     Task<GuildAnalyticsFeaturesResponse> FeaturesAsync(ulong guildId, AnalyticsRange range, CancellationToken cancellationToken);
+    Task<GuildAnalyticsTimelineResponse> TimelineAsync(ulong guildId, AnalyticsTimelineQuery query, CancellationToken cancellationToken);
     Task<GuildAnalyticsAuditResponse> AuditAsync(ulong guildId, AnalyticsAuditQuery query, CancellationToken cancellationToken);
 }
 
@@ -45,6 +46,41 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
         var duration = range switch { AnalyticsRange.Last24Hours => TimeSpan.FromHours(24), AnalyticsRange.Last7Days => TimeSpan.FromDays(7), AnalyticsRange.Last30Days => TimeSpan.FromDays(30), AnalyticsRange.Last90Days => TimeSpan.FromDays(90), _ => throw new ArgumentOutOfRangeException(nameof(range)) };
         var from = to - duration;
         return new(Key(range), from, to, from - duration, from);
+    }
+
+    public async Task<GuildAnalyticsTimelineResponse> TimelineAsync(ulong guildId, AnalyticsTimelineQuery query, CancellationToken token)
+    {
+        var generatedAt = timeProvider.GetUtcNow();
+        var period = CreateTimelinePeriod(query, generatedAt);
+        var comparisonOffset = TimelineComparisonOffset(period);
+        var previousStart = period.Start - comparisonOffset;
+        var fromUtc = previousStart.UtcDateTime;
+        var toUtc = period.End.UtcDateTime;
+        var automaticGrant = Builders<XpLedgerEntry>.Filter.Eq(x => x.Kind, XpLedgerEntryKind.AutomaticGrant)
+            | (Builders<XpLedgerEntry>.Filter.Eq(x => x.Kind, null) & Builders<XpLedgerEntry>.Filter.Eq(x => x.ReversesGrantKey, null));
+        var ledgerFilter = Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, guildId)
+            & Builders<XpLedgerEntry>.Filter.Gte(x => x.OccurredAtUtc, fromUtc)
+            & Builders<XpLedgerEntry>.Filter.Lt(x => x.OccurredAtUtc, toUtc)
+            & Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, SeasonProjectionStatus.Applied)
+            & Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true)
+            & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true)
+            & Builders<XpLedgerEntry>.Filter.Gt(x => x.Amount, 0)
+            & automaticGrant;
+        var ledgerTask = database.XpLedger.Find(ledgerFilter)
+            .Project(x => new TimelineLedgerDocument(x.UserId, x.OccurredAtUtc, x.Source, x.Amount, x.PeriodStartsAtUtc, x.PeriodEndsAtUtc))
+            .ToListAsync(token);
+        var voiceDaysTask = database.VoiceActivities.Find(x => x.GuildId == guildId && x.DayStartUtc >= fromUtc.Date && x.DayStartUtc <= toUtc.Date).ToListAsync(token);
+        var migrationTask = database.VoiceLedgerMigrationStates.Find(x => x.Id == VoiceLedgerMigrationState.SingletonId).FirstOrDefaultAsync(token);
+        var levelUpsTask = database.LevelTransitionEvents.Find(x => x.GuildId == guildId && x.CreatedAtUtc >= fromUtc && x.CreatedAtUtc < toUtc && x.NewLevel > x.PreviousLevel)
+            .Project(x => x.CreatedAtUtc).ToListAsync(token);
+        await Task.WhenAll(ledgerTask, voiceDaysTask, migrationTask, levelUpsTask);
+
+        var compressedVoiceAuthoritative = VoiceLedgerMigrationService.IsCompressedVoiceAuthoritative(migrationTask.Result);
+        var rows = ledgerTask.Result.Where(x => x.Source != "voice" || !compressedVoiceAuthoritative)
+            .Select(x => new TimelineActivityRow(x.UserId, Utc(x.OccurredAtUtc), x.Source, x.Amount, VoiceSeconds(x), 1L)).ToList();
+        rows.AddRange(VoiceActivityReadModel.Select(voiceDaysTask.Result, compressedVoiceAuthoritative, fromUtc, toUtc)
+            .Select(x => new TimelineActivityRow(x.UserId, Utc(x.OccurredAtUtc), "voice", x.AwardedXp, x.EligibleSeconds, 1L)));
+        return BuildTimeline(period, generatedAt, rows, levelUpsTask.Result.Select(Utc).ToArray());
     }
 
     public Task<GuildAnalyticsOverviewResponse> OverviewAsync(ulong guildId, AnalyticsRange range, CancellationToken token) => CachedAsync<GuildAnalyticsOverviewResponse>($"analytics:overview:{guildId}:{range}", async () =>
@@ -219,6 +255,93 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
         return new(items.Where(x => x.OccurredAtUtc >= period.From.UtcDateTime).ToArray(), items.Where(x => x.OccurredAtUtc < period.From.UtcDateTime).ToArray());
     }
     private async Task<long> LevelUps(ulong guildId, DateTimeOffset from, DateTimeOffset to, CancellationToken token) => await database.LevelTransitionEvents.CountDocumentsAsync(x => x.GuildId == guildId && x.CreatedAtUtc >= from.UtcDateTime && x.CreatedAtUtc < to.UtcDateTime && x.NewLevel > x.PreviousLevel, cancellationToken: token);
+    internal static TimelinePeriod CreateTimelinePeriod(AnalyticsTimelineQuery query, DateTimeOffset now)
+    {
+        var utcNow = now.ToUniversalTime();
+        DateTimeOffset start;
+        DateTimeOffset end;
+        string range;
+        if (query.From is not null || query.To is not null)
+        {
+            if (query.From is not { } from || query.To is not { } to || query.Range is not (null or "" or "custom")) throw new ArgumentException("Invalid custom range.");
+            start = from.ToUniversalTime();
+            end = to.ToUniversalTime();
+            if (end <= start || end - start > TimeSpan.FromDays(180) || end > utcNow.AddMinutes(1)) throw new ArgumentException("Invalid custom range.");
+            range = "custom";
+        }
+        else
+        {
+            var days = query.Range switch { "24h" => 1, null or "" or "7d" => 7, "30d" => 30, "90d" => 90, _ => throw new ArgumentException("Invalid range.") };
+            start = query.Range == "24h" ? utcNow.AddDays(-1) : new DateTimeOffset(utcNow.UtcDateTime.Date.AddDays(-(days - 1)), TimeSpan.Zero);
+            end = utcNow;
+            range = query.Range is null or "" ? "7d" : query.Range;
+        }
+
+        var bucket = query.Bucket switch
+        {
+            null or "" or "auto" => end - start > TimeSpan.FromDays(30) ? TimelineBucketSize.Week : TimelineBucketSize.Day,
+            "day" => TimelineBucketSize.Day,
+            "week" => TimelineBucketSize.Week,
+            _ => throw new ArgumentException("Invalid bucket size.")
+        };
+        return new(range, start, end, bucket);
+    }
+
+    internal static GuildAnalyticsTimelineResponse BuildTimeline(TimelinePeriod period, DateTimeOffset generatedAt, IReadOnlyList<TimelineActivityRow> rows, IReadOnlyList<DateTimeOffset> levelUps)
+    {
+        var comparisonOffset = TimelineComparisonOffset(period);
+        var previousStart = period.Start - comparisonOffset;
+        var current = Aggregate(rows, levelUps, period.Start, period.End);
+        var previous = Aggregate(rows, levelUps, previousStart, period.Start);
+        var step = period.BucketSize == TimelineBucketSize.Day ? TimeSpan.FromDays(1) : TimeSpan.FromDays(7);
+        var buckets = new List<AnalyticsTimelineBucket>();
+        var previousBuckets = new List<AnalyticsTimelineBucket>();
+        for (var start = period.Start; start < period.End; start += step)
+        {
+            var nominalEnd = start + step;
+            var end = nominalEnd < period.End ? nominalEnd : period.End;
+            var values = Aggregate(rows, levelUps, start, end);
+            buckets.Add(new(start, end, end - start < step || end >= generatedAt && start < generatedAt, values.ActiveMembers, values.ActiveVoiceMembers, values.QualifiedVoiceSeconds, values.AwardedXp, values.Activities, values.LevelUps));
+            var previousBucketStart = start - comparisonOffset;
+            var previousBucketEnd = end - comparisonOffset;
+            var previousValues = Aggregate(rows, levelUps, previousBucketStart, previousBucketEnd);
+            previousBuckets.Add(new(previousBucketStart, previousBucketEnd, false, previousValues.ActiveMembers, previousValues.ActiveVoiceMembers, previousValues.QualifiedVoiceSeconds, previousValues.AwardedXp, previousValues.Activities, previousValues.LevelUps));
+        }
+        return new(period.Start, period.End, "UTC", period.BucketSize == TimelineBucketSize.Day ? "day" : "week", generatedAt, new(current, previous), buckets, previousBuckets);
+    }
+
+    private static AnalyticsTimelineAggregate Aggregate(IReadOnlyList<TimelineActivityRow> rows, IReadOnlyList<DateTimeOffset> levelUps, DateTimeOffset start, DateTimeOffset end)
+    {
+        var members = new HashSet<ulong>();
+        var voiceMembers = new HashSet<ulong>();
+        decimal voiceXp = 0, messageXp = 0, reactionXp = 0, otherXp = 0;
+        long voiceActivities = 0, messageActivities = 0, reactionActivities = 0, otherActivities = 0, voiceSeconds = 0;
+        foreach (var row in rows.Where(x => x.OccurredAt >= start && x.OccurredAt < end))
+        {
+            members.Add(row.UserId);
+            switch (TimelineSource(row.Source))
+            {
+                case "voice": voiceMembers.Add(row.UserId); voiceXp += row.AwardedXp; voiceActivities = checked(voiceActivities + row.ActivityCount); voiceSeconds = checked(voiceSeconds + row.QualifiedVoiceSeconds); break;
+                case "messages": messageXp += row.AwardedXp; messageActivities = checked(messageActivities + row.ActivityCount); break;
+                case "reactions": reactionXp += row.AwardedXp; reactionActivities = checked(reactionActivities + row.ActivityCount); break;
+                default: otherXp += row.AwardedXp; otherActivities = checked(otherActivities + row.ActivityCount); break;
+            }
+        }
+        var totalXp = voiceXp + messageXp + reactionXp + otherXp;
+        var totalActivities = checked(checked(voiceActivities + messageActivities) + checked(reactionActivities + otherActivities));
+        var levelUpCount = levelUps.LongCount(x => x >= start && x < end);
+        return new(members.Count, voiceMembers.Count, voiceSeconds, new(totalXp, voiceXp, messageXp, reactionXp, otherXp), new(totalActivities, voiceActivities, messageActivities, reactionActivities, otherActivities), levelUpCount);
+    }
+
+    private static long VoiceSeconds(TimelineLedgerDocument row) => row.Source == "voice" && row.PeriodStartsAtUtc != null && row.PeriodEndsAtUtc > row.PeriodStartsAtUtc
+        ? checked((long)(row.PeriodEndsAtUtc.Value - row.PeriodStartsAtUtc.Value).TotalSeconds)
+        : 0;
+    private static string TimelineSource(string source) => source switch { "voice" => "voice", "message" => "messages", "reaction" => "reactions", _ => "other" };
+    private static TimeSpan TimelineComparisonOffset(TimelinePeriod period) => period.Range switch { "24h" => TimeSpan.FromDays(1), "7d" => TimeSpan.FromDays(7), "30d" => TimeSpan.FromDays(30), "90d" => TimeSpan.FromDays(90), _ => period.End - period.Start };
+    internal enum TimelineBucketSize { Day, Week }
+    internal sealed record TimelinePeriod(string Range, DateTimeOffset Start, DateTimeOffset End, TimelineBucketSize BucketSize);
+    internal sealed record TimelineActivityRow(ulong UserId, DateTimeOffset OccurredAt, string Source, decimal AwardedXp, long QualifiedVoiceSeconds, long ActivityCount);
+    private sealed record TimelineLedgerDocument(ulong UserId, DateTime OccurredAtUtc, string Source, decimal Amount, DateTime? PeriodStartsAtUtc, DateTime? PeriodEndsAtUtc);
     private sealed record ParticipantAggregate(ulong UserId);
     private sealed record XpAggregate(DateTime Day, string Source, ulong UserId, decimal Value, long Count);
     private sealed record BucketAggregate(DateTime BucketStartUtc, GuildAnalyticsMetric Metric, GuildAnalyticsFeature Feature, GuildAnalyticsOutcome Outcome, string Operation, string Source, string Reason, ulong? ChannelId, long Count, long Value, double DurationSeconds, DateTime LastAt);

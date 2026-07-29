@@ -293,6 +293,7 @@ export interface Season {
   closedAtUtc?: string | null;
   previousSeasonId?: string | null;
   scheduleRevision?: number;
+  settingsSnapshot?: Pick<SeasonSettings, 'scheduleKind'>;
   carryOverApplied?: boolean;
   finalized?: boolean;
 }

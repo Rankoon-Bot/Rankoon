@@ -15,7 +15,7 @@ public sealed record DashboardActivitySummary(long ActiveMemberCount, decimal Xp
 public sealed record DashboardComparisonSummary(DashboardMetricComparison ActiveMembers, DashboardMetricComparison XpAwarded, DashboardMetricComparison VoiceSeconds, DashboardMetricComparison QualifiedActivities);
 public sealed record DashboardMetricComparison(decimal? PercentageChange, bool HasIncreaseFromZero);
 public sealed record DashboardActivitySource(string Source, long EventCount, decimal XpAwarded, double Percentage);
-public sealed record DashboardTrendPoint(DateTimeOffset DateUtc, decimal XpAwarded, long ActiveMemberCount, long VoiceSeconds);
+public sealed record DashboardTrendPoint(DateTimeOffset DateUtc, decimal XpAwarded, long ActiveMemberCount, long VoiceSeconds, long QualifiedActivityCount);
 public sealed record DashboardModuleSummary(string ModuleId, bool Enabled, DashboardOperationalStatus Status, string StatusReasonKey, IReadOnlyDictionary<string, string> StatusParameters, IReadOnlyList<DashboardModuleMetric> Metrics, DateTimeOffset? LastActivityAtUtc);
 public sealed record DashboardModuleMetric(string Key, string Value);
 public sealed record DashboardRecentEvent(string Id, string Name, string Outcome, string? Severity, string? ModuleId, string? ActorId, string? ActorDisplayName, string? SubjectId, string? SubjectDisplayName, string? ChannelId, string? ChannelName, IReadOnlyDictionary<string, string> Parameters, DateTimeOffset OccurredAtUtc);

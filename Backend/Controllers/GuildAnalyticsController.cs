@@ -14,6 +14,14 @@ public sealed class GuildAnalyticsController(IGuildAuthorizationService authoriz
     [HttpGet("voice")] public Task<IActionResult> Voice(string guildId, [FromQuery] string? range) => Page(guildId, range, analytics.VoiceAsync);
     [HttpGet("features")] public Task<IActionResult> Features(string guildId, [FromQuery] string? range) => Page(guildId, range, analytics.FeaturesAsync);
 
+    [HttpGet("timeline")]
+    public async Task<IActionResult> Timeline(string guildId, [FromQuery] AnalyticsTimelineQuery query)
+    {
+        var access = await Access(guildId); if (access.Error != null) return access.Error;
+        try { return Ok(await analytics.TimelineAsync(access.Id, query, HttpContext.RequestAborted)); }
+        catch (ArgumentException) { return this.ApiError("reports.invalidQuery"); }
+    }
+
     [HttpGet("audit")]
     public async Task<IActionResult> Audit(string guildId, [FromQuery] AnalyticsAuditQuery query)
     {

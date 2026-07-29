@@ -269,7 +269,6 @@ describe('SeasonConfigComponent', () => {
     expect(component.namePreview(settings, 3)).toEqual([
       '001 Beta 2030',
       '002 Alpha 2030',
-      '003 Beta 2030',
     ]);
 
     settings.rotation = ['Alpha', ' alpha '];
@@ -282,6 +281,51 @@ describe('SeasonConfigComponent', () => {
       'seasons.validation.tokens',
     );
     expect(component.namePreview(settings)).toEqual([]);
+  });
+
+  it('uses button quicklinks for in-page navigation without changing the route', () => {
+    flushInitialLoad();
+    fixture.detectChanges();
+    const navigation = fixture.nativeElement.querySelector('.step-nav') as HTMLElement;
+    const buttons = navigation.querySelectorAll('button');
+
+    expect(navigation.querySelector('a')).toBeNull();
+    expect(buttons.length).toBe(5);
+    spyOn(component, 'scrollToStep');
+    (buttons[2] as HTMLButtonElement).click();
+    expect(component.scrollToStep).toHaveBeenCalledWith(3);
+  });
+
+  it('keeps the draft when a guild switch is cancelled', () => {
+    flushInitialLoad();
+    component.settings()!.gapDays = 2;
+    const confirm = spyOn(window, 'confirm').and.returnValue(false);
+    const otherGuild: Guild = { ...guild, id: 'guild-2', name: 'Other guild' };
+
+    TestBed.inject(AppStore).setSelectedGuild(otherGuild);
+    fixture.detectChanges();
+
+    expect(confirm).toHaveBeenCalled();
+    expect(TestBed.inject(AppStore).selectedGuild()?.id).toBe('guild-1');
+    expect(component.settings()!.gapDays).toBe(2);
+    expect(component.dirty()).toBeTrue();
+    http.expectNone(`${environment.apiBaseUrl}/guilds/guild-2/xp/seasons/config`);
+  });
+
+  it('preserves edits made while a lifecycle action is running', () => {
+    flushInitialLoad();
+    const season = createSeason(2, 'Scheduled');
+    component.requestAction('start', season);
+    component.confirmAction();
+    const action = http.expectOne(`${seasonsUrl}/season-2/start`);
+    component.settings()!.gapDays = 3;
+
+    action.flush({ ...season, status: 'Active' });
+
+    expect(component.settings()!.gapDays).toBe(3);
+    expect(component.dirty()).toBeTrue();
+    http.expectOne(seasonsUrl).flush([{ ...season, status: 'Active' }]);
+    http.expectNone(configUrl);
   });
 
   it('calculates initial and carry-over XP examples', () => {
@@ -352,7 +396,7 @@ describe('SeasonConfigComponent', () => {
 
     component.requestAction('start', season);
     expect(dialog.open).toHaveBeenCalled();
-    expect(component.pending()).toEqual({ action: 'start', season });
+    expect(component.pending()).toEqual({ action: 'start', season, guildId: 'guild-1' });
 
     component.confirmAction();
     const action = http.expectOne(`${seasonsUrl}/season-2/start`);

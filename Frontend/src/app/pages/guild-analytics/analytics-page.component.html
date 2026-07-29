@@ -1,46 +1,35 @@
 <main class="analytics-page">
   <header class="rk-page-header">
-    <div>
-      <p class="rk-page-header__eyebrow">{{ 'analytics.eyebrow' | transloco }}</p>
-      <h1>{{ ('analytics.pages.' + page() + '.title') | transloco }}</h1>
-      <p class="rk-page-header__description">{{ ('analytics.pages.' + page() + '.description') | transloco }}</p>
-    </div>
-    <div class="range" role="group" [attr.aria-label]="'analytics.range' | transloco">
-      @for (option of ranges; track option) {
-        <button type="button" [attr.aria-pressed]="range() === option" [class.active]="range() === option" (click)="rangeChange.emit(option)">{{ ('analytics.ranges.' + option) | transloco }}</button>
-      }
-    </div>
+    <div><p class="rk-page-header__eyebrow">{{ 'analytics.eyebrow' | transloco }}</p><h1>{{ ('analytics.pages.' + page() + '.title') | transloco }}</h1><p class="rk-page-header__description">{{ ('analytics.pages.' + page() + '.description') | transloco }}</p></div>
+    <button class="rk-button rk-button--secondary filter-toggle" type="button" [attr.aria-expanded]="filtersOpen()" (click)="filtersOpen.set(!filtersOpen())">{{ 'analytics.filters' | transloco }}</button>
   </header>
 
-  @if (loading() && !data()) {
-    <section class="rk-panel state" role="status"><span class="rk-skeleton"></span><p>{{ 'analytics.loading' | transloco }}</p></section>
-  } @else if (error() && !data()) {
-    <section class="rk-notice rk-notice--danger state" role="alert"><p>{{ error() }}</p><button class="rk-button" type="button" (click)="retry.emit()">{{ 'common.retry' | transloco }}</button></section>
-  } @else {
-    @if (data(); as report) {
-    @if (report.kpis.length === 0 && report.trend.length === 0 && report.breakdown.length === 0 && report.insights.length === 0) {
-      <section class="rk-panel state"><div class="mascot-slot" aria-hidden="true"></div><h2>{{ 'analytics.empty.title' | transloco }}</h2><p>{{ 'analytics.empty.description' | transloco }}</p></section>
-    } @else {
-      <section class="kpis" [attr.aria-label]="'analytics.kpis' | transloco">
-        @for (kpi of kpis(); track kpi.code) {
-          <article class="rk-panel"><span>{{ label('kpis', kpi.code) }}</span><strong>{{ kpi.value | number }}</strong><small [class.positive]="kpi.direction === 'up'" [class.negative]="kpi.direction === 'down'">{{ kpi.changePercent === null ? ('analytics.noComparison' | transloco) : (kpi.changePercent | number:'1.0-1') + '%' }} &middot; {{ 'analytics.previous' | transloco }} {{ kpi.previousValue === null ? '-' : (kpi.previousValue | number) }}</small></article>
-        }
-      </section>
-      <section class="content-grid">
-        <article class="rk-panel trend-panel">
-          <div class="section-heading"><div><h2>{{ 'analytics.trend' | transloco }}</h2><p>{{ 'analytics.trendHint' | transloco }}</p></div><span>{{ locale.date(report.generatedAt, { dateStyle: 'medium', timeStyle: 'short' }) }}</span></div>
-          @if (report.trend.length) {
-            <div class="bars" role="img" [attr.aria-label]="'analytics.trendAria' | transloco:{ count: report.trend.length }">
-              @for (point of report.trend; track point.timestamp) { <span [style.height.%]="point.value / maxTrend() * 100" aria-hidden="true"></span> }
-            </div>
-            <details><summary>{{ 'analytics.accessibleData' | transloco }}</summary><ul class="data-list">@for (point of report.trend; track point.timestamp) { <li><time>{{ locale.date(point.timestamp, { dateStyle: 'medium', timeStyle: 'short' }) }}</time><strong>{{ point.value | number }}</strong><span>{{ 'analytics.previous' | transloco }}: {{ point.previousValue === null ? '-' : (point.previousValue | number) }}</span></li> }</ul></details>
-          } @else { <p class="muted">{{ 'analytics.empty.trend' | transloco }}</p> }
-        </article>
-        <article class="rk-panel"><h2>{{ 'analytics.breakdown' | transloco }}</h2><ul class="data-list">@for (item of report.breakdown; track item.code + item.label) { <li><span>{{ item.label || label('breakdowns', item.code) }}</span><strong>{{ item.value | number }}</strong><small>{{ item.changePercent === null ? ('analytics.noComparison' | transloco) : (item.changePercent | number:'1.0-1') + '%' }}</small></li> } @empty { <li class="muted">{{ 'analytics.empty.breakdown' | transloco }}</li> }</ul></article>
-      </section>
-      <section class="rk-panel"><h2>{{ 'analytics.insights' | transloco }}</h2><ul class="insights">@for (item of report.insights; track item.code) { <li [class]="item.severity"><strong>{{ label('insights', item.code) }}</strong><p>{{ insight(item.code, item.context) }}</p><code>{{ item.code }}</code></li> } @empty { <li class="muted">{{ 'analytics.empty.insights' | transloco }}</li> }</ul></section>
-    }
-    @if (error()) { <div class="rk-notice rk-notice--danger" role="alert">{{ error() }}</div> }
-    }
+  <section class="filters rk-panel" [class.open]="filtersOpen()" [attr.aria-label]="'analytics.filters' | transloco">
+    <fieldset><legend>{{ 'analytics.range' | transloco }}</legend><div class="segmented">@for (option of ranges; track option) { <button type="button" [attr.aria-pressed]="range() === option" [class.active]="range() === option" (click)="setRange(option)">{{ ('analytics.ranges.' + option) | transloco }}</button> }</div></fieldset>
+    @if (range() === 'custom') { <label>{{ 'analytics.from' | transloco }}<input type="datetime-local" [ngModel]="customFrom()" (ngModelChange)="customFrom.set($event)" /></label><label>{{ 'analytics.to' | transloco }}<input type="datetime-local" [ngModel]="customTo()" (ngModelChange)="customTo.set($event)" /></label> }
+    <label>{{ 'analytics.metric' | transloco }}<select [ngModel]="metric()" (ngModelChange)="setMetric($event)">@for (option of metrics; track option.key) { <option [value]="option.key">{{ ('analytics.metrics.' + option.key) | transloco }}</option> }</select></label>
+    <label>{{ 'analytics.source' | transloco }}<select [disabled]="metric() !== 'totalXp' && metric() !== 'activities'" [ngModel]="source()" (ngModelChange)="setSource($event)">@for (option of sources; track option) { <option [value]="option">{{ ('analytics.sources.' + option) | transloco }}</option> }</select></label>
+    <label>{{ 'analytics.bucket' | transloco }}<select [ngModel]="bucket()" (ngModelChange)="setBucket($event)">@for (option of buckets; track option) { <option [value]="option">{{ ('analytics.buckets.' + option) | transloco }}</option> }</select></label>
+    <label class="check"><input type="checkbox" [ngModel]="compare()" (ngModelChange)="compare.set($event)" />{{ 'analytics.compare' | transloco }}</label>
+    <button class="rk-button" type="button" [disabled]="loading() || range() === 'custom' && (!customFrom() || !customTo())" (click)="range() === 'custom' ? applyCustom() : refresh()">{{ 'analytics.refresh' | transloco }}</button>
+  </section>
+
+  @if (metric() === 'totalXp') { <div class="view-switch" role="group" [attr.aria-label]="'analytics.xpView' | transloco"><button type="button" [class.active]="xpView() === 'total'" [attr.aria-pressed]="xpView() === 'total'" (click)="xpView.set('total')">{{ 'analytics.views.total' | transloco }}</button><button type="button" [class.active]="xpView() === 'sources'" [attr.aria-pressed]="xpView() === 'sources'" (click)="xpView.set('sources')">{{ 'analytics.views.sources' | transloco }}</button></div> }
+
+  @if (summary(); as cards) {
+    <section class="summaries" [attr.aria-label]="'analytics.summary.title' | transloco">
+      <article class="rk-panel"><span>{{ 'analytics.summary.total' | transloco }}</span><strong>{{ value(cards.total) }}</strong></article>
+      <article class="rk-panel"><span>{{ ('analytics.summary.average.' + (data()?.bucketSize || 'day')) | transloco }}</span><strong>{{ value(cards.average) }}</strong></article>
+      <article class="rk-panel"><span>{{ ('analytics.summary.strongest.' + (data()?.bucketSize || 'day')) | transloco }}</span><strong>{{ cards.strongest ? value(filteredValue(cards.strongest)) : '-' }}</strong><small>{{ strongestLabel(cards.strongest) }}</small></article>
+      <article class="rk-panel"><span>{{ 'analytics.summary.change' | transloco }}</span><strong>{{ cards.change === null ? ('analytics.noComparison' | transloco) : formatter.value(cards.change, 'percent') }}</strong>@if (cards.incomplete) { <small>{{ 'analytics.summary.incompleteComparison' | transloco }}</small> }</article>
+    </section>
   }
+
+  <section class="rk-panel chart-panel">
+    <div class="section-heading"><div><h2>{{ metricLabel(metric()) }}</h2><p>@if (data(); as report) { {{ 'analytics.chartDescription' | transloco:{ metric: metricLabel(metric()), bucket: (('analytics.buckets.' + report.bucketSize) | transloco), from: formatter.date(report.rangeStart, false, report.timeZone), to: formatter.date(report.rangeEnd, false, report.timeZone), timeZone: report.timeZone } }} }</p></div>@if (data(); as report) { <span>{{ 'analytics.lastUpdated' | transloco:{ value: formatter.dateTime(report.generatedAt, report.timeZone) } }}</span> }</div>
+    <app-analytics-line-chart [points]="chartPoints()" [series]="chartSeries()" [unit]="selectedMetric().unit" [xAxisLabel]="'analytics.axes.date' | transloco" [yAxisLabel]="metricLabel(metric())" [timeZone]="data()?.timeZone || 'UTC'" [loading]="loading()" [error]="error()" />
+    @if (error()) { <button class="rk-button" type="button" (click)="refresh()">{{ 'common.retry' | transloco }}</button> }
+  </section>
+
+  <section class="definitions rk-panel"><h2>{{ 'analytics.definitions.title' | transloco }}</h2><dl><div><dt>{{ 'analytics.metrics.activeMembers' | transloco }}</dt><dd>{{ 'analytics.definitions.activeMembers' | transloco }}</dd></div><div><dt>{{ 'analytics.metrics.qualifiedVoice' | transloco }}</dt><dd>{{ 'analytics.definitions.qualifiedVoice' | transloco }}</dd></div><div><dt>{{ 'analytics.metrics.activities' | transloco }}</dt><dd>{{ 'analytics.definitions.activities' | transloco }}</dd></div><div><dt>{{ 'analytics.metrics.totalXp' | transloco }}</dt><dd>{{ 'analytics.definitions.awardedXp' | transloco }}</dd></div></dl></section>
 </main>

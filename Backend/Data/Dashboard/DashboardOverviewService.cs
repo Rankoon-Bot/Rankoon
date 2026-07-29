@@ -68,10 +68,15 @@ public sealed class DashboardOverviewService(RankoonDbContext database, IGuildDi
     private static bool IsQualifiedGrant(XpLedgerEntry x) => x.Amount > 0 && XpLedgerSemantics.GetEffectiveKind(x) == XpLedgerEntryKind.AutomaticGrant;
     internal static DashboardActivitySummary BuildActivity(IReadOnlyList<ActivityRow> rows, DateTime start, int days, IReadOnlyList<ReportEvent> reports)
     {
-        var sources = rows.GroupBy(x => Source(x.Source)).Select(g => new DashboardActivitySource(g.Key, g.LongCount(), g.Sum(x => x.Amount), rows.Count == 0 ? 0 : Math.Round(g.Count() * 100d / rows.Count, 1))).OrderByDescending(x => x.XpAwarded).ToArray();
+        var totalXp = rows.Sum(x => x.Amount);
+        var sources = rows.GroupBy(x => Source(x.Source)).Select(g =>
+        {
+            var sourceXp = g.Sum(x => x.Amount);
+            return new DashboardActivitySource(g.Key, g.LongCount(), sourceXp, totalXp == 0 ? 0 : Math.Round((double)(sourceXp / totalXp * 100m), 1));
+        }).OrderByDescending(x => x.XpAwarded).ToArray();
         var trend = Enumerable.Range(0, days).Select(i => {
             var date = start.AddDays(i); var day = rows.Where(x => x.OccurredAtUtc.Date == date.Date).ToArray();
-            return new DashboardTrendPoint(new DateTimeOffset(date, TimeSpan.Zero), day.Sum(x => x.Amount), day.Select(x => x.UserId).Distinct().LongCount(), day.Sum(x => x.VoiceSeconds));
+            return new DashboardTrendPoint(new DateTimeOffset(date, TimeSpan.Zero), day.Sum(x => x.Amount), day.Select(x => x.UserId).Distinct().LongCount(), day.Sum(x => x.VoiceSeconds), day.LongLength);
         }).ToArray();
         var temporary = reports.LongCount(x => x.Name == ReportNames.VoiceChannelCreated && x.OccurredAt >= start);
         return new(rows.Select(x => x.UserId).Distinct().LongCount(), rows.Sum(x => x.Amount), rows.Sum(x => x.VoiceSeconds), rows.LongCount(), temporary, null, sources, trend);

@@ -7,7 +7,7 @@
         <div><strong>{{ season.name }}</strong><span>{{ 'seasons.instances.sequence' | transloco: { count: season.sequence } }}</span></div>
         <div><span>{{ 'seasons.instances.period' | transloco }}</span><strong>{{ format(season.startsAtUtc) }} – {{ format(season.endsAtUtc) }}</strong></div>
         <span class="status"><span aria-hidden="true"></span>{{ ('seasons.status.' + season.status.toLowerCase()) | transloco }}</span>
-        <span class="origin">{{ 'seasons.instances.automatic' | transloco }}</span>
+        <span class="origin">{{ (season.settingsSnapshot?.scheduleKind === 'Manual' ? 'seasons.schedules.manual' : 'seasons.instances.automatic') | transloco }}</span>
       </article>
     }
   </div>

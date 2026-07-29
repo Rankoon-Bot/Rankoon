@@ -1,3 +1,5 @@
-import { Component, inject } from '@angular/core'; import { Observable } from 'rxjs'; import { AnalyticsPageComponent } from './analytics-page.component'; import { AnalyticsPageBase } from './analytics-page.base'; import { AnalyticsRange, GuildAnalyticsFeatures } from './guild-analytics.models'; import { GuildAnalyticsService } from './guild-analytics.service';
-@Component({ selector: 'app-analytics-features', standalone: true, imports: [AnalyticsPageComponent], template: `<app-analytics-page page="features" [range]="range()" [data]="data()" [loading]="loading()" [error]="error()" (rangeChange)="changeRange($event)" (retry)="load()" />` })
-export class AnalyticsFeaturesComponent extends AnalyticsPageBase<GuildAnalyticsFeatures> { private readonly api = inject(GuildAnalyticsService); constructor() { super(); this.initialize(); } protected request(id: string, range: AnalyticsRange): Observable<GuildAnalyticsFeatures> { return this.api.features(id, range); } }
+import { Component } from '@angular/core';
+import { AnalyticsPageComponent } from './analytics-page.component';
+
+@Component({ selector: 'app-analytics-features', standalone: true, imports: [AnalyticsPageComponent], template: '<app-analytics-page page="features" />' })
+export class AnalyticsFeaturesComponent {}

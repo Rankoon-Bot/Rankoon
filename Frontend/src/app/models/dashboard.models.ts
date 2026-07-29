@@ -15,6 +15,6 @@ export interface DashboardOverview {
 }
 export interface DashboardAttentionItem { key: string; severity: 'Info' | 'Warning' | 'Critical'; moduleId: string; titleKey: string; descriptionKey: string; parameters: Record<string, string>; action: { actionKey: string; moduleId: string; resourceId: string | null } | null; }
 export interface DashboardActivitySource { source: string; eventCount: number; xpAwarded: number; percentage: number; }
-export interface DashboardTrendPoint { dateUtc: string; xpAwarded: number; activeMemberCount: number; voiceSeconds: number; }
+export interface DashboardTrendPoint { dateUtc: string; xpAwarded: number; activeMemberCount: number; voiceSeconds: number; qualifiedActivityCount: number; }
 export interface DashboardModule { moduleId: string; enabled: boolean; status: DashboardStatus; statusReasonKey: string; statusParameters: Record<string, string>; metrics: { key: string; value: string }[]; lastActivityAtUtc: string | null; }
 export interface DashboardRecentEvent { id: string; name: string; outcome: string; severity: string | null; moduleId: string | null; actorId: string | null; actorDisplayName: string | null; subjectId: string | null; subjectDisplayName: string | null; channelId: string | null; channelName: string | null; parameters: Record<string, string>; occurredAtUtc: string; }
