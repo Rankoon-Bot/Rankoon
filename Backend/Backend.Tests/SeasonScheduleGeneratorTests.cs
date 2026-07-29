@@ -219,6 +219,48 @@ public sealed class SeasonScheduleGeneratorTests
         Assert.Equal(new[] { "Season 1", "Season 2", "Season 3", "Season 4", "Season 5", "Season 6" }, generated.Select(x => x.Name));
     }
 
+    [Fact]
+    public void Fresh_plan_starts_with_the_first_preview_occurrence()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        settings.FixedDurationDays = 30;
+
+        var preview = new SeasonScheduleGenerator().Generate(settings, "Guild", 1, 3);
+        var planned = SeasonSchedulePlanner.GenerateMissing(settings, [], 3, new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(preview, planned);
+        Assert.Equal(0, planned[0].ScheduleOccurrence);
+        Assert.Equal(1, planned[0].Sequence);
+    }
+
+    [Fact]
+    public void Deleted_schedule_watermark_prevents_a_hard_deleted_season_from_reappearing()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        settings.FixedDurationDays = 30;
+        settings.NextSequenceAfterDeletion = 3;
+        settings.NextScheduleOccurrenceAfterDeletion = 2;
+
+        var planned = SeasonSchedulePlanner.GenerateMissing(settings, [], 1, new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(3, planned[0].Sequence);
+        Assert.Equal(2, planned[0].ScheduleOccurrence);
+        Assert.Equal(new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc), planned[0].StartsAtUtc);
+    }
+
+    [Fact]
+    public void Expired_occurrences_are_skipped_without_skipping_season_one()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        settings.FixedDurationDays = 30;
+
+        var planned = SeasonSchedulePlanner.GenerateMissing(settings, [], 1, new DateTime(2027, 2, 15, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(1, planned[0].Sequence);
+        Assert.Equal(1, planned[0].ScheduleOccurrence);
+        Assert.Equal(new DateTime(2027, 1, 31, 0, 0, 0, DateTimeKind.Utc), planned[0].StartsAtUtc);
+    }
+
     private static GuildSeasonSettings Settings(SeasonScheduleKind kind, string timeZoneId, DateTime anchor) => new()
     {
         GuildId = 1,

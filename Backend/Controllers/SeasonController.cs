@@ -50,7 +50,7 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
         if (count is < 1 or > 24) return this.ApiError("season.invalidSchedule", errors: new Dictionary<string, IReadOnlyList<ApiValidationError>>(StringComparer.Ordinal) { ["count"] = [ApiErrorFactory.Validation("season.invalidSchedule")] });
         settings.GuildId = id;
-        try { return Ok(new SeasonScheduleGenerator().Generate(settings, "Guild", 1, count)); }
+        try { return Ok(SeasonSchedulePlanner.GenerateMissing(settings, [], count, timeProvider.GetUtcNow().UtcDateTime)); }
         catch (SeasonSettingsValidationException exception) { return ValidationError(exception); }
         catch (TimeZoneNotFoundException) { return this.ApiError("season.invalidTimeZone"); }
         catch (ArgumentException) { return this.ApiError("season.invalidSchedule"); }
@@ -87,7 +87,7 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
         if (settings.ScheduleKind == SeasonScheduleKind.Manual && !await IsAdministratorAsync(id)) return Forbid();
         if (await OverlapsAsync(id, season.StartsAtUtc, season.EndsAtUtc, null)) return this.ApiError("season.planConflict");
         var next = await database.GuildSeasons.Find(x => x.GuildId == id).SortByDescending(x => x.Sequence).FirstOrDefaultAsync(HttpContext.RequestAborted);
-        season.Id = null; season.GuildId = id; season.Sequence = next?.Sequence + 1 ?? 1; season.Status = SeasonStatus.Scheduled; season.CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
+        season.Id = null; season.GuildId = id; season.Sequence = Math.Max(next?.Sequence + 1 ?? 1, settings.NextSequenceAfterDeletion); season.Status = SeasonStatus.Scheduled; season.CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
         season.SettingsSnapshot = settings;
         await database.GuildSeasons.InsertOneAsync(season, cancellationToken: HttpContext.RequestAborted);
         return Ok(season);
@@ -103,29 +103,17 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
         if (settings.ScheduleKind == SeasonScheduleKind.Manual) return this.ApiError("season.manualSchedule");
         try
         {
-            var now = timeProvider.GetUtcNow().UtcDateTime;
             var existing = await database.GuildSeasons.Find(x => x.GuildId == id).SortBy(x => x.Sequence).ToListAsync(HttpContext.RequestAborted);
             var missing = request.Count - SeasonCoordinator.CountPrepared(existing);
             if (missing <= 0) return Ok(Array.Empty<GuildSeason>());
-            var firstSequence = existing.Count == 0 ? 1 : existing.Max(x => x.Sequence) + 1;
-            const int batchSize = 120;
-            const int maximumOccurrences = 36_600;
-            var generated = new List<SeasonScheduleCandidate>();
-            var generator = new SeasonScheduleGenerator();
-            for (var offset = 0; offset < maximumOccurrences && generated.Count < missing; offset += batchSize)
-            {
-                HttpContext.RequestAborted.ThrowIfCancellationRequested();
-                var batch = generator.Generate(settings, "Guild", offset + 1, Math.Min(batchSize, maximumOccurrences - offset), occurrenceOffset: offset);
-                generated.AddRange(batch.Where(candidate => candidate.EndsAtUtc > now && existing.All(season => candidate.EndsAtUtc <= season.StartsAtUtc || candidate.StartsAtUtc >= season.EndsAtUtc)).Take(missing - generated.Count));
-            }
+            var now = timeProvider.GetUtcNow().UtcDateTime;
+            var generated = SeasonSchedulePlanner.GenerateMissing(settings, existing, request.Count, now);
             if (generated.Count != missing) return this.ApiError("season.planConflict");
             var previousSeasonId = existing.OrderByDescending(x => x.Sequence).FirstOrDefault()?.Id;
             var planned = new List<GuildSeason>();
             foreach (var candidate in generated)
             {
-                var sequence = firstSequence + planned.Count;
-                var name = SeasonNamingService.Format(settings, sequence, candidate.StartsAtUtc, candidate.EndsAtUtc, "Guild");
-                var plannedSeason = new GuildSeason { Id = ObjectId.GenerateNewId().ToString(), GuildId = id, Sequence = sequence, Name = name, StartsAtUtc = candidate.StartsAtUtc, EndsAtUtc = candidate.EndsAtUtc, CreatedAtUtc = now, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, SettingsSnapshot = settings, PreviousSeasonId = previousSeasonId };
+                var plannedSeason = new GuildSeason { Id = ObjectId.GenerateNewId().ToString(), GuildId = id, Sequence = candidate.Sequence, Name = candidate.Name, StartsAtUtc = candidate.StartsAtUtc, EndsAtUtc = candidate.EndsAtUtc, CreatedAtUtc = now, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, ScheduleOccurrence = candidate.ScheduleOccurrence, SettingsSnapshot = settings, PreviousSeasonId = previousSeasonId };
                 planned.Add(plannedSeason);
                 previousSeasonId = plannedSeason.Id;
             }

@@ -38,6 +38,8 @@ public sealed class GuildSeasonSettings
     [BsonElement("rotation")] public List<string> Rotation { get; set; } = [];
     [BsonElement("rotation_offset")] public int RotationOffset { get; set; }
     [BsonElement("season_level_roles")] public List<SeasonLevelRole> SeasonLevelRoles { get; set; } = [];
+    [BsonElement("next_sequence_after_deletion"), BsonIgnoreIfDefault] public long NextSequenceAfterDeletion { get; set; }
+    [BsonElement("next_schedule_occurrence_after_deletion"), BsonIgnoreIfDefault] public int NextScheduleOccurrenceAfterDeletion { get; set; }
     [BsonElement("revision")] public long Revision { get; set; }
     [BsonElement("updated_at_utc")] public DateTime UpdatedAtUtc { get; set; }
 }
@@ -74,6 +76,7 @@ public sealed class GuildSeason
     [BsonElement("closed_at_utc")] public DateTime? ClosedAtUtc { get; set; }
     [BsonElement("previous_season_id"), BsonRepresentation(BsonType.ObjectId)] public string? PreviousSeasonId { get; set; }
     [BsonElement("schedule_revision")] public long ScheduleRevision { get; set; }
+    [BsonElement("schedule_occurrence"), BsonIgnoreIfNull] public int? ScheduleOccurrence { get; set; }
     [BsonElement("settings_snapshot")] public GuildSeasonSettings SettingsSnapshot { get; set; } = new();
     [BsonElement("carry_over_applied")] public bool CarryOverApplied { get; set; }
     [BsonElement("finalized")] public bool Finalized { get; set; }

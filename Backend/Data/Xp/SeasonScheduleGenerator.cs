@@ -1,10 +1,11 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Rankoon.Data.Model;
 
 namespace Rankoon.Data.Xp;
 
-public sealed record SeasonScheduleCandidate(long Sequence, DateTime StartsAtUtc, DateTime EndsAtUtc, string Name);
+public sealed record SeasonScheduleCandidate(long Sequence, DateTime StartsAtUtc, DateTime EndsAtUtc, string Name, [property: JsonIgnore] int ScheduleOccurrence = 0);
 public sealed record SeasonSettingsValidationError(string Field, string ErrorKey);
 
 public sealed class SeasonSettingsValidationException(IReadOnlyList<SeasonSettingsValidationError> errors)
@@ -35,7 +36,7 @@ public sealed class SeasonScheduleGenerator
             var endsAtUtc = ToUtc(endLocal, zone);
             if (endsAtUtc <= startsAtUtc) throw new ArgumentException("The configured season duration must be positive.", nameof(settings));
             var sequence = firstSequence + index;
-            result.Add(new(sequence, startsAtUtc, endsAtUtc, SeasonNamingService.Format(settings, sequence, startsAtUtc, endsAtUtc, guildName, culture)));
+            result.Add(new(sequence, startsAtUtc, endsAtUtc, SeasonNamingService.Format(settings, sequence, startsAtUtc, endsAtUtc, guildName, culture), occurrence));
         }
         return result;
     }
@@ -139,6 +140,38 @@ public sealed class SeasonScheduleGenerator
             return new DateTimeOffset(local, zone.GetAmbiguousTimeOffsets(local).Max()).UtcDateTime;
         }
         return TimeZoneInfo.ConvertTimeToUtc(local, zone);
+    }
+}
+
+public static class SeasonSchedulePlanner
+{
+    private const int BatchSize = 120;
+    private const int MaximumOccurrences = 36_600;
+
+    public static IReadOnlyList<SeasonScheduleCandidate> GenerateMissing(GuildSeasonSettings settings, IReadOnlyCollection<GuildSeason> existing, int desiredPreparedCount, DateTime notEndedAfterUtc)
+    {
+        var missing = desiredPreparedCount - SeasonCoordinator.CountPrepared(existing);
+        if (missing <= 0 || settings.ScheduleKind == SeasonScheduleKind.Manual) return [];
+
+        var firstSequence = Math.Max(existing.Select(x => x.Sequence + 1).DefaultIfEmpty(1).Max(), settings.NextSequenceAfterDeletion);
+        var firstOccurrence = Math.Max(existing.Select(x => (x.ScheduleOccurrence ?? checked((int)(x.Sequence - 1))) + 1).DefaultIfEmpty(0).Max(), settings.NextScheduleOccurrenceAfterDeletion);
+        var selected = new List<SeasonScheduleCandidate>(missing);
+        var generator = new SeasonScheduleGenerator();
+
+        for (var offset = firstOccurrence; offset < MaximumOccurrences && selected.Count < missing; offset += BatchSize)
+        {
+            var batch = generator.Generate(settings, "Guild", 1, Math.Min(BatchSize, MaximumOccurrences - offset), occurrenceOffset: offset);
+            foreach (var candidate in batch)
+            {
+                if (candidate.EndsAtUtc <= notEndedAfterUtc) continue;
+                if (existing.Any(season => season.StartsAtUtc < candidate.EndsAtUtc && candidate.StartsAtUtc < season.EndsAtUtc)) continue;
+                var sequence = firstSequence + selected.Count;
+                selected.Add(candidate with { Sequence = sequence, Name = SeasonNamingService.Format(settings, sequence, candidate.StartsAtUtc, candidate.EndsAtUtc, "Guild") });
+                if (selected.Count == missing) break;
+            }
+        }
+
+        return selected;
     }
 }
 

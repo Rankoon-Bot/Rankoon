@@ -56,7 +56,7 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
         if (candidate != null) await lifecycle.ActivateAsync(guildId, candidate.Id!, cancellationToken);
         all = await database.GuildSeasons.Find(x => x.GuildId == guildId).SortBy(x => x.Sequence).ToListAsync(cancellationToken);
         var settings = await database.GuildSeasonSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
-        if (settings != null) await PrepareAsync(settings, all, cancellationToken);
+        if (settings != null) await PrepareAsync(settings, all, now, cancellationToken);
         return true;
     }
 
@@ -85,19 +85,16 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
         }
     }
 
-    private async Task PrepareAsync(GuildSeasonSettings settings, IReadOnlyList<GuildSeason> existing, CancellationToken cancellationToken)
+    private async Task PrepareAsync(GuildSeasonSettings settings, IReadOnlyList<GuildSeason> existing, DateTime now, CancellationToken cancellationToken)
     {
         if (settings.ScheduleKind == SeasonScheduleKind.Manual) return;
         var missing = settings.PreparedSeasonCount - CountPrepared(existing);
         if (missing <= 0) return;
-        var firstSequence = existing.Count == 0 ? 1 : existing.Max(x => x.Sequence) + 1;
-        var generator = new SeasonScheduleGenerator();
-        var generated = generator.Generate(settings, "Guild", 1, checked((int)(firstSequence - 1 + missing))).TakeLast(missing).ToList();
+        var generated = SeasonSchedulePlanner.GenerateMissing(settings, existing, settings.PreparedSeasonCount, now);
         var previousSeasonId = existing.OrderByDescending(x => x.Sequence).FirstOrDefault()?.Id;
         foreach (var item in generated)
         {
-            if (existing.Any(current => current.StartsAtUtc < item.EndsAtUtc && item.StartsAtUtc < current.EndsAtUtc)) continue;
-            var season = new GuildSeason { GuildId = settings.GuildId, Sequence = item.Sequence, Name = item.Name, StartsAtUtc = item.StartsAtUtc, EndsAtUtc = item.EndsAtUtc, CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, SettingsSnapshot = settings, PreviousSeasonId = previousSeasonId };
+            var season = new GuildSeason { GuildId = settings.GuildId, Sequence = item.Sequence, Name = item.Name, StartsAtUtc = item.StartsAtUtc, EndsAtUtc = item.EndsAtUtc, CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, ScheduleOccurrence = item.ScheduleOccurrence, SettingsSnapshot = settings, PreviousSeasonId = previousSeasonId };
             try { await database.GuildSeasons.InsertOneAsync(season, cancellationToken: cancellationToken); previousSeasonId = season.Id; existing = existing.Append(season).ToList(); }
             catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
         }

@@ -133,6 +133,13 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
     public async Task<bool> DeleteCancelledAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default)
     {
         if (await database.GuildSeasons.Find(x => x.GuildId == guildId && x.PreviousSeasonId == seasonId).AnyAsync(cancellationToken)) return false;
+        var season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Cancelled).FirstOrDefaultAsync(cancellationToken);
+        if (season == null) return false;
+        var occurrence = season.ScheduleOccurrence ?? checked((int)(season.Sequence - 1));
+        await database.GuildSeasonSettings.UpdateOneAsync(x => x.GuildId == guildId,
+            Builders<GuildSeasonSettings>.Update.SetOnInsert(x => x.GuildId, guildId).Max(x => x.NextSequenceAfterDeletion, season.Sequence + 1).Max(x => x.NextScheduleOccurrenceAfterDeletion, occurrence + 1),
+            new UpdateOptions { IsUpsert = true },
+            cancellationToken: cancellationToken);
         var result = await database.GuildSeasons.DeleteOneAsync(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Cancelled, cancellationToken);
         return result.DeletedCount > 0;
     }
