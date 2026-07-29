@@ -212,7 +212,8 @@ label {
   font-size: 0.84rem;
 }
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 44px;
 }
@@ -474,9 +475,11 @@ select {
   gap: var(--rk-space-3);
 }
 .level-row {
-  grid-template-columns: 120px minmax(0, 1fr) auto;
+  grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr) auto;
   margin-top: var(--rk-space-3);
 }
+.description-field small { color: var(--rk-text-muted); }
+.description-field textarea { resize: vertical; }
 .wide-field {
   width: min(100%, 480px);
 }

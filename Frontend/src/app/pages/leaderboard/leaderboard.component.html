@@ -21,18 +21,21 @@
   <div class="state-card" *ngIf="initialLoading()" role="status" aria-live="polite"><span class="loader" aria-hidden="true"></span><div><strong>{{ 'leaderboard.loading' | transloco }}</strong><p>{{ 'leaderboard.loadingHint' | transloco }}</p></div></div>
   <div class="state-card error-state" *ngIf="!initialLoading() && error() && !totalCount()" role="alert"><strong>{{ error() }}</strong><a routerLink="/login" *ngIf="!auth.isAuthenticated()">{{ 'login.signIn' | transloco }}</a><button type="button" (click)="loadInitial()">{{ 'common.retry' | transloco }}</button></div>
 
-  <section class="ranking" *ngIf="page() as data" [attr.aria-label]="'leaderboard.title' | transloco" role="table">
+  <div class="leaderboard-layout" *ngIf="page() as data" [class.has-rewards]="!!data.levelRewards?.length">
+  <section class="ranking leaderboard-main" [class.has-actions]="!!data.viewerCapabilities?.canAuditXp" [attr.aria-label]="'leaderboard.title' | transloco" role="table" [attr.aria-rowcount]="totalCount() ? totalCount() + 1 : 0">
     <div class="scope-bar"><div class="scope-buttons" role="group" [attr.aria-label]="'leaderboard.scopeAria' | transloco"><button type="button" class="secondary" [class.selected]="scope() === 'CurrentSeason'" (click)="selectScope('CurrentSeason')" *ngIf="data.seasonsEnabled || data.currentSeason">{{ 'leaderboard.scopes.currentSeason' | transloco }}</button><button type="button" class="secondary" [class.selected]="scope() === 'Lifetime'" (click)="selectScope('Lifetime')">{{ 'leaderboard.scopes.lifetime' | transloco }}</button></div><div class="scope-trailing" *ngIf="data.historicalSeasons?.length"><button type="button" class="secondary" [class.selected]="scope() === 'Season'" (click)="selectScope('Season')">{{ 'leaderboard.scopes.history' | transloco }}</button><select *ngIf="scope() === 'Season'" [value]="selectedSeasonId()" (change)="selectHistoricalSeason($any($event.target).value)" [attr.aria-label]="'leaderboard.historyAria' | transloco"><option *ngFor="let season of data.historicalSeasons" [value]="season.id">{{ season.name }}</option></select></div></div>
     <p class="scope-summary" *ngIf="scope() !== 'Lifetime'">{{ data.seasonName || data.currentSeason?.name }}@if (data.seasonName || data.currentSeason?.name) { <span> · </span> }{{ 'leaderboard.seasonScopeHint' | transloco }}</p>
     <ng-container *ngIf="totalCount(); else scopedEmpty">
-    <div class="ranking-head" role="row"><span role="columnheader">{{ 'leaderboard.rank' | transloco }}</span><span role="columnheader">{{ 'leaderboard.member' | transloco }}</span><span role="columnheader">{{ 'common.level' | transloco }}</span><span role="columnheader">XP</span></div>
-    <cdk-virtual-scroll-viewport class="ranking-viewport" [itemSize]="rowHeight" [minBufferPx]="rowHeight * 5" [maxBufferPx]="rowHeight * 10" (scrolledIndexChange)="onViewportIndexChange($event)" role="rowgroup" [attr.aria-rowcount]="totalCount()">
+    <div class="ranking-head" role="row"><span role="columnheader">{{ 'leaderboard.rank' | transloco }}</span><span role="columnheader">{{ 'leaderboard.member' | transloco }}</span><span class="voice-heading" role="columnheader">{{ 'leaderboard.voiceTime' | transloco }}</span><span role="columnheader">{{ 'common.level' | transloco }}</span><span role="columnheader">XP</span><span *ngIf="data.viewerCapabilities?.canAuditXp" role="columnheader" class="actions-heading sr-only">{{ 'leaderboard.actions' | transloco }}</span></div>
+    <cdk-virtual-scroll-viewport class="ranking-viewport" [itemSize]="rowHeight" [minBufferPx]="rowHeight * 5" [maxBufferPx]="rowHeight * 10" (scrolledIndexChange)="onViewportIndexChange($event)" role="rowgroup">
       <ng-container *cdkVirtualFor="let row of virtualRows(); trackBy: trackRow">
-      <article class="rank-row" role="row" *ngIf="row?.entry as entry; else unloadedRow" [class.current-user]="entry.isCurrentUser" [attr.data-current-user]="entry.isCurrentUser" [attr.aria-rowindex]="row!.index + 1">
+      <article class="rank-row" role="row" *ngIf="row?.entry as entry; else unloadedRow" [class.current-user]="entry.isCurrentUser" [attr.data-current-user]="entry.isCurrentUser" [attr.aria-rowindex]="row!.index + 2" [cdkContextMenuTriggerFor]="xpMenu" [cdkContextMenuTriggerData]="{ entry: entry }" [cdkContextMenuDisabled]="!data.viewerCapabilities?.canAuditXp" (contextmenu)="rememberMenuTrigger($event)">
       <div class="rank-number" role="cell">#{{ entry.rank }}</div>
-       <div class="member" role="cell"><app-user-avatar [displayName]="entry.displayName" [iconUrl]="entry.iconUrl" /><div><strong>{{ entry.displayName }}</strong><small *ngIf="entry.isCurrentUser">{{ 'common.you' | transloco }}</small><p>{{ messageCount(entry.messageCount) }}</p></div></div>
+       <div class="member" role="cell"><app-user-avatar [displayName]="entry.displayName" [iconUrl]="entry.iconUrl" /><div><strong>{{ entry.displayName }}</strong><small *ngIf="entry.isCurrentUser">{{ 'common.you' | transloco }}</small><p>{{ messageCount(entry.messageCount) }}<span class="voice-mobile"> · {{ 'leaderboard.voiceMetadata' | transloco: { duration: compactVoiceTime(entry.voiceSeconds) } }}</span></p></div></div>
+      <div class="voice-time" role="cell" [title]="fullVoiceTime(entry.voiceSeconds)" [attr.aria-label]="voiceTimeLabel(entry.voiceSeconds)">{{ compactVoiceTime(entry.voiceSeconds) }}</div>
       <div class="level" role="cell"><app-level-progress [level]="entry.level" [totalXp]="entry.totalXp" /></div>
       <div class="xp" role="cell"><strong>{{ formatNumber(entry.totalXp) }}</strong><span> XP</span></div>
+      <div *ngIf="data.viewerCapabilities?.canAuditXp" role="cell" class="action-cell"><button type="button" class="rk-button rk-button--ghost row-actions" [cdkMenuTriggerFor]="xpMenu" [cdkMenuTriggerData]="{ entry: entry }" (click)="rememberMenuTrigger($event)" [attr.aria-label]="'leaderboard.actionsFor' | transloco: { name: entry.displayName }">•••</button></div>
       </article>
       <ng-template #unloadedRow><div class="rank-row row-placeholder" aria-hidden="true"><span class="loader"></span></div></ng-template>
       </ng-container>
@@ -41,6 +44,27 @@
     <div class="append-state error" *ngIf="error() && totalCount()" role="alert">{{ error() }} <button type="button" (click)="retryVisibleWindow()">{{ 'common.retry' | transloco }}</button></div>
     </ng-container><ng-template #scopedEmpty><div class="append-state">{{ scope() === 'CurrentSeason' ? ('leaderboard.emptySeasonHint' | transloco) : ('leaderboard.emptyHistoryHint' | transloco) }}</div></ng-template>
   </section>
+  <aside class="rewards-panel" *ngIf="data.levelRewards?.length" aria-labelledby="leaderboard-rewards-title">
+    <p class="rewards-kicker">{{ 'leaderboard.rewardsKicker' | transloco }}</p>
+    <h2 id="leaderboard-rewards-title">{{ 'leaderboard.permanentRewards' | transloco }}</h2>
+    <p class="rewards-hint">{{ 'leaderboard.permanentRewardsHint' | transloco }}</p>
+    <ol class="reward-list">
+      <li *ngFor="let reward of data.levelRewards">
+        <span class="reward-level">{{ 'leaderboard.rewardLevel' | transloco: { level: reward.level } }}</span>
+        <strong>{{ reward.roleName }}</strong>
+        <p *ngIf="reward.description">{{ reward.description }}</p>
+      </li>
+    </ol>
+  </aside>
+  </div>
+
+  <ng-template #xpMenu let-entry="entry">
+    <div class="xp-context-menu" cdkMenu>
+      <button type="button" class="rk-button rk-button--ghost" cdkMenuItem (cdkMenuItemTriggered)="openXpHistory(entry)">{{ (page()?.viewerCapabilities?.canAdjustXp ? 'leaderboard.openXpAdjustments' : 'leaderboard.openXpHistory') | transloco }}</button>
+    </div>
+  </ng-template>
+
+  <app-user-xp-modal #userXpModal (xpChanged)="onLeaderboardXpChanged()"></app-user-xp-modal>
 
   <div class="state-card error-state" *ngIf="!initialLoading() && !error() && !totalCount() && !page()"><strong>{{ 'leaderboard.emptyTitle' | transloco }}</strong><p>{{ 'leaderboard.emptyHint' | transloco }}</p></div>
 </section>

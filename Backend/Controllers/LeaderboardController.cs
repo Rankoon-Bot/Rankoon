@@ -32,7 +32,9 @@ public sealed class LeaderboardController(LeaderboardService leaderboard, ILeade
         try
         {
             var resolvedScope = await leaderboard.ResolveScopeAsync(settings, scope, seasonId, HttpContext.RequestAborted);
-            return Ok(await leaderboard.GetScopedPageAsync(settings, isMember, userId, resolvedScope, seasonId, cursor, take, aroundMe && isMember, HttpContext.RequestAborted));
+            var page = await leaderboard.GetScopedPageAsync(settings, isMember, userId, resolvedScope, seasonId, cursor, take, aroundMe && isMember, HttpContext.RequestAborted);
+            var capabilities = await LeaderboardViewerCapabilitiesResolver.ResolveAsync(authorization, User, settings.GuildId, HttpContext.RequestAborted);
+            return Ok(page with { ViewerCapabilities = capabilities });
         }
         catch (FormatException)
         {

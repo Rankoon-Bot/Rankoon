@@ -42,6 +42,11 @@ export interface ServerBoosterXpTier {
   minimumBoostMonths: number;
   multiplier: number;
 }
+export interface LevelRoleReward {
+  level: number;
+  roleId: string;
+  description?: string | null;
+}
 export interface XpConfig {
   enabled: boolean;
   message: {
@@ -87,7 +92,7 @@ export interface XpConfig {
   excludedRoleIds: string[];
   channelMultipliers: { channelId: string; multiplier: number }[];
   serverBooster: { enabled: boolean; tiers: ServerBoosterXpTier[] };
-  levelRoles: { level: number; roleId: string }[];
+  levelRoles: LevelRoleReward[];
   levelUpChannelId: string | null;
 }
 export interface VoiceWatchdogStatus {
@@ -177,6 +182,16 @@ export interface LeaderboardEntry extends RankEntry {
   rank: number;
   isCurrentUser: boolean;
 }
+export interface LeaderboardViewerCapabilities {
+  guildId: string;
+  canAuditXp: boolean;
+  canAdjustXp: boolean;
+}
+export interface LeaderboardLevelReward {
+  level: number;
+  roleName: string;
+  description?: string | null;
+}
 export interface SeasonLeaderboardOption {
   id: string;
   name: string;
@@ -198,6 +213,8 @@ export interface LeaderboardPage {
   historicalSeasons?: SeasonLeaderboardOption[];
   currentSeason?: SeasonLeaderboardOption | null;
   seasonsEnabled?: boolean;
+  viewerCapabilities?: LeaderboardViewerCapabilities | null;
+  levelRewards?: LeaderboardLevelReward[];
 }
 export interface LeaderboardWindowRow {
   index: number;
@@ -229,6 +246,7 @@ export interface LeaderboardWindow {
   historicalSeasons: SeasonLeaderboardOption[];
   currentSeason: SeasonLeaderboardOption | null;
   seasonsEnabled: boolean;
+  viewerCapabilities: LeaderboardViewerCapabilities | null;
 }
 export type SeasonScheduleKind =
   | 'Manual'
@@ -302,6 +320,9 @@ export interface SeasonPreview {
   startsAtUtc: string;
   endsAtUtc: string;
   name: string;
+}
+export interface SeasonBulkOperationResult {
+  affectedCount: number;
 }
 export interface CustomBotAccess {
   isEligible: boolean;
@@ -650,6 +671,17 @@ export class GuildService {
     );
     this.selfRoleResourcesRequests.set(guildId, request);
     return request;
+  }
+  cancelScheduledSeasons(guildId: string): Observable<SeasonBulkOperationResult> {
+    return this.http.post<SeasonBulkOperationResult>(
+      this.url(guildId, 'xp/seasons/cancel-scheduled'),
+      {},
+    );
+  }
+  deleteCancelledSeasons(guildId: string): Observable<SeasonBulkOperationResult> {
+    return this.http.delete<SeasonBulkOperationResult>(
+      this.url(guildId, 'xp/seasons/cancelled'),
+    );
   }
   invalidateResourceCache(guildId?: string): void {
     if (guildId) {

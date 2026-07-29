@@ -56,6 +56,9 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
     {
         var (id, error) = await AuthorizeGuildAsync(guildId, GuildModuleIds.Xp); if (error != null) return error;
         if (settings.Voice != null) VoiceXpSettingsNormalizer.NormalizeLegacy(settings.Voice);
+        if (settings.LevelRoles != null)
+            foreach (var reward in settings.LevelRoles)
+                reward.Description = string.IsNullOrWhiteSpace(reward.Description) ? null : reward.Description.Trim();
         var validationErrors = ValidateXpSettings(settings);
         if (validationErrors.Count > 0)
         {
@@ -203,7 +206,7 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
         if (settings.EventInterest.Points < 0) errors.Add(("eventInterest.points", "xp.settings.eventInterest"));
         if (settings.Thread.CreatePoints < 0 || settings.Thread.MessagePoints < 0 || settings.Thread.CooldownSeconds < 0) errors.Add(("thread", "xp.settings.thread"));
         if (settings.ChannelMultipliers.Any(x => x.ChannelId == 0 || x.Multiplier < 0) || settings.ChannelMultipliers.Select(x => x.ChannelId).Distinct().Count() != settings.ChannelMultipliers.Count) errors.Add(("channelMultipliers", "xp.settings.channelMultipliers"));
-        if (settings.LevelRoles.Any(x => x.Level < 1 || x.RoleId == 0) || settings.LevelRoles.Select(x => x.RoleId).Distinct().Count() != settings.LevelRoles.Count) errors.Add(("levelRoles", "xp.settings.levelRoles"));
+        if (settings.LevelRoles.Any(x => x.Level < 1 || x.RoleId == 0 || x.Description?.Length > 280) || settings.LevelRoles.Select(x => x.RoleId).Distinct().Count() != settings.LevelRoles.Count) errors.Add(("levelRoles", "xp.settings.levelRoles"));
         errors.AddRange(ServerBoosterXpSettingsValidator.Validate(settings.ServerBooster));
         return errors;
     }

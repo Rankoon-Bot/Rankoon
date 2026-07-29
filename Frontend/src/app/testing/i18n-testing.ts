@@ -14,7 +14,9 @@ export const testI18n = TranslocoTestingModule.forRoot({
         xp: { name: 'XP & Levels', description: 'Manage XP' },
         reporting: { name: 'Reports', description: 'View reports' }
       },
-      rolePermissions: { saved: 'Role permissions saved.' }
+      rolePermissions: { saved: 'Role permissions saved.' },
+      leaderboard: { voiceTimeLabel: 'Voice time: {{duration}}', voiceMetadata: '{{duration}} voice' },
+      duration: { compact: { month: '{{count}} mo', week: '{{count}} wk', day: '{{count}} d', hour: '{{count}} hr', minute: '{{count}} min', second: '{{count}} sec' }, full: { monthOne: '{{count}} month', monthOther: '{{count}} months', weekOne: '{{count}} week', weekOther: '{{count}} weeks', dayOne: '{{count}} day', dayOther: '{{count}} days', hourOne: '{{count}} hour', hourOther: '{{count}} hours', minuteOne: '{{count}} minute', minuteOther: '{{count}} minutes', secondOne: '{{count}} second', secondOther: '{{count}} seconds' } }
     },
     de: {
       app: { title: 'Rankoon Kontrollzentrum' },
@@ -27,7 +29,9 @@ export const testI18n = TranslocoTestingModule.forRoot({
         xp: { name: 'XP & Level', description: 'XP verwalten' },
         reporting: { name: 'Berichte', description: 'Berichte ansehen' }
       },
-      rolePermissions: { saved: 'Rollenberechtigungen gespeichert.' }
+      rolePermissions: { saved: 'Rollenberechtigungen gespeichert.' },
+      leaderboard: { voiceTimeLabel: 'Voice-Zeit: {{duration}}', voiceMetadata: '{{duration}} Voice' },
+      duration: { compact: { month: '{{count}} Mon.', week: '{{count}} Wo.', day: '{{count}} T.', hour: '{{count}} Std.', minute: '{{count}} Min.', second: '{{count}} Sek.' }, full: { monthOne: '{{count}} Monat', monthOther: '{{count}} Monate', weekOne: '{{count}} Woche', weekOther: '{{count}} Wochen', dayOne: '{{count}} Tag', dayOther: '{{count}} Tage', hourOne: '{{count}} Stunde', hourOther: '{{count}} Stunden', minuteOne: '{{count}} Minute', minuteOther: '{{count}} Minuten', secondOne: '{{count}} Sekunde', secondOther: '{{count}} Sekunden' } }
     },
     es: { app: { title: 'Panel de control de Rankoon' } },
     pt: { app: { title: 'Plataforma de controlo Rankoon' } },

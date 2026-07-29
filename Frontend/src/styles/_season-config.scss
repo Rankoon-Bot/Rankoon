@@ -46,6 +46,10 @@ app-season-config {
   .section-heading h2 { color: var(--rk-text-strong); font-size: var(--rk-font-section-title); }
   .section-heading p:last-child { max-width: var(--rk-text-max); margin-top: var(--rk-space-1); }
   .instances-card, .operations-card { padding: var(--rk-space-5); }
+  .bulk-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--rk-space-4); padding-bottom: var(--rk-space-4); margin-bottom: var(--rk-space-2); border-bottom: 1px solid var(--rk-border-subtle); }
+  .bulk-actions > div:first-child { display: grid; gap: var(--rk-space-1); }
+  .bulk-actions span { color: var(--rk-text-muted); font-size: var(--rk-font-small); }
+  .bulk-actions > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--rk-space-2); }
   .tabs { display: flex; gap: var(--rk-space-1); padding-bottom: var(--rk-space-4); border-bottom: 1px solid var(--rk-border-subtle); }
   .tabs button { min-height: var(--rk-control-height-compact); padding: 0 var(--rk-space-4); color: var(--rk-text-muted); background: transparent; border: 1px solid transparent; border-radius: var(--rk-radius-sm); font-weight: 700; }
   .tabs button:hover { color: var(--rk-text); background: var(--rk-surface-2); }
@@ -73,6 +77,9 @@ app-season-config {
     .plan-strip, .operation-row { align-items: stretch; flex-direction: column; }
     .operation-actions { justify-content: stretch; }
     .operation-actions button { flex: 1; }
+    .bulk-actions { align-items: stretch; flex-direction: column; }
+    .bulk-actions > div:last-child { display: grid; justify-content: stretch; }
+    .bulk-actions button { width: 100%; }
   }
 }
 @media (max-width: 520px) { app-season-config { .instances-card, .operations-card { padding: var(--rk-space-4); } .xp-note { display: grid; } .plan-strip button, .operation-actions button { width: 100%; } .tabs button { flex: 1; } .rotation-add { grid-template-columns: 1fr; } .rotation-list li { grid-template-columns: auto minmax(0, 1fr); } .rotation-list li div { grid-column: 1 / -1; } } }

@@ -33,6 +33,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         VoiceXpSettingsNormalizer.NormalizeLegacy(settings.Voice);
         settings.ServerBooster ??= new ServerBoosterXpSettings();
         settings.ServerBooster.Tiers ??= [];
+        settings.LevelRoles ??= [];
         ServerBoosterXpSettingsValidator.Normalize(settings.ServerBooster);
         return settings;
     }

@@ -610,6 +610,21 @@
                     <option [value]="option.id">{{ option.name }}</option>
                   }
                 </select></label
+              ><label class="description-field"
+                >{{ "xp.levelRoleDescription" | transloco }}
+                <small>{{ "xp.levelRoleDescriptionOptional" | transloco }}</small>
+                <textarea
+                  [(ngModel)]="role.description"
+                  rows="2"
+                  [maxlength]="levelRoleDescriptionMaxLength"
+                  [placeholder]="'xp.levelRoleDescriptionPlaceholder' | transloco"
+                  [attr.aria-describedby]="'level-role-description-hint-' + index"
+                ></textarea>
+                <small [id]="'level-role-description-hint-' + index">{{ "xp.levelRoleDescriptionHint" | transloco: { count: levelRoleDescriptionMaxLength } }}</small>
+                @if ((role.description?.length ?? 0) > levelRoleDescriptionMaxLength) {
+                  <small class="validation-inline" role="alert">{{ "xp.levelRoleDescriptionTooLong" | transloco: { count: levelRoleDescriptionMaxLength } }}</small>
+                }
+              </label
               ><button
                 class="danger"
                 type="button"

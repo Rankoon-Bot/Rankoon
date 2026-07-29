@@ -2,7 +2,7 @@ import { KNOWN_API_ERROR_KEYS } from '../models/api-error.model';
 import { SUPPORTED_LOCALES } from './locale.service';
 
 describe('translation catalogs', () => {
-  const expectedKeyCount = 1687;
+  const expectedKeyCount = 1746;
   const namespaces = [
     'activity',
     'analytics',
@@ -18,6 +18,7 @@ describe('translation catalogs', () => {
     'dashboard',
     'devTools',
     'diagnostics',
+    'duration',
     'domain',
     'errorLogs',
     'errors',

@@ -26,6 +26,7 @@ import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-s
   styleUrls: ['./xp-config.component.scss'],
 })
 export class XpConfigComponent {
+  readonly levelRoleDescriptionMaxLength = 280;
   private readonly appStore = inject(AppStore);
   private readonly api = inject(GuildService);
   private readonly i18n = inject(TranslocoService);
@@ -93,7 +94,10 @@ export class XpConfigComponent {
   save(): void {
     const id = this.appStore.selectedGuild()?.id;
     const config = this.config();
-    if (!id || !config || !this.dirty() || !this.isValid(config)) return;
+    if (!id || !config) return;
+    for (const reward of config.levelRoles)
+      reward.description = reward.description?.trim() || null;
+    if (!this.dirty() || !this.isValid(config)) return;
 
     this.sortBoosterTiers();
 
@@ -127,7 +131,7 @@ export class XpConfigComponent {
   }
 
   addLevelRole(): void {
-    this.config()?.levelRoles.push({ level: 1, roleId: '' });
+    this.config()?.levelRoles.push({ level: 1, roleId: '', description: '' });
   }
 
   addMultiplier(): void {
@@ -400,7 +404,7 @@ export class XpConfigComponent {
       config.serverBooster.tiers.every(
         (tier) => this.boosterTierErrors(config, tier).length === 0,
       ) &&
-      config.levelRoles.every((role) => !!role.roleId && role.level >= 1) &&
+      config.levelRoles.every((role) => !!role.roleId && role.level >= 1 && (role.description?.length ?? 0) <= this.levelRoleDescriptionMaxLength) &&
       new Set(config.levelRoles.map((role) => role.roleId)).size ===
         config.levelRoles.length
     );
@@ -515,6 +519,8 @@ export class XpConfigComponent {
     };
     config.serverBooster ??= { enabled: false, tiers: [] };
     config.serverBooster.tiers ??= [];
+    config.levelRoles ??= [];
+    for (const reward of config.levelRoles) reward.description ??= '';
     config.serverBooster.tiers.sort(
       (a, b) => Number(a.minimumBoostMonths) - Number(b.minimumBoostMonths),
     );

@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { AdjustmentRequest, XpAuditDetails, XpAuditEntryFilter, XpAuditEntryPage, XpAuditMemberPage, XpAuditTimelinePage, XpVoiceSegmentPage } from '../models/xp-audit.models';
+import { AdjustmentRequest, XpAuditDetails, XpAuditEntryFilter, XpAuditEntryPage, XpAuditMemberPage, XpAuditMemberSort, XpAuditTimelinePage, XpVoiceSegmentPage } from '../models/xp-audit.models';
 
 @Injectable({ providedIn: 'root' })
 export class XpAuditService {
@@ -12,8 +12,8 @@ export class XpAuditService {
     return `${environment.apiBaseUrl}/guilds/${guildId}/xp-audit`;
   }
 
-  members(guildId: string, query = '', includeFormerMembers = false, cursor?: string): Observable<XpAuditMemberPage> {
-    let params = new HttpParams().set('query', query).set('includeFormerMembers', includeFormerMembers);
+  members(guildId: string, query = '', includeFormerMembers = false, sort: XpAuditMemberSort = 'TotalXpDescending', cursor?: string): Observable<XpAuditMemberPage> {
+    let params = new HttpParams().set('query', query).set('includeFormerMembers', includeFormerMembers).set('sort', sort);
     if (cursor) params = params.set('cursor', cursor);
     return this.http.get<XpAuditMemberPage>(`${this.base(guildId)}/members`, { params });
   }

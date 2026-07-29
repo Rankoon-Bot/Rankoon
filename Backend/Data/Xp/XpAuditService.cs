@@ -11,6 +11,7 @@ namespace Rankoon.Data.Xp;
 
 public sealed record XpAuditMemberItem(ulong UserId, string DisplayName, bool IsCurrentMember, decimal TotalXp, int Level, string? IconUrl);
 public sealed record XpAuditMemberPage(IReadOnlyList<XpAuditMemberItem> Items, string? NextCursor);
+public enum XpAuditMemberSort { TotalXpDescending, NameAscending, NameDescending }
 public sealed record XpAuditTotals(decimal ImportedXp, decimal EarnedXp, decimal ManualAdjustment, decimal TotalXp, int Level, long Rank);
 public sealed record XpAuditSeasonTotals(string SeasonId, string Name, decimal StartingXp, decimal EarnedXp, decimal ManualAdjustment, decimal TotalXp, int Level, long Rank);
 public sealed record XpAuditPermissions(bool CanAdjust, bool IsSelf, bool IsOwner);
@@ -28,7 +29,7 @@ public sealed record ManualXpAdjustmentResult(XpLedgerEntry Entry, bool Affected
 
 public interface IXpAuditService
 {
-    Task<XpAuditMemberPage> SearchMembersAsync(ulong guildId, string? query, bool includeFormerMembers, int take, string? cursor, CancellationToken cancellationToken = default);
+    Task<XpAuditMemberPage> SearchMembersAsync(ulong guildId, string? query, bool includeFormerMembers, XpAuditMemberSort sort, int take, string? cursor, CancellationToken cancellationToken = default);
     Task<XpAuditMemberDetails?> GetMemberDetailsAsync(ulong guildId, ulong userId, bool canAdjust, bool isSelf, bool isOwner, CancellationToken cancellationToken = default);
     Task<XpAuditEntryPage> GetEntriesAsync(ulong guildId, ulong userId, XpAuditEntryFilter filter, CancellationToken cancellationToken = default);
     Task<XpAuditTimelinePage> GetTimelineAsync(ulong guildId, ulong userId, XpAuditEntryFilter filter, CancellationToken cancellationToken = default);
@@ -46,22 +47,67 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
 {
     private readonly byte[] cursorKey = Encoding.UTF8.GetBytes(configuration["Jwt:SecretKey"] ?? "rankoon-xp-audit-cursor");
 
-    public async Task<XpAuditMemberPage> SearchMembersAsync(ulong guildId, string? query, bool includeFormerMembers, int take, string? cursor, CancellationToken ct = default)
+    public async Task<XpAuditMemberPage> SearchMembersAsync(ulong guildId, string? query, bool includeFormerMembers, XpAuditMemberSort sort, int take, string? cursor, CancellationToken ct = default)
     {
+        if (!Enum.IsDefined(sort)) throw new XpAuditValidationException("xpAudit.invalidSort");
         take = Math.Clamp(take, 1, 100); var normalized = (query ?? string.Empty).Trim().ToLowerInvariant();
-        var fingerprint = $"{normalized}|{includeFormerMembers}"; var after = ReadCursor(cursor, guildId, 0, fingerprint);
+        var fingerprint = MemberCursorFingerprint(normalized, includeFormerMembers, sort); var after = ReadMemberCursor(cursor, guildId, normalized, includeFormerMembers, sort);
         var filter = Builders<MemberXp>.Filter.Eq(x => x.GuildId, guildId);
         if (!includeFormerMembers) filter &= Builders<MemberXp>.Filter.Eq(x => x.IsCurrentMember, true);
         if (ulong.TryParse(normalized, out var userId)) filter &= Builders<MemberXp>.Filter.Eq(x => x.UserId, userId);
         else if (normalized.Length > 0) filter &= new BsonDocument("normalized_display_name", new BsonRegularExpression("^" + RegexEscape(normalized)));
-        if (after != null) filter &= Builders<MemberXp>.Filter.Or(Builders<MemberXp>.Filter.Gt(x => x.NormalizedDisplayName, after.Name!), Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.NormalizedDisplayName, after.Name), Builders<MemberXp>.Filter.Gt(x => x.UserId, after.UserId)));
-        var rows = await database.MemberXp.Find(filter).SortBy(x => x.NormalizedDisplayName).ThenBy(x => x.UserId).Limit(take + 1).ToListAsync(ct);
+        if (after != null)
+        {
+            filter &= BuildMemberCursorFilter(sort, after.Name!, after.UserId, after.TotalXp);
+        }
+        var rows = await database.MemberXp.Find(filter).Sort(BuildMemberSort(sort)).Limit(take + 1).ToListAsync(ct);
         var more = rows.Count > take; var pageRows = rows.Take(take).ToArray();
         IReadOnlyDictionary<ulong, string?> icons;
         try { icons = await presentations.ResolveIconUrlsAsync(guildId, pageRows.Select(x => x.UserId), ct); } catch { icons = pageRows.ToDictionary(x => x.UserId, _ => (string?)null); }
         var items = pageRows.Select(x => new XpAuditMemberItem(x.UserId, x.DisplayName, x.IsCurrentMember, x.TotalXp, Mee6LevelCurve.GetLevel(x.TotalXp), icons.GetValueOrDefault(x.UserId))).ToArray();
-        return new(items, more ? WriteCursor(guildId, 0, fingerprint, rows[take - 1].NormalizedDisplayName, rows[take - 1].UserId, null, null) : null);
+        return new(items, more ? WriteCursor(guildId, 0, fingerprint, rows[take - 1].NormalizedDisplayName, rows[take - 1].UserId, null, null, rows[take - 1].TotalXp) : null);
     }
+
+    internal static SortDefinition<MemberXp> BuildMemberSort(XpAuditMemberSort sort) => sort switch
+    {
+        XpAuditMemberSort.TotalXpDescending => Builders<MemberXp>.Sort.Descending(x => x.TotalXp).Ascending(x => x.NormalizedDisplayName).Ascending(x => x.UserId),
+        XpAuditMemberSort.NameAscending => Builders<MemberXp>.Sort.Ascending(x => x.NormalizedDisplayName).Ascending(x => x.UserId),
+        XpAuditMemberSort.NameDescending => Builders<MemberXp>.Sort.Descending(x => x.NormalizedDisplayName).Descending(x => x.UserId),
+        _ => throw new XpAuditValidationException("xpAudit.invalidSort")
+    };
+
+    internal static FilterDefinition<MemberXp> BuildMemberCursorFilter(XpAuditMemberSort sort, string name, ulong userId, decimal? totalXp)
+    {
+        var filters = Builders<MemberXp>.Filter;
+        return sort switch
+        {
+            XpAuditMemberSort.TotalXpDescending when totalXp != null =>
+                filters.Lt(x => x.TotalXp, totalXp.Value) |
+                filters.Eq(x => x.TotalXp, totalXp.Value) &
+                (filters.Gt(x => x.NormalizedDisplayName, name) |
+                 filters.Eq(x => x.NormalizedDisplayName, name) & filters.Gt(x => x.UserId, userId)),
+            XpAuditMemberSort.NameAscending =>
+                filters.Gt(x => x.NormalizedDisplayName, name) |
+                filters.Eq(x => x.NormalizedDisplayName, name) & filters.Gt(x => x.UserId, userId),
+            XpAuditMemberSort.NameDescending =>
+                filters.Lt(x => x.NormalizedDisplayName, name) |
+                filters.Eq(x => x.NormalizedDisplayName, name) & filters.Lt(x => x.UserId, userId),
+            _ => throw new XpAuditValidationException(sort == XpAuditMemberSort.TotalXpDescending ? "xpAudit.invalidCursor" : "xpAudit.invalidSort")
+        };
+    }
+
+    internal string CreateMemberCursor(ulong guildId, string? query, bool includeFormerMembers, XpAuditMemberSort sort, string name, ulong userId, decimal totalXp) =>
+        WriteCursor(guildId, 0, MemberCursorFingerprint((query ?? string.Empty).Trim().ToLowerInvariant(), includeFormerMembers, sort), name, userId, null, null, totalXp);
+
+    internal Cursor? ReadMemberCursor(string? cursor, ulong guildId, string? query, bool includeFormerMembers, XpAuditMemberSort sort)
+    {
+        var value = ReadCursor(cursor, guildId, 0, MemberCursorFingerprint((query ?? string.Empty).Trim().ToLowerInvariant(), includeFormerMembers, sort));
+        if (value != null && (value.Name == null || sort == XpAuditMemberSort.TotalXpDescending && value.TotalXp == null)) throw new XpAuditValidationException("xpAudit.invalidCursor");
+        return value;
+    }
+
+    private static string MemberCursorFingerprint(string normalizedQuery, bool includeFormerMembers, XpAuditMemberSort sort) =>
+        JsonSerializer.Serialize(new { Query = normalizedQuery, IncludeFormerMembers = includeFormerMembers, Sort = sort });
 
     public async Task<XpAuditMemberDetails?> GetMemberDetailsAsync(ulong guildId, ulong userId, bool canAdjust, bool isSelf, bool isOwner, CancellationToken ct = default)
     {
@@ -107,7 +153,7 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
         var reversals = await database.XpLedger.Find(x => x.ReversesLedgerEntryId != null && ids.Contains(x.ReversesLedgerEntryId)).ToListAsync(ct); var reversed = reversals.ToDictionary(x => x.ReversesLedgerEntryId!, x => x.Id);
         var seasonNames = (await database.GuildSeasons.Find(x => x.GuildId == guildId).ToListAsync(ct)).ToDictionary(x => x.Id!, x => x.Name);
         var items = rows.Take(take).Select(x => new XpAuditEntryItem(x.Id!, x.GrantKey, x.Source, XpLedgerSemantics.GetEffectiveKind(x), XpLedgerSemantics.GetEffectiveScope(x), x.Amount, x.DisplayName, x.OccurredAtUtc, x.CreatedAt, x.ProjectedAtUtc, x.ProjectionStatus, x.ChannelId, x.SeasonId, x.SeasonId != null ? seasonNames.GetValueOrDefault(x.SeasonId) : null, x.PeriodStartsAtUtc, x.PeriodEndsAtUtc, x.ActorUserId, x.ActorDisplayName, x.Reason, x.Reference, x.RequestId, x.ReversesGrantKey, x.ReversesLedgerEntryId, x.Id != null ? reversed.GetValueOrDefault(x.Id) : null)).ToArray();
-        return new(items, rows.Count > take ? WriteCursor(guildId, userId, fp, null, 0, rows[take - 1].OccurredAtUtc, rows[take - 1].Id) : null);
+        return new(items, rows.Count > take ? WriteCursor(guildId, userId, fp, null, 0, rows[take - 1].OccurredAtUtc, rows[take - 1].Id, null) : null);
     }
 
     public async Task<XpAuditTimelinePage> GetTimelineAsync(ulong guildId, ulong userId, XpAuditEntryFilter input, CancellationToken ct = default)
@@ -138,7 +184,7 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
         var returned = ordered.Take(take).ToArray();
         if (returned.Length == 0) return new(returned, null);
         var last = returned[^1];
-        return new(returned, ordered.Length > take ? WriteCursor(guildId, userId, fp, null, 0, last.OccurredToUtc, last.Id) : null);
+        return new(returned, ordered.Length > take ? WriteCursor(guildId, userId, fp, null, 0, last.OccurredToUtc, last.Id, null) : null);
     }
 
     public async Task<XpAuditVoiceSegmentPage> GetVoiceDaySegmentsAsync(ulong guildId, ulong userId, string dayKey, XpAuditEntryFilter input, CancellationToken ct = default)
@@ -322,10 +368,11 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
     }
 
     private static async Task<long> RankAsync<T>(IMongoCollection<T> collection, System.Linq.Expressions.Expression<Func<T, bool>> baseFilter, decimal total, ulong userId, CancellationToken ct) where T : class => 1 + await collection.CountDocumentsAsync(Builders<T>.Filter.And(Builders<T>.Filter.Where(baseFilter), new BsonDocument("$or", new BsonArray { new BsonDocument("total_xp", new BsonDocument("$gt", total)), new BsonDocument { { "total_xp", total }, { "user_id", new BsonDocument("$lt", new BsonInt64(unchecked((long)userId))) } } })), cancellationToken: ct);
-    private string WriteCursor(ulong guild, ulong user, string filter, string? name, ulong id, DateTime? occurred, string? objectId) { var p = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Cursor(guild, user, filter, name, id, occurred, objectId)))); return p + "." + Convert.ToHexString(HMACSHA256.HashData(cursorKey, Encoding.UTF8.GetBytes(p))); }
+    private string WriteCursor(ulong guild, ulong user, string filter, string? name, ulong id, DateTime? occurred, string? objectId, decimal? totalXp) { var p = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Cursor(guild, user, filter, name, id, occurred, objectId, totalXp)))); return p + "." + Convert.ToHexString(HMACSHA256.HashData(cursorKey, Encoding.UTF8.GetBytes(p))); }
     private Cursor? ReadCursor(string? value, ulong guild, ulong user, string filter)
     {
         if (string.IsNullOrEmpty(value)) return null;
+        if (value.Length > 2048) throw new XpAuditValidationException("xpAudit.invalidCursor");
         try
         {
             var parts = value.Split('.');
@@ -340,5 +387,5 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
         }
     }
     private static string RegexEscape(string value) => System.Text.RegularExpressions.Regex.Escape(value);
-    private sealed record Cursor(ulong Guild, ulong User, string Filter, string? Name, ulong UserId, DateTime? OccurredAt, string? Id);
+    internal sealed record Cursor(ulong Guild, ulong User, string Filter, string? Name, ulong UserId, DateTime? OccurredAt, string? Id, decimal? TotalXp);
 }

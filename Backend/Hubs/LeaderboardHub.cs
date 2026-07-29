@@ -71,7 +71,9 @@ public sealed class LeaderboardHub(LeaderboardService leaderboard, IGuildAuthori
         if (subscriptions.Get(Context.ConnectionId, group) == null) throw new HubException("Leaderboard subscription is required.");
         var userId = Context.User == null ? null : authorization.GetDiscordUserId(Context.User);
         var cachedIds = request.CachedUserIds?.Select(value => ulong.TryParse(value, out var id) ? id : 0).Where(id => id != 0).Distinct().ToArray() ?? [];
-        return await leaderboard.GetWindowAsync(settings, isMember, userId, scope, request.SeasonId, request.Offset, request.Take, request.AroundCurrentUser && isMember, cachedIds, Context.ConnectionAborted);
+        var window = await leaderboard.GetWindowAsync(settings, isMember, userId, scope, request.SeasonId, request.Offset, request.Take, request.AroundCurrentUser && isMember, cachedIds, Context.ConnectionAborted);
+        var capabilities = await LeaderboardViewerCapabilitiesResolver.ResolveAsync(authorization, Context.User, settings.GuildId, Context.ConnectionAborted);
+        return window with { ViewerCapabilities = capabilities };
     }
 
     public override Task OnDisconnectedAsync(Exception? exception)

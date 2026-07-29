@@ -1,25 +1,28 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, QueryList, signal, ViewChild, ViewChildren } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { CdkContextMenuTrigger, CdkMenuModule, CdkMenuTrigger } from '@angular/cdk/menu';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { combineLatest, finalize } from 'rxjs';
 import { LevelProgressComponent } from '../../components/level-progress/level-progress.component';
 import { UserAvatarComponent } from '../../components/user-avatar/user-avatar.component';
+import { UserXpModalComponent } from '../../components/user-xp-modal/user-xp-modal.component';
 import { LocaleService } from '../../i18n/locale.service';
 import { ApiErrorService } from '../../services/api-error.service';
 import { GuildService, LeaderboardEntry, LeaderboardPage, LeaderboardWindow, SeasonLeaderboardScope } from '../../services/guild.service';
 import { LeaderboardChanged, RealtimeService } from '../../services/realtime.service';
 import { AuthStore } from '../../store/auth.store';
 import { ToastService } from '../../services/toast.service';
+import { DurationFormatterService } from '../../shared/duration-formatter.service';
 
 interface VirtualLeaderboardRow { index: number; entry?: LeaderboardEntry; }
 
 @Component({
   selector: 'app-leaderboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, TranslocoPipe, LevelProgressComponent, UserAvatarComponent, ScrollingModule],
+  imports: [CommonModule, RouterLink, TranslocoPipe, LevelProgressComponent, UserAvatarComponent, UserXpModalComponent, ScrollingModule, CdkMenuModule],
   templateUrl: './leaderboard.component.html',
   styleUrls: ['./leaderboard.component.scss'],
 })
@@ -34,7 +37,11 @@ export class LeaderboardComponent implements OnInit {
   private readonly apiErrors = inject(ApiErrorService);
   private readonly realtime = inject(RealtimeService);
   private readonly toast = inject(ToastService);
+  private readonly durations = inject(DurationFormatterService);
   @ViewChild(CdkVirtualScrollViewport) private viewport?: CdkVirtualScrollViewport;
+  @ViewChild('userXpModal') private userXpModal?: UserXpModalComponent;
+  @ViewChildren(CdkMenuTrigger) private menuTriggers?: QueryList<CdkMenuTrigger>;
+  @ViewChildren(CdkContextMenuTrigger) private contextMenuTriggers?: QueryList<CdkContextMenuTrigger>;
 
   readonly page = signal<LeaderboardPage | null>(null);
   readonly virtualRows = signal<Array<VirtualLeaderboardRow | undefined>>([]);
@@ -59,6 +66,7 @@ export class LeaderboardComponent implements OnInit {
   private refreshTimer?: number;
   private readonly cachedUserIndexes = new Map<string, number>();
   private realtimeSubscription?: { alias: string; scope: SeasonLeaderboardScope; seasonId?: string };
+  private menuTrigger: HTMLElement | null = null;
 
   ngOnInit(): void {
     this.realtime.leaderboardEntryChanges$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(event => this.handleInvalidation(event));
@@ -119,6 +127,7 @@ export class LeaderboardComponent implements OnInit {
   }
 
   onViewportIndexChange(index: number): void {
+    this.closeXpMenus();
     this.visibleIndex = index;
     const offset = this.offsetForIndex(index);
     if (!this.virtualRows()[index]?.entry || Math.abs(offset - this.desiredOffset) >= 25) this.scheduleWindowRefresh(offset);
@@ -155,7 +164,33 @@ export class LeaderboardComponent implements OnInit {
   selectHistoricalSeason(seasonId: string): void { this.navigateScope('Season', seasonId); }
   formatNumber(value: string | number): string { return this.locale.number(value); }
   messageCount(value: string | number): string { return this.locale.plural(value, 'leaderboard.messageOne', 'leaderboard.messageOther'); }
+  compactVoiceTime(value: string | number): string { return this.durations.compact(value); }
+  fullVoiceTime(value: string | number): string { return this.durations.full(value); }
+  voiceTimeLabel(value: string | number): string { return this.i18n.translate('leaderboard.voiceTimeLabel', { duration: this.fullVoiceTime(value) }); }
   trackRow(index: number, row: VirtualLeaderboardRow | undefined): number | string { return row?.entry?.userId ?? index; }
+
+  rememberMenuTrigger(event: Event): void {
+    const target = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    this.menuTrigger = target?.matches('.rank-row') ? target.querySelector<HTMLElement>('.row-actions') : target;
+  }
+
+  openXpHistory(entry: LeaderboardEntry): void {
+    const capabilities = this.page()?.viewerCapabilities;
+    if (!capabilities?.canAuditXp) return;
+    const trigger = this.menuTrigger;
+    this.closeXpMenus();
+    setTimeout(() => this.userXpModal?.open({
+      guildId: capabilities.guildId,
+      userId: entry.userId,
+      displayName: entry.displayName,
+      iconUrl: entry.iconUrl,
+      isCurrentMember: true,
+    }, { initialTab: 'history', trigger }));
+  }
+
+  onLeaderboardXpChanged(): void {
+    this.scheduleVisibleWindowRefresh();
+  }
 
   private async initializeRealtime(response: LeaderboardPage, alias: string, requestSequence: number): Promise<void> {
     try {
@@ -276,6 +311,7 @@ export class LeaderboardComponent implements OnInit {
       items: response.items.map(row => row.entry), isMember: response.isMember, publicVisible: response.publicVisible,
       scope: response.scope, seasonId: response.seasonId, seasonName: response.seasonName,
       historicalSeasons: response.historicalSeasons, currentSeason: response.currentSeason, seasonsEnabled: response.seasonsEnabled,
+      viewerCapabilities: response.viewerCapabilities,
       hasMore: false, nextCursor: null,
     } : page);
     this.error.set('');
@@ -290,10 +326,16 @@ export class LeaderboardComponent implements OnInit {
   }
 
   private clearVisibleData(error = ''): void {
+    this.closeXpMenus();
     this.virtualRows.set([]);
     this.totalCount.set(0);
     this.cachedUserIndexes.clear();
     if (error) this.error.set(error);
+  }
+
+  private closeXpMenus(): void {
+    this.menuTriggers?.forEach(trigger => trigger.close());
+    this.contextMenuTriggers?.forEach(trigger => trigger.close());
   }
 
   private resetWindow(): void {

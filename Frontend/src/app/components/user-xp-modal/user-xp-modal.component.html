@@ -1,0 +1,340 @@
+<dialog #memberDialog class="member-dialog" aria-labelledby="member-dialog-title" (cancel)="$event.preventDefault(); close()" (close)="onDialogClosed()">
+    @if (subject(); as member) {
+      <div class="member-dialog__scroll">
+        <header class="member-dialog__header">
+          @if (details(); as d) {
+            <app-user-avatar size="large" [displayName]="d.displayName" [iconUrl]="d.iconUrl"></app-user-avatar>
+            <div>
+              <h2 id="member-dialog-title">{{ d.displayName }}</h2>
+              <span>{{ d.isCurrentMember ? ("xpAudit.current" | transloco) : ("xpAudit.formerMember" | transloco) }} · {{ d.userId }}</span
+              ><button type="button" class="copy-button" (click)="copyDiscordId(d.userId)">
+                {{ "xpAudit.copy" | transloco }}
+              </button>
+              <p>
+                {{ "xpAudit.lastActivity" | transloco }}:
+                {{ formatDate(d.lastXpActivityAtUtc) }}
+              </p>
+            </div>
+          } @else {
+            <h2 id="member-dialog-title">{{ member.displayName }}</h2>
+          }
+          <button class="rk-button rk-button--ghost close-button" type="button" (click)="close()" [disabled]="adjustmentSaving() || reversalSaving()" [attr.aria-label]="'xpAudit.closeMember' | transloco">×</button>
+        </header>
+        <nav class="audit-tabs" role="tablist" (keydown)="onTabsKeydown($event)">
+          <button id="member-tab-overview" role="tab" type="button" aria-controls="member-panel-overview" [attr.tabindex]="activeModalTab() === 'overview' ? 0 : -1" [attr.aria-selected]="activeModalTab() === 'overview'" (click)="setTab('overview')">
+            {{ "xpAudit.overview" | transloco }}</button
+          ><button id="member-tab-history" role="tab" type="button" aria-controls="member-panel-history" [attr.tabindex]="activeModalTab() === 'history' ? 0 : -1" [attr.aria-selected]="activeModalTab() === 'history'" (click)="setTab('history')">
+            {{ "xpAudit.timeline" | transloco }}
+          </button>
+          @if (details()?.permissions?.canAdjust) {
+            <button id="member-tab-adjust" role="tab" type="button" aria-controls="member-panel-adjust" [attr.tabindex]="activeModalTab() === 'adjust' ? 0 : -1" [attr.aria-selected]="activeModalTab() === 'adjust'" (click)="setTab('adjust')">
+              {{ "xpAudit.adjust" | transloco }}
+            </button>
+          }
+        </nav>
+        @if (detailsError()) {
+          <div class="rk-notice rk-notice--danger">{{ detailsError() }}</div>
+        }
+        @if (activeModalTab() === "overview" && details(); as d) {
+          <section id="member-panel-overview" role="tabpanel" aria-labelledby="member-tab-overview" class="tab-panel">
+            <div class="kpi-grid">
+              <div>
+                <span>{{ "xpAudit.lifetime" | transloco }}</span
+                ><strong>{{ formatTotalXp(d.lifetime.totalXp) }} XP</strong>
+              </div>
+              <div>
+                <span>{{ "xpAudit.lifetimeLevel" | transloco }}</span
+                ><strong>{{ d.lifetime.level }}</strong>
+              </div>
+              <div>
+                <span>{{ "xpAudit.lifetimeRank" | transloco }}</span
+                ><strong>#{{ d.lifetime.rank }}</strong>
+              </div>
+              @if (d.activeSeason; as s) {
+                <div>
+                  <span>{{ s.name }}</span
+                  ><strong>{{ formatTotalXp(s.totalXp) }} XP</strong>
+                </div>
+              }
+            </div>
+            <div class="breakdown-grid">
+              <section>
+                <h3>{{ "xpAudit.lifetimeBreakdown" | transloco }}</h3>
+                <p>{{ "xpAudit.imported" | transloco }}: {{ formatTotalXp(d.lifetime.importedXp ?? 0) }} XP</p>
+                <p>{{ "xpAudit.automatic" | transloco }}: {{ formatTotalXp(d.lifetime.earnedXp) }} XP</p>
+                <p>{{ "xpAudit.manual" | transloco }}: {{ formatTotalXp(d.lifetime.manualAdjustment) }} XP</p>
+              </section>
+              @if (d.activeSeason; as s) {
+                <section>
+                  <h3>{{ s.name }}</h3>
+                  <p>{{ "xpAudit.startingXp" | transloco }}: {{ formatTotalXp(s.startingXp ?? 0) }} XP</p>
+                  <p>{{ "xpAudit.automatic" | transloco }}: {{ formatTotalXp(s.earnedXp) }} XP</p>
+                  <p>{{ "xpAudit.manual" | transloco }}: {{ formatTotalXp(s.manualAdjustment) }} XP</p>
+                </section>
+              } @else {
+                <div class="rk-notice rk-notice--info">
+                  {{ "xpAudit.noActiveSeason" | transloco }}
+                </div>
+              }
+            </div>
+          </section>
+        }
+        @if (activeModalTab() === "history") {
+          <section id="member-panel-history" role="tabpanel" aria-labelledby="member-tab-history" class="tab-panel">
+            <div class="timeline-toolbar">
+              <button type="button" class="rk-button" [class.rk-button--primary]="timelineMode() === 'compact'" (click)="setTimelineMode('compact')">
+                {{ "xpAudit.compact" | transloco }}</button
+              ><button type="button" class="rk-button" [class.rk-button--primary]="timelineMode() === 'entries'" [disabled]="voiceTimelineSelected()" [attr.title]="voiceTimelineSelected() ? ('xpAudit.voiceUsesCompact' | transloco) : null" (click)="setTimelineMode('entries')">
+                {{ "xpAudit.individualEntries" | transloco }}</button
+              ><label
+                >{{ "xpAudit.source" | transloco
+                }}<select [value]="filters().source ?? ''" (change)="updateFilter('source', $any($event.target).value)">
+                  <option value="">{{ "xpAudit.all" | transloco }}</option>
+                  <option value="voice">
+                    {{ "xpAudit.sources.voice" | transloco }}
+                  </option>
+                  <option value="message">
+                    {{ "xpAudit.sources.message" | transloco }}
+                  </option>
+                </select></label
+              ><label
+                >{{ "xpAudit.kindFilter" | transloco
+                }}<select [value]="filters().kind ?? ''" (change)="updateFilter('kind', $any($event.target).value)">
+                  <option value="">{{ "xpAudit.all" | transloco }}</option>
+                  <option value="AutomaticGrant">
+                    {{ "xpAudit.kinds.AutomaticGrant" | transloco }}
+                  </option>
+                  <option value="AutomaticReversal">
+                    {{ "xpAudit.kinds.AutomaticReversal" | transloco }}
+                  </option>
+                  <option value="ManualAdjustment">
+                    {{ "xpAudit.kinds.ManualAdjustment" | transloco }}
+                  </option>
+                  <option value="ManualAdjustmentReversal">
+                    {{ "xpAudit.kinds.ManualAdjustmentReversal" | transloco }}
+                  </option>
+                  <option value="SystemMigration">
+                    {{ "xpAudit.kinds.SystemMigration" | transloco }}
+                  </option>
+                </select></label
+              ><label
+                >{{ "xpAudit.scopeFilter" | transloco
+                }}<select [value]="filters().scope ?? ''" (change)="updateFilter('scope', $any($event.target).value)">
+                  <option value="">{{ "xpAudit.all" | transloco }}</option>
+                  <option value="LifetimeOnly">
+                    {{ "xpAudit.scopes.LifetimeOnly" | transloco }}
+                  </option>
+                  <option value="LifetimeAndSeason">
+                    {{ "xpAudit.scopes.LifetimeAndSeason" | transloco }}
+                  </option>
+                  <option value="SeasonOnly">
+                    {{ "xpAudit.scopes.SeasonOnly" | transloco }}
+                  </option>
+                </select></label
+              ><label
+                >{{ "xpAudit.directionFilter" | transloco
+                }}<select [value]="filters().direction ?? ''" (change)="updateFilter('direction', $any($event.target).value)">
+                  <option value="">{{ "xpAudit.all" | transloco }}</option>
+                  <option value="Positive">
+                    {{ "xpAudit.positive" | transloco }}
+                  </option>
+                  <option value="Negative">
+                    {{ "xpAudit.negative" | transloco }}
+                  </option>
+                </select></label
+              ><label
+                >{{ "xpAudit.projectionStatus" | transloco
+                }}<select [value]="filters().projectionStatus ?? ''" (change)="updateFilter('projectionStatus', $any($event.target).value)">
+                  <option value="">{{ "xpAudit.all" | transloco }}</option>
+                  <option value="Applied">
+                    {{ "xpAudit.projectionApplied" | transloco }}
+                  </option>
+                  <option value="Pending">
+                    {{ "xpAudit.projectionPending" | transloco }}
+                  </option>
+                </select></label
+              ><label>{{ "xpAudit.channelId" | transloco }}<input type="text" inputmode="numeric" [value]="filters().channelId ?? ''" (change)="updateFilter('channelId', $any($event.target).value)" /></label><label>{{ "xpAudit.season" | transloco }}<input type="text" [value]="filters().seasonId ?? ''" (change)="updateFilter('seasonId', $any($event.target).value)" /></label><label>{{ "xpAudit.from" | transloco }}<input type="date" [value]="dateFilterValue('from')" (change)="updateDateFilter('from', $any($event.target).value)" /></label><label>{{ "xpAudit.to" | transloco }}<input type="date" [value]="dateFilterValue('to')" (change)="updateDateFilter('to', $any($event.target).value)" /></label><button type="button" class="rk-button rk-button--ghost" (click)="resetFilters()">{{ "xpAudit.resetFilters" | transloco }} ({{ activeFilterCount() }})</button>
+            </div>
+            @if (entriesLoading()) {
+              <div class="rk-skeleton entry-skeleton" aria-hidden="true"></div>
+            } @else if (timelineMode() === "compact") {
+              @for (item of timelineItems(); track item.id) {
+                <article class="timeline-entry" [class.voice-day]="item.itemType === 'VoiceDay'">
+                  <strong>{{ item.itemType === "VoiceDay" ? formatTimelineXp(item.voiceDay!.totalXp) + " XP" : formatSignedXp(item.entry!.amount) }}</strong>
+                  <div>
+                    @if (item.itemType === "VoiceDay" && item.voiceDay; as day) {
+                      <h3>
+                        {{ "xpAudit.voiceDay" | transloco }} ·
+                        {{ formatDay(day.day) }}
+                      </h3>
+                      <p>
+                        {{ formatTimeRange(day.activityStartsAtUtc, day.activityEndsAtUtc) }}
+                        · {{ formatDuration(day.eligibleSeconds) }}
+                      </p>
+                      <p>
+                        {{
+                          "xpAudit.voiceDayCounts"
+                            | transloco
+                              : {
+                                  segments: day.segmentCount,
+                                  sessions: day.sessionCount,
+                                  channels: day.channelCount,
+                                }
+                        }}
+                      </p>
+                      <button type="button" class="rk-button rk-button--ghost" [attr.aria-expanded]="voiceDayState(item)?.expanded ?? false" [disabled]="voiceDayState(item)?.loading" (click)="toggleVoiceDay(item)">
+                        {{ voiceDayState(item)?.expanded ? ("xpAudit.hideVoiceSegments" | transloco) : ("xpAudit.showVoiceSegments" | transloco) }}
+                      </button>
+                      @if (voiceDayState(item)?.expanded) {
+                        <section class="voice-day__segments" [attr.aria-busy]="voiceDayState(item)?.loading">
+                          @if (voiceDayState(item)?.loading) {
+                            <p>
+                              {{ "xpAudit.voiceSegmentsLoading" | transloco }}
+                            </p>
+                          } @else if (voiceDayState(item)?.error) {
+                            <div class="rk-notice rk-notice--danger" role="alert">
+                              {{ voiceDayState(item)?.error }}
+                              <button type="button" class="rk-button rk-button--ghost" (click)="retryVoiceDay(item)">
+                                {{ "common.retry" | transloco }}
+                              </button>
+                            </div>
+                          } @else {
+                            @for (segment of voiceDayState(item)?.items; track segment.id) {
+                              <article class="voice-segment">
+                                <strong>{{ formatSignedXp(segment.xp) }}</strong
+                                ><span
+                                  >{{ formatTimeRange(segment.startsAtUtc, segment.endsAtUtc) }}
+                                  ·
+                                  {{ formatDuration(segment.durationSeconds) }}</span
+                                ><span
+                                  >{{ "xpAudit.channelId" | transloco }}
+                                  {{ segment.channelId }}
+                                  @if (segment.seasonName) {
+                                    · {{ segment.seasonName }}
+                                  }</span
+                                ><span
+                                  >{{ "xpAudit.voiceRate" | transloco }}
+                                  {{ formatRawXp(segment.effectiveXpPerMinute) }}
+                                  ·
+                                  {{ "xpAudit.channelMultiplier" | transloco }}
+                                  {{ formatRawXp(segment.channelMultiplier) }}× ·
+                                  {{ "xpAudit.boosterMultiplier" | transloco }}
+                                  {{ segment.serverBoosterMultiplier === null ? ("xpAudit.none" | transloco) : formatRawXp(segment.serverBoosterMultiplier) + "×" }}</span
+                                >
+                              </article>
+                            } @empty {
+                              <p class="empty-state">
+                                {{ "xpAudit.voiceSegmentsEmpty" | transloco }}
+                              </p>
+                            }
+                          }
+                        </section>
+                      }
+                    } @else {
+                      <h3>{{ kindLabel(item.entry!.kind) }}</h3>
+                      <p>
+                        {{ sourceLabel(item.entry!.source) }} ·
+                        {{ formatDate(item.entry!.occurredAtUtc) }}
+                      </p>
+                      @if (details() && isReversible(item.entry!, details()!)) {
+                        <button class="rk-button rk-button--danger" type="button" (click)="openReversal(item.entry!, $event)">
+                          {{ "xpAudit.reverse" | transloco }}
+                        </button>
+                      }
+                    }
+                  </div>
+                </article>
+              } @empty {
+                <p class="empty-state">
+                  {{ "xpAudit.entriesEmpty" | transloco }}
+                </p>
+              }
+            } @else {
+              @for (entry of entries(); track entry.id) {
+                <article class="timeline-entry">
+                  <strong>{{ formatSignedXp(entry.amount) }}</strong>
+                  <div>
+                    <h3>{{ kindLabel(entry.kind) }}</h3>
+                    <p>
+                      {{ sourceLabel(entry.source) }} ·
+                      {{ formatDate(entry.occurredAtUtc) }}
+                    </p>
+                  </div>
+                </article>
+              } @empty {
+                <p class="empty-state">
+                  {{ "xpAudit.entriesEmpty" | transloco }}
+                </p>
+              }
+            }
+            @if (timelineMode() === "compact" ? timelineCursor() : entryCursor()) {
+              <button type="button" class="rk-button rk-button--ghost load-more" [disabled]="entriesLoading() || moreEntriesLoading()" (click)="loadHistory(true)">
+                {{ "xpAudit.more" | transloco }}
+              </button>
+            }
+            @if (entriesError()) {
+              <div class="rk-notice rk-notice--danger">
+                {{ entriesError() }}
+              </div>
+            }
+          </section>
+        }
+        @if (activeModalTab() === "adjust" && details(); as d) {
+          <section id="member-panel-adjust" role="tabpanel" aria-labelledby="member-tab-adjust" class="tab-panel adjustment-panel">
+            <form (ngSubmit)="reviewAdjustment($event)">
+              <fieldset class="radio-group">
+                <legend>{{ "xpAudit.direction" | transloco }}</legend>
+                <label class="radio-card" [class.radio-card--selected]="direction === 'add'"><input type="radio" name="direction" value="add" [(ngModel)]="direction" /><span>{{ "xpAudit.addXp" | transloco }}</span></label
+                ><label class="radio-card" [class.radio-card--selected]="direction === 'subtract'"><input type="radio" name="direction" value="subtract" [(ngModel)]="direction" /><span>{{ "xpAudit.subtractXp" | transloco }}</span></label>
+              </fieldset>
+              <label for="adjustment-amount">{{ "xpAudit.amount" | transloco }}<input id="adjustment-amount" type="number" [(ngModel)]="amount" name="amount" step="0.0001" /></label>
+              @if (amountError) {
+                <p class="field-error">{{ amountError }}</p>
+              }
+              <fieldset class="radio-group">
+                <legend>{{ "xpAudit.scope" | transloco }}</legend>
+                <label class="radio-card" [class.radio-card--selected]="scope === 'LifetimeOnly'"><input type="radio" name="scope" value="LifetimeOnly" [(ngModel)]="scope" /><span>{{ "xpAudit.scopes.LifetimeOnly" | transloco }}</span></label
+                ><label class="radio-card" [class.radio-card--selected]="scope === 'LifetimeAndSeason'" [class.radio-card--disabled]="!d.activeSeason"><input type="radio" name="scope" value="LifetimeAndSeason" [(ngModel)]="scope" [disabled]="!d.activeSeason" /><span>{{ "xpAudit.scopes.LifetimeAndSeason" | transloco }}</span></label>
+                @if (!d.activeSeason) { <p class="field-hint">{{ "xpAudit.seasonUnavailable" | transloco }}</p> }
+              </fieldset>
+              <label for="adjustment-reason">{{ "xpAudit.reasonLabel" | transloco }} <span class="required-marker" aria-hidden="true">*</span><span class="sr-only">{{ "xpAudit.required" | transloco }}</span><textarea id="adjustment-reason" [(ngModel)]="reason" name="reason" maxlength="1000" required aria-describedby="adjustment-reason-hint"></textarea><span id="adjustment-reason-hint" class="field-hint">{{ "xpAudit.reasonRequiredHint" | transloco }}</span><span class="character-count">{{ reason.length }}/1000</span></label>
+              @if (reasonError) { <p class="field-error">{{ reasonError }}</p> }
+              <label for="adjustment-reference">{{ "xpAudit.referenceLabel" | transloco }}<input id="adjustment-reference" [(ngModel)]="reference" name="reference" maxlength="250" /><span class="character-count">{{ reference.length }}/250</span></label>
+              <div class="adjustment-preview" [class.adjustment-preview--negative]="direction === 'subtract'"><span>{{ "xpAudit.currentTotal" | transloco }}</span><strong>{{ formatTotalXp(d.lifetime.totalXp) }} XP → {{ formatTotalXp(projectedTotal(d.lifetime.totalXp)) }} XP</strong></div>
+              <button class="rk-button rk-button--primary" type="submit" [disabled]="!canReviewAdjustment || adjustmentSaving()">
+                {{ "xpAudit.reviewAdjustment" | transloco }}
+              </button>
+            </form>
+          </section>
+        }
+      </div>
+    }
+  </dialog>
+  <dialog #adjustmentDialog aria-labelledby="adjustment-dialog-title">
+    <section class="dialog-content">
+      <h2 id="adjustment-dialog-title">
+        {{ "xpAudit.confirmAdjustment" | transloco }}
+      </h2>
+      <p>{{ "xpAudit.adjustmentPermanentNotice" | transloco }}</p>
+      <div class="dialog-actions">
+        <button class="rk-button rk-button--ghost" type="button" (click)="closeAdjustmentDialog()">
+          {{ "xpAudit.backDialog" | transloco }}</button
+        ><button class="rk-button rk-button--primary" type="button" (click)="adjust()">
+          {{ "xpAudit.confirmAdjustment" | transloco }}
+        </button>
+      </div>
+    </section>
+  </dialog>
+  <dialog #reversalDialog aria-labelledby="reversal-dialog-title">
+    <section class="dialog-content">
+      <h2 id="reversal-dialog-title">{{ "xpAudit.reverse" | transloco }}</h2>
+      <label>{{ "xpAudit.reversalReason" | transloco }}<textarea [(ngModel)]="reversalReason"></textarea></label><label>{{ "xpAudit.reversalReference" | transloco }}<input [(ngModel)]="reversalReference" /></label>
+      <div class="dialog-actions">
+        <button class="rk-button rk-button--ghost" type="button" (click)="closeReversalDialog()">
+          {{ "xpAudit.cancel" | transloco }}</button
+        ><button class="rk-button rk-button--danger" type="button" (click)="reverse()">
+          {{ "xpAudit.confirmReversal" | transloco }}
+        </button>
+      </div>
+    </section>
+  </dialog>

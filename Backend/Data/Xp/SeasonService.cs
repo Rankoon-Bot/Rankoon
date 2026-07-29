@@ -18,7 +18,10 @@ public interface ISeasonLifecycleService
     Task<bool> ActivateAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default);
     Task<bool> CloseAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default);
     Task<bool> CancelAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default);
+    Task<long> CancelScheduledAsync(ulong guildId, CancellationToken cancellationToken = default);
     Task<bool> ResumeAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default);
+    Task<bool> DeleteCancelledAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default);
+    Task<long> DeleteAllCancelledAsync(ulong guildId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Resolves persisted season instances only. XP sources must never infer a season from mutable settings.</summary>
@@ -109,6 +112,13 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
         return result.ModifiedCount > 0;
     }
 
+    public async Task<long> CancelScheduledAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        var result = await database.GuildSeasons.UpdateManyAsync(x => x.GuildId == guildId && x.Status == SeasonStatus.Scheduled,
+            Builders<GuildSeason>.Update.Set(x => x.Status, SeasonStatus.Cancelled).Unset(x => x.ActiveGuildId).Set(x => x.ClosedAtUtc, timeProvider.GetUtcNow().UtcDateTime), cancellationToken: cancellationToken);
+        return result.ModifiedCount;
+    }
+
     public async Task<bool> ResumeAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -118,6 +128,53 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
         var season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId).FirstAsync(cancellationToken);
         await ContinueActivationAsync(season, now, cancellationToken);
         return true;
+    }
+
+    public async Task<bool> DeleteCancelledAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default)
+    {
+        if (await database.GuildSeasons.Find(x => x.GuildId == guildId && x.PreviousSeasonId == seasonId).AnyAsync(cancellationToken)) return false;
+        var result = await database.GuildSeasons.DeleteOneAsync(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Cancelled, cancellationToken);
+        return result.DeletedCount > 0;
+    }
+
+    public async Task<long> DeleteAllCancelledAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        var guildSeasons = await database.GuildSeasons.Find(x => x.GuildId == guildId).ToListAsync(cancellationToken);
+        long deleted = 0;
+        foreach (var seasonId in GetCancelledDeletionOrder(guildSeasons))
+        {
+            if (await DeleteCancelledAsync(guildId, seasonId, cancellationToken)) deleted++;
+        }
+        return deleted;
+    }
+
+    public static IReadOnlyList<string> GetCancelledDeletionOrder(IReadOnlyCollection<GuildSeason> seasons)
+    {
+        var remaining = seasons
+            .Where(x => x.Status == SeasonStatus.Cancelled && x.Id != null)
+            .ToDictionary(x => x.Id!, StringComparer.Ordinal);
+        var successorCounts = remaining.Keys.ToDictionary(x => x, _ => 0, StringComparer.Ordinal);
+        foreach (var season in seasons)
+        {
+            if (season.PreviousSeasonId != null && successorCounts.ContainsKey(season.PreviousSeasonId)) successorCounts[season.PreviousSeasonId]++;
+        }
+
+        var result = new List<string>(remaining.Count);
+        while (true)
+        {
+            var leaves = remaining.Values
+                .Where(x => successorCounts[x.Id!] == 0)
+                .OrderByDescending(x => x.Sequence)
+                .ToList();
+            if (leaves.Count == 0) break;
+            foreach (var leaf in leaves)
+            {
+                result.Add(leaf.Id!);
+                remaining.Remove(leaf.Id!);
+                if (leaf.PreviousSeasonId != null && remaining.ContainsKey(leaf.PreviousSeasonId)) successorCounts[leaf.PreviousSeasonId]--;
+            }
+        }
+        return result;
     }
 
     private async Task ContinueActivationAsync(GuildSeason season, DateTime now, CancellationToken cancellationToken)

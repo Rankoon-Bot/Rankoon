@@ -60,7 +60,7 @@ public sealed class ThreadXpSettings { public bool Enabled { get; set; } = true;
 public sealed class ChannelMultiplier { public ulong ChannelId { get; set; } public decimal Multiplier { get; set; } = 1; }
 public sealed class ServerBoosterXpSettings { public bool Enabled { get; set; } public List<ServerBoosterXpTier> Tiers { get; set; } = []; }
 public sealed class ServerBoosterXpTier { public int MinimumBoostMonths { get; set; } public decimal Multiplier { get; set; } = 1; }
-public sealed class LevelRole { public int Level { get; set; } public ulong RoleId { get; set; } }
+public sealed class LevelRole { public int Level { get; set; } public ulong RoleId { get; set; } public string? Description { get; set; } }
 
 public sealed class MemberXp
 {

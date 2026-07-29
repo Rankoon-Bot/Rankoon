@@ -127,6 +127,8 @@ describe('SeasonConfigComponent', () => {
     );
     expect(element.querySelector('.next')?.textContent).toContain('Season 2');
     expect(element.querySelectorAll('.season-segment').length).toBe(2);
+    expect(element.querySelectorAll('rk-season-instance-list').length).toBe(1);
+    expect(element.querySelector('.operations-section')).toBeNull();
   });
 
   it('renders disabled configuration and disables its configuration fieldset', () => {
@@ -409,5 +411,40 @@ describe('SeasonConfigComponent', () => {
     http.expectOne(seasonsUrl).flush([{ ...season, status: 'Active' }]);
     http.expectOne(previewUrl).flush(previews);
     expect(component.currentSeason()?.id).toBe('season-2');
+  });
+
+  it('cancels all scheduled seasons through the confirmed bulk endpoint', () => {
+    flushInitialLoad();
+    const dialog = fixture.debugElement.query(
+      By.directive(ConfirmationDialogComponent),
+    ).componentInstance as ConfirmationDialogComponent;
+    spyOn(dialog, 'open');
+    spyOn(dialog, 'close');
+
+    component.requestBulkAction('cancelScheduled');
+    expect(dialog.open).toHaveBeenCalled();
+    expect(component.pending()).toEqual({ action: 'cancelScheduled', season: null, guildId: 'guild-1' });
+    component.confirmAction();
+
+    const request = http.expectOne(`${seasonsUrl}/cancel-scheduled`);
+    expect(request.request.method).toBe('POST');
+    request.flush({ affectedCount: 1 });
+    http.expectOne(configUrl).flush(createSettings());
+    http.expectOne(seasonsUrl).flush([createSeason(1, 'Active'), createSeason(2, 'Cancelled')]);
+    http.expectOne(previewUrl).flush(previews);
+    expect(dialog.close).toHaveBeenCalled();
+  });
+
+  it('deletes all cancelled seasons through the confirmed bulk endpoint', () => {
+    flushInitialLoad(createSettings(), [createSeason(3, 'Cancelled')]);
+    component.requestBulkAction('deleteCancelled');
+    component.confirmAction();
+
+    const request = http.expectOne(`${seasonsUrl}/cancelled`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush({ affectedCount: 1 });
+    http.expectOne(configUrl).flush(createSettings());
+    http.expectOne(seasonsUrl).flush([]);
+    http.expectOne(previewUrl).flush(previews);
   });
 });

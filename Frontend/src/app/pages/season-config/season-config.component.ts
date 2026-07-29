@@ -26,7 +26,8 @@ import { SeasonStatusSummaryComponent } from './components/season-status-summary
 import { SeasonTimelinePreviewComponent } from './components/season-timeline-preview.component';
 
 export type SeasonAction = 'start' | 'close' | 'cancel' | 'resume' | 'delete';
-type PendingAction = { action: SeasonAction; season: Season; guildId: string };
+type SeasonBulkAction = 'cancelScheduled' | 'deleteCancelled';
+type PendingAction = { action: SeasonAction; season: Season; guildId: string } | { action: SeasonBulkAction; season: null; guildId: string };
 export type SchedulePreset = 'monthly' | 'quarterly' | 'custom';
 
 const SUPPORTED_TOKENS = ['{number}', '{year}', '{endYear}', '{month}', '{monthName}', '{quarter}', '{rotation}', '{start:yyyy-MM-dd}', '{end:yyyy-MM-dd}'] as const;
@@ -100,7 +101,6 @@ export class SeasonConfigComponent {
   readonly advanced = signal(false);
   readonly pending = signal<PendingAction | null>(null);
   readonly serverErrors = signal<Record<string, string>>({});
-  readonly activeTab = signal<'planned' | 'past'>('planned');
   readonly supportedTokens = SUPPORTED_TOKENS;
 
   rotationInput = '';
@@ -378,19 +378,29 @@ export class SeasonConfigComponent {
     this.confirmDialog?.open();
   }
 
+  requestBulkAction(action: SeasonBulkAction): void {
+    const guildId = this.store.selectedGuild()?.id;
+    if (!guildId || this.dirty()) return;
+    this.pending.set({ action, season: null, guildId });
+    this.confirmDialog?.open();
+  }
+
   confirmAction(): void {
     const pending = this.pending();
-    if (!pending?.season.id || this.actionBusy()) return;
+    if (!pending || this.actionBusy() || (pending.season && !pending.season.id)) return;
     const guildId = pending.guildId;
+    const seasonId = pending.season?.id;
     if (this.store.selectedGuild()?.id !== guildId) {
       this.closeDialog();
       return;
     }
-    const request: Observable<unknown> = pending.action === 'start' ? this.api.startSeason(guildId, pending.season.id)
-      : pending.action === 'close' ? this.api.closeSeason(guildId, pending.season.id)
-      : pending.action === 'resume' ? this.api.resumeSeason(guildId, pending.season.id)
-      : pending.action === 'delete' ? this.api.deleteSeason(guildId, pending.season.id)
-      : this.api.cancelSeason(guildId, pending.season.id);
+    const request: Observable<unknown> = pending.action === 'cancelScheduled' ? this.api.cancelScheduledSeasons(guildId)
+      : pending.action === 'deleteCancelled' ? this.api.deleteCancelledSeasons(guildId)
+      : pending.action === 'start' ? this.api.startSeason(guildId, seasonId!)
+      : pending.action === 'close' ? this.api.closeSeason(guildId, seasonId!)
+      : pending.action === 'resume' ? this.api.resumeSeason(guildId, seasonId!)
+      : pending.action === 'delete' ? this.api.deleteSeason(guildId, seasonId!)
+      : this.api.cancelSeason(guildId, seasonId!);
     this.actionBusy.set(true);
     request.pipe(finalize(() => this.actionBusy.set(false))).subscribe({
       next: () => {
@@ -421,7 +431,7 @@ export class SeasonConfigComponent {
 
   actionDescription(): string {
     const pending = this.pending();
-    return pending ? this.i18n.translate(`seasons.confirm.${pending.action}`, { name: pending.season.name }) : '';
+    return pending ? this.i18n.translate(`seasons.confirm.${pending.action}`, { name: pending.season?.name ?? '', count: pending.action === 'cancelScheduled' ? this.scheduledCount() : this.cancelledCount() }) : '';
   }
 
   actionImpact(): string {
@@ -535,12 +545,15 @@ export class SeasonConfigComponent {
   availableActions(season: Season): SeasonAction[] {
     if (this.dirty()) return [];
     const result: SeasonAction[] = [];
-    if (season.status === 'Scheduled') result.push('start', 'cancel', 'delete');
+    if (season.status === 'Scheduled') result.push('start', 'cancel');
     if (season.status === 'Active') result.push('close', 'cancel');
     if (this.isResumable(season)) result.push('resume');
-    if (season.status === 'Cancelled') result.push('delete');
+    if (season.status === 'Cancelled' && !this.seasons().some(item => item.previousSeasonId === season.id)) result.push('delete');
     return result;
   }
+
+  scheduledCount(): number { return this.seasons().filter(season => season.status === 'Scheduled').length; }
+  cancelledCount(): number { return this.seasons().filter(season => season.status === 'Cancelled').length; }
 
   isActive(season: Season): boolean { return season.status === 'Active' || season.status === 'Closing'; }
   isResumable(season: Season): boolean {

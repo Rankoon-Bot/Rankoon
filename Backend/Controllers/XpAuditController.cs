@@ -16,11 +16,12 @@ public sealed record ReverseBody(string? Reason, string? Reference, string? Requ
 public sealed class XpAuditController(IGuildAuthorizationService authorization, IXpAuditService audit) : ControllerBase
 {
     [HttpGet("members")]
-    public async Task<IActionResult> Members(string guildId, [FromQuery] string? query, [FromQuery] bool includeFormerMembers, [FromQuery] int take = 25, [FromQuery] string? cursor = null)
+    public async Task<IActionResult> Members(string guildId, [FromQuery] string? query, [FromQuery] bool includeFormerMembers, [FromQuery] XpAuditMemberSort sort = XpAuditMemberSort.TotalXpDescending, [FromQuery] int take = 25, [FromQuery] string? cursor = null)
     {
         if (!ulong.TryParse(guildId, out var id) || id == 0) return this.ApiError("guild.invalidId");
+        if (!Enum.IsDefined(sort)) return this.ApiError("xpAudit.invalidSort");
         if (!await authorization.CanAccessModuleAsync(User, id, GuildModuleIds.XpAudit, HttpContext.RequestAborted)) return Forbid();
-        try { return Ok(await audit.SearchMembersAsync(id, query, includeFormerMembers, take, cursor, HttpContext.RequestAborted)); } catch (XpAuditValidationException e) { return this.ApiError(e.Code); }
+        try { return Ok(await audit.SearchMembersAsync(id, query, includeFormerMembers, sort, take, cursor, HttpContext.RequestAborted)); } catch (XpAuditValidationException e) { return this.ApiError(e.Code); }
     }
     [HttpGet("members/{userId}")]
     public async Task<IActionResult> Member(string guildId, string userId)

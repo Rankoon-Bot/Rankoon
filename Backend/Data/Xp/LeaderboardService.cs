@@ -15,9 +15,11 @@ namespace Rankoon.Data.Xp;
 
 public sealed record LeaderboardEntryDto(long Rank, string UserId, string DisplayName, string? IconUrl, decimal TotalXp, int Level, long MessageCount, decimal VoiceSeconds, bool IsCurrentUser);
 public sealed record SeasonLeaderboardOption(string Id, string Name, DateTime StartsAtUtc, DateTime EndsAtUtc);
-public sealed record LeaderboardPageDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardEntryDto> Items, string? NextCursor, bool HasMore, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope = SeasonLeaderboardScope.Lifetime, string? SeasonId = null, string? SeasonName = null, IReadOnlyList<SeasonLeaderboardOption>? HistoricalSeasons = null, SeasonLeaderboardOption? CurrentSeason = null, bool SeasonsEnabled = false);
+public sealed record LeaderboardViewerCapabilitiesDto(string GuildId, bool CanAuditXp, bool CanAdjustXp);
+public sealed record LeaderboardLevelRewardDto(int Level, string RoleName, string? Description);
+public sealed record LeaderboardPageDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardEntryDto> Items, string? NextCursor, bool HasMore, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope = SeasonLeaderboardScope.Lifetime, string? SeasonId = null, string? SeasonName = null, IReadOnlyList<SeasonLeaderboardOption>? HistoricalSeasons = null, SeasonLeaderboardOption? CurrentSeason = null, bool SeasonsEnabled = false, LeaderboardViewerCapabilitiesDto? ViewerCapabilities = null, IReadOnlyList<LeaderboardLevelRewardDto>? LevelRewards = null);
 public sealed record LeaderboardWindowRowDto(long Index, LeaderboardEntryDto Entry);
-public sealed record LeaderboardWindowDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardWindowRowDto> Items, IReadOnlyList<LeaderboardWindowRowDto> CachedItems, IReadOnlyList<string> RemovedCachedUserIds, long Offset, long TotalCount, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope, string? SeasonId, string? SeasonName, IReadOnlyList<SeasonLeaderboardOption> HistoricalSeasons, SeasonLeaderboardOption? CurrentSeason, bool SeasonsEnabled);
+public sealed record LeaderboardWindowDto(string GuildName, string Alias, LeaderboardVisibility Visibility, IReadOnlyList<LeaderboardWindowRowDto> Items, IReadOnlyList<LeaderboardWindowRowDto> CachedItems, IReadOnlyList<string> RemovedCachedUserIds, long Offset, long TotalCount, bool IsMember, bool? PublicVisible, SeasonLeaderboardScope Scope, string? SeasonId, string? SeasonName, IReadOnlyList<SeasonLeaderboardOption> HistoricalSeasons, SeasonLeaderboardOption? CurrentSeason, bool SeasonsEnabled, LeaderboardViewerCapabilitiesDto? ViewerCapabilities = null);
 
 public sealed class LeaderboardService(RankoonDbContext database, DiscordShardedClient discord, GuildMembershipService memberships, IOptions<JwtSettings> jwtSettings, TimeProvider timeProvider, IGuildUserPresentationService presentations)
 {
@@ -151,17 +153,20 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
         var history = await GetPublicHistoryAsync(settings.GuildId, cancellationToken);
         var current = await database.GuildSeasons.Find(x => x.GuildId == settings.GuildId && x.Status == SeasonStatus.Active).FirstOrDefaultAsync(cancellationToken);
         var currentOption = current == null ? null : new SeasonLeaderboardOption(current.Id!, current.Name, current.StartsAtUtc, current.EndsAtUtc);
+        var levelRewards = string.IsNullOrWhiteSpace(cursor)
+            ? await GetLevelRewardsAsync(settings.GuildId, cancellationToken)
+            : [];
         if (scope == SeasonLeaderboardScope.Lifetime)
         {
             var page = await GetPageAsync(settings, isMember, currentUserId, cursor, take, aroundCurrentUser, cancellationToken);
-            return page with { HistoricalSeasons = history, CurrentSeason = currentOption, SeasonsEnabled = seasonsEnabled };
+            return page with { HistoricalSeasons = history, CurrentSeason = currentOption, SeasonsEnabled = seasonsEnabled, LevelRewards = levelRewards };
         }
 
         GuildSeason? season;
         if (scope == SeasonLeaderboardScope.CurrentSeason)
         {
             season = current;
-            if (season == null) return EmptyScopedPage(settings, isMember, currentUserId, scope, null, null, history, currentOption, seasonsEnabled);
+            if (season == null) return EmptyScopedPage(settings, isMember, currentUserId, scope, null, null, history, currentOption, seasonsEnabled) with { LevelRewards = levelRewards };
         }
         else
         {
@@ -170,9 +175,10 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
             if (season == null) throw new ArgumentException("Season is not available publicly.", nameof(seasonId));
         }
 
-        return scope == SeasonLeaderboardScope.CurrentSeason
+        var scopedPage = scope == SeasonLeaderboardScope.CurrentSeason
             ? await GetCurrentSeasonPageAsync(settings, season, isMember, currentUserId, cursor, take, aroundCurrentUser, history, currentOption, seasonsEnabled, cancellationToken)
             : await GetHistoricalSeasonPageAsync(settings, season, isMember, currentUserId, cursor, take, aroundCurrentUser, history, currentOption, seasonsEnabled, cancellationToken);
+        return scopedPage with { LevelRewards = levelRewards };
     }
 
     public async Task<bool> IsScopeAvailableAsync(GuildLeaderboardSettings settings, SeasonLeaderboardScope scope, string? seasonId, CancellationToken cancellationToken = default)
@@ -393,6 +399,31 @@ public sealed class LeaderboardService(RankoonDbContext database, DiscordSharded
 
     internal static IReadOnlyList<LeaderboardEntryDto> UniqueUsers(IEnumerable<LeaderboardEntryDto> items) =>
         items.DistinctBy(item => item.UserId).ToList();
+
+    private async Task<IReadOnlyList<LeaderboardLevelRewardDto>> GetLevelRewardsAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        var settings = await database.GuildXpSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
+        var guild = discord.GetGuild(guildId);
+        if (settings?.LevelRoles == null || guild == null) return [];
+        return ResolveLevelRewards(settings.LevelRoles, roleId => guild.GetRole(roleId)?.Name);
+    }
+
+    internal static IReadOnlyList<LeaderboardLevelRewardDto> ResolveLevelRewards(IEnumerable<LevelRole>? rewards, Func<ulong, string?> resolveRoleName) =>
+        (rewards ?? [])
+            .Select((reward, index) => new { reward, index, roleName = resolveRoleName(reward.RoleId) })
+            .Where(x => !string.IsNullOrWhiteSpace(x.roleName))
+            .Select(x => new
+            {
+                x.reward.Level,
+                RoleName = x.roleName!.Trim(),
+                Description = string.IsNullOrWhiteSpace(x.reward.Description) ? null : x.reward.Description.Trim(),
+                x.index
+            })
+            .OrderBy(x => x.Level)
+            .ThenBy(x => x.RoleName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.index)
+            .Select(x => new LeaderboardLevelRewardDto(x.Level, x.RoleName, x.Description))
+            .ToList();
 
     private LeaderboardPageDto EmptyScopedPage(GuildLeaderboardSettings settings, bool isMember, ulong? currentUserId, SeasonLeaderboardScope scope, string? seasonId, string? seasonName, IReadOnlyList<SeasonLeaderboardOption> history, SeasonLeaderboardOption? current, bool seasonsEnabled) =>
         new(discord.GetGuild(settings.GuildId)?.Name ?? settings.Alias, settings.Alias, settings.Visibility, [], null, false, isMember, currentUserId == null ? null : true, scope, seasonId, seasonName, history, current, seasonsEnabled);

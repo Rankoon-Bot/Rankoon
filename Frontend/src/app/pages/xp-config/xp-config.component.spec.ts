@@ -331,8 +331,48 @@ describe('XpConfigComponent server booster settings', () => {
     config.channelMultipliers.push({ channelId: '', multiplier: 1 });
     expect(component.isValid(config)).toBeFalse();
     config.channelMultipliers = [];
-    config.levelRoles.push({ level: 0, roleId: '' });
+    config.levelRoles.push({ level: 0, roleId: '', description: '' });
     expect(component.isValid(config)).toBeFalse();
+  });
+
+  it('initializes, tracks, and validates level role descriptions', () => {
+    component.addLevelRole();
+    const reward = component.config()!.levelRoles[0];
+    expect(reward).toEqual({ level: 1, roleId: '', description: '' });
+    reward.roleId = 'role-1';
+    reward.description = 'Community access';
+    expect(component.dirty()).toBeTrue();
+    expect(component.isValid(component.config()!)).toBeTrue();
+    reward.description = 'x'.repeat(281);
+    expect(component.isValid(component.config()!)).toBeFalse();
+    reward.description = 'x'.repeat(280);
+    expect(component.isValid(component.config()!)).toBeTrue();
+    component.reset();
+    expect(component.config()!.levelRoles).toEqual([]);
+    expect(component.dirty()).toBeFalse();
+  });
+
+  it('normalizes descriptions missing from legacy responses', () => {
+    const legacy = createConfig();
+    legacy.levelRoles = [{ level: 10, roleId: 'role-1' }];
+    (component as any).normalizeConfig(legacy);
+    expect(legacy.levelRoles[0].description).toBe('');
+  });
+
+  it('renders a limited description field and trims it before saving', () => {
+    component.addLevelRole();
+    const reward = component.config()!.levelRoles[0];
+    reward.roleId = 'role-1';
+    reward.description = '  Community access  ';
+    fixture.detectChanges();
+    const textarea = fixture.nativeElement.querySelector('.description-field textarea') as HTMLTextAreaElement;
+    expect(textarea.maxLength).toBe(280);
+
+    component.save();
+    const request = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/config`);
+    expect(request.request.body.levelRoles[0].description).toBe('Community access');
+    request.flush(component.config()!);
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/watchdog`).flush({});
   });
 
   it('integrates booster changes with dirty state and reset', () => {

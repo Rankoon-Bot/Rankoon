@@ -2,6 +2,7 @@ export type XpNumber = string | number;
 export type XpLedgerKind = 'AutomaticGrant' | 'AutomaticReversal' | 'ManualAdjustment' | 'ManualAdjustmentReversal' | 'SystemMigration';
 export type XpLedgerScope = 'LifetimeOnly' | 'LifetimeAndSeason' | 'SeasonOnly';
 export type XpLedgerDirection = 'Positive' | 'Negative';
+export type XpAuditMemberSort = 'TotalXpDescending' | 'NameAscending' | 'NameDescending';
 
 export interface XpAuditMember {
   userId: string;
@@ -93,6 +94,21 @@ export interface XpAuditEntryFilter {
   projectionStatus?: string | null;
   channelId?: string | null;
   cursor?: string | null;
+}
+
+export type UserXpModalTab = 'overview' | 'history' | 'adjust';
+
+export interface UserXpModalSubject {
+  guildId: string;
+  userId: string;
+  displayName: string;
+  iconUrl?: string | null;
+  isCurrentMember?: boolean;
+}
+
+export interface UserXpModalOpenOptions {
+  initialTab?: UserXpModalTab;
+  trigger?: Event | HTMLElement | null;
 }
 
 export interface XpTimelineItem {
