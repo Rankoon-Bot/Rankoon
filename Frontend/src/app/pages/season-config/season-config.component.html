@@ -136,15 +136,14 @@
     <section class="instances-section" aria-labelledby="season-instances-title">
       <div class="section-heading"><p class="section-kicker">{{ 'seasons.instances.kicker' | transloco }}</p><h2 id="season-instances-title">{{ 'seasons.instances.title' | transloco }}</h2><p>{{ 'seasons.instances.hint' | transloco }}</p></div>
       <div class="card instances-card">
-        @if (scheduledCount() || cancelledCount()) {
-          <div class="bulk-actions">
+        <div class="bulk-actions">
             <div><strong>{{ 'seasons.instances.bulkTitle' | transloco }}</strong><span>{{ 'seasons.instances.bulkHint' | transloco }}</span></div>
             <div>
               @if (scheduledCount()) { <button class="rk-button rk-button--secondary" type="button" [disabled]="dirty() || actionBusy()" (click)="requestBulkAction('cancelScheduled')">{{ 'seasons.instances.cancelAll' | transloco: { count: scheduledCount() } }}</button> }
+              <button class="rk-button rk-button--secondary" type="button" [disabled]="dirty() || actionBusy()" (click)="requestBulkAction('resetCounter')">{{ 'seasons.instances.resetCounter' | transloco }}</button>
               @if (cancelledCount()) { <button class="rk-button rk-button--danger" type="button" [disabled]="dirty() || actionBusy()" (click)="requestBulkAction('deleteCancelled')">{{ 'seasons.instances.deleteAll' | transloco: { count: cancelledCount() } }}</button> }
             </div>
-          </div>
-        }
+        </div>
         <rk-season-instance-list [seasons]="seasons()" [limit]="cfg.publicHistoryCount" [dirty]="dirty()" [busy]="actionBusy()" (action)="requestAction($event.action, $event.season)" />
       </div>
       @if (cfg.enabled && cfg.scheduleKind !== 'Manual') { <div class="plan-strip"><div><strong>{{ 'seasons.planTitle' | transloco }}</strong><span>{{ dirty() ? ('seasons.saveBeforePlan' | transloco) : ('seasons.planHint' | transloco: { count: cfg.preparedSeasonCount }) }}</span></div><button class="rk-button rk-button--secondary" type="button" [disabled]="dirty() || planning() || !valid(cfg) || cfg.preparedSeasonCount < 1" (click)="plan()">@if (planning()) { <span class="rk-spinner" aria-hidden="true"></span> }{{ (planning() ? 'seasons.planningNow' : 'seasons.plan') | transloco }}</button></div> }

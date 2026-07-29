@@ -5,7 +5,7 @@ using Rankoon.Data.Model;
 
 namespace Rankoon.Data.Xp;
 
-public sealed record SeasonScheduleCandidate(long Sequence, DateTime StartsAtUtc, DateTime EndsAtUtc, string Name, [property: JsonIgnore] int ScheduleOccurrence = 0);
+public sealed record SeasonScheduleCandidate(long Sequence, DateTime StartsAtUtc, DateTime EndsAtUtc, string Name, [property: JsonIgnore] int ScheduleOccurrence = 0, long? Number = null);
 public sealed record SeasonSettingsValidationError(string Field, string ErrorKey);
 
 public sealed class SeasonSettingsValidationException(IReadOnlyList<SeasonSettingsValidationError> errors)
@@ -16,13 +16,13 @@ public sealed class SeasonSettingsValidationException(IReadOnlyList<SeasonSettin
 
 public sealed class SeasonScheduleGenerator
 {
-    public IReadOnlyList<SeasonScheduleCandidate> Generate(GuildSeasonSettings settings, string guildName, long firstSequence, int count, CultureInfo? culture = null, int occurrenceOffset = 0)
+    public IReadOnlyList<SeasonScheduleCandidate> Generate(GuildSeasonSettings settings, string guildName, long firstSequence, int count, CultureInfo? culture = null, int occurrenceOffset = 0, DateTime? anchorOverrideUtc = null)
     {
         Validate(settings);
         if (settings.ScheduleKind == SeasonScheduleKind.Manual) return [];
 
         var zone = TimeZoneInfo.FindSystemTimeZoneById(settings.TimeZoneId);
-        var anchor = settings.ScheduleAnchorUtc ?? throw new ArgumentException("A schedule anchor is required.", nameof(settings));
+        var anchor = anchorOverrideUtc ?? settings.ScheduleAnchorUtc ?? throw new ArgumentException("A schedule anchor is required.", nameof(settings));
         var localStart = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(anchor, DateTimeKind.Utc), zone);
         var result = new List<SeasonScheduleCandidate>(count);
         for (var index = 0; index < count; index++)
@@ -36,7 +36,7 @@ public sealed class SeasonScheduleGenerator
             var endsAtUtc = ToUtc(endLocal, zone);
             if (endsAtUtc <= startsAtUtc) throw new ArgumentException("The configured season duration must be positive.", nameof(settings));
             var sequence = firstSequence + index;
-            result.Add(new(sequence, startsAtUtc, endsAtUtc, SeasonNamingService.Format(settings, sequence, startsAtUtc, endsAtUtc, guildName, culture), occurrence));
+            result.Add(new(sequence, startsAtUtc, endsAtUtc, SeasonNamingService.Format(settings, sequence, startsAtUtc, endsAtUtc, guildName, culture), occurrence, sequence));
         }
         return result;
     }
@@ -150,29 +150,44 @@ public static class SeasonSchedulePlanner
 
     public static IReadOnlyList<SeasonScheduleCandidate> GenerateMissing(GuildSeasonSettings settings, IReadOnlyCollection<GuildSeason> existing, int desiredPreparedCount, DateTime notEndedAfterUtc)
     {
-        var missing = desiredPreparedCount - SeasonCoordinator.CountPrepared(existing);
+        var missing = desiredPreparedCount - SeasonCoordinator.CountPrepared(existing, notEndedAfterUtc);
         if (missing <= 0 || settings.ScheduleKind == SeasonScheduleKind.Manual) return [];
 
         var firstSequence = Math.Max(existing.Select(x => x.Sequence + 1).DefaultIfEmpty(1).Max(), settings.NextSequenceAfterDeletion);
-        var firstOccurrence = Math.Max(existing.Select(x => (x.ScheduleOccurrence ?? checked((int)(x.Sequence - 1))) + 1).DefaultIfEmpty(0).Max(), settings.NextScheduleOccurrenceAfterDeletion);
+        var prepared = existing.Where(x => x.Status is SeasonStatus.Scheduled or SeasonStatus.Active or SeasonStatus.Closing && x.EndsAtUtc > notEndedAfterUtc).ToList();
+        var latestPrepared = prepared.OrderByDescending(x => x.EndsAtUtc).ThenByDescending(x => x.Sequence).FirstOrDefault();
+        DateTime? continuationAnchor = latestPrepared == null ? null : latestPrepared.EndsAtUtc.AddDays(settings.GapDays);
+        var firstNumber = NextNumber(settings, existing);
         var selected = new List<SeasonScheduleCandidate>(missing);
         var generator = new SeasonScheduleGenerator();
 
-        for (var offset = firstOccurrence; offset < MaximumOccurrences && selected.Count < missing; offset += BatchSize)
+        for (var offset = 0; offset < MaximumOccurrences && selected.Count < missing; offset += BatchSize)
         {
-            var batch = generator.Generate(settings, "Guild", 1, Math.Min(BatchSize, MaximumOccurrences - offset), occurrenceOffset: offset);
+            var batch = generator.Generate(settings, "Guild", 1, Math.Min(BatchSize, MaximumOccurrences - offset), occurrenceOffset: offset, anchorOverrideUtc: continuationAnchor);
             foreach (var candidate in batch)
             {
                 if (candidate.EndsAtUtc <= notEndedAfterUtc) continue;
-                if (existing.Any(season => season.StartsAtUtc < candidate.EndsAtUtc && candidate.StartsAtUtc < season.EndsAtUtc)) continue;
+                if (prepared.Any(season => season.StartsAtUtc < candidate.EndsAtUtc && candidate.StartsAtUtc < season.EndsAtUtc)) continue;
                 var sequence = firstSequence + selected.Count;
-                selected.Add(candidate with { Sequence = sequence, Name = SeasonNamingService.Format(settings, sequence, candidate.StartsAtUtc, candidate.EndsAtUtc, "Guild") });
+                var number = firstNumber + selected.Count;
+                selected.Add(candidate with { Sequence = sequence, Number = number, Name = SeasonNamingService.Format(settings, number, candidate.StartsAtUtc, candidate.EndsAtUtc, "Guild") });
                 if (selected.Count == missing) break;
             }
         }
 
         return selected;
     }
+
+    public static long EffectiveNumber(GuildSeason season) => season.Number ?? season.Sequence;
+
+    public static long NextNumber(GuildSeasonSettings settings, IEnumerable<GuildSeason> seasons)
+    {
+        var relevant = seasons.Where(x => x.NumberingEpoch == settings.NumberingEpoch).ToList();
+        return NextCompletedNumber(settings, relevant) + relevant.LongCount(x => x.Status is SeasonStatus.Scheduled or SeasonStatus.Active or SeasonStatus.Closing);
+    }
+
+    public static long NextCompletedNumber(GuildSeasonSettings settings, IEnumerable<GuildSeason> seasons) =>
+        seasons.LongCount(x => x.NumberingEpoch == settings.NumberingEpoch && x.Status == SeasonStatus.Closed && x.Finalized) + 1;
 }
 
 public static class SeasonNamingService

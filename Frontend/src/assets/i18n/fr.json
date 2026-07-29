@@ -1608,6 +1608,7 @@
     "deleteSucceeded": "Saison supprimée.",
     "cancelScheduledSucceeded": "{{count}} saisons planifiées ont été annulées.",
     "deleteCancelledSucceeded": "{{count}} saisons annulées ont été supprimées.",
+    "resetCounterSucceeded": "Le compteur de saisons a été réinitialisé pour la prochaine saison.",
     "unsaved": "Certaines modifications des saisons ne sont pas enregistrées.",
     "invalidSave": "Résolvez les problèmes de configuration avant d'enregistrer.",
     "unsavedLeave": "Quitter sans enregistrer les modifications des saisons ?",
@@ -1652,7 +1653,8 @@
       "resume": "Reprendre {{name}} ? La saison XP se poursuivra jusqu'à son heure de fin initiale.",
       "delete": "Supprimer {{name}} définitivement ? Cela ne peut pas être annulé.",
       "cancelScheduled": "Annuler les {{count}} saisons planifiées ?",
-      "deleteCancelled": "Supprimer définitivement les {{count}} saisons annulées ?"
+      "deleteCancelled": "Supprimer définitivement les {{count}} saisons annulées ?",
+      "resetCounter": "Réinitialiser le compteur à 1 pour la prochaine saison qui n'est pas en cours ?"
     },
     "confirmTitle": {
       "start": "Démarrer la saison",
@@ -1661,7 +1663,8 @@
       "resume": "Reprendre la saison",
       "delete": "Supprimer la saison",
       "cancelScheduled": "Annuler les saisons planifiées",
-      "deleteCancelled": "Supprimer les saisons annulées"
+      "deleteCancelled": "Supprimer les saisons annulées",
+      "resetCounter": "Réinitialiser le compteur"
     },
     "confirmImpact": {
       "start": "L'XP de saison commence immédiatement et la saison devient active.",
@@ -1670,7 +1673,8 @@
       "resume": "L'XP de saison continue jusqu'à l'heure de fin initiale.",
       "delete": "La saison et son classement seront définitivement supprimés.",
       "cancelScheduled": "Toutes les saisons planifiées seront annulées et pourront ensuite être supprimées.",
-      "deleteCancelled": "Toutes les saisons annulées seront définitivement supprimées."
+      "deleteCancelled": "Toutes les saisons annulées seront définitivement supprimées.",
+      "resetCounter": "La saison en cours reste inchangée. Les saisons planifiées et suivantes recommencent à 1."
     },
     "schedules": {
       "manual": "Manuel",
@@ -1778,6 +1782,7 @@
       "bulkHint": "Appliquez une action à toutes les saisons éligibles de la liste.",
       "cancelAll": "Annuler toutes les saisons planifiées ({{count}})",
       "deleteAll": "Supprimer toutes les saisons annulées ({{count}})",
+      "resetCounter": "Réinitialiser le compteur suivant",
       "tabs": "Vues des saisons",
       "planned": "Planifiées",
       "past": "Passées",

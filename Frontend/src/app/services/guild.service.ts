@@ -296,11 +296,14 @@ export interface SeasonSettings {
   rotationOffset: number;
   seasonLevelRoles: SeasonLevelRole[];
   revision?: number;
+  numberingEpoch?: number;
 }
 export interface Season {
   id?: string;
   guildId?: string;
   sequence: number;
+  number?: number | null;
+  numberingEpoch?: number;
   name: string;
   description: string | null;
   status: SeasonStatus;
@@ -317,6 +320,7 @@ export interface Season {
 }
 export interface SeasonPreview {
   sequence: number;
+  number?: number | null;
   startsAtUtc: string;
   endsAtUtc: string;
   name: string;
@@ -557,6 +561,12 @@ export class GuildService {
   }
   deleteSeason(guildId: string, seasonId: string): Observable<void> {
     return this.http.delete<void>(this.url(guildId, `xp/seasons/${seasonId}`));
+  }
+  resetSeasonCounter(guildId: string): Observable<SeasonBulkOperationResult> {
+    return this.http.post<SeasonBulkOperationResult>(
+      this.url(guildId, 'xp/seasons/counter/reset'),
+      {},
+    );
   }
   leaderboardSettings(guildId: string): Observable<LeaderboardSettings> {
     return this.http.get<LeaderboardSettings>(

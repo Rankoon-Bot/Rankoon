@@ -1,7 +1,7 @@
 <article class="status-card" [attr.data-status]="status()" aria-labelledby="season-status-title">
   <div class="status-topline">
     <span class="status-badge"><span aria-hidden="true"></span>{{ ('seasons.statusSummary.' + status()) | transloco }}</span>
-    @if (current) { <span class="sequence">{{ 'seasons.statusSummary.sequence' | transloco: { count: current.sequence } }}</span> }
+    @if (current) { <span class="sequence">{{ 'seasons.statusSummary.sequence' | transloco: { count: current.number ?? current.sequence } }}</span> }
   </div>
   @if (status() === 'disabled') {
     <h2 id="season-status-title">{{ 'seasons.statusSummary.disabledTitle' | transloco }}</h2>

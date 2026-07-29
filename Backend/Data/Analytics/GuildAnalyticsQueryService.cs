@@ -138,8 +138,8 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
         var breakdown = current.GroupBy(x => x.Source).OrderByDescending(x => x.Sum(y => y.Value)).Take(12).Select(x => Breakdown(x.Key, x.Sum(y => y.Value), previous.Where(y => y.Source == x.Key).Sum(y => y.Value))).ToArray();
         var recipients = current.Select(x => x.UserId).Distinct().LongCount(); var previousRecipients = previous.Select(x => x.UserId).Distinct().LongCount();
         var levelUps = await LevelUps(guildId, period.From, period.To, token); var oldLevelUps = await LevelUps(guildId, period.PreviousFrom, period.PreviousTo, token);
-        var activeSeason = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Status == SeasonStatus.Active).Project(x => new { x.Name, x.Sequence }).FirstOrDefaultAsync(token);
-        if (activeSeason != null) breakdown = breakdown.Append(new("activeSeason", activeSeason.Name, activeSeason.Sequence, null, null)).ToArray();
+        var activeSeason = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Status == SeasonStatus.Active).Project(x => new { x.Name, x.Sequence, x.Number }).FirstOrDefaultAsync(token);
+        if (activeSeason != null) breakdown = breakdown.Append(new("activeSeason", activeSeason.Name, activeSeason.Number ?? activeSeason.Sequence, null, null)).ToArray();
         return new(now, period, [Kpi("xpAwarded", value, old), Kpi("activeRecipients", recipients, previousRecipients), Kpi("xpPerActive", recipients == 0 ? 0 : value / recipients, previousRecipients == 0 ? 0 : old / previousRecipients), Kpi("levelUps", levelUps, oldLevelUps), Kpi("roleAwards", 0, null), Kpi("announcements", levelUps, oldLevelUps)], trend, breakdown, []);
     });
 

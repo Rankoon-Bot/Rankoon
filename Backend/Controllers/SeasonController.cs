@@ -50,7 +50,18 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
         if (count is < 1 or > 24) return this.ApiError("season.invalidSchedule", errors: new Dictionary<string, IReadOnlyList<ApiValidationError>>(StringComparer.Ordinal) { ["count"] = [ApiErrorFactory.Validation("season.invalidSchedule")] });
         settings.GuildId = id;
-        try { return Ok(SeasonSchedulePlanner.GenerateMissing(settings, [], count, timeProvider.GetUtcNow().UtcDateTime)); }
+        try
+        {
+            var saved = await database.GuildSeasonSettings.Find(x => x.GuildId == id).FirstOrDefaultAsync(HttpContext.RequestAborted);
+            if (saved != null)
+            {
+                settings.NumberingEpoch = saved.NumberingEpoch;
+                settings.NextSequenceAfterDeletion = saved.NextSequenceAfterDeletion;
+            }
+            var existing = await database.GuildSeasons.Find(x => x.GuildId == id).ToListAsync(HttpContext.RequestAborted);
+            var now = timeProvider.GetUtcNow().UtcDateTime;
+            return Ok(SeasonSchedulePlanner.GenerateMissing(settings, existing, SeasonCoordinator.CountPrepared(existing, now) + count, now));
+        }
         catch (SeasonSettingsValidationException exception) { return ValidationError(exception); }
         catch (TimeZoneNotFoundException) { return this.ApiError("season.invalidTimeZone"); }
         catch (ArgumentException) { return this.ApiError("season.invalidSchedule"); }
@@ -86,8 +97,8 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
         var settings = await seasons.GetSettingsAsync(id, HttpContext.RequestAborted);
         if (settings.ScheduleKind == SeasonScheduleKind.Manual && !await IsAdministratorAsync(id)) return Forbid();
         if (await OverlapsAsync(id, season.StartsAtUtc, season.EndsAtUtc, null)) return this.ApiError("season.planConflict");
-        var next = await database.GuildSeasons.Find(x => x.GuildId == id).SortByDescending(x => x.Sequence).FirstOrDefaultAsync(HttpContext.RequestAborted);
-        season.Id = null; season.GuildId = id; season.Sequence = Math.Max(next?.Sequence + 1 ?? 1, settings.NextSequenceAfterDeletion); season.Status = SeasonStatus.Scheduled; season.CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
+        var existing = await database.GuildSeasons.Find(x => x.GuildId == id).ToListAsync(HttpContext.RequestAborted);
+        season.Id = null; season.GuildId = id; season.Sequence = Math.Max(existing.Select(x => x.Sequence + 1).DefaultIfEmpty(1).Max(), settings.NextSequenceAfterDeletion); season.Number = SeasonSchedulePlanner.NextNumber(settings, existing); season.NumberingEpoch = settings.NumberingEpoch; season.Status = SeasonStatus.Scheduled; season.CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime; season.AutomaticallyNamed = false; season.PreviousSeasonId = null;
         season.SettingsSnapshot = settings;
         await database.GuildSeasons.InsertOneAsync(season, cancellationToken: HttpContext.RequestAborted);
         return Ok(season);
@@ -104,18 +115,16 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
         try
         {
             var existing = await database.GuildSeasons.Find(x => x.GuildId == id).SortBy(x => x.Sequence).ToListAsync(HttpContext.RequestAborted);
-            var missing = request.Count - SeasonCoordinator.CountPrepared(existing);
-            if (missing <= 0) return Ok(Array.Empty<GuildSeason>());
             var now = timeProvider.GetUtcNow().UtcDateTime;
+            var missing = request.Count - SeasonCoordinator.CountPrepared(existing, now);
+            if (missing <= 0) return Ok(Array.Empty<GuildSeason>());
             var generated = SeasonSchedulePlanner.GenerateMissing(settings, existing, request.Count, now);
             if (generated.Count != missing) return this.ApiError("season.planConflict");
-            var previousSeasonId = existing.OrderByDescending(x => x.Sequence).FirstOrDefault()?.Id;
             var planned = new List<GuildSeason>();
             foreach (var candidate in generated)
             {
-                var plannedSeason = new GuildSeason { Id = ObjectId.GenerateNewId().ToString(), GuildId = id, Sequence = candidate.Sequence, Name = candidate.Name, StartsAtUtc = candidate.StartsAtUtc, EndsAtUtc = candidate.EndsAtUtc, CreatedAtUtc = now, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, ScheduleOccurrence = candidate.ScheduleOccurrence, SettingsSnapshot = settings, PreviousSeasonId = previousSeasonId };
+                var plannedSeason = new GuildSeason { Id = ObjectId.GenerateNewId().ToString(), GuildId = id, Sequence = candidate.Sequence, Number = candidate.Number, NumberingEpoch = settings.NumberingEpoch, Name = candidate.Name, StartsAtUtc = candidate.StartsAtUtc, EndsAtUtc = candidate.EndsAtUtc, CreatedAtUtc = now, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, ScheduleOccurrence = candidate.ScheduleOccurrence, AutomaticallyNamed = true, SettingsSnapshot = settings };
                 planned.Add(plannedSeason);
-                previousSeasonId = plannedSeason.Id;
             }
             if (planned.Count > 0) await database.GuildSeasons.InsertManyAsync(planned, cancellationToken: HttpContext.RequestAborted);
             return Ok(planned);
@@ -172,6 +181,13 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
     {
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
         return Ok(new SeasonBulkResult(await lifecycle.DeleteAllCancelledAsync(id, HttpContext.RequestAborted)));
+    }
+
+    [HttpPost("counter/reset")]
+    public async Task<IActionResult> ResetCounter(string guildId)
+    {
+        var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
+        return Ok(new SeasonBulkResult(await lifecycle.ResetCounterAsync(id, HttpContext.RequestAborted)));
     }
 
     private async Task<IActionResult> TransitionAsync(string guildId, string seasonId, SeasonStatus target)

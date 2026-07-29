@@ -1614,6 +1614,7 @@
     "deleteSucceeded": "Temporada eliminada.",
     "cancelScheduledSucceeded": "Se cancelaron {{count}} temporadas planificadas.",
     "deleteCancelledSucceeded": "Se eliminaron {{count}} temporadas canceladas.",
+    "resetCounterSucceeded": "El contador de temporadas se restableció para la próxima temporada.",
     "unsaved": "Tienes cambios de temporada sin guardar.",
     "invalidSave": "Resuelve los problemas de configuración antes de guardar.",
     "unsavedLeave": "¿Salir sin guardar los cambios de temporada?",
@@ -1658,7 +1659,8 @@
       "resume": "¿Reanudar {{name}}? El XP de temporada continuará hasta la fecha de finalización original.",
       "delete": "¿Eliminar {{name}} permanentemente? Esto no se puede deshacer.",
       "cancelScheduled": "¿Cancelar las {{count}} temporadas planificadas?",
-      "deleteCancelled": "¿Eliminar permanentemente las {{count}} temporadas canceladas?"
+      "deleteCancelled": "¿Eliminar permanentemente las {{count}} temporadas canceladas?",
+      "resetCounter": "¿Restablecer el contador a 1 para la próxima temporada que no esté en curso?"
     },
     "confirmTitle": {
       "start": "Iniciar temporada",
@@ -1667,7 +1669,8 @@
       "resume": "Reanudar temporada",
       "delete": "Eliminar temporada",
       "cancelScheduled": "Cancelar temporadas planificadas",
-      "deleteCancelled": "Eliminar temporadas canceladas"
+      "deleteCancelled": "Eliminar temporadas canceladas",
+      "resetCounter": "Restablecer contador"
     },
     "confirmImpact": {
       "start": "El XP de temporada empieza de inmediato y la temporada pasa a estar activa.",
@@ -1676,7 +1679,8 @@
       "resume": "El XP de temporada continuará hasta la hora de finalización original.",
       "delete": "La temporada y su clasificación se eliminarán de forma permanente.",
       "cancelScheduled": "Todas las temporadas planificadas se cancelarán y después podrán eliminarse.",
-      "deleteCancelled": "Todas las temporadas canceladas se eliminarán de forma permanente."
+      "deleteCancelled": "Todas las temporadas canceladas se eliminarán de forma permanente.",
+      "resetCounter": "La temporada en curso no cambia. Las temporadas planificadas y siguientes vuelven a empezar en 1."
     },
     "schedules": {
       "manual": "Manual",
@@ -1784,6 +1788,7 @@
       "bulkHint": "Aplica una acción a todas las temporadas aptas de la lista.",
       "cancelAll": "Cancelar todas las planificadas ({{count}})",
       "deleteAll": "Eliminar todas las canceladas ({{count}})",
+      "resetCounter": "Restablecer contador siguiente",
       "tabs": "Vistas de temporadas",
       "planned": "Planificadas",
       "past": "Anteriores",

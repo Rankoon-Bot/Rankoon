@@ -22,6 +22,7 @@ public interface ISeasonLifecycleService
     Task<bool> ResumeAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default);
     Task<bool> DeleteCancelledAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default);
     Task<long> DeleteAllCancelledAsync(ulong guildId, CancellationToken cancellationToken = default);
+    Task<long> ResetCounterAsync(ulong guildId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Resolves persisted season instances only. XP sources must never infer a season from mutable settings.</summary>
@@ -82,14 +83,27 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
     public async Task<bool> ActivateAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
+        var season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Scheduled).FirstOrDefaultAsync(cancellationToken);
+        if (season == null) return false;
+        var settings = await database.GuildSeasonSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken) ?? season.SettingsSnapshot;
+        var guildSeasons = await database.GuildSeasons.Find(x => x.GuildId == guildId).ToListAsync(cancellationToken);
+        var number = SeasonSchedulePlanner.NextCompletedNumber(settings, guildSeasons);
+        var predecessor = guildSeasons.Where(x => x.Status == SeasonStatus.Closed && x.Finalized)
+            .OrderByDescending(x => x.ClosedAtUtc).ThenByDescending(x => x.Sequence).FirstOrDefault();
+        var name = season.AutomaticallyNamed || season.ScheduleOccurrence.HasValue
+            ? SeasonNamingService.Format(season.SettingsSnapshot, number, season.StartsAtUtc, season.EndsAtUtc, "Guild")
+            : season.Name;
         try
         {
+            var activation = Builders<GuildSeason>.Update.Set(x => x.Status, SeasonStatus.Active).Set(x => x.ActiveGuildId, guildId).Set(x => x.ActivatedAtUtc, now)
+                .Set(x => x.Number, number).Set(x => x.NumberingEpoch, settings.NumberingEpoch).Set(x => x.Name, name).Set(x => x.PreviousSeasonId, predecessor == null ? null : predecessor.Id);
             await database.GuildSeasons.UpdateOneAsync(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Scheduled,
-                Builders<GuildSeason>.Update.Set(x => x.Status, SeasonStatus.Active).Set(x => x.ActiveGuildId, guildId).Set(x => x.ActivatedAtUtc, now), cancellationToken: cancellationToken);
+                activation, cancellationToken: cancellationToken);
         }
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { return false; }
-        var season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Active).FirstOrDefaultAsync(cancellationToken);
+        season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Active).FirstOrDefaultAsync(cancellationToken);
         if (season == null) return false;
+        season = await AlignNumberingEpochAfterActivationAsync(season, now, cancellationToken);
         await ContinueActivationAsync(season, now, cancellationToken);
         return true;
     }
@@ -109,6 +123,7 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
     {
         var result = await database.GuildSeasons.UpdateOneAsync(x => x.GuildId == guildId && x.Id == seasonId && (x.Status == SeasonStatus.Scheduled || x.Status == SeasonStatus.Active),
             Builders<GuildSeason>.Update.Set(x => x.Status, SeasonStatus.Cancelled).Unset(x => x.ActiveGuildId).Set(x => x.ClosedAtUtc, timeProvider.GetUtcNow().UtcDateTime), cancellationToken: cancellationToken);
+        if (result.ModifiedCount > 0) await ReprojectScheduledNumbersAsync(guildId, cancellationToken);
         return result.ModifiedCount > 0;
     }
 
@@ -116,17 +131,36 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
     {
         var result = await database.GuildSeasons.UpdateManyAsync(x => x.GuildId == guildId && x.Status == SeasonStatus.Scheduled,
             Builders<GuildSeason>.Update.Set(x => x.Status, SeasonStatus.Cancelled).Unset(x => x.ActiveGuildId).Set(x => x.ClosedAtUtc, timeProvider.GetUtcNow().UtcDateTime), cancellationToken: cancellationToken);
+        if (result.ModifiedCount > 0) await ReprojectScheduledNumbersAsync(guildId, cancellationToken);
         return result.ModifiedCount;
     }
 
     public async Task<bool> ResumeAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
-        var result = await database.GuildSeasons.UpdateOneAsync(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Cancelled && !x.CarryOverApplied && !x.Finalized && x.StartsAtUtc <= now && now < x.EndsAtUtc,
-            Builders<GuildSeason>.Update.Set(x => x.Status, SeasonStatus.Active).Set(x => x.ActiveGuildId, guildId).Set(x => x.ActivatedAtUtc, now).Set(x => x.ClosedAtUtc, null), cancellationToken: cancellationToken);
+        var season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Cancelled && !x.CarryOverApplied && !x.Finalized && x.StartsAtUtc <= now && now < x.EndsAtUtc).FirstOrDefaultAsync(cancellationToken);
+        if (season == null) return false;
+        var settings = await database.GuildSeasonSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken) ?? season.SettingsSnapshot;
+        var guildSeasons = await database.GuildSeasons.Find(x => x.GuildId == guildId).ToListAsync(cancellationToken);
+        var number = SeasonSchedulePlanner.NextCompletedNumber(settings, guildSeasons);
+        var predecessor = guildSeasons.Where(x => x.Status == SeasonStatus.Closed && x.Finalized)
+            .OrderByDescending(x => x.ClosedAtUtc).ThenByDescending(x => x.Sequence).FirstOrDefault();
+        var name = season.AutomaticallyNamed || season.ScheduleOccurrence.HasValue
+            ? SeasonNamingService.Format(season.SettingsSnapshot, number, season.StartsAtUtc, season.EndsAtUtc, "Guild")
+            : season.Name;
+        UpdateResult result;
+        try
+        {
+            result = await database.GuildSeasons.UpdateOneAsync(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Cancelled && !x.CarryOverApplied && !x.Finalized && x.StartsAtUtc <= now && now < x.EndsAtUtc,
+                Builders<GuildSeason>.Update.Set(x => x.Status, SeasonStatus.Active).Set(x => x.ActiveGuildId, guildId).Set(x => x.ActivatedAtUtc, now).Set(x => x.ClosedAtUtc, null)
+                    .Set(x => x.Number, number).Set(x => x.NumberingEpoch, settings.NumberingEpoch).Set(x => x.Name, name).Set(x => x.PreviousSeasonId, predecessor == null ? null : predecessor.Id), cancellationToken: cancellationToken);
+        }
+        catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { return false; }
         if (result.ModifiedCount == 0) return false;
-        var season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId).FirstAsync(cancellationToken);
+        season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId).FirstAsync(cancellationToken);
+        season = await AlignNumberingEpochAfterActivationAsync(season, now, cancellationToken);
         await ContinueActivationAsync(season, now, cancellationToken);
+        await ReprojectScheduledNumbersAsync(guildId, cancellationToken);
         return true;
     }
 
@@ -135,9 +169,8 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
         if (await database.GuildSeasons.Find(x => x.GuildId == guildId && x.PreviousSeasonId == seasonId).AnyAsync(cancellationToken)) return false;
         var season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Cancelled).FirstOrDefaultAsync(cancellationToken);
         if (season == null) return false;
-        var occurrence = season.ScheduleOccurrence ?? checked((int)(season.Sequence - 1));
         await database.GuildSeasonSettings.UpdateOneAsync(x => x.GuildId == guildId,
-            Builders<GuildSeasonSettings>.Update.SetOnInsert(x => x.GuildId, guildId).Max(x => x.NextSequenceAfterDeletion, season.Sequence + 1).Max(x => x.NextScheduleOccurrenceAfterDeletion, occurrence + 1),
+            Builders<GuildSeasonSettings>.Update.SetOnInsert(x => x.GuildId, guildId).Max(x => x.NextSequenceAfterDeletion, season.Sequence + 1),
             new UpdateOptions { IsUpsert = true },
             cancellationToken: cancellationToken);
         var result = await database.GuildSeasons.DeleteOneAsync(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Cancelled, cancellationToken);
@@ -153,6 +186,15 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
             if (await DeleteCancelledAsync(guildId, seasonId, cancellationToken)) deleted++;
         }
         return deleted;
+    }
+
+    public async Task<long> ResetCounterAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var settings = await database.GuildSeasonSettings.FindOneAndUpdateAsync(x => x.GuildId == guildId,
+            Builders<GuildSeasonSettings>.Update.SetOnInsert(x => x.GuildId, guildId).Inc(x => x.NumberingEpoch, 1).Set(x => x.NumberingEpochUpdatedAtUtc, now),
+            new FindOneAndUpdateOptions<GuildSeasonSettings> { IsUpsert = true, ReturnDocument = ReturnDocument.After }, cancellationToken);
+        return await ReprojectScheduledNumbersAsync(guildId, cancellationToken, settings);
     }
 
     public static IReadOnlyList<string> GetCancelledDeletionOrder(IReadOnlyCollection<GuildSeason> seasons)
@@ -182,6 +224,40 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
             }
         }
         return result;
+    }
+
+    private async Task<long> ReprojectScheduledNumbersAsync(ulong guildId, CancellationToken cancellationToken, GuildSeasonSettings? settings = null)
+    {
+        settings ??= await database.GuildSeasonSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
+        if (settings == null) return 0;
+        var seasons = await database.GuildSeasons.Find(x => x.GuildId == guildId).ToListAsync(cancellationToken);
+        var nextNumber = SeasonSchedulePlanner.NextCompletedNumber(settings, seasons);
+        if (seasons.Any(x => x.NumberingEpoch == settings.NumberingEpoch && x.Status is SeasonStatus.Active or SeasonStatus.Closing)) nextNumber++;
+        long updated = 0;
+        foreach (var season in seasons.Where(x => x.Status == SeasonStatus.Scheduled).OrderBy(x => x.StartsAtUtc).ThenBy(x => x.Sequence))
+        {
+            var number = nextNumber++;
+            var update = Builders<GuildSeason>.Update.Set(x => x.Number, number).Set(x => x.NumberingEpoch, settings.NumberingEpoch);
+            if (season.AutomaticallyNamed || season.ScheduleOccurrence.HasValue)
+                update = update.Set(x => x.Name, SeasonNamingService.Format(season.SettingsSnapshot, number, season.StartsAtUtc, season.EndsAtUtc, "Guild"));
+            var result = await database.GuildSeasons.UpdateOneAsync(x => x.Id == season.Id && x.Status == SeasonStatus.Scheduled, update, cancellationToken: cancellationToken);
+            updated += result.ModifiedCount;
+        }
+        return updated;
+    }
+
+    private async Task<GuildSeason> AlignNumberingEpochAfterActivationAsync(GuildSeason season, DateTime activatedAtUtc, CancellationToken cancellationToken)
+    {
+        var settings = await database.GuildSeasonSettings.Find(x => x.GuildId == season.GuildId).FirstOrDefaultAsync(cancellationToken);
+        if (settings == null || settings.NumberingEpoch == season.NumberingEpoch || settings.NumberingEpochUpdatedAtUtc > activatedAtUtc) return season;
+        var guildSeasons = await database.GuildSeasons.Find(x => x.GuildId == season.GuildId).ToListAsync(cancellationToken);
+        var number = SeasonSchedulePlanner.NextCompletedNumber(settings, guildSeasons);
+        var name = season.AutomaticallyNamed || season.ScheduleOccurrence.HasValue
+            ? SeasonNamingService.Format(season.SettingsSnapshot, number, season.StartsAtUtc, season.EndsAtUtc, "Guild")
+            : season.Name;
+        await database.GuildSeasons.UpdateOneAsync(x => x.Id == season.Id && x.Status == SeasonStatus.Active && x.NumberingEpoch == season.NumberingEpoch,
+            Builders<GuildSeason>.Update.Set(x => x.Number, number).Set(x => x.NumberingEpoch, settings.NumberingEpoch).Set(x => x.Name, name), cancellationToken: cancellationToken);
+        return await database.GuildSeasons.Find(x => x.Id == season.Id).FirstAsync(cancellationToken);
     }
 
     private async Task ContinueActivationAsync(GuildSeason season, DateTime now, CancellationToken cancellationToken)

@@ -113,6 +113,12 @@ describe('GuildService permissions API', () => {
     expect(plan.request.method).toBe('POST');
     expect(plan.request.body).toEqual({ count: 4 });
     plan.flush([]);
+
+    service.resetSeasonCounter('guild-1').subscribe();
+    const reset = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/seasons/counter/reset`);
+    expect(reset.request.method).toBe('POST');
+    expect(reset.request.body).toEqual({});
+    reset.flush({ affectedCount: 2 });
   });
 
   it('sends scope and season ID with public leaderboard pagination', () => {

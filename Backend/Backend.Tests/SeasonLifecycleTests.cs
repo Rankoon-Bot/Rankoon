@@ -41,9 +41,12 @@ public sealed class SeasonLifecycleTests
             .GetCustomAttributes(typeof(HttpPostAttribute), false).Cast<HttpPostAttribute>().Single();
         var delete = typeof(SeasonController).GetMethod(nameof(SeasonController.DeleteCancelled))!
             .GetCustomAttributes(typeof(HttpDeleteAttribute), false).Cast<HttpDeleteAttribute>().Single();
+        var reset = typeof(SeasonController).GetMethod(nameof(SeasonController.ResetCounter))!
+            .GetCustomAttributes(typeof(HttpPostAttribute), false).Cast<HttpPostAttribute>().Single();
 
         Assert.Equal("cancel-scheduled", cancel.Template);
         Assert.Equal("cancelled", delete.Template);
+        Assert.Equal("counter/reset", reset.Template);
     }
 
     private static GuildSeason Season(string id, long sequence, SeasonStatus status, string? previousSeasonId = null) => new()

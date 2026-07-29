@@ -234,7 +234,7 @@ public sealed class SeasonScheduleGeneratorTests
     }
 
     [Fact]
-    public void Deleted_schedule_watermark_prevents_a_hard_deleted_season_from_reappearing()
+    public void Hard_deleted_seasons_do_not_advance_the_schedule_window()
     {
         var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         settings.FixedDurationDays = 30;
@@ -244,8 +244,58 @@ public sealed class SeasonScheduleGeneratorTests
         var planned = SeasonSchedulePlanner.GenerateMissing(settings, [], 1, new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc));
 
         Assert.Equal(3, planned[0].Sequence);
-        Assert.Equal(2, planned[0].ScheduleOccurrence);
-        Assert.Equal(new DateTime(2027, 3, 2, 0, 0, 0, DateTimeKind.Utc), planned[0].StartsAtUtc);
+        Assert.Equal(1, planned[0].Number);
+        Assert.Equal(0, planned[0].ScheduleOccurrence);
+        Assert.Equal(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc), planned[0].StartsAtUtc);
+    }
+
+    [Fact]
+    public void Planning_continues_after_the_last_prepared_season()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        settings.FixedDurationDays = 30;
+        settings.GapDays = 2;
+        settings.Revision = 4;
+        var existing = new[]
+        {
+            new GuildSeason
+            {
+                Sequence = 8,
+                Number = 1,
+                NumberingEpoch = 0,
+                Status = SeasonStatus.Scheduled,
+                StartsAtUtc = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                EndsAtUtc = new DateTime(2027, 1, 31, 0, 0, 0, DateTimeKind.Utc),
+                ScheduleOccurrence = 0,
+                ScheduleRevision = 4
+            }
+        };
+
+        var planned = SeasonSchedulePlanner.GenerateMissing(settings, existing, 2, new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.Single(planned);
+        Assert.Equal(new DateTime(2027, 2, 2, 0, 0, 0, DateTimeKind.Utc), planned[0].StartsAtUtc);
+        Assert.Equal(0, planned[0].ScheduleOccurrence);
+    }
+
+    [Fact]
+    public void Cancelled_seasons_do_not_reserve_the_settings_anchor_window()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        settings.FixedDurationDays = 30;
+        var cancelled = new GuildSeason
+        {
+            Sequence = 1,
+            Status = SeasonStatus.Cancelled,
+            StartsAtUtc = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            EndsAtUtc = new DateTime(2027, 1, 31, 0, 0, 0, DateTimeKind.Utc),
+            ScheduleOccurrence = 0
+        };
+
+        var planned = SeasonSchedulePlanner.GenerateMissing(settings, [cancelled], 1, new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc), planned[0].StartsAtUtc);
+        Assert.Equal(1, planned[0].Number);
     }
 
     [Fact]
@@ -259,6 +309,59 @@ public sealed class SeasonScheduleGeneratorTests
         Assert.Equal(1, planned[0].Sequence);
         Assert.Equal(1, planned[0].ScheduleOccurrence);
         Assert.Equal(new DateTime(2027, 1, 31, 0, 0, 0, DateTimeKind.Utc), planned[0].StartsAtUtc);
+    }
+
+    [Fact]
+    public void Cancelled_seasons_do_not_advance_the_visible_number()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", DateTime.UnixEpoch);
+        var seasons = new[]
+        {
+            new GuildSeason { Sequence = 1, Number = 1, Status = SeasonStatus.Closed, Finalized = true },
+            new GuildSeason { Sequence = 2, Number = 2, Status = SeasonStatus.Cancelled }
+        };
+
+        Assert.Equal(2, SeasonSchedulePlanner.NextCompletedNumber(settings, seasons));
+    }
+
+    [Fact]
+    public void Only_finalized_closed_seasons_advance_the_visible_number()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", DateTime.UnixEpoch);
+        var seasons = new[]
+        {
+            new GuildSeason { Sequence = 1, Number = 1, Status = SeasonStatus.Closed, Finalized = true },
+            new GuildSeason { Sequence = 2, Number = 2, Status = SeasonStatus.Closed, Finalized = false },
+            new GuildSeason { Sequence = 3, Number = 2, Status = SeasonStatus.Cancelled }
+        };
+
+        Assert.Equal(2, SeasonSchedulePlanner.NextCompletedNumber(settings, seasons));
+        seasons[1].Finalized = true;
+        Assert.Equal(3, SeasonSchedulePlanner.NextCompletedNumber(settings, seasons));
+    }
+
+    [Fact]
+    public void New_numbering_epoch_starts_at_one_without_changing_history()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", DateTime.UnixEpoch);
+        settings.NumberingEpoch = 1;
+        var history = new[] { new GuildSeason { Sequence = 7, Number = 7, NumberingEpoch = 0, Status = SeasonStatus.Closed, Finalized = true } };
+
+        Assert.Equal(1, SeasonSchedulePlanner.NextCompletedNumber(settings, history));
+    }
+
+    [Fact]
+    public void Legacy_cancelled_sequence_gaps_do_not_advance_the_next_number()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", DateTime.UnixEpoch);
+        var history = new[]
+        {
+            new GuildSeason { Sequence = 1, Status = SeasonStatus.Closed, Finalized = true },
+            new GuildSeason { Sequence = 2, Status = SeasonStatus.Cancelled },
+            new GuildSeason { Sequence = 3, Status = SeasonStatus.Closed, Finalized = true }
+        };
+
+        Assert.Equal(3, SeasonSchedulePlanner.NextCompletedNumber(settings, history));
     }
 
     private static GuildSeasonSettings Settings(SeasonScheduleKind kind, string timeZoneId, DateTime anchor) => new()

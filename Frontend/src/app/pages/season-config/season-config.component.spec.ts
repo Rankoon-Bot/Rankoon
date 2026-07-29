@@ -447,4 +447,17 @@ describe('SeasonConfigComponent', () => {
     http.expectOne(seasonsUrl).flush([]);
     http.expectOne(previewUrl).flush(previews);
   });
+
+  it('resets the counter for following seasons through the confirmed endpoint', () => {
+    flushInitialLoad();
+    component.requestBulkAction('resetCounter');
+    component.confirmAction();
+
+    const request = http.expectOne(`${seasonsUrl}/counter/reset`);
+    expect(request.request.method).toBe('POST');
+    request.flush({ affectedCount: 1 });
+    http.expectOne(configUrl).flush(createSettings({ numberingEpoch: 1 }));
+    http.expectOne(seasonsUrl).flush([createSeason(1, 'Active'), createSeason(2, 'Scheduled', { number: 1, numberingEpoch: 1 })]);
+    http.expectOne(previewUrl).flush(previews);
+  });
 });

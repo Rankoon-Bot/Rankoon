@@ -1651,6 +1651,7 @@
     "deleteSucceeded": "Season gelöscht.",
     "cancelScheduledSucceeded": "{{count}} geplante Seasons abgebrochen.",
     "deleteCancelledSucceeded": "{{count}} abgebrochene Seasons gelöscht.",
+    "resetCounterSucceeded": "Der Season-Counter wurde für die nächste Season zurückgesetzt.",
     "unsaved": "Es gibt ungespeicherte Season-Änderungen.",
     "invalidSave": "Behebe die Konfigurationsfehler, bevor du speicherst.",
     "unsavedLeave": "Seite verlassen, ohne die Season-Änderungen zu speichern?",
@@ -1695,7 +1696,8 @@
       "resume": "{{name}} fortsetzen?",
       "delete": "{{name}} endgültig löschen?",
       "cancelScheduled": "Alle {{count}} geplanten Seasons abbrechen?",
-      "deleteCancelled": "Alle {{count}} abgebrochenen Seasons endgültig löschen?"
+      "deleteCancelled": "Alle {{count}} abgebrochenen Seasons endgültig löschen?",
+      "resetCounter": "Den Season-Counter für die nächste nicht laufende Season auf 1 zurücksetzen?"
     },
     "confirmTitle": {
       "start": "Season starten",
@@ -1704,7 +1706,8 @@
       "resume": "Season fortsetzen",
       "delete": "Season löschen",
       "cancelScheduled": "Geplante Seasons abbrechen",
-      "deleteCancelled": "Abgebrochene Seasons löschen"
+      "deleteCancelled": "Abgebrochene Seasons löschen",
+      "resetCounter": "Season-Counter zurücksetzen"
     },
     "confirmImpact": {
       "start": "Season-XP werden sofort aktiviert und die Season beginnt.",
@@ -1713,7 +1716,8 @@
       "resume": "Season-XP werden bis zum ursprünglich vorgesehenen Ende weiter vergeben.",
       "delete": "Die Season und ihre Rangliste werden dauerhaft gelöscht.",
       "cancelScheduled": "Alle geplanten Seasons werden abgebrochen und können anschließend gelöscht werden.",
-      "deleteCancelled": "Alle abgebrochenen Seasons werden dauerhaft gelöscht."
+      "deleteCancelled": "Alle abgebrochenen Seasons werden dauerhaft gelöscht.",
+      "resetCounter": "Die laufende Season bleibt unverändert. Geplante und folgende Seasons beginnen wieder bei Season 1."
     },
     "schedules": {
       "manual": "Manuell",
@@ -1821,6 +1825,7 @@
       "bulkHint": "Wende eine Aktion auf alle geeigneten Seasons in der Liste an.",
       "cancelAll": "Alle geplanten abbrechen ({{count}})",
       "deleteAll": "Alle abgebrochenen löschen ({{count}})",
+      "resetCounter": "Counter für nächste Season zurücksetzen",
       "tabs": "Ansichten der Season-Instanzen",
       "planned": "Geplant",
       "past": "Vergangen",

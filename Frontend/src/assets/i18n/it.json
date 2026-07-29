@@ -1608,6 +1608,7 @@
     "deleteSucceeded": "Stagione cancellata.",
     "cancelScheduledSucceeded": "Annullate {{count}} stagioni programmate.",
     "deleteCancelledSucceeded": "Eliminate {{count}} stagioni annullate.",
+    "resetCounterSucceeded": "Il contatore delle stagioni è stato reimpostato per la prossima stagione.",
     "unsaved": "Sono presenti modifiche alle stagioni non salvate.",
     "invalidSave": "Risolvi i problemi di configurazione prima di salvare.",
     "unsavedLeave": "Uscire senza salvare le modifiche alle stagioni?",
@@ -1652,7 +1653,8 @@
       "resume": "Riprendere {{name}}? I PE della stagione continueranno fino alla fine originale.",
       "delete": "Eliminare {{name}} in modo permanente? Questa operazione non può essere annullata.",
       "cancelScheduled": "Annullare tutte le {{count}} stagioni programmate?",
-      "deleteCancelled": "Eliminare definitivamente tutte le {{count}} stagioni annullate?"
+      "deleteCancelled": "Eliminare definitivamente tutte le {{count}} stagioni annullate?",
+      "resetCounter": "Reimpostare il contatore a 1 per la prossima stagione non in corso?"
     },
     "confirmTitle": {
       "start": "Avvia stagione",
@@ -1661,7 +1663,8 @@
       "resume": "Riprendi stagione",
       "delete": "Elimina stagione",
       "cancelScheduled": "Annulla stagioni programmate",
-      "deleteCancelled": "Elimina stagioni annullate"
+      "deleteCancelled": "Elimina stagioni annullate",
+      "resetCounter": "Reimposta contatore"
     },
     "confirmImpact": {
       "start": "Gli XP stagionali iniziano immediatamente e la stagione diventa attiva.",
@@ -1670,7 +1673,8 @@
       "resume": "Gli XP stagionali continuano fino all'ora di fine originale.",
       "delete": "La stagione e la relativa classifica verranno eliminate definitivamente.",
       "cancelScheduled": "Tutte le stagioni programmate verranno annullate e potranno poi essere eliminate.",
-      "deleteCancelled": "Tutte le stagioni annullate verranno eliminate definitivamente."
+      "deleteCancelled": "Tutte le stagioni annullate verranno eliminate definitivamente.",
+      "resetCounter": "La stagione in corso non cambia. Le stagioni pianificate e successive ripartono da 1."
     },
     "schedules": {
       "manual": "Manuale",
@@ -1778,6 +1782,7 @@
       "bulkHint": "Applica un'azione a tutte le stagioni idonee nell'elenco.",
       "cancelAll": "Annulla tutte le programmate ({{count}})",
       "deleteAll": "Elimina tutte le annullate ({{count}})",
+      "resetCounter": "Reimposta contatore successivo",
       "tabs": "Viste delle stagioni",
       "planned": "Pianificate",
       "past": "Passate",

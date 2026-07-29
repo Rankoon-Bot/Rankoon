@@ -4,7 +4,7 @@
   <div class="instance-list">
     @for (season of visible(); track season.id ?? season.sequence) {
       <article class="instance-row">
-        <div class="instance-name"><strong>{{ season.name }}</strong><span>{{ 'seasons.instances.sequence' | transloco: { count: season.sequence } }}</span></div>
+        <div class="instance-name"><strong>{{ season.name }}</strong><span>{{ 'seasons.instances.sequence' | transloco: { count: season.number ?? season.sequence } }}</span></div>
         <div class="instance-period"><span>{{ 'seasons.instances.period' | transloco }}</span><strong>{{ format(season.startsAtUtc) }} – {{ format(season.endsAtUtc) }}</strong></div>
         <span class="status" [attr.data-status]="season.status.toLowerCase()"><span aria-hidden="true"></span>{{ ('seasons.status.' + season.status.toLowerCase()) | transloco }}</span>
         <span class="origin">{{ (season.settingsSnapshot?.scheduleKind === 'Manual' ? 'seasons.schedules.manual' : 'seasons.instances.automatic') | transloco }}</span>

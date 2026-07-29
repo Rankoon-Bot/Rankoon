@@ -1608,6 +1608,7 @@
     "deleteSucceeded": "Temporada excluída.",
     "cancelScheduledSucceeded": "Foram canceladas {{count}} temporadas agendadas.",
     "deleteCancelledSucceeded": "Foram eliminadas {{count}} temporadas canceladas.",
+    "resetCounterSucceeded": "O contador de temporadas foi redefinido para a próxima temporada.",
     "unsaved": "Tem alterações de temporada por guardar.",
     "invalidSave": "Resolva os problemas de configuração antes de guardar.",
     "unsavedLeave": "Sair sem guardar as alterações de temporada?",
@@ -1652,7 +1653,8 @@
       "resume": "Retomar {{name}}? A temporada XP continuará até à hora de término original.",
       "delete": "Apagar {{name}} permanentemente? Isto não pode ser desfeito.",
       "cancelScheduled": "Cancelar as {{count}} temporadas agendadas?",
-      "deleteCancelled": "Eliminar permanentemente as {{count}} temporadas canceladas?"
+      "deleteCancelled": "Eliminar permanentemente as {{count}} temporadas canceladas?",
+      "resetCounter": "Redefinir o contador para 1 na próxima temporada que não esteja em andamento?"
     },
     "confirmTitle": {
       "start": "Iniciar temporada",
@@ -1661,7 +1663,8 @@
       "resume": "Retomar temporada",
       "delete": "Eliminar temporada",
       "cancelScheduled": "Cancelar temporadas agendadas",
-      "deleteCancelled": "Eliminar temporadas canceladas"
+      "deleteCancelled": "Eliminar temporadas canceladas",
+      "resetCounter": "Redefinir contador"
     },
     "confirmImpact": {
       "start": "O XP da temporada começa imediatamente e a temporada fica ativa.",
@@ -1670,7 +1673,8 @@
       "resume": "O XP da temporada continua até à hora de fim original.",
       "delete": "A temporada e a respetiva classificação serão eliminadas permanentemente.",
       "cancelScheduled": "Todas as temporadas agendadas serão canceladas e poderão ser eliminadas depois.",
-      "deleteCancelled": "Todas as temporadas canceladas serão eliminadas permanentemente."
+      "deleteCancelled": "Todas as temporadas canceladas serão eliminadas permanentemente.",
+      "resetCounter": "A temporada em andamento não muda. As temporadas planejadas e seguintes recomeçam em 1."
     },
     "schedules": {
       "manual": "Manual",
@@ -1778,6 +1782,7 @@
       "bulkHint": "Aplique uma ação a todas as temporadas elegíveis da lista.",
       "cancelAll": "Cancelar todas as agendadas ({{count}})",
       "deleteAll": "Eliminar todas as canceladas ({{count}})",
+      "resetCounter": "Redefinir próximo contador",
       "tabs": "Vistas das temporadas",
       "planned": "Planeadas",
       "past": "Anteriores",

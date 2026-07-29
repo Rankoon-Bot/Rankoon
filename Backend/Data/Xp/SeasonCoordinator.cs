@@ -88,17 +88,18 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
     private async Task PrepareAsync(GuildSeasonSettings settings, IReadOnlyList<GuildSeason> existing, DateTime now, CancellationToken cancellationToken)
     {
         if (settings.ScheduleKind == SeasonScheduleKind.Manual) return;
-        var missing = settings.PreparedSeasonCount - CountPrepared(existing);
+        var missing = settings.PreparedSeasonCount - CountPrepared(existing, now);
         if (missing <= 0) return;
         var generated = SeasonSchedulePlanner.GenerateMissing(settings, existing, settings.PreparedSeasonCount, now);
-        var previousSeasonId = existing.OrderByDescending(x => x.Sequence).FirstOrDefault()?.Id;
         foreach (var item in generated)
         {
-            var season = new GuildSeason { GuildId = settings.GuildId, Sequence = item.Sequence, Name = item.Name, StartsAtUtc = item.StartsAtUtc, EndsAtUtc = item.EndsAtUtc, CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, ScheduleOccurrence = item.ScheduleOccurrence, SettingsSnapshot = settings, PreviousSeasonId = previousSeasonId };
-            try { await database.GuildSeasons.InsertOneAsync(season, cancellationToken: cancellationToken); previousSeasonId = season.Id; existing = existing.Append(season).ToList(); }
+            var season = new GuildSeason { GuildId = settings.GuildId, Sequence = item.Sequence, Number = item.Number, NumberingEpoch = settings.NumberingEpoch, Name = item.Name, StartsAtUtc = item.StartsAtUtc, EndsAtUtc = item.EndsAtUtc, CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, ScheduleOccurrence = item.ScheduleOccurrence, AutomaticallyNamed = true, SettingsSnapshot = settings };
+            try { await database.GuildSeasons.InsertOneAsync(season, cancellationToken: cancellationToken); existing = existing.Append(season).ToList(); }
             catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
         }
     }
 
-    public static int CountPrepared(IEnumerable<GuildSeason> seasons) => seasons.Count(x => x.Status is SeasonStatus.Scheduled or SeasonStatus.Active or SeasonStatus.Closing);
+    public static int CountPrepared(IEnumerable<GuildSeason> seasons, DateTime? notEndedAfterUtc = null) => seasons.Count(x =>
+        x.Status is SeasonStatus.Scheduled or SeasonStatus.Active or SeasonStatus.Closing &&
+        (!notEndedAfterUtc.HasValue || x.EndsAtUtc > notEndedAfterUtc.Value));
 }

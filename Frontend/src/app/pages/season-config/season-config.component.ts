@@ -26,7 +26,7 @@ import { SeasonStatusSummaryComponent } from './components/season-status-summary
 import { SeasonTimelinePreviewComponent } from './components/season-timeline-preview.component';
 
 export type SeasonAction = 'start' | 'close' | 'cancel' | 'resume' | 'delete';
-type SeasonBulkAction = 'cancelScheduled' | 'deleteCancelled';
+type SeasonBulkAction = 'cancelScheduled' | 'deleteCancelled' | 'resetCounter';
 type PendingAction = { action: SeasonAction; season: Season; guildId: string } | { action: SeasonBulkAction; season: null; guildId: string };
 export type SchedulePreset = 'monthly' | 'quarterly' | 'custom';
 
@@ -316,16 +316,16 @@ export class SeasonConfigComponent {
     return Array.from({ length: previewCount }, (_, index) => {
       const exactItem = this.preview()[index];
       const item = exactItem ?? this.preview().at(-1) ?? first;
-      const sequence = Number(exactItem?.sequence ?? Number(first?.sequence ?? 1) + index);
-      const rotationIndex = settings.rotation.length ? ((sequence - 1 + settings.rotationOffset) % settings.rotation.length + settings.rotation.length) % settings.rotation.length : 0;
+      const number = Number(exactItem?.number ?? exactItem?.sequence ?? Number(first?.number ?? first?.sequence ?? 1) + index);
+      const rotationIndex = settings.rotation.length ? ((number - 1 + settings.rotationOffset) % settings.rotation.length + settings.rotation.length) % settings.rotation.length : 0;
       const rotation = settings.rotation.length ? settings.rotation[rotationIndex] : '';
       const start = item ? new Date(item.startsAtUtc) : new Date();
       const end = item ? new Date(item.endsAtUtc) : start;
       const startParts = this.seasonDateParts(start, settings.timeZoneId);
       const endParts = this.seasonDateParts(end, settings.timeZoneId);
       return settings.nameTemplate.replace(TOKEN_PATTERN, (_, token: string) => {
-        if (token === 'number') return String(sequence);
-        if (/^number:0+$/.test(token)) return String(sequence).padStart(token.length - 7, '0');
+        if (token === 'number') return String(number);
+        if (/^number:0+$/.test(token)) return String(number).padStart(token.length - 7, '0');
         if (token === 'rotation') return rotation;
         if (token === 'year') return startParts.year;
         if (token === 'endYear') return endParts.year;
@@ -396,6 +396,7 @@ export class SeasonConfigComponent {
     }
     const request: Observable<unknown> = pending.action === 'cancelScheduled' ? this.api.cancelScheduledSeasons(guildId)
       : pending.action === 'deleteCancelled' ? this.api.deleteCancelledSeasons(guildId)
+      : pending.action === 'resetCounter' ? this.api.resetSeasonCounter(guildId)
       : pending.action === 'start' ? this.api.startSeason(guildId, seasonId!)
       : pending.action === 'close' ? this.api.closeSeason(guildId, seasonId!)
       : pending.action === 'resume' ? this.api.resumeSeason(guildId, seasonId!)

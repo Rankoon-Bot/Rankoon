@@ -40,6 +40,8 @@ public sealed class GuildSeasonSettings
     [BsonElement("season_level_roles")] public List<SeasonLevelRole> SeasonLevelRoles { get; set; } = [];
     [BsonElement("next_sequence_after_deletion"), BsonIgnoreIfDefault] public long NextSequenceAfterDeletion { get; set; }
     [BsonElement("next_schedule_occurrence_after_deletion"), BsonIgnoreIfDefault] public int NextScheduleOccurrenceAfterDeletion { get; set; }
+    [BsonElement("numbering_epoch"), BsonIgnoreIfDefault] public long NumberingEpoch { get; set; }
+    [BsonElement("numbering_epoch_updated_at_utc"), BsonIgnoreIfNull] public DateTime? NumberingEpochUpdatedAtUtc { get; set; }
     [BsonElement("revision")] public long Revision { get; set; }
     [BsonElement("updated_at_utc")] public DateTime UpdatedAtUtc { get; set; }
 }
@@ -64,6 +66,8 @@ public sealed class GuildSeason
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("sequence")] public long Sequence { get; set; }
+    [BsonElement("number"), BsonIgnoreIfNull] public long? Number { get; set; }
+    [BsonElement("numbering_epoch"), BsonIgnoreIfDefault] public long NumberingEpoch { get; set; }
     [BsonElement("name")] public string Name { get; set; } = string.Empty;
     [BsonElement("description")] public string? Description { get; set; }
     [BsonElement("status"), BsonRepresentation(BsonType.String)] public SeasonStatus Status { get; set; }
@@ -77,6 +81,7 @@ public sealed class GuildSeason
     [BsonElement("previous_season_id"), BsonRepresentation(BsonType.ObjectId)] public string? PreviousSeasonId { get; set; }
     [BsonElement("schedule_revision")] public long ScheduleRevision { get; set; }
     [BsonElement("schedule_occurrence"), BsonIgnoreIfNull] public int? ScheduleOccurrence { get; set; }
+    [BsonElement("automatically_named"), BsonIgnoreIfDefault] public bool AutomaticallyNamed { get; set; }
     [BsonElement("settings_snapshot")] public GuildSeasonSettings SettingsSnapshot { get; set; } = new();
     [BsonElement("carry_over_applied")] public bool CarryOverApplied { get; set; }
     [BsonElement("finalized")] public bool Finalized { get; set; }

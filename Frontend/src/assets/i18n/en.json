@@ -1651,6 +1651,7 @@
     "deleteSucceeded": "Season deleted.",
     "cancelScheduledSucceeded": "Cancelled {{count}} scheduled seasons.",
     "deleteCancelledSucceeded": "Deleted {{count}} cancelled seasons.",
+    "resetCounterSucceeded": "The season counter was reset for the next season.",
     "unsaved": "You have unsaved season changes.",
     "invalidSave": "Resolve the configuration issues before saving.",
     "unsavedLeave": "Leave without saving your season changes?",
@@ -1695,7 +1696,8 @@
       "resume": "Resume {{name}}?",
       "delete": "Delete {{name}} permanently?",
       "cancelScheduled": "Cancel all {{count}} scheduled seasons?",
-      "deleteCancelled": "Delete all {{count}} cancelled seasons permanently?"
+      "deleteCancelled": "Delete all {{count}} cancelled seasons permanently?",
+      "resetCounter": "Reset the season counter to 1 for the next season that is not running?"
     },
     "confirmTitle": {
       "start": "Start season",
@@ -1704,7 +1706,8 @@
       "resume": "Resume season",
       "delete": "Delete season",
       "cancelScheduled": "Cancel scheduled seasons",
-      "deleteCancelled": "Delete cancelled seasons"
+      "deleteCancelled": "Delete cancelled seasons",
+      "resetCounter": "Reset season counter"
     },
     "confirmImpact": {
       "start": "Season XP begins immediately and the season becomes active.",
@@ -1713,7 +1716,8 @@
       "resume": "Season XP continues until the season's original end time.",
       "delete": "The season instance and its standings will be permanently removed.",
       "cancelScheduled": "All scheduled seasons will be cancelled and can be deleted afterward.",
-      "deleteCancelled": "All cancelled season instances will be permanently removed."
+      "deleteCancelled": "All cancelled season instances will be permanently removed.",
+      "resetCounter": "The running season remains unchanged. Scheduled and following seasons start again at Season 1."
     },
     "schedules": {
       "manual": "Manual",
@@ -1821,6 +1825,7 @@
       "bulkHint": "Apply an action to all eligible seasons in the list.",
       "cancelAll": "Cancel all scheduled ({{count}})",
       "deleteAll": "Delete all cancelled ({{count}})",
+      "resetCounter": "Reset counter for next season",
       "tabs": "Season instance views",
       "planned": "Planned",
       "past": "Past",
