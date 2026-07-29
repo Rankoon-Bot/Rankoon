@@ -347,7 +347,7 @@
               <label>{{ "xp.minimumHumanParticipants" | transloco }}
                 <input type="number" min="1" max="99" step="1" [(ngModel)]="cfg.voice.eligibility.minimumHumanParticipants" />
               </label>
-              @if (cfg.voice.eligibility.minimumHumanParticipants < 1 || cfg.voice.eligibility.minimumHumanParticipants > 99) {
+              @if (invalidParticipantMinimum(cfg)) {
                 <p class="validation-inline" role="alert">{{ "xp.minimumParticipantsValidation" | transloco }}</p>
               }
               <label>{{ "xp.participantCounting" | transloco }}

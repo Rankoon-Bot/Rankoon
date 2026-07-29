@@ -57,13 +57,130 @@ public sealed class SeasonScheduleGeneratorTests
     {
         var settings = Settings(SeasonScheduleKind.Monthly, "UTC", DateTime.UnixEpoch);
         settings.NameTemplate = "{unknown}";
-        Assert.Throws<ArgumentException>(() => SeasonScheduleGenerator.Validate(settings));
+        Assert.Contains(Assert.Throws<SeasonSettingsValidationException>(() => SeasonScheduleGenerator.Validate(settings)).Errors, error => error.Field == "nameTemplate");
         settings.NameTemplate = "{rotation}";
-        Assert.Throws<ArgumentException>(() => SeasonScheduleGenerator.Validate(settings));
+        Assert.Contains(Assert.Throws<SeasonSettingsValidationException>(() => SeasonScheduleGenerator.Validate(settings)).Errors, error => error.Field == "rotation");
+    }
+
+    [Fact]
+    public void Rejects_duplicate_rotation_names_case_insensitively()
+    {
+        var settings = Settings(SeasonScheduleKind.Monthly, "UTC", DateTime.UnixEpoch);
+        settings.Rotation = ["Spring", "spring"];
+
+        var errors = SeasonScheduleGenerator.ValidateSettings(settings);
+
+        Assert.Contains(errors, error => error.Field == "rotation");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" Summer")]
+    [InlineData("Summer ")]
+    public void Rejects_empty_or_untrimmed_rotation_names(string name)
+    {
+        var settings = Settings(SeasonScheduleKind.Monthly, "UTC", DateTime.UnixEpoch);
+        settings.Rotation = [name];
+
+        Assert.Contains(SeasonScheduleGenerator.ValidateSettings(settings), error => error.Field == "rotation");
+    }
+
+    [Fact]
+    public void Rejects_null_nested_settings_and_collections()
+    {
+        var settings = Settings(SeasonScheduleKind.Monthly, "UTC", DateTime.UnixEpoch);
+        settings.Announcements = null!;
+        settings.Rotation = null!;
+        settings.SeasonLevelRoles = null!;
+
+        var fields = SeasonScheduleGenerator.ValidateSettings(settings).Select(error => error.Field).ToHashSet();
+
+        Assert.Contains("announcements", fields);
+        Assert.Contains("rotation", fields);
+        Assert.Contains("seasonLevelRoles", fields);
+
+        settings.Announcements = new SeasonAnnouncementSettings { WarningOffsetsMinutes = null! };
+        Assert.Contains(SeasonScheduleGenerator.ValidateSettings(settings), error => error.Field == "announcements.warningOffsetsMinutes");
+    }
+
+    [Fact]
+    public void Rejects_invalid_editable_ranges_and_enums()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", DateTime.UnixEpoch);
+        settings.DefaultLeaderboardScope = (SeasonLeaderboardScope)99;
+        settings.InitialXpMode = (SeasonInitialXpMode)99;
+        settings.CarryOverMode = (SeasonCarryOverMode)99;
+        settings.FixedDurationDays = 3661;
+        settings.GapDays = -1;
+        settings.PreparedSeasonCount = 25;
+        settings.PublicHistoryCount = 25;
+        settings.WinnerCount = 101;
+        settings.InitialXpPercentage = 100.01m;
+        settings.CarryOverPercentage = -0.01m;
+        settings.CarryOverMaximumXp = -1;
+
+        var fields = SeasonScheduleGenerator.ValidateSettings(settings).Select(error => error.Field).ToHashSet();
+
+        Assert.Contains("defaultLeaderboardScope", fields);
+        Assert.Contains("initialXpMode", fields);
+        Assert.Contains("carryOverMode", fields);
+        Assert.Contains("fixedDurationDays", fields);
+        Assert.Contains("gapDays", fields);
+        Assert.Contains("preparedSeasonCount", fields);
+        Assert.Contains("publicHistoryCount", fields);
+        Assert.Contains("winnerCount", fields);
+        Assert.Contains("initialXpPercentage", fields);
+        Assert.Contains("carryOverPercentage", fields);
+        Assert.Contains("carryOverMaximumXp", fields);
+    }
+
+    [Fact]
+    public void Rejects_calendar_gap_and_invalid_role_and_warning_lists()
+    {
+        var settings = Settings(SeasonScheduleKind.Monthly, "UTC", DateTime.UnixEpoch);
+        settings.GapDays = 28;
+        settings.Announcements.WarningOffsetsMinutes = [60, 60, -1];
+        settings.SeasonLevelRoles =
+        [
+            new SeasonLevelRole { Level = 0, RoleId = 1, Retention = (SeasonLevelRoleRetention)99 },
+            new SeasonLevelRole { Level = 0, RoleId = 1 }
+        ];
+
+        var fields = SeasonScheduleGenerator.ValidateSettings(settings).Select(error => error.Field).ToHashSet();
+
+        Assert.Contains("gapDays", fields);
+        Assert.Contains("announcements.warningOffsetsMinutes", fields);
+        Assert.Contains("seasonLevelRoles", fields);
+    }
+
+    [Fact]
+    public void Rejects_zero_guild_and_invalid_time_zone_with_field_errors()
+    {
+        var settings = Settings(SeasonScheduleKind.Monthly, "not/a-time-zone", DateTime.UnixEpoch);
+        settings.GuildId = 0;
+
+        var errors = SeasonScheduleGenerator.ValidateSettings(settings);
+
+        Assert.Contains(errors, error => error.Field == "guildId");
+        Assert.Contains(errors, error => error.Field == "timeZoneId" && error.ErrorKey == "season.invalidTimeZone");
+    }
+
+    [Fact]
+    public void Normalizes_negative_rotation_offsets()
+    {
+        var settings = Settings(SeasonScheduleKind.Monthly, "UTC", DateTime.UnixEpoch);
+        settings.NameTemplate = "{rotation}";
+        settings.Rotation = ["Spring", "Summer", "Autumn"];
+        settings.RotationOffset = -1;
+
+        var generated = new SeasonScheduleGenerator().Generate(settings, "Guild", 1, 1);
+
+        Assert.Equal("Autumn", generated[0].Name);
     }
 
     private static GuildSeasonSettings Settings(SeasonScheduleKind kind, string timeZoneId, DateTime anchor) => new()
     {
+        GuildId = 1,
         ScheduleKind = kind,
         TimeZoneId = timeZoneId,
         ScheduleAnchorUtc = anchor,

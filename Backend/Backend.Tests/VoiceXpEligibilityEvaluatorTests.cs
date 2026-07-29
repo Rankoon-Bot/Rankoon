@@ -1,6 +1,7 @@
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.Xp;
+using System.Text.Json;
 using Xunit;
 
 namespace Backend.Tests;
@@ -138,14 +139,32 @@ public sealed class VoiceXpEligibilityEvaluatorTests
         Assert.True(voice.Eligibility.ResetMinimumSessionWhenIneligible);
     }
 
+    [Theory]
+    [InlineData(true, true, 2, false)]
+    [InlineData(false, false, 1, true)]
+    public void Legacy_json_payloads_remain_deserializable(bool requireMultiple, bool excludeAfk, int minimum, bool awardAfk)
+    {
+        var json = $$"""{"requireMultipleHumans":{{requireMultiple.ToString().ToLowerInvariant()}},"excludeAfkChannel":{{excludeAfk.ToString().ToLowerInvariant()}}}""";
+        var voice = JsonSerializer.Deserialize<VoiceXpSettings>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        VoiceXpSettingsNormalizer.NormalizeLegacy(voice);
+        Assert.Equal(minimum, voice.Eligibility!.MinimumHumanParticipants);
+        Assert.Equal(awardAfk, voice.Eligibility.AwardInAfkChannel);
+        Assert.DoesNotContain("requireMultipleHumans", JsonSerializer.Serialize(voice, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    }
+
     private VoiceXpEligibilityResult Evaluate(VoiceXpParticipantState participant, VoiceXpEligibilitySettings settings) => evaluator.Evaluate(Context(participant), settings);
     private static VoiceXpEvaluationContext Context(VoiceXpParticipantState participant, IReadOnlyList<VoiceXpParticipantState>? participants = null,
         bool excludedChannel = false, bool excludedCategory = false, bool isAfk = false, long qualifying = 0, long interval = 60, int minimumSeconds = 0) =>
         new(participant, participants ?? [participant], excludedChannel, excludedCategory, isAfk, qualifying, interval, minimumSeconds);
     private static VoiceXpEligibilitySettings Settings(int minimum = 1, VoiceXpParticipantCountingMode mode = VoiceXpParticipantCountingMode.AllConnectedHumans) => new()
     {
-        AwardWhileSelfMuted = true, AwardWhileSelfDeafened = true, AwardWhileGuildMuted = true, AwardWhileGuildDeafened = false,
-        AwardWhileSuppressed = true, MinimumHumanParticipants = minimum, ParticipantCountingMode = mode
+        AwardWhileSelfMuted = true,
+        AwardWhileSelfDeafened = true,
+        AwardWhileGuildMuted = true,
+        AwardWhileGuildDeafened = false,
+        AwardWhileSuppressed = true,
+        MinimumHumanParticipants = minimum,
+        ParticipantCountingMode = mode
     };
     private static VoiceXpParticipantState ParticipantWith(string property)
     {

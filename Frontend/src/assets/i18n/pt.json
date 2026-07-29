@@ -692,7 +692,7 @@
         "title": "XP precisa de atenção"
       },
       "seasons": {
-          "title": "As temporadas precisam de configuração"
+        "title": "As temporadas precisam de configuração"
       },
       "level-up-announcements": {
         "title": "Os anúncios necessitam de configuração"
@@ -1524,20 +1524,18 @@
     "title": "Temporadas XP",
     "subtitle": "Realize competições de XP opcionais e arquivadas sem alterar a progressão global.",
     "loading": "A carregar as definições das temporadas...",
-    "control": "CONTROLO DE TEMPORADAS",
+    "loadingHint": "A obter o calendário, o histórico de temporadas e os recursos do servidor.",
+    "unavailable": "As definições das temporadas não estão disponíveis",
     "enableTitle": "Ativar temporadas",
     "enableHint": "O XP acumulado mantém-se inalterado. O XP da temporada só começa durante uma temporada ativa.",
-    "setup": "CALENDÁRIO",
-    "basic": "Configuração básica",
-    "basicHint": "Defina a periodicidade, o fuso horário local e a forma de nomear as próximas temporadas.",
-    "showAdvanced": "Mostrar opções avançadas",
-    "hideAdvanced": "Ocultar opções avançadas",
+    "configuratorLegend": "Configuração das temporadas",
     "schedule": "Calendário",
     "timeZone": "Fuso horário",
     "anchor": "Data de referência do calendário",
     "durationDays": "Duração em dias",
     "nameTemplate": "Modelo de nome",
     "templateHint": "Utilize {number}, {year}, {monthName}, {quarter}, {rotation}, {start:yyyy-MM-dd}.",
+    "tokensLabel": "Tokens de nome disponíveis",
     "announcementChannel": "ID do canal de anúncios",
     "optional": "Opcional",
     "gapDays": "Intervalo em dias",
@@ -1552,26 +1550,27 @@
     "rotation": "Rotação de nomes",
     "rotationHint": "Obrigatório quando o modelo contém {rotation}. As entradas são repetidas ciclicamente.",
     "rotationPlaceholder": "Por exemplo: Primavera",
-    "planning": "PLANEAMENTO",
-    "preview": "Próximas temporadas",
-    "previewHint": "A visualização é calculada pelo servidor utilizando o fuso horário configurado.",
+    "addName": "Adicionar nome",
+    "moveUp": "Mover {{name}} para cima",
+    "moveDown": "Mover {{name}} para baixo",
+    "livePreview": "PRÉ-VISUALIZAÇÃO EM TEMPO REAL",
+    "namingPreviewUnavailable": "Conclua a configuração dos nomes para ver exemplos.",
     "refreshPreview": "Atualizar visualização",
-    "planCount": "Temporadas para planear",
     "plan": "Planear temporadas",
     "planningNow": "Planeamento...",
     "planSucceeded": "{{count}} temporadas planeadas.",
-    "manualPlanningHint": "Para um calendário manual, crie cada temporada com datas explícitas.",
-    "noPreview": "Escolha uma programação automática e uma âncora válida para visualizar as temporadas futuras.",
+    "planTitle": "Preparar as próximas temporadas",
+    "planHint": "Crie até {{count}} temporadas agendadas a partir da configuração guardada.",
+    "saveBeforePlan": "Guarde as alterações antes de planear temporadas.",
+    "operationsKicker": "OPERAÇÕES DE TEMPORADA",
     "operations": "OPERAÇÕES",
-    "history": "Histórico de temporadas",
-    "noSeasons": "Nenhuma temporada foi criada ainda.",
+    "operationsHint": "Inicie, encerre, cancele, retome ou elimine temporadas individuais.",
+    "noOperations": "Não existem temporadas que exijam uma ação.",
     "start": "Iniciar",
     "close": "Encerrar",
     "cancel": "Cancelar",
     "resume": "Retomar",
-    "resumeUnavailableHint": "Esta temporada está fora do intervalo original e não pode ser retomada.",
-    "cancelActiveHint": "Encerre a temporada ativa antes de a cancelar.",
-    "confirmTitle": "Confirmar ação da temporada",
+    "delete": "Eliminar",
     "confirmAction": "Confirmar ação",
     "saved": "Definições de temporada guardadas.",
     "startSucceeded": "A temporada começou.",
@@ -1579,13 +1578,63 @@
     "cancelSucceeded": "Temporada cancelada.",
     "resumeSucceeded": "A temporada foi retomada.",
     "deleteSucceeded": "Temporada excluída.",
+    "unsaved": "Tem alterações de temporada por guardar.",
+    "invalidSave": "Resolva os problemas de configuração antes de guardar.",
+    "unsavedLeave": "Sair sem guardar as alterações de temporada?",
+    "steps": {
+      "label": "Passos da configuração das temporadas",
+      "step1": "Ativação",
+      "step2": "Calendário",
+      "step3": "Nomes",
+      "step4": "Regras de XP",
+      "step5": "Revisão",
+      "activationKicker": "PASSO 1 · ATIVAÇÃO",
+      "scheduleKicker": "PASSO 2 · CALENDÁRIO",
+      "namingKicker": "PASSO 3 · NOMES",
+      "xpKicker": "PASSO 4 · REGRAS DE XP",
+      "previewKicker": "PASSO 5 · REVISÃO"
+    },
+    "activation": {
+      "withoutTitle": "Sem temporadas",
+      "withoutLeaderboard": "Uma classificação global permanente",
+      "withoutProgress": "O progresso de XP nunca é reposto",
+      "withTitle": "Com temporadas",
+      "withPeriods": "Competições com duração limitada",
+      "withLeaderboards": "Classificações de temporadas arquivadas",
+      "withResets": "XP inicial e transferido configurável",
+      "retained": "O XP e os níveis globais são sempre mantidos."
+    },
+    "scheduleTitle": "Escolha o ritmo das temporadas",
+    "scheduleHint": "Comece com uma predefinição ou configure a periodicidade em detalhe.",
+    "presets": {
+      "label": "Predefinições do calendário",
+      "monthly": "Mensal",
+      "monthlyHint": "Uma nova temporada em cada mês civil",
+      "quarterly": "Trimestral",
+      "quarterlyHint": "Quatro temporadas por ano civil",
+      "custom": "Personalizado",
+      "customHint": "Escolha qualquer periodicidade e intervalos suportados"
+    },
     "confirm": {
       "start": "Iniciar {{name}} agora? Isto ativa o XP da temporada durante o período configurado.",
       "close": "Fechar {{name}} mais cedo? A classificação final será criada e não poderá ser alterada.",
       "cancel": "Cancelar {{name}}? Esta ação não pode ser anulada.",
       "resume": "Retomar {{name}}? A temporada XP continuará até à hora de término original.",
-      "delete": "Apagar {{name}} permanentemente? Isto não pode ser desfeito.",
-      "disable": "Desativar temporadas? Todas as temporadas ativas ou em encerramento serão finalizadas imediatamente. O XP acumulado mantém-se inalterado."
+      "delete": "Apagar {{name}} permanentemente? Isto não pode ser desfeito."
+    },
+    "confirmTitle": {
+      "start": "Iniciar temporada",
+      "close": "Encerrar temporada",
+      "cancel": "Cancelar temporada",
+      "resume": "Retomar temporada",
+      "delete": "Eliminar temporada"
+    },
+    "confirmImpact": {
+      "start": "O XP da temporada começa imediatamente e a temporada fica ativa.",
+      "close": "A classificação final será registada e a transferência de XP será aplicada.",
+      "cancel": "O XP da temporada para. A temporada só poderá ser retomada durante o período original.",
+      "resume": "O XP da temporada continua até à hora de fim original.",
+      "delete": "A temporada e a respetiva classificação serão eliminadas permanentemente."
     },
     "schedules": {
       "manual": "Manual",
@@ -1593,8 +1642,45 @@
       "monthly": "Mensal",
       "quarterly": "Trimestral",
       "semiAnnual": "Semestral",
-      "annual": "Anual"
+      "annual": "Anual",
+      "hint": {
+        "Manual": "As temporadas são criadas e geridas individualmente.",
+        "FixedDuration": "Todas as temporadas duram o mesmo número de dias.",
+        "Monthly": "Os limites das temporadas seguem os meses civis.",
+        "Quarterly": "Os limites das temporadas seguem os trimestres civis.",
+        "SemiAnnual": "Há duas mudanças de temporada por ano civil.",
+        "Annual": "Os limites das temporadas seguem os anos civis."
+      }
     },
+    "durationSummary": "Cada temporada dura {{count}} dias.",
+    "anchorHint": "Define o primeiro limite das temporadas planeadas automaticamente.",
+    "timeZoneHint": "Os limites do calendário e as datas apresentadas utilizam este fuso horário IANA.",
+    "gapToggle": "Pausa entre temporadas",
+    "gapSummary": "Os membros esperam {{count}} dias antes do início da próxima temporada.",
+    "noGapSummary": "A próxima temporada começa assim que a anterior termina.",
+    "timeline": {
+      "title": "Pré-visualização do calendário",
+      "hint": "As próximas três temporadas com base nas definições atuais.",
+      "loading": "A calcular a pré-visualização...",
+      "invalid": "Preencha os campos do calendário e dos nomes para gerar uma pré-visualização.",
+      "empty": "Não está disponível uma pré-visualização automática para este calendário.",
+      "pause": "Pausa",
+      "pauseDays": "{{count}} dias"
+    },
+    "namingTitle": "Dê um nome a cada temporada",
+    "namingHint": "Utilize uma sequência simples, um padrão de tokens ou uma lista rotativa de nomes.",
+    "namingMode": "Modo de atribuição de nomes",
+    "naming": {
+      "numbered": "Temporadas numeradas",
+      "numberedHint": "Temporada 1, Temporada 2, Temporada 3",
+      "pattern": "Padrão de tokens",
+      "patternHint": "Crie nomes a partir de datas, números e outros tokens",
+      "rotation": "Nomes rotativos",
+      "rotationHint": "Percorra ciclicamente uma lista ordenada e reutilizável"
+    },
+    "xpTitle": "Defina as regras de XP da temporada",
+    "xpHint": "Escolha com quanto XP os membros começam e quanto levam para a temporada seguinte.",
+    "initialHint": "Defina o saldo de XP que os membros recebem quando uma temporada começa.",
     "scopes": {
       "lifetime": "Todo o período",
       "currentSeason": "Temporada atual"
@@ -1602,11 +1688,64 @@
     "initial": {
       "zero": "0 XP",
       "lifetime": "XP acumulado atual",
-      "percentage": "Percentagem do XP acumulado"
+      "lifetimepercentage": "Percentagem do XP acumulado"
     },
+    "initialHintMode": {
+      "zero": "Todos começam em igualdade com zero XP.",
+      "lifetime": "Replica todo o XP acumulado de cada membro.",
+      "lifetimepercentage": "Começa com a percentagem selecionada do XP acumulado."
+    },
+    "initialExample": "Exemplo: 10 000 XP acumulado transforma-se em {{result}} XP da temporada a {{percentage}}%.",
+    "carryHint": "Controle se o progresso de uma temporada contribui para a seguinte.",
     "carry": {
       "none": "Sem transferência",
-      "percentage": "Percentagem da temporada anterior"
+      "noneHint": "Cada nova temporada começa com o XP inicial configurado.",
+      "percentage": "Percentagem da temporada anterior",
+      "percentageHint": "Mantém parte do XP da temporada anterior."
+    },
+    "carryExample": "Exemplo: 10 000 XP da temporada contribui com {{result}} XP a {{percentage}}%.",
+    "lifetimeUnaffectedTitle": "O progresso global permanece inalterado",
+    "lifetimeUnaffected": "O início e a reposição das temporadas e as regras de transferência nunca removem XP nem níveis globais.",
+    "summaryTitle": "Reveja a configuração",
+    "summaryHint": "Verifique o calendário efetivo e o comportamento do XP antes de guardar.",
+    "summary": {
+      "starts": "O agendamento automático começa em {{date}}.",
+      "duration": "Cada temporada decorre durante {{count}} dias.",
+      "cadence": "Periodicidade: {{cadence}}.",
+      "gap": "Existem {{count}} dias entre temporadas.",
+      "noGap": "As temporadas decorrem consecutivamente, sem pausas.",
+      "carry": "{{percentage}}% do XP da temporada é transferido para a seguinte.",
+      "reset": "O XP da temporada não é transferido para a seguinte.",
+      "prepared": "Podem ser preparadas até {{count}} próximas temporadas."
+    },
+    "complete": "Pronto para guardar",
+    "completeHint": "A configuração das temporadas está completa e é válida.",
+    "missingTitle": "Preencha estes elementos",
+    "advancedTitle": "Definições avançadas",
+    "advancedHint": "Histórico, vencedores, classificação predefinida e anúncios",
+    "preparedHint": "Número máximo de próximas temporadas a criar.",
+    "historyHint": "Número de temporadas concluídas visíveis para os membros.",
+    "winnerHint": "Número de membros mais bem classificados incluídos na classificação final.",
+    "defaultScopeHint": "Classificação apresentada primeiro quando ambos os âmbitos estão disponíveis.",
+    "units": {
+      "days": "dias",
+      "seasons": "temporadas",
+      "members": "membros"
+    },
+    "instances": {
+      "kicker": "TEMPORADAS",
+      "title": "Próximas temporadas e temporadas arquivadas",
+      "hint": "Reveja as temporadas geradas e o respetivo estado atual.",
+      "tabs": "Vistas das temporadas",
+      "planned": "Planeadas",
+      "past": "Anteriores",
+      "noPlanned": "Não existem temporadas planeadas",
+      "noPlannedHint": "Guarde um calendário automático válido e prepare as próximas temporadas.",
+      "noPast": "Ainda não existem temporadas arquivadas",
+      "noPastHint": "As temporadas encerradas e canceladas serão apresentadas aqui.",
+      "sequence": "Temporada {{count}}",
+      "period": "Período",
+      "automatic": "Automática"
     },
     "status": {
       "scheduled": "Agendado",
@@ -1614,6 +1753,43 @@
       "closing": "A encerrar",
       "closed": "Fechado",
       "cancelled": "Cancelado"
+    },
+    "statusSummary": {
+      "disabled": "Desativadas",
+      "active": "Ativa",
+      "ready": "Pronta",
+      "attention": "Requer atenção",
+      "sequence": "Temporada {{count}}",
+      "disabledTitle": "As temporadas estão desativadas",
+      "disabledDescription": "Ative as temporadas para criar competições de XP recorrentes em paralelo com o progresso global.",
+      "setup": "Configurar temporadas",
+      "progress": "Progresso da temporada",
+      "next": "Próxima temporada",
+      "starts": "Começa em {{date}}",
+      "readyTitle": "Tudo pronto para a próxima temporada",
+      "readyScheduled": "{{name}} começa em {{date}}.",
+      "readyDescription": "A configuração é válida. Prepare uma temporada quando estiver pronto.",
+      "attentionTitle": "A configuração das temporadas requer atenção",
+      "attentionDescription": "Preencha os elementos de configuração destacados antes de planear uma temporada.",
+      "dayRemaining": "Falta {{count}} dia",
+      "daysRemaining": "Faltam {{count}} dias"
+    },
+    "validation": {
+      "closeBeforeDisable": "Encerre a temporada ativa antes de desativar as temporadas.",
+      "timeZone": "Introduza um fuso horário IANA válido.",
+      "anchor": "Escolha uma data de referência para as temporadas automáticas.",
+      "duration": "Introduza uma duração entre 1 e 3660 dias.",
+      "gap": "Introduza um intervalo válido que deixe tempo para a periodicidade selecionada.",
+      "prepared": "O número de temporadas preparadas tem de estar entre 0 e 24.",
+      "history": "O número de temporadas no histórico público tem de estar entre 0 e 24.",
+      "winners": "O número de vencedores tem de estar entre 1 e 100.",
+      "percentage": "As percentagens têm de estar entre 0 e 100.",
+      "maximumXp": "O XP máximo transferido não pode ser negativo.",
+      "tokens": "Tokens de nome não suportados: {{tokens}}.",
+      "rotationRequired": "Adicione pelo menos um nome ao utilizar o token {rotation}.",
+      "rotationDuplicate": "Cada nome da rotação tem de ser único.",
+      "nameTemplate": "Introduza um modelo de nome válido com um máximo de 120 carateres.",
+      "generic": "Verifique este valor e tente novamente."
     }
   },
   "xpAudit": {
@@ -1766,5 +1942,8 @@
     }
   },
   "channelPicker": { "clear": "Clear channel", "reset": "Clear selection", "filterTypes": "Filter channel types", "loading": "Loading channels...", "search": "Search channels", "empty": "No matching channels are available.", "noResults": "No channels match your search.", "unknown": "Unknown channel", "types": { "Text": "Text channel", "Voice": "Voice channel", "Category": "Category", "Announcement": "Announcement channel", "Forum": "Forum", "Stage": "Stage channel", "Thread": "Thread", "Unknown": "Unknown channel" } },
+  "confirmation": {
+    "irreversible": "Esta ação é irreversível."
+  },
   "saveBar": { "unsaved": "Unsaved changes", "reset": "Reset changes", "invalid": "Fix highlighted fields before saving." }
 }

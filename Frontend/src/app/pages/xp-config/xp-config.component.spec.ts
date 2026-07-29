@@ -138,11 +138,13 @@ describe('XpConfigComponent server booster settings', () => {
   });
 
   it('builds the live summary from the current form values', () => {
+    const translate = spyOn(TestBed.inject(TranslocoService), 'translate') as jasmine.Spy;
+    translate.and.callFake((key: string) => key);
     component.applyVoicePreset('relaxed');
-    const summary = component.voiceSummary(component.config()!);
-    expect(summary).toContain('1 human');
-    expect(summary).toContain('self-mute');
-    expect(summary).toContain('accumulated');
+    component.voiceSummary(component.config()!);
+    expect(translate).toHaveBeenCalledWith('xp.voiceSummaryPerson', { count: 1 });
+    expect(translate).toHaveBeenCalledWith('xp.selfMuteShort');
+    expect(translate).toHaveBeenCalledWith('xp.voiceSummaryAccumulated');
   });
 
   it('validates participant limits and keeps eligibility visible while voice XP is disabled', () => {
@@ -151,7 +153,7 @@ describe('XpConfigComponent server booster settings', () => {
     config.voice.enabled = false;
     fixture.detectChanges();
     expect(component.isValid(config)).toBeFalse();
-    expect(fixture.nativeElement.textContent).toContain('These rules are kept');
+    expect(fixture.nativeElement.querySelector('.voice-disabled-note')).not.toBeNull();
   });
 
   it('starts disabled and hides tiers while retaining and sorting them', () => {

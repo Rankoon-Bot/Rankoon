@@ -324,6 +324,11 @@ export class XpConfigComponent {
     });
   }
 
+  invalidParticipantMinimum(config: XpConfig): boolean {
+    const value = Number(config.voice.eligibility.minimumHumanParticipants);
+    return !Number.isInteger(value) || value < 1 || value > 99;
+  }
+
   voiceStatusTone(
     status: VoiceWatchdogStatus | null,
   ): 'success' | 'warning' | 'danger' | 'neutral' {
@@ -378,9 +383,7 @@ export class XpConfigComponent {
       config.voice.pointsPerMinute >= 0 &&
       config.voice.minimumSessionSeconds >= 0 &&
       config.voice.minimumSessionSeconds <= 86400 &&
-      Number.isInteger(Number(config.voice.eligibility.minimumHumanParticipants)) &&
-      config.voice.eligibility.minimumHumanParticipants >= 1 &&
-      config.voice.eligibility.minimumHumanParticipants <= 99 &&
+      !this.invalidParticipantMinimum(config) &&
       ['AllConnectedHumans', 'EligibleHumansOnly'].includes(config.voice.eligibility.participantCountingMode) &&
       config.reaction.points >= 0 &&
       config.reaction.cooldownSeconds >= 0 &&

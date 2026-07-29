@@ -1,0 +1,15 @@
+<dialog #dialog (cancel)="cancel($event)" aria-labelledby="confirmation-title" [attr.aria-describedby]="impact ? 'confirmation-description confirmation-impact confirmation-irreversible' : 'confirmation-description confirmation-irreversible'">
+  <div class="dialog-mark" [class.danger]="dangerous" aria-hidden="true">!</div>
+  <h2 id="confirmation-title">{{ title }}</h2>
+  <p id="confirmation-description">{{ description }}</p>
+  @if (impact) { <p id="confirmation-impact" class="impact">{{ impact }}</p> }
+  @if (irreversible) { <p id="confirmation-irreversible" class="irreversible">{{ 'confirmation.irreversible' | transloco }}</p> }
+  @else { <span id="confirmation-irreversible" hidden></span> }
+  <div class="dialog-actions">
+    <button class="rk-button rk-button--secondary" type="button" [disabled]="busy" (click)="dismissed.emit()">{{ 'common.cancel' | transloco }}</button>
+    <button class="rk-button" [class.rk-button--danger]="dangerous" [class.rk-button--primary]="!dangerous" type="button" [disabled]="busy" [attr.aria-busy]="busy" (click)="confirmed.emit()">
+      @if (busy) { <span class="rk-spinner" aria-hidden="true"></span> }
+      {{ confirmLabel || ('common.confirm' | transloco) }}
+    </button>
+  </div>
+</dialog>

@@ -1,0 +1,12 @@
+<div class="timeline" aria-live="polite">
+  @if (loading) { <p class="timeline-state"><span class="rk-spinner" aria-hidden="true"></span>{{ 'seasons.timeline.loading' | transloco }}</p> }
+  @else if (!items.length) { <p class="timeline-state">{{ (unavailable ? 'seasons.timeline.invalid' : 'seasons.timeline.empty') | transloco }}</p> }
+  @else {
+    <ol>
+      @for (item of items; track item.sequence; let last = $last) {
+        <li class="season-segment"><span class="marker" aria-hidden="true"></span><strong>{{ item.name }}</strong><span>{{ format(item.startsAtUtc) }} – {{ format(item.endsAtUtc) }}</span></li>
+        @if (!last && gapDays > 0) { <li class="gap-segment"><span aria-hidden="true">···</span><strong>{{ 'seasons.timeline.pause' | transloco }}</strong><span>{{ 'seasons.timeline.pauseDays' | transloco: { count: gapDays } }}</span></li> }
+      }
+    </ol>
+  }
+</div>

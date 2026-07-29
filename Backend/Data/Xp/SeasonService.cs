@@ -115,7 +115,7 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
         var result = await database.GuildSeasons.UpdateOneAsync(x => x.GuildId == guildId && x.Id == seasonId && x.Status == SeasonStatus.Cancelled && !x.CarryOverApplied && !x.Finalized && x.StartsAtUtc <= now && now < x.EndsAtUtc,
             Builders<GuildSeason>.Update.Set(x => x.Status, SeasonStatus.Active).Set(x => x.ActiveGuildId, guildId).Set(x => x.ActivatedAtUtc, now).Set(x => x.ClosedAtUtc, null), cancellationToken: cancellationToken);
         if (result.ModifiedCount == 0) return false;
-        var season = await database.GuildSeasons.Find(x => x.Id == seasonId).FirstAsync(cancellationToken);
+        var season = await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id == seasonId).FirstAsync(cancellationToken);
         await ContinueActivationAsync(season, now, cancellationToken);
         return true;
     }
@@ -142,7 +142,7 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
     private async Task ApplyCarryOverAsync(GuildSeason season, DateTime now, CancellationToken cancellationToken)
     {
         if (season.CarryOverApplied || season.PreviousSeasonId == null || season.SettingsSnapshot.CarryOverMode == SeasonCarryOverMode.None) return;
-        var standings = await database.SeasonFinalStandings.Find(x => x.SeasonId == season.PreviousSeasonId).ToListAsync(cancellationToken);
+        var standings = await database.SeasonFinalStandings.Find(x => x.GuildId == season.GuildId && x.SeasonId == season.PreviousSeasonId).ToListAsync(cancellationToken);
         foreach (var standing in standings)
         {
             var value = decimal.Round(standing.TotalXp * season.SettingsSnapshot.CarryOverPercentage / 100m, 2, MidpointRounding.AwayFromZero);
@@ -158,7 +158,7 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
 
     private async Task FinalizeAsync(GuildSeason season, DateTime now, CancellationToken cancellationToken)
     {
-        var current = await database.GuildSeasons.Find(x => x.Id == season.Id).FirstOrDefaultAsync(cancellationToken);
+        var current = await database.GuildSeasons.Find(x => x.GuildId == season.GuildId && x.Id == season.Id).FirstOrDefaultAsync(cancellationToken);
         if (current == null) return;
         if (!current.Finalized)
         {

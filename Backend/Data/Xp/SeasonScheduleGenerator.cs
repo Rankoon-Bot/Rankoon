@@ -5,6 +5,13 @@ using Rankoon.Data.Model;
 namespace Rankoon.Data.Xp;
 
 public sealed record SeasonScheduleCandidate(long Sequence, DateTime StartsAtUtc, DateTime EndsAtUtc, string Name);
+public sealed record SeasonSettingsValidationError(string Field, string ErrorKey);
+
+public sealed class SeasonSettingsValidationException(IReadOnlyList<SeasonSettingsValidationError> errors)
+    : ArgumentException("The season settings are invalid.", nameof(GuildSeasonSettings))
+{
+    public IReadOnlyList<SeasonSettingsValidationError> Errors { get; } = errors;
+}
 
 public sealed class SeasonScheduleGenerator
 {
@@ -34,15 +41,72 @@ public sealed class SeasonScheduleGenerator
 
     public static void Validate(GuildSeasonSettings settings)
     {
-        if (!Enum.IsDefined(settings.ScheduleKind)) throw new ArgumentException("Unknown schedule kind.", nameof(settings));
-        if (settings.GapDays < 0) throw new ArgumentException("The gap cannot be negative.", nameof(settings));
-        if (settings.PreparedSeasonCount is < 0 or > 24) throw new ArgumentException("Prepared season count must be between 0 and 24.", nameof(settings));
-        if (settings.ScheduleKind != SeasonScheduleKind.Manual && settings.ScheduleAnchorUtc is null) throw new ArgumentException("A schedule anchor is required.", nameof(settings));
-        if (settings.ScheduleKind == SeasonScheduleKind.FixedDuration && settings.FixedDurationDays is not (> 0 and <= 3660)) throw new ArgumentException("Fixed duration must be between 1 and 3660 days.", nameof(settings));
-        if (settings.ScheduleKind is SeasonScheduleKind.Monthly or SeasonScheduleKind.Quarterly or SeasonScheduleKind.SemiAnnual or SeasonScheduleKind.Annual && settings.GapDays >= MonthsPerPeriod(settings.ScheduleKind) * 28)
-            throw new ArgumentException("The gap is longer than the calendar period.", nameof(settings));
-        _ = TimeZoneInfo.FindSystemTimeZoneById(settings.TimeZoneId);
-        SeasonNamingService.Validate(settings.NameTemplate, settings.Rotation);
+        var errors = ValidateSettings(settings);
+        if (errors.Count > 0) throw new SeasonSettingsValidationException(errors);
+    }
+
+    public static IReadOnlyList<SeasonSettingsValidationError> ValidateSettings(GuildSeasonSettings settings)
+    {
+        var errors = new List<SeasonSettingsValidationError>();
+        void Invalid(string field, string errorKey = "season.invalidSchedule") => errors.Add(new(field, errorKey));
+
+        if (settings.GuildId == 0) Invalid("guildId");
+        if (!Enum.IsDefined(settings.DefaultLeaderboardScope)) Invalid("defaultLeaderboardScope");
+        if (!Enum.IsDefined(settings.ScheduleKind)) Invalid("scheduleKind");
+        if (!Enum.IsDefined(settings.InitialXpMode)) Invalid("initialXpMode");
+        if (!Enum.IsDefined(settings.CarryOverMode)) Invalid("carryOverMode");
+        if (settings.GapDays < 0) Invalid("gapDays");
+        if (settings.PreparedSeasonCount is < 0 or > 24) Invalid("preparedSeasonCount");
+        if (settings.PublicHistoryCount is < 0 or > 24) Invalid("publicHistoryCount");
+        if (settings.WinnerCount is < 1 or > 100) Invalid("winnerCount");
+        if (settings.InitialXpPercentage is < 0 or > 100) Invalid("initialXpPercentage");
+        if (settings.CarryOverPercentage is < 0 or > 100) Invalid("carryOverPercentage");
+        if (settings.CarryOverMaximumXp is < 0) Invalid("carryOverMaximumXp");
+        if (settings.AnnouncementChannelId == 0) Invalid("announcementChannelId");
+        if (!string.Equals(settings.PauseBehavior, "NoSeasonXp", StringComparison.Ordinal)) Invalid("pauseBehavior");
+
+        if (settings.FixedDurationDays is not null && settings.FixedDurationDays is not (>= 1 and <= 3660)) Invalid("fixedDurationDays");
+        if (settings.ScheduleKind == SeasonScheduleKind.FixedDuration && settings.FixedDurationDays is null) Invalid("fixedDurationDays");
+        if (settings.ScheduleKind != SeasonScheduleKind.Manual && settings.ScheduleAnchorUtc is null) Invalid("scheduleAnchorUtc");
+        if (settings.ScheduleKind is SeasonScheduleKind.Monthly or SeasonScheduleKind.Quarterly or SeasonScheduleKind.SemiAnnual or SeasonScheduleKind.Annual &&
+            settings.GapDays >= MonthsPerPeriod(settings.ScheduleKind) * 28)
+            Invalid("gapDays");
+
+        if (string.IsNullOrWhiteSpace(settings.TimeZoneId)) Invalid("timeZoneId", "season.invalidTimeZone");
+        else
+        {
+            try { _ = TimeZoneInfo.FindSystemTimeZoneById(settings.TimeZoneId); }
+            catch (TimeZoneNotFoundException) { Invalid("timeZoneId", "season.invalidTimeZone"); }
+            catch (InvalidTimeZoneException) { Invalid("timeZoneId", "season.invalidTimeZone"); }
+        }
+
+        if (settings.Rotation == null) Invalid("rotation");
+        else
+        {
+            if (settings.Rotation.Any(name => string.IsNullOrWhiteSpace(name) || name != name.Trim())) Invalid("rotation");
+            if (settings.Rotation.Where(name => name != null).Distinct(StringComparer.OrdinalIgnoreCase).Count() != settings.Rotation.Count) Invalid("rotation");
+        }
+
+        try { SeasonNamingService.Validate(settings.NameTemplate, settings.Rotation); }
+        catch (ArgumentException exception) { Invalid(exception.ParamName == "rotation" ? "rotation" : "nameTemplate"); }
+
+        if (settings.Announcements == null) Invalid("announcements");
+        else if (settings.Announcements.WarningOffsetsMinutes == null) Invalid("announcements.warningOffsetsMinutes");
+        else
+        {
+            var warningOffsets = settings.Announcements.WarningOffsetsMinutes;
+            if (warningOffsets.Any(offset => offset < 0) || warningOffsets.Distinct().Count() != warningOffsets.Count) Invalid("announcements.warningOffsetsMinutes");
+        }
+
+        if (settings.SeasonLevelRoles == null) Invalid("seasonLevelRoles");
+        else
+        {
+            if (settings.SeasonLevelRoles.Any(role => role == null || role.Level <= 0 || role.RoleId == 0 || !Enum.IsDefined(role.Retention))) Invalid("seasonLevelRoles");
+            if (settings.SeasonLevelRoles.Where(role => role != null).GroupBy(role => role.Level).Any(group => group.Count() > 1) ||
+                settings.SeasonLevelRoles.Where(role => role != null).GroupBy(role => role.RoleId).Any(group => group.Count() > 1)) Invalid("seasonLevelRoles");
+        }
+
+        return errors;
     }
 
     private static DateTime AddPeriod(DateTime anchor, GuildSeasonSettings settings, int index) => settings.ScheduleKind switch
@@ -112,7 +176,7 @@ public static class SeasonNamingService
                 "month" => start.Month.ToString(culture),
                 "monthName" => culture.DateTimeFormat.GetMonthName(start.Month),
                 "quarter" => ((start.Month - 1) / 3 + 1).ToString(culture),
-                "rotation" => settings.Rotation[Math.Abs((int)((sequence - 1 + settings.RotationOffset) % settings.Rotation.Count))],
+                "rotation" => settings.Rotation[(int)(((sequence - 1 + settings.RotationOffset) % settings.Rotation.Count + settings.Rotation.Count) % settings.Rotation.Count)],
                 _ when token.StartsWith("start:", StringComparison.Ordinal) => start.ToString(token[6..], culture),
                 _ when token.StartsWith("end:", StringComparison.Ordinal) => end.ToString(token[4..], culture),
                 _ => throw new ArgumentException($"Unknown season name token '{token}'.", nameof(settings))

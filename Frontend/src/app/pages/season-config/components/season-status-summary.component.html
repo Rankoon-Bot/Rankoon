@@ -1,0 +1,30 @@
+<article class="status-card" [attr.data-status]="status()" aria-labelledby="season-status-title">
+  <div class="status-topline">
+    <span class="status-badge"><span aria-hidden="true"></span>{{ ('seasons.statusSummary.' + status()) | transloco }}</span>
+    @if (current) { <span class="sequence">{{ 'seasons.statusSummary.sequence' | transloco: { count: current.sequence } }}</span> }
+  </div>
+  @if (status() === 'disabled') {
+    <h2 id="season-status-title">{{ 'seasons.statusSummary.disabledTitle' | transloco }}</h2>
+    <p>{{ 'seasons.statusSummary.disabledDescription' | transloco }}</p>
+    <button class="rk-button rk-button--primary setup-button" type="button" (click)="setup.emit()">{{ 'seasons.statusSummary.setup' | transloco }}</button>
+  } @else if (current) {
+    <div class="active-layout">
+      <div>
+        <h2 id="season-status-title">{{ current.name }}</h2>
+        <p>{{ formatDate(current.startsAtUtc) }} – {{ formatDate(current.endsAtUtc) }}</p>
+        <strong class="remaining">{{ remaining() }}</strong>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label"><span>{{ 'seasons.statusSummary.progress' | transloco }}</span><b>{{ progress() }}%</b></div>
+        <div class="progress" role="progressbar" [attr.aria-valuenow]="progress()" aria-valuemin="0" aria-valuemax="100"><span [style.width.%]="progress()"></span></div>
+      </div>
+    </div>
+    @if (next) { <div class="next"><span>{{ 'seasons.statusSummary.next' | transloco }}</span><strong>{{ next.name }}</strong><span>{{ 'seasons.statusSummary.starts' | transloco: { date: formatDate(next.startsAtUtc) } }}</span></div> }
+  } @else if (status() === 'ready') {
+    <h2 id="season-status-title">{{ 'seasons.statusSummary.readyTitle' | transloco }}</h2>
+    <p>{{ next ? ('seasons.statusSummary.readyScheduled' | transloco: { name: next.name, date: formatDate(next.startsAtUtc) }) : ('seasons.statusSummary.readyDescription' | transloco) }}</p>
+  } @else {
+    <h2 id="season-status-title">{{ 'seasons.statusSummary.attentionTitle' | transloco }}</h2>
+    <p>{{ 'seasons.statusSummary.attentionDescription' | transloco }}</p>
+  }
+</article>

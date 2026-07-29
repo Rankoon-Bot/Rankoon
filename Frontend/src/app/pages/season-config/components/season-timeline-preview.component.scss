@@ -1,0 +1,11 @@
+.timeline { min-height: 112px; padding: var(--rk-space-4); background: var(--rk-canvas-deep); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-md); }
+.timeline-state { display: flex; align-items: center; justify-content: center; gap: var(--rk-space-3); min-height: 78px; margin: 0; color: var(--rk-text-muted); text-align: center; }
+ol { display: flex; align-items: stretch; padding: 0; margin: 0; list-style: none; }
+li { position: relative; display: grid; flex: 1 1 0; gap: var(--rk-space-1); min-width: 0; padding: var(--rk-space-3); }
+.season-segment { background: var(--rk-surface-2); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-md); }
+.season-segment strong { overflow: hidden; color: var(--rk-text-strong); text-overflow: ellipsis; white-space: nowrap; }
+li span { color: var(--rk-text-muted); font-size: var(--rk-font-caption); }
+.marker { width: var(--rk-space-3); height: var(--rk-space-3); background: var(--rk-info); clip-path: polygon(50% 0, 100% 36%, 82% 100%, 18% 100%, 0 36%); }
+.gap-segment { flex: 0 0 auto; align-content: center; text-align: center; }
+.gap-segment strong { color: var(--rk-warning); font-size: var(--rk-font-small); }
+@media (max-width: 680px) { ol { display: grid; } .gap-segment { justify-items: start; padding-left: var(--rk-space-6); text-align: left; } .season-segment strong { white-space: normal; } }

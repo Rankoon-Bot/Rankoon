@@ -1,0 +1,12 @@
+dialog { width: min(calc(100% - var(--rk-space-8)), var(--rk-dialog-width)); padding: var(--rk-space-6); color: var(--rk-text); background: var(--rk-surface-1); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-float); }
+dialog::backdrop { background: var(--rk-overlay); }
+h2, p { margin: 0; }
+h2 { margin-top: var(--rk-space-3); color: var(--rk-text-strong); font-size: var(--rk-font-section-title); }
+p { margin-top: var(--rk-space-3); line-height: 1.55; }
+.dialog-mark { display: grid; width: var(--rk-icon-button-size); height: var(--rk-icon-button-size); place-items: center; color: var(--rk-info); background: var(--rk-info-subtle); border-radius: var(--rk-radius-md); font-weight: 700; }
+.dialog-mark.danger { color: var(--rk-danger); background: var(--rk-danger-subtle); }
+.impact { padding: var(--rk-space-3); background: var(--rk-surface-2); border-left: 3px solid var(--rk-info); border-radius: var(--rk-radius-sm); }
+.danger + h2 + p + .impact { border-left-color: var(--rk-danger); }
+.irreversible { color: var(--rk-warning); font-weight: 700; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--rk-space-3); margin-top: var(--rk-space-6); }
+@media (max-width: 520px) { dialog { padding: var(--rk-space-5); } .dialog-actions { display: grid; } .dialog-actions button { width: 100%; } }

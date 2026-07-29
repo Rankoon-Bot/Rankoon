@@ -10,6 +10,7 @@ import {
 } from './guards/auth.guard';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
 import { environment } from '../environments/environment';
+import { unsavedChangesGuard } from './guards/unsaved-changes.guard';
 
 export const routes: Routes = [
   {
@@ -100,6 +101,7 @@ export const routes: Routes = [
             (c) => c.SeasonConfigComponent,
           ),
         canActivate: [guildGuard, moduleGuard],
+        canDeactivate: [unsavedChangesGuard],
         data: { module: 'xp' },
       },
       {

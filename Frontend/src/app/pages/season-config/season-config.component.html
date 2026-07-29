@@ -1,19 +1,151 @@
-<section class="page">
-  <header class="page-header"><div><p class="eyebrow">{{ 'seasons.eyebrow' | transloco }}</p><h1>{{ 'seasons.title' | transloco }}</h1><p>{{ 'seasons.subtitle' | transloco }}</p></div></header>
-  @if (error()) { <p class="notice error" role="alert">{{ error() }}</p> }
-  @if (loading()) { <div class="state-card" role="status"><span class="loader" aria-hidden="true"></span>{{ 'seasons.loading' | transloco }}</div> }
-  @else { @if (settings(); as cfg) {
-    <div class="layout"><main class="stack">
-      <article class="card primary-card"><div><p class="section-kicker">{{ 'seasons.control' | transloco }}</p><h2>{{ 'seasons.enableTitle' | transloco }}</h2><p>{{ 'seasons.enableHint' | transloco }}</p></div><label class="toggle"><input type="checkbox" [(ngModel)]="cfg.enabled"><span aria-hidden="true"></span><b>{{ (cfg.enabled ? 'common.active' : 'common.inactive') | transloco }}</b></label></article>
-      <article class="card"><div class="card-heading"><div><p class="section-kicker">{{ 'seasons.setup' | transloco }}</p><h2>{{ 'seasons.basic' | transloco }}</h2><p>{{ 'seasons.basicHint' | transloco }}</p></div><button class="secondary" type="button" (click)="advanced.set(!advanced())">{{ (advanced() ? 'seasons.hideAdvanced' : 'seasons.showAdvanced') | transloco }}</button></div>
-        <div class="fields two"><label>{{ 'seasons.schedule' | transloco }}<select [(ngModel)]="cfg.scheduleKind" (ngModelChange)="refreshPreview()"><option value="Manual">{{ 'seasons.schedules.manual' | transloco }}</option><option value="FixedDuration">{{ 'seasons.schedules.fixed' | transloco }}</option><option value="Monthly">{{ 'seasons.schedules.monthly' | transloco }}</option><option value="Quarterly">{{ 'seasons.schedules.quarterly' | transloco }}</option><option value="SemiAnnual">{{ 'seasons.schedules.semiAnnual' | transloco }}</option><option value="Annual">{{ 'seasons.schedules.annual' | transloco }}</option></select></label><label>{{ 'seasons.timeZone' | transloco }}<input [(ngModel)]="cfg.timeZoneId" (change)="refreshPreview()" autocomplete="off"></label><label *ngIf="cfg.scheduleKind !== 'Manual'">{{ 'seasons.anchor' | transloco }}<input type="datetime-local" [(ngModel)]="cfg.scheduleAnchorUtc" (change)="refreshPreview()"></label><label *ngIf="cfg.scheduleKind === 'FixedDuration'">{{ 'seasons.durationDays' | transloco }}<input type="number" min="1" [(ngModel)]="cfg.fixedDurationDays" (change)="refreshPreview()"></label><label>{{ 'seasons.nameTemplate' | transloco }}<input [(ngModel)]="cfg.nameTemplate" (change)="refreshPreview()"><small>{{ 'seasons.templateHint' | transloco }}</small></label><rk-discord-channel-picker [label]="'seasons.announcementChannel' | transloco" [channels]="channelOptions()" [value]="cfg.announcementChannelId" [allowedTypes]="['Text', 'Announcement']" [placeholder]="'seasons.optional' | transloco" [searchPlaceholder]="'channelPicker.search' | transloco" [emptyText]="'channelPicker.empty' | transloco" [noResultsText]="'channelPicker.noResults' | transloco" [clearable]="true" (valueChange)="cfg.announcementChannelId = $event" /></div>
-        @if (advanced()) { <div class="advanced"><div class="fields three"><label>{{ 'seasons.gapDays' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.gapDays" (change)="refreshPreview()"></label><label>{{ 'seasons.preparedCount' | transloco }}<input type="number" min="0" max="24" [(ngModel)]="cfg.preparedSeasonCount"></label><label>{{ 'seasons.historyCount' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.publicHistoryCount"></label><label>{{ 'seasons.defaultScope' | transloco }}<select [(ngModel)]="cfg.defaultLeaderboardScope"><option value="Lifetime">{{ 'seasons.scopes.lifetime' | transloco }}</option><option value="CurrentSeason">{{ 'seasons.scopes.currentSeason' | transloco }}</option></select></label><label>{{ 'seasons.initialMode' | transloco }}<select [(ngModel)]="cfg.initialXpMode"><option value="Zero">{{ 'seasons.initial.zero' | transloco }}</option><option value="Lifetime">{{ 'seasons.initial.lifetime' | transloco }}</option><option value="LifetimePercentage">{{ 'seasons.initial.percentage' | transloco }}</option></select></label><label *ngIf="cfg.initialXpMode === 'LifetimePercentage'">{{ 'seasons.percentage' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.initialXpPercentage"></label><label>{{ 'seasons.carryOver' | transloco }}<select [(ngModel)]="cfg.carryOverMode"><option value="None">{{ 'seasons.carry.none' | transloco }}</option><option value="Percentage">{{ 'seasons.carry.percentage' | transloco }}</option></select></label><label *ngIf="cfg.carryOverMode === 'Percentage'">{{ 'seasons.carryPercentage' | transloco }}<input type="number" min="0" [(ngModel)]="cfg.carryOverPercentage"></label><label>{{ 'seasons.winnerCount' | transloco }}<input type="number" min="1" [(ngModel)]="cfg.winnerCount"></label></div>
-          <section class="rotation"><h3>{{ 'seasons.rotation' | transloco }}</h3><p>{{ 'seasons.rotationHint' | transloco }}</p><div><input [(ngModel)]="rotationInput" [placeholder]="'seasons.rotationPlaceholder' | transloco"><button class="secondary" type="button" (click)="addRotation()">{{ 'common.add' | transloco }}</button></div><div class="chips"><span *ngFor="let item of cfg.rotation; let index = index">{{ item }} <button type="button" (click)="removeRotation(index)" [attr.aria-label]="'common.removeNamed' | transloco: { name: item }">{{ 'common.remove' | transloco }}</button></span></div></section>
-        </div> }
-      </article>
-      <article class="card"><div class="card-heading"><div><p class="section-kicker">{{ 'seasons.planning' | transloco }}</p><h2>{{ 'seasons.preview' | transloco }}</h2><p>{{ 'seasons.previewHint' | transloco }}</p></div><button class="secondary" type="button" (click)="refreshPreview()" [disabled]="previewing()">{{ 'seasons.refreshPreview' | transloco }}</button></div>@if (previewing()) { <p class="helper">{{ 'common.loading' | transloco }}</p> } @else if (!preview().length) { <p class="helper">{{ 'seasons.noPreview' | transloco }}</p> } @else { <ol class="preview"><li *ngFor="let item of preview()"><strong>{{ item.name }}</strong><span>{{ formatDate(item.startsAtUtc) }} - {{ formatDate(item.endsAtUtc) }}</span></li></ol> } @if (cfg.scheduleKind !== 'Manual') { <div class="plan-actions"><label>{{ 'seasons.planCount' | transloco }}<input type="number" min="1" max="24" [(ngModel)]="cfg.preparedSeasonCount"></label><button class="primary" type="button" (click)="plan()" [disabled]="planning() || cfg.preparedSeasonCount < 1">{{ (planning() ? 'seasons.planningNow' : 'seasons.plan') | transloco }}</button></div> } @else { <p class="helper">{{ 'seasons.manualPlanningHint' | transloco }}</p> }</article>
-    </main><aside class="sidebar"><article class="card"><p class="section-kicker">{{ 'seasons.operations' | transloco }}</p><h2>{{ 'seasons.history' | transloco }}</h2>@if (!seasons().length) { <p class="helper">{{ 'seasons.noSeasons' | transloco }}</p> } @else { <div class="season-row" *ngFor="let season of seasons()"><div><strong>{{ season.name }}</strong><span>{{ formatDate(season.startsAtUtc) }} - {{ formatDate(season.endsAtUtc) }}</span><em [class.active]="isActive(season)">{{ statusKey(season.status) | transloco }}</em></div><div class="actions"><button class="secondary" type="button" *ngIf="season.status === 'Scheduled'" (click)="requestAction('start', season)">{{ 'seasons.start' | transloco }}</button><button class="secondary" type="button" *ngIf="isReopenable(season)" (click)="requestAction('resume', season)" [disabled]="!isResumable(season)" [attr.title]="!isResumable(season) ? ('seasons.resumeUnavailableHint' | transloco) : null">{{ 'seasons.resume' | transloco }}</button><button class="danger" type="button" *ngIf="season.status === 'Active'" (click)="requestAction('close', season)">{{ 'seasons.close' | transloco }}</button><button class="danger" type="button" *ngIf="season.status === 'Scheduled' || season.status === 'Active'" (click)="requestAction('cancel', season)">{{ 'seasons.cancel' | transloco }}</button><button class="danger" type="button" *ngIf="season.status === 'Scheduled' || isCancelled(season)" (click)="requestAction('delete', season)">{{ 'common.delete' | transloco }}</button></div></div> }</article></aside></div>
-  } }
-  <dialog #confirmDialog><h2>{{ 'seasons.confirmTitle' | transloco }}</h2><p>{{ ('seasons.confirm.' + pending()?.action) | transloco: { name: pending()?.season?.name } }}</p><div class="dialog-actions"><button class="secondary" type="button" (click)="closeDialog()">{{ 'common.cancel' | transloco }}</button><button class="danger" type="button" (click)="confirmAction()" [disabled]="actionBusy() || saving()">{{ 'seasons.confirmAction' | transloco }}</button></div></dialog>
-  <rk-sticky-save-bar [dirty]="dirty()" [saving]="saving()" [valid]="!!settings() && valid(settings()!)" (save)="save()" (reset)="reset()" />
+<section class="page rk-page">
+  <header class="page-header rk-page-header">
+    <div>
+      <p class="eyebrow">{{ 'seasons.eyebrow' | transloco }}</p>
+      <h1>{{ 'seasons.title' | transloco }}</h1>
+      <p>{{ 'seasons.subtitle' | transloco }}</p>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div class="state-card" role="status">
+      <span class="rk-spinner" aria-hidden="true"></span>
+      <div><h2>{{ 'seasons.loading' | transloco }}</h2><p>{{ 'seasons.loadingHint' | transloco }}</p></div>
+    </div>
+  } @else if (loadError()) {
+    <div class="state-card error-state" role="alert">
+      <div><h2>{{ 'seasons.unavailable' | transloco }}</h2><p>{{ loadError() }}</p></div>
+      <button class="rk-button rk-button--secondary" type="button" (click)="load()">{{ 'common.retry' | transloco }}</button>
+    </div>
+  } @else {
+    @if (settings(); as cfg) {
+    @if (pageError()) { <p class="rk-notice rk-notice--danger page-notice" role="alert">{{ pageError() }}</p> }
+
+    <rk-season-status-summary [settings]="cfg" [current]="currentSeason()" [next]="nextSeason()" [complete]="valid(cfg)" (setup)="scrollToActivation()" />
+
+    <nav class="step-nav" [attr.aria-label]="'seasons.steps.label' | transloco">
+      @for (step of [1, 2, 3, 4, 5]; track step) {
+        <a [href]="'#season-step-' + step" [class.complete]="stepComplete(step, cfg)"><span>{{ stepComplete(step, cfg) ? '✓' : step }}</span>{{ ('seasons.steps.step' + step) | transloco }}</a>
+      }
+    </nav>
+
+    <form class="configurator" (submit)="$event.preventDefault()" novalidate>
+      <section id="season-step-1" class="step-card card" aria-labelledby="season-activation-title">
+        <div class="step-heading">
+          <span class="step-number" aria-hidden="true">1</span>
+          <div><p class="section-kicker">{{ 'seasons.steps.activationKicker' | transloco }}</p><h2 id="season-activation-title">{{ 'seasons.enableTitle' | transloco }}</h2><p>{{ 'seasons.enableHint' | transloco }}</p></div>
+          <label class="toggle"><input id="season-enabled" type="checkbox" [(ngModel)]="cfg.enabled" name="enabled" [attr.aria-label]="'seasons.enableTitle' | transloco"><span aria-hidden="true"></span><b>{{ (cfg.enabled ? 'common.active' : 'common.inactive') | transloco }}</b></label>
+        </div>
+        @if (!cfg.enabled && seasons().some(isActive)) { <p class="validation" role="alert">{{ 'seasons.validation.closeBeforeDisable' | transloco }}</p> }
+        <div class="comparison-grid">
+          <article><span class="comparison-icon" aria-hidden="true">∞</span><h3>{{ 'seasons.activation.withoutTitle' | transloco }}</h3><ul><li>{{ 'seasons.activation.withoutLeaderboard' | transloco }}</li><li>{{ 'seasons.activation.withoutProgress' | transloco }}</li></ul></article>
+          <article class="with-seasons"><span class="comparison-icon" aria-hidden="true">◫</span><h3>{{ 'seasons.activation.withTitle' | transloco }}</h3><ul><li>{{ 'seasons.activation.withPeriods' | transloco }}</li><li>{{ 'seasons.activation.withLeaderboards' | transloco }}</li><li>{{ 'seasons.activation.withResets' | transloco }}</li></ul></article>
+        </div>
+        <p class="retention-note">{{ 'seasons.activation.retained' | transloco }}</p>
+      </section>
+
+      <fieldset [disabled]="!cfg.enabled" class="steps-fieldset" [class.inactive-config]="!cfg.enabled">
+        <legend class="sr-only">{{ 'seasons.configuratorLegend' | transloco }}</legend>
+
+        <section id="season-step-2" class="step-card card" aria-labelledby="season-schedule-title">
+          <div class="step-heading compact"><span class="step-number" aria-hidden="true">2</span><div><p class="section-kicker">{{ 'seasons.steps.scheduleKicker' | transloco }}</p><h2 id="season-schedule-title">{{ 'seasons.scheduleTitle' | transloco }}</h2><p>{{ 'seasons.scheduleHint' | transloco }}</p></div></div>
+          <div class="preset-grid" role="group" [attr.aria-label]="'seasons.presets.label' | transloco">
+            <button type="button" class="choice-card" [class.selected]="preset(cfg) === 'monthly'" (click)="setPreset('monthly')"><span class="choice-icon" aria-hidden="true">12</span><strong>{{ 'seasons.presets.monthly' | transloco }}</strong><small>{{ 'seasons.presets.monthlyHint' | transloco }}</small></button>
+            <button type="button" class="choice-card" [class.selected]="preset(cfg) === 'quarterly'" (click)="setPreset('quarterly')"><span class="choice-icon" aria-hidden="true">4</span><strong>{{ 'seasons.presets.quarterly' | transloco }}</strong><small>{{ 'seasons.presets.quarterlyHint' | transloco }}</small></button>
+            <button type="button" class="choice-card" [class.selected]="preset(cfg) === 'custom'" (click)="setPreset('custom')"><span class="choice-icon" aria-hidden="true">⌁</span><strong>{{ 'seasons.presets.custom' | transloco }}</strong><small>{{ 'seasons.presets.customHint' | transloco }}</small></button>
+          </div>
+
+          <div class="schedule-layout">
+            <div class="fields">
+              <label for="schedule-kind">{{ 'seasons.schedule' | transloco }}<select id="schedule-kind" [(ngModel)]="cfg.scheduleKind" name="scheduleKind" (ngModelChange)="refreshPreview()"><option value="Manual">{{ 'seasons.schedules.manual' | transloco }}</option><option value="FixedDuration">{{ 'seasons.schedules.fixed' | transloco }}</option><option value="Monthly">{{ 'seasons.schedules.monthly' | transloco }}</option><option value="Quarterly">{{ 'seasons.schedules.quarterly' | transloco }}</option><option value="SemiAnnual">{{ 'seasons.schedules.semiAnnual' | transloco }}</option><option value="Annual">{{ 'seasons.schedules.annual' | transloco }}</option></select><small>{{ ('seasons.schedules.hint.' + cfg.scheduleKind) | transloco }}</small></label>
+              @if (cfg.scheduleKind === 'FixedDuration') {
+                <label for="duration-days">{{ 'seasons.durationDays' | transloco }}<span class="input-with-suffix"><input id="duration-days" type="number" min="1" max="3660" [(ngModel)]="cfg.fixedDurationDays" name="fixedDurationDays" (change)="refreshPreview()" [attr.aria-invalid]="!!fieldError(cfg, 'fixedDurationDays')" aria-describedby="duration-days-error"><b>{{ 'seasons.units.days' | transloco }}</b></span><small>{{ 'seasons.durationSummary' | transloco: { count: cfg.fixedDurationDays } }}</small></label>
+                @if (fieldError(cfg, 'fixedDurationDays')) { <p id="duration-days-error" class="validation" role="alert">{{ fieldError(cfg, 'fixedDurationDays') }}</p> } @else { <span id="duration-days-error" hidden></span> }
+              }
+              @if (cfg.scheduleKind !== 'Manual') {
+                <label for="schedule-anchor">{{ 'seasons.anchor' | transloco }}<input id="schedule-anchor" type="datetime-local" [(ngModel)]="cfg.scheduleAnchorUtc" name="scheduleAnchorUtc" (change)="refreshPreview()" [attr.aria-invalid]="!!fieldError(cfg, 'scheduleAnchorUtc')" aria-describedby="schedule-anchor-error"><small>{{ 'seasons.anchorHint' | transloco }}</small></label>
+                @if (fieldError(cfg, 'scheduleAnchorUtc')) { <p id="schedule-anchor-error" class="validation" role="alert">{{ fieldError(cfg, 'scheduleAnchorUtc') }}</p> } @else { <span id="schedule-anchor-error" hidden></span> }
+              }
+              <label for="time-zone">{{ 'seasons.timeZone' | transloco }}<input id="time-zone" [(ngModel)]="cfg.timeZoneId" name="timeZoneId" autocomplete="off" (change)="refreshPreview()"><small>{{ 'seasons.timeZoneHint' | transloco }}</small></label>
+              <div class="gap-control"><label class="toggle"><input type="checkbox" [ngModel]="cfg.gapDays > 0" (ngModelChange)="setGapEnabled($event)" name="gapEnabled"><span aria-hidden="true"></span><b>{{ 'seasons.gapToggle' | transloco }}</b></label>@if (cfg.gapDays > 0) { <label for="gap-days">{{ 'seasons.gapDays' | transloco }}<span class="input-with-suffix"><input id="gap-days" type="number" min="1" [max]="gapMaximum(cfg)" [(ngModel)]="cfg.gapDays" name="gapDays" (change)="refreshPreview()" [attr.aria-invalid]="!!fieldError(cfg, 'gapDays')" aria-describedby="gap-days-error"><b>{{ 'seasons.units.days' | transloco }}</b></span></label> }</div>
+              @if (fieldError(cfg, 'gapDays')) { <p id="gap-days-error" class="validation" role="alert">{{ fieldError(cfg, 'gapDays') }}</p> } @else { <span id="gap-days-error" hidden></span> }
+              <p class="impact-copy">{{ (cfg.gapDays > 0 ? 'seasons.gapSummary' : 'seasons.noGapSummary') | transloco: { count: cfg.gapDays } }}</p>
+            </div>
+            <div class="preview-panel"><div class="preview-heading"><div><h3>{{ 'seasons.timeline.title' | transloco }}</h3><p>{{ 'seasons.timeline.hint' | transloco }}</p></div><button class="rk-button rk-button--ghost" type="button" [disabled]="previewing()" (click)="refreshPreview()">{{ 'seasons.refreshPreview' | transloco }}</button></div><rk-season-timeline-preview [items]="preview()" [gapDays]="cfg.gapDays" [loading]="previewing()" [unavailable]="!scheduleValid(cfg)" /></div>
+          </div>
+        </section>
+
+        <section id="season-step-3" class="step-card card" aria-labelledby="season-naming-title">
+          <div class="step-heading compact"><span class="step-number" aria-hidden="true">3</span><div><p class="section-kicker">{{ 'seasons.steps.namingKicker' | transloco }}</p><h2 id="season-naming-title">{{ 'seasons.namingTitle' | transloco }}</h2><p>{{ 'seasons.namingHint' | transloco }}</p></div></div>
+          <div class="radio-grid naming-modes" role="radiogroup" [attr.aria-label]="'seasons.namingMode' | transloco">
+            <label class="radio-card" [class.selected]="namingMode(cfg) === 'numbered'"><input type="radio" name="namingMode" value="numbered" [ngModel]="namingMode(cfg)" (ngModelChange)="setNamingMode($event)"><span><strong>{{ 'seasons.naming.numbered' | transloco }}</strong><small>{{ 'seasons.naming.numberedHint' | transloco }}</small></span></label>
+            <label class="radio-card" [class.selected]="namingMode(cfg) === 'pattern'"><input type="radio" name="namingMode" value="pattern" [ngModel]="namingMode(cfg)" (ngModelChange)="setNamingMode($event)"><span><strong>{{ 'seasons.naming.pattern' | transloco }}</strong><small>{{ 'seasons.naming.patternHint' | transloco }}</small></span></label>
+            <label class="radio-card" [class.selected]="namingMode(cfg) === 'rotation'"><input type="radio" name="namingMode" value="rotation" [ngModel]="namingMode(cfg)" (ngModelChange)="setNamingMode($event)"><span><strong>{{ 'seasons.naming.rotation' | transloco }}</strong><small>{{ 'seasons.naming.rotationHint' | transloco }}</small></span></label>
+          </div>
+          <div class="naming-layout">
+            <div class="fields">
+              <label for="name-template">{{ 'seasons.nameTemplate' | transloco }}<input #templateInput id="name-template" [(ngModel)]="cfg.nameTemplate" name="nameTemplate" maxlength="120" (change)="refreshPreview()" [attr.aria-invalid]="!!fieldError(cfg, 'nameTemplate')" aria-describedby="name-template-error"><small>{{ 'seasons.templateHint' | transloco }}</small></label>
+              <div class="token-list" [attr.aria-label]="'seasons.tokensLabel' | transloco">@for (token of supportedTokens; track token) { <button type="button" (click)="insertToken(templateInput, token)">{{ token }}</button> }</div>
+              @if (fieldError(cfg, 'nameTemplate')) { <p id="name-template-error" class="validation" role="alert">{{ fieldError(cfg, 'nameTemplate') }}</p> } @else { <span id="name-template-error" hidden></span> }
+              @if (namingMode(cfg) === 'rotation') {
+                <section class="rotation-editor" aria-labelledby="rotation-title"><h3 id="rotation-title">{{ 'seasons.rotation' | transloco }}</h3><p>{{ 'seasons.rotationHint' | transloco }}</p><div class="rotation-add"><label for="rotation-name" class="sr-only">{{ 'seasons.rotationPlaceholder' | transloco }}</label><input id="rotation-name" [(ngModel)]="rotationInput" name="rotationInput" [placeholder]="'seasons.rotationPlaceholder' | transloco" (keydown.enter)="$event.preventDefault(); addRotation()"><button class="rk-button rk-button--secondary" type="button" [disabled]="!rotationInput.trim()" (click)="addRotation()">{{ 'seasons.addName' | transloco }}</button></div>
+                  <ol class="rotation-list">@for (item of cfg.rotation; track $index; let index = $index) { <li [class.duplicate]="fieldError(cfg, 'rotation')"><span>{{ index + 1 }}</span><strong>{{ item }}</strong><div><button type="button" [disabled]="index === 0" (click)="moveRotation(index, -1)" [attr.aria-label]="'seasons.moveUp' | transloco: { name: item }">↑</button><button type="button" [disabled]="index === cfg.rotation.length - 1" (click)="moveRotation(index, 1)" [attr.aria-label]="'seasons.moveDown' | transloco: { name: item }">↓</button><button type="button" class="remove" (click)="removeRotation(index)" [attr.aria-label]="'common.removeNamed' | transloco: { name: item }">{{ 'common.remove' | transloco }}</button></div></li> }</ol>
+                  @if (fieldError(cfg, 'rotation')) { <p class="validation" role="alert">{{ fieldError(cfg, 'rotation') }}</p> }
+                </section>
+              }
+            </div>
+            <aside class="live-preview"><p class="section-kicker">{{ 'seasons.livePreview' | transloco }}</p>@if (namePreview(cfg).length) { <ol>@for (name of namePreview(cfg); track $index) { <li><span>{{ $index + 1 }}</span><strong>{{ name }}</strong></li> }</ol> } @else { <p class="helper">{{ 'seasons.namingPreviewUnavailable' | transloco }}</p> }</aside>
+          </div>
+        </section>
+
+        <section id="season-step-4" class="step-card card" aria-labelledby="season-xp-title">
+          <div class="step-heading compact"><span class="step-number" aria-hidden="true">4</span><div><p class="section-kicker">{{ 'seasons.steps.xpKicker' | transloco }}</p><h2 id="season-xp-title">{{ 'seasons.xpTitle' | transloco }}</h2><p>{{ 'seasons.xpHint' | transloco }}</p></div></div>
+          <div class="xp-block"><h3>{{ 'seasons.initialMode' | transloco }}</h3><p>{{ 'seasons.initialHint' | transloco }}</p><div class="radio-grid">
+            @for (mode of ['Zero', 'Lifetime', 'LifetimePercentage']; track mode) { <label class="radio-card" [class.selected]="cfg.initialXpMode === mode"><input type="radio" name="initialXpMode" [value]="mode" [(ngModel)]="cfg.initialXpMode"><span><strong>{{ ('seasons.initial.' + mode.toLowerCase()) | transloco }}</strong><small>{{ ('seasons.initialHintMode.' + mode.toLowerCase()) | transloco }}</small></span></label> }
+          </div>
+          @if (cfg.initialXpMode === 'LifetimePercentage') { <div class="percentage-control"><label for="initial-range" class="sr-only">{{ 'seasons.percentage' | transloco }}</label><input id="initial-range" type="range" min="0" max="100" [(ngModel)]="cfg.initialXpPercentage" name="initialXpRange"><label for="initial-percent">{{ 'seasons.percentage' | transloco }}<span class="input-with-suffix compact-input"><input id="initial-percent" type="number" min="0" max="100" [(ngModel)]="cfg.initialXpPercentage" name="initialXpPercentage"><b>%</b></span></label></div> }
+          <p class="calculation">{{ 'seasons.initialExample' | transloco: { result: formatNumber(initialExample(cfg)), percentage: cfg.initialXpPercentage } }}</p></div>
+
+          <div class="xp-block"><h3>{{ 'seasons.carryOver' | transloco }}</h3><p>{{ 'seasons.carryHint' | transloco }}</p><div class="radio-grid two-options"><label class="radio-card" [class.selected]="cfg.carryOverMode === 'None'"><input type="radio" name="carryOverMode" value="None" [(ngModel)]="cfg.carryOverMode"><span><strong>{{ 'seasons.carry.none' | transloco }}</strong><small>{{ 'seasons.carry.noneHint' | transloco }}</small></span></label><label class="radio-card" [class.selected]="cfg.carryOverMode === 'Percentage'"><input type="radio" name="carryOverMode" value="Percentage" [(ngModel)]="cfg.carryOverMode"><span><strong>{{ 'seasons.carry.percentage' | transloco }}</strong><small>{{ 'seasons.carry.percentageHint' | transloco }}</small></span></label></div>
+          @if (cfg.carryOverMode === 'Percentage') { <div class="percentage-control"><label for="carry-range" class="sr-only">{{ 'seasons.carryPercentage' | transloco }}</label><input id="carry-range" type="range" min="0" max="100" [(ngModel)]="cfg.carryOverPercentage" name="carryOverRange"><label for="carry-percent">{{ 'seasons.carryPercentage' | transloco }}<span class="input-with-suffix compact-input"><input id="carry-percent" type="number" min="0" max="100" [(ngModel)]="cfg.carryOverPercentage" name="carryOverPercentage"><b>%</b></span></label></div> }
+          <p class="calculation">{{ 'seasons.carryExample' | transloco: { result: formatNumber(carryExample(cfg)), percentage: cfg.carryOverPercentage } }}</p></div>
+          <div class="rk-notice rk-notice--info xp-note"><strong>{{ 'seasons.lifetimeUnaffectedTitle' | transloco }}</strong><span>{{ 'seasons.lifetimeUnaffected' | transloco }}</span></div>
+        </section>
+
+        <section id="season-step-5" class="step-card card summary-card" aria-labelledby="season-summary-title">
+          <div class="step-heading compact"><span class="step-number" aria-hidden="true">5</span><div><p class="section-kicker">{{ 'seasons.steps.previewKicker' | transloco }}</p><h2 id="season-summary-title">{{ 'seasons.summaryTitle' | transloco }}</h2><p>{{ 'seasons.summaryHint' | transloco }}</p></div></div>
+          <div class="summary-grid" aria-live="polite">
+            <div class="summary-copy">
+              @if (cfg.scheduleAnchorUtc) { <p>{{ 'seasons.summary.starts' | transloco: { date: formatDate(cfg.scheduleAnchorUtc) } }}</p> }
+              <p>{{ (cfg.scheduleKind === 'FixedDuration' ? 'seasons.summary.duration' : 'seasons.summary.cadence') | transloco: { count: cfg.fixedDurationDays, cadence: ('seasons.schedules.' + (cfg.scheduleKind === 'Monthly' ? 'monthly' : cfg.scheduleKind === 'Quarterly' ? 'quarterly' : cfg.scheduleKind === 'SemiAnnual' ? 'semiAnnual' : cfg.scheduleKind === 'Annual' ? 'annual' : 'manual')) | transloco } }}</p>
+              <p>{{ (cfg.gapDays > 0 ? 'seasons.summary.gap' : 'seasons.summary.noGap') | transloco: { count: cfg.gapDays } }}</p>
+              <p>{{ (cfg.carryOverMode === 'Percentage' ? 'seasons.summary.carry' : 'seasons.summary.reset') | transloco: { percentage: cfg.carryOverPercentage } }}</p>
+              <p>{{ 'seasons.summary.prepared' | transloco: { count: cfg.preparedSeasonCount } }}</p>
+            </div>
+            <div class="completion" [class.complete]="valid(cfg)">@if (valid(cfg)) { <span aria-hidden="true">✓</span><div><strong>{{ 'seasons.complete' | transloco }}</strong><p>{{ 'seasons.completeHint' | transloco }}</p></div> } @else { <span aria-hidden="true">!</span><div><strong>{{ 'seasons.missingTitle' | transloco }}</strong><ul>@for (key of validationKeys(cfg); track key) { <li>{{ key | transloco }}</li> }</ul></div> }</div>
+          </div>
+        </section>
+      </fieldset>
+
+      <section class="advanced-card card">
+        <button class="advanced-toggle" type="button" (click)="advanced.set(!advanced())" [attr.aria-expanded]="advanced()" aria-controls="season-advanced"><span><strong>{{ 'seasons.advancedTitle' | transloco }}</strong><small>{{ 'seasons.advancedHint' | transloco }}</small></span><span aria-hidden="true">{{ advanced() ? '−' : '+' }}</span></button>
+        @if (advanced()) { <div id="season-advanced" class="advanced-content"><div class="fields advanced-grid"><label for="prepared-count">{{ 'seasons.preparedCount' | transloco }}<span class="input-with-suffix"><input id="prepared-count" type="number" min="0" max="24" [(ngModel)]="cfg.preparedSeasonCount" name="preparedSeasonCount"><b>{{ 'seasons.units.seasons' | transloco }}</b></span><small>{{ 'seasons.preparedHint' | transloco }}</small></label><label for="history-count">{{ 'seasons.historyCount' | transloco }}<span class="input-with-suffix"><input id="history-count" type="number" min="0" max="24" [(ngModel)]="cfg.publicHistoryCount" name="publicHistoryCount"><b>{{ 'seasons.units.seasons' | transloco }}</b></span><small>{{ 'seasons.historyHint' | transloco }}</small></label><label for="winner-count">{{ 'seasons.winnerCount' | transloco }}<span class="input-with-suffix"><input id="winner-count" type="number" min="1" max="100" [(ngModel)]="cfg.winnerCount" name="winnerCount"><b>{{ 'seasons.units.members' | transloco }}</b></span><small>{{ 'seasons.winnerHint' | transloco }}</small></label><label for="default-scope">{{ 'seasons.defaultScope' | transloco }}<select id="default-scope" [(ngModel)]="cfg.defaultLeaderboardScope" name="defaultLeaderboardScope"><option value="Lifetime">{{ 'seasons.scopes.lifetime' | transloco }}</option><option value="CurrentSeason">{{ 'seasons.scopes.currentSeason' | transloco }}</option></select><small>{{ 'seasons.defaultScopeHint' | transloco }}</small></label><rk-discord-channel-picker [label]="'seasons.announcementChannel' | transloco" [channels]="channelOptions()" [value]="cfg.announcementChannelId" [allowedTypes]="['Text', 'Announcement']" [placeholder]="'seasons.optional' | transloco" [searchPlaceholder]="'channelPicker.search' | transloco" [emptyText]="'channelPicker.empty' | transloco" [noResultsText]="'channelPicker.noResults' | transloco" [clearable]="true" (valueChange)="cfg.announcementChannelId = $event" /></div></div> }
+      </section>
+    </form>
+
+    <section class="instances-section" aria-labelledby="season-instances-title">
+      <div class="section-heading"><p class="section-kicker">{{ 'seasons.instances.kicker' | transloco }}</p><h2 id="season-instances-title">{{ 'seasons.instances.title' | transloco }}</h2><p>{{ 'seasons.instances.hint' | transloco }}</p></div>
+      <div class="card instances-card"><div class="tabs" role="group" [attr.aria-label]="'seasons.instances.tabs' | transloco"><button type="button" [attr.aria-pressed]="activeTab() === 'planned'" (click)="activeTab.set('planned')">{{ 'seasons.instances.planned' | transloco }}</button><button type="button" [attr.aria-pressed]="activeTab() === 'past'" (click)="activeTab.set('past')">{{ 'seasons.instances.past' | transloco }}</button></div><rk-season-instance-list [seasons]="seasons()" [mode]="activeTab()" /></div>
+      @if (cfg.scheduleKind !== 'Manual') { <div class="plan-strip"><div><strong>{{ 'seasons.planTitle' | transloco }}</strong><span>{{ dirty() ? ('seasons.saveBeforePlan' | transloco) : ('seasons.planHint' | transloco: { count: cfg.preparedSeasonCount }) }}</span></div><button class="rk-button rk-button--secondary" type="button" [disabled]="dirty() || planning() || !valid(cfg) || cfg.preparedSeasonCount < 1" (click)="plan()">@if (planning()) { <span class="rk-spinner" aria-hidden="true"></span> }{{ (planning() ? 'seasons.planningNow' : 'seasons.plan') | transloco }}</button></div> }
+    </section>
+
+    <section class="operations-section" aria-labelledby="season-operations-title">
+      <div class="section-heading"><p class="section-kicker">{{ 'seasons.operationsKicker' | transloco }}</p><h2 id="season-operations-title">{{ 'seasons.operations' | transloco }}</h2><p>{{ 'seasons.operationsHint' | transloco }}</p></div>
+      <div class="card operations-card">@if (dirty()) { <p class="helper">{{ 'seasons.saveBeforePlan' | transloco }}</p> } @else if (!operationSeasons().length) { <p class="helper">{{ 'seasons.noOperations' | transloco }}</p> } @else { @for (season of operationSeasons(); track season.id) { <article class="operation-row"><div><strong>{{ season.name }}</strong><span>{{ formatDate(season.startsAtUtc) }} – {{ formatDate(season.endsAtUtc) }}</span><em>{{ ('seasons.status.' + season.status.toLowerCase()) | transloco }}</em></div><div class="operation-actions">@for (action of availableActions(season); track action) { <button type="button" class="rk-button" [class.rk-button--danger]="actionIsDangerous(action)" [class.rk-button--secondary]="!actionIsDangerous(action)" (click)="requestAction(action, season)">{{ ('seasons.' + action) | transloco }}</button> }</div></article> } }</div>
+    </section>
+
+    <rk-confirmation-dialog [title]="actionTitle()" [description]="actionDescription()" [impact]="actionImpact()" [confirmLabel]="'seasons.confirmAction' | transloco" [busy]="actionBusy()" [dangerous]="pending()?.action === 'close' || pending()?.action === 'cancel' || pending()?.action === 'delete'" [irreversible]="pending()?.action === 'close' || pending()?.action === 'delete'" (confirmed)="confirmAction()" (dismissed)="closeDialog()" />
+    <rk-sticky-save-bar [dirty]="dirty()" [saving]="saving()" [valid]="valid(cfg)" [message]="'seasons.unsaved' | transloco" [validationMessage]="'seasons.invalidSave' | transloco" (save)="save()" (reset)="reset()" />
+    }
+  }
 </section>

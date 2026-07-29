@@ -1,0 +1,14 @@
+@if (!visible().length) {
+  <div class="empty-state"><div class="mascot-slot" aria-hidden="true"></div><h3>{{ (mode === 'planned' ? 'seasons.instances.noPlanned' : 'seasons.instances.noPast') | transloco }}</h3><p>{{ (mode === 'planned' ? 'seasons.instances.noPlannedHint' : 'seasons.instances.noPastHint') | transloco }}</p></div>
+} @else {
+  <div class="instance-list">
+    @for (season of visible(); track season.id ?? season.sequence) {
+      <article class="instance-row">
+        <div><strong>{{ season.name }}</strong><span>{{ 'seasons.instances.sequence' | transloco: { count: season.sequence } }}</span></div>
+        <div><span>{{ 'seasons.instances.period' | transloco }}</span><strong>{{ format(season.startsAtUtc) }} – {{ format(season.endsAtUtc) }}</strong></div>
+        <span class="status"><span aria-hidden="true"></span>{{ ('seasons.status.' + season.status.toLowerCase()) | transloco }}</span>
+        <span class="origin">{{ 'seasons.instances.automatic' | transloco }}</span>
+      </article>
+    }
+  </div>
+}

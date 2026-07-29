@@ -36,8 +36,8 @@ public sealed class VoiceXpSettings
     public int MinimumSessionSeconds { get; set; } = 60;
     [BsonElement("settings_version"), BsonIgnoreIfNull] public int? SettingsVersion { get; set; }
     [BsonElement("eligibility"), BsonIgnoreIfNull] public VoiceXpEligibilitySettings? Eligibility { get; set; }
-    [JsonIgnore, BsonElement("RequireMultipleHumans"), BsonIgnoreIfNull] public bool? RequireMultipleHumans { get; set; } = true;
-    [JsonIgnore, BsonElement("ExcludeAfkChannel"), BsonIgnoreIfNull] public bool? ExcludeAfkChannel { get; set; } = true;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), BsonElement("RequireMultipleHumans"), BsonIgnoreIfNull] public bool? RequireMultipleHumans { get; set; } = true;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull), BsonElement("ExcludeAfkChannel"), BsonIgnoreIfNull] public bool? ExcludeAfkChannel { get; set; } = true;
 }
 
 public enum VoiceXpParticipantCountingMode { AllConnectedHumans, EligibleHumansOnly }
@@ -179,6 +179,7 @@ public sealed class VoiceSession
     [BsonElement("eligible_seconds")] public long EligibleSeconds { get; set; }
     [BsonElement("qualifying_seconds")] public long QualifyingSeconds { get; set; }
     [BsonElement("minimum_session_satisfied"), BsonIgnoreIfNull] public bool? MinimumSessionSatisfied { get; set; }
+    [BsonElement("eligibility_settings_revision"), BsonIgnoreIfNull] public long? EligibilitySettingsRevision { get; set; }
     [BsonElement("pending_eligibility_intervals")] public List<VoiceEligibilityInterval> PendingEligibilityIntervals { get; set; } = [];
     [BsonElement("revision")] public long Revision { get; set; }
     // New cursor fields are additive. Legacy fields above remain readable until startup maintenance migrates open sessions.
