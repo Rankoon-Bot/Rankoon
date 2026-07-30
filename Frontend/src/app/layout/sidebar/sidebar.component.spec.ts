@@ -13,7 +13,7 @@ describe('SidebarComponent', () => {
     TestBed.configureTestingModule({ imports: [SidebarComponent, testI18n], providers: [provideRouter([]), { provide: CustomBotIdentityAccessService, useValue: { load: () => {}, clear: () => {}, visible: signal(false) } }, { provide: BuildInfoService, useValue: { buildVersion: signal('test') } }] });
     const app = TestBed.inject(AppStore); const auth = TestBed.inject(AuthStore);
     const guild: Guild = { id: '1', name: 'Guild', icon: null, owner: false, permissions: '', features: [], botInstalled: true, inviteUrl: '' };
-    app.setSelectedGuild(guild); app.setGuildCapabilities({ guildId: '1', isOwner: false, canAccessSettings: false, moduleIds: ['reporting'], leaderboardAlias: 'guild' });
+    app.setSelectedGuild(guild); app.setGuildCapabilities({ guildId: '1', isOwner: false, canAccessSettings: false, moduleIds: ['analytics'], leaderboardAlias: 'guild' });
     auth.setAuthData({ id: 'u', discordId: 'u', username: 'operator', displayName: 'Operator', avatar: '', isBotOperator: true });
     const fixture = TestBed.createComponent(SidebarComponent); fixture.detectChanges();
     const routes = fixture.componentInstance.menuItems().flatMap(item => [item.route, ...(item.children ?? []).map(child => child.route)]);

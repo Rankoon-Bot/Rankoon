@@ -154,6 +154,7 @@ export const routes: Routes = [
             (c) => c.RolePermissionsComponent,
           ),
         canActivate: [guildGuard, ownerGuard],
+        canDeactivate: [unsavedChangesGuard],
       },
       {
         path: 'server-config/bot-identity',

@@ -42,11 +42,11 @@ describe('permission guards', () => {
 
   it('allows an owner into modules even when no module IDs are returned', async () => {
     loaded = of({ ...capabilities, isOwner: true, moduleIds: [] });
-    expect(await run(moduleGuard, { module: 'reporting' })).toBeTrue();
+    expect(await run(moduleGuard, { module: 'analytics' })).toBeTrue();
   });
 
   it('routes a user without the required module to the public ranking', async () => {
-    const result = await run(moduleGuard, { module: 'reporting' });
+    const result = await run(moduleGuard, { module: 'analytics' });
     expect(router.serializeUrl(result as UrlTree)).toBe('/rankings/guild-one');
   });
 

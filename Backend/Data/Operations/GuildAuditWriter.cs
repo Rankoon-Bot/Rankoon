@@ -31,7 +31,8 @@ public sealed class GuildAuditWriter(RankoonDbContext database, TimeProvider tim
     {
         "amount", "channelId", "command", "count", "durationMs", "enabled", "errorType", "eventId", "feature",
         "format", "grantKey", "guildId", "hubId", "imported", "mappingId", "memberId", "outcome", "panelId",
-        "requestId", "roleId", "seasonId", "sequence", "source", "state", "targetId", "userId", "voiceChannelId"
+        "requestId", "roleId", "seasonId", "sequence", "source", "state", "targetId", "userId", "voiceChannelId",
+        "oldRevision", "newRevision", "addedRoles", "removedRoles", "addedModules", "removedModules"
     };
 
     public Task WriteAsync(GuildAuditWrite auditEvent, CancellationToken cancellationToken = default)

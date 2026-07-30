@@ -24,8 +24,25 @@ public sealed class GuildUserAvatarCacheRepository(RankoonDbContext database, Ti
     public Task BulkUpsertAsync(IReadOnlyCollection<GuildUserAvatarCacheEntry> entries, CancellationToken cancellationToken)
     {
         if (entries.Count == 0) return Task.CompletedTask;
-        var writes = entries.Select(entry => new ReplaceOneModel<GuildUserAvatarCacheEntry>(
-            Builders<GuildUserAvatarCacheEntry>.Filter.Eq(x => x.GuildId, entry.GuildId) & Builders<GuildUserAvatarCacheEntry>.Filter.Eq(x => x.UserId, entry.UserId), entry) { IsUpsert = true });
+        // Never replace an upserted document with Id == null: MongoDB would persist _id: null,
+        // making every later cache insert collide on the mandatory _id index.
+        var writes = entries.Select(entry => new UpdateOneModel<GuildUserAvatarCacheEntry>(
+            Builders<GuildUserAvatarCacheEntry>.Filter.Eq(x => x.GuildId, entry.GuildId) & Builders<GuildUserAvatarCacheEntry>.Filter.Eq(x => x.UserId, entry.UserId),
+            Builders<GuildUserAvatarCacheEntry>.Update
+                .SetOnInsert(x => x.GuildId, entry.GuildId)
+                .SetOnInsert(x => x.UserId, entry.UserId)
+                // Set, rather than unset, retains the intentional "avatar removed" null state.
+                .Set(x => x.AvatarId, entry.AvatarId)
+                .Set(x => x.GuildAvatarId, entry.GuildAvatarId)
+                .Set(x => x.DefaultAvatarIndex, entry.DefaultAvatarIndex)
+                .Set(x => x.UpdatedAtUtc, entry.UpdatedAtUtc)
+                .Set(x => x.LastObservedAtUtc, entry.LastObservedAtUtc)
+                .Set(x => x.LastHydratedAtUtc, entry.LastHydratedAtUtc)
+                .Set(x => x.NeedsHydration, entry.NeedsHydration)
+                .Set(x => x.NextHydrationAttemptAtUtc, entry.NextHydrationAttemptAtUtc)
+                .Set(x => x.HydrationAttemptCount, entry.HydrationAttemptCount)
+                .Set(x => x.HydrationLeaseOwner, entry.HydrationLeaseOwner)
+                .Set(x => x.HydrationLeaseUntilUtc, entry.HydrationLeaseUntilUtc)) { IsUpsert = true });
         return database.GuildUserAvatarCache.BulkWriteAsync(writes, new BulkWriteOptions { IsOrdered = false }, cancellationToken);
     }
 

@@ -12,7 +12,14 @@ export const testI18n = TranslocoTestingModule.forRoot({
       domain: { reports: { names: { xp: { granted: 'XP awarded' } }, actions: { voice: 'Voice activity' }, outcomes: { succeeded: 'Succeeded', failed: 'Failed', rejected: 'Rejected' }, severities: { info: 'Info', warning: 'Warning', error: 'Error', critical: 'Critical' }, errorSources: { voice: { watchdog: 'Voice watchdog' } } }, watchdog: { healthy: 'Healthy', degraded: 'Degraded', stopped: 'Stopped' } },
       modules: {
         xp: { name: 'XP & Levels', description: 'Manage XP' },
-        reporting: { name: 'Reports', description: 'View reports' }
+        leaderboard: { name: 'Leaderboard', description: 'View leaderboard' },
+        'voice-hubs': { name: 'Voice hubs', description: 'Manage voice hubs' },
+        analytics: { name: 'Analytics', description: 'View analytics' },
+        'self-roles': { name: 'Self-roles', description: 'Manage self-roles' },
+        'xp-audit': { name: 'XP audit', description: 'View XP history' },
+        'xp-adjustments': { name: 'XP adjustments', description: 'Adjust XP' },
+        'xp-announcements': { name: 'Announcements', description: 'Manage announcements' },
+        diagnostics: { name: 'Diagnostics', description: 'View diagnostics' }
       },
       rolePermissions: { saved: 'Role permissions saved.' },
       leaderboard: { voiceTimeLabel: 'Voice time: {{duration}}', voiceMetadata: '{{duration}} voice' },
@@ -27,7 +34,14 @@ export const testI18n = TranslocoTestingModule.forRoot({
       domain: { reports: { names: { xp: { granted: 'XP vergeben' } }, actions: { voice: 'Voice-Aktivität' }, outcomes: { succeeded: 'Erfolgreich', failed: 'Fehlgeschlagen', rejected: 'Abgelehnt' }, severities: { info: 'Info', warning: 'Warnung', error: 'Fehler', critical: 'Kritisch' }, errorSources: { voice: { watchdog: 'Voice-Watchdog' } } }, watchdog: { healthy: 'Aktiv', degraded: 'Beeinträchtigt', stopped: 'Deaktiviert' } },
       modules: {
         xp: { name: 'XP & Level', description: 'XP verwalten' },
-        reporting: { name: 'Berichte', description: 'Berichte ansehen' }
+        leaderboard: { name: 'Rangliste', description: 'Rangliste ansehen' },
+        'voice-hubs': { name: 'VC-Hubs', description: 'VC-Hubs verwalten' },
+        analytics: { name: 'Analytics', description: 'Analytics ansehen' },
+        'self-roles': { name: 'Selbstrollen', description: 'Selbstrollen verwalten' },
+        'xp-audit': { name: 'XP-Audit', description: 'XP-Verlauf ansehen' },
+        'xp-adjustments': { name: 'XP-Anpassungen', description: 'XP anpassen' },
+        'xp-announcements': { name: 'Ankündigungen', description: 'Ankündigungen verwalten' },
+        diagnostics: { name: 'Diagnose', description: 'Diagnose ansehen' }
       },
       rolePermissions: { saved: 'Rollenberechtigungen gespeichert.' },
       leaderboard: { voiceTimeLabel: 'Voice-Zeit: {{duration}}', voiceMetadata: '{{duration}} Voice' },

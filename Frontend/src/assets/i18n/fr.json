@@ -280,6 +280,7 @@
       "emojiInvalid": "Une correspondance d'auto-rôle contient un emoji non valide.",
       "emojiRejected": "Discord a rejeté l'emoji {{emoji}}. Choisissez un autre emoji ou vérifiez qu'il est disponible sur ce serveur.",
       "revisionConflict": "Le panneau d’auto-rôle a changé depuis son chargement. Rechargez et réessayez.",
+      "publishFailed": "Le panneau a été enregistré, mais n'a pas pu être publié sur Discord. Corrigez les autorisations du bot et réparez le panneau.",
       "tooManyEmbeds": "Un panneau d'auto-rôles prend en charge au maximum 10 embeds.",
       "invalidEmbedStructure": "La structure de l'embed n'est pas valide.",
       "missingRoleMappingsEmbed": "Un seul embed de correspondance des rôles est requis.",
@@ -678,7 +679,6 @@
       "voice-hubs": "Hubs vocaux",
       "self-roles": "Auto-rôles",
       "analytics": "Analyses",
-      "reporting": "Rapports et journaux",
       "diagnostics": "Diagnostic",
       "dashboard-access": "Accès au tableau de bord",
       "bot-identity": "Identité du bot"
@@ -712,9 +712,6 @@
       },
       "analytics": {
         "title": "Les analyses nécessitent votre attention"
-      },
-      "reporting": {
-        "title": "Les rapports nécessitent une attention particulière"
       },
       "diagnostics": {
         "title": "Les diagnostics doivent être configurés"
@@ -1218,7 +1215,13 @@
     "position": "Poste {{position}}",
     "allModules": "Tous les modules",
     "empty": "Aucun rôle trouvé",
-    "emptyHint": "Modifiez le terme de recherche pour afficher plus de rôles."
+    "emptyHint": "Modifiez le terme de recherche pour afficher plus de rôles.",
+    "diagnosticsLink": "Diagnostic des autorisations", "summary": "Résumé des autorisations", "adminRoles": "Rôles administrateur", "delegatedRoles": "Rôles délégués", "manualGrants": "Autorisations manuelles", "updatedAt": "Dernière mise à jour", "neverUpdated": "Pas encore mis à jour", "dirtyDiff": "Brouillon : {{added}} ajoutés, {{removed}} supprimés, {{changed}} modifiés",
+    "automaticAccess": "Accès complet automatique", "automaticDescription": "Propriétaire et administrateurs Discord", "discordAdminHint": "Accordé automatiquement par l'autorisation Administrateur de Discord", "inheritedDiscord": "Hérité de Discord", "showAllAdmins": "Afficher les {{count}} rôles administrateur", "showLess": "Afficher moins de rôles administrateur", "delegatedAccess": "Accès délégué", "delegatedDescription": "Seuls les rôles avec au moins une autorisation manuelle sont affichés.", "addRole": "Ajouter un rôle", "firstRole": "Ajouter le premier rôle",
+    "moduleFilter": "Module", "elevatedOnly": "Impact élevé uniquement", "sort": "Trier", "sortPosition": "Position Discord", "sortName": "Nom", "sortAccess": "Nombre d'autorisations", "view": "Vue", "rolesView": "Rôles", "modulesView": "Modules", "emptyDelegated": "Aucun rôle délégué", "emptyDelegatedHint": "Ajoutez un rôle Discord normal ou ajustez les filtres.", "emptyModules": "Aucun module ne correspond aux filtres", "noDelegatedRoles": "Aucun rôle délégué", "automaticIncluded": "Propriétaire + administrateurs automatiques",
+    "editRoles": "Modifier les rôles", "edit": "Modifier", "moduleCount": "{{count}} modules", "roleGrantCount": "{{count}} rôles délégués", "close": "Fermer", "chooseRole": "Choisir un rôle Discord", "automatic": "Automatique", "alreadyDelegated": "Déjà délégué", "select": "Sélectionner", "permissionEditor": "Éditeur d'autorisations", "editorMeta": "Position {{position}} · {{count}} modules sélectionnés", "presetsLabel": "Préréglages d'autorisations", "editorReplaceCopy": "Appliquer remplace toutes les autorisations du brouillon de ce rôle. Les autorisations Discord ne changent pas.", "moduleEditorCopy": "Sélectionnez les rôles normaux pour ce module. L'accès administrateur automatique ne peut pas être modifié.",
+    "replacePresetConfirm": "Remplacer toute la sélection par le préréglage exact « {{preset}} » ?", "removeConfirm": "Supprimer tout l'accès Rankoon local de {{role}} ?", "dangerZone": "Zone de danger", "removeLocalHint": "Supprime toutes les autorisations manuelles de ce rôle du brouillon local.", "removeAccess": "Supprimer l'accès local", "apply": "Appliquer au brouillon", "requires": "Nécessite {{modules}}", "requiredForAdjustments": "Requis pour les ajustements XP", "unsavedChanges": "Brouillon d'autorisations non enregistré", "discardConfirm": "Abandonner toutes les modifications du brouillon local ?", "unsavedLeave": "Abandonner le brouillon non enregistré ?", "conflictTitle": "Une révision plus récente existe", "conflictDescription": "Votre brouillon local est conservé. Chargez la révision actuelle avant d'enregistrer.", "loadCurrent": "Charger l'actuelle", "loadCurrentConfirm": "Abandonner le brouillon local et charger la révision actuelle ?", "staleBlocksSave": "Chargez la révision actuelle avant d'enregistrer.",
+    "categories": { "Progression": "Progression", "XpModeration": "Modération XP", "Community": "Communauté", "Insights": "Analyses" }, "impacts": { "ReadOnly": "Lecture seule", "Configuration": "Configuration", "Sensitive": "Sensible" }, "presets": { "analyst": "Analyste", "xpModerator": "Modérateur XP", "communityManager": "Gestionnaire de communauté", "fullAccess": "Accès complet" }
   },
   "modules": {
     "xp": {
@@ -1233,14 +1236,15 @@
       "name": "Hubs vocaux",
       "description": "Gérer la participation pour créer des canaux vocaux"
     },
-    "reporting": {
-      "name": "Rapports",
-      "description": "Afficher les rapports d'activité, de commandes et d'erreurs"
-    },
     "analytics": {
       "name": "Analyse",
       "description": "Afficher les analyses du serveur et l'audit d'activité"
-    }
+    },
+    "self-roles": { "name": "Rôles autonomes", "description": "Gérer les panneaux de rôles sélectionnables par les membres" },
+    "xp-audit": { "name": "Audit XP", "description": "Afficher l'historique XP et les détails d'attribution" },
+    "xp-adjustments": { "name": "Ajustements XP", "description": "Attribuer, retirer et annuler les XP des membres" },
+    "xp-announcements": { "name": "Annonces de niveau", "description": "Gérer les messages et canaux de montée de niveau" },
+    "diagnostics": { "name": "Diagnostic", "description": "Afficher les diagnostics d'autorisation et de configuration" }
   },
   "selfRoles": {
     "eyebrow": "AUTOMATISATION DES RÔLES",

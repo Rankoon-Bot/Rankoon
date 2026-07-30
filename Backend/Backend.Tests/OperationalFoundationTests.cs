@@ -172,9 +172,9 @@ public sealed class OperationalFoundationTests
     [Fact]
     public void Reporting_Grant_Normalizes_To_Analytics_Without_Operational_Error_Access()
     {
-        var method = typeof(GuildRolePermissionService).GetMethod("Normalize", BindingFlags.NonPublic | BindingFlags.Static)!;
-        var input = new[] { new GuildRoleModuleGrant { RoleId = 1, ModuleIds = [GuildModuleIds.Reporting] } };
-        var grants = Assert.IsAssignableFrom<IEnumerable<GuildRoleModuleGrant>>(method.Invoke(null, [input])).Single();
+        var service = new GuildRolePermissionService(null!, new GuildModuleRegistry());
+        var input = new[] { new GuildRoleModuleGrant { RoleId = 1, ModuleIds = ["reporting"] } };
+        var grants = service.Normalize(input, new HashSet<ulong> { 1 }).Single();
         Assert.Equal([GuildModuleIds.Analytics], grants.ModuleIds);
         Assert.DoesNotContain("errors", grants.ModuleIds);
     }

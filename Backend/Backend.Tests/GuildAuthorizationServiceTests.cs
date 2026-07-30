@@ -26,6 +26,28 @@ public sealed class GuildAuthorizationServiceTests
 
         Assert.Equal(modules.Modules.Select(module => module.Id), accessibleModules);
         Assert.True(await authorization.CanAccessModuleAsync(user, guildId, GuildModuleIds.Xp));
+        Assert.False(await authorization.CanAccessModuleAsync(user, guildId, "reporting"));
+    }
+
+    [Fact]
+    public void Delegated_access_is_the_canonical_union_of_member_roles()
+    {
+        var registry = new GuildModuleRegistry();
+        var policy = new GuildRolePermissionPolicy
+        {
+            RoleGrants =
+            [
+                new() { RoleId = 1, ModuleIds = [GuildModuleIds.Xp, "unknown"] },
+                new() { RoleId = 2, ModuleIds = [GuildModuleIds.Analytics, GuildModuleIds.Xp] },
+                new() { RoleId = 3, ModuleIds = [GuildModuleIds.Diagnostics] }
+            ]
+        };
+
+        var accessible = GuildAuthorizationService.ResolveDelegatedModuleIds(policy, new HashSet<ulong> { 1, 2 }, registry.Modules);
+
+        Assert.Equal([GuildModuleIds.Xp, GuildModuleIds.Analytics], accessible);
+        Assert.DoesNotContain("unknown", accessible);
+        Assert.DoesNotContain("reporting", accessible);
     }
 
     private sealed class NullGuildResolver : IGuildDiscordContextResolver

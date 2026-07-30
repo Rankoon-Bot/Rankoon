@@ -52,7 +52,7 @@ function capabilityGuardFor(kind: 'settings' | 'module' | 'owner'): CanActivateF
         const allowed = kind === 'owner'
           ? capabilities.isOwner
           : kind === 'module'
-            ? capabilities.isOwner || (!!requiredModule && (capabilities.moduleIds.includes(requiredModule) || requiredModule === 'analytics' && capabilities.moduleIds.includes('reporting')))
+            ? capabilities.isOwner || (!!requiredModule && capabilities.moduleIds.includes(requiredModule))
             : capabilities.isOwner || capabilities.canAccessSettings;
         return allowed ? true : access.destination(capabilities);
       }),

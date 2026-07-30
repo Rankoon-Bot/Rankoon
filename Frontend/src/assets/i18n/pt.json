@@ -280,6 +280,7 @@
       "emojiInvalid": "Uma associação de cargo autoatribuível contém um emoji inválido.",
       "emojiRejected": "Discord rejeitou o emoji {{emoji}}. Escolha outro emoji ou verifique se está disponível neste servidor.",
       "revisionConflict": "O painel de cargos autoatribuíveis foi alterado desde que foi carregado. Recarregue e tente novamente.",
+      "publishFailed": "O painel foi guardado, mas não pôde ser publicado no Discord. Corrija as permissões do bot e repare o painel.",
       "tooManyEmbeds": "Um painel suporta no máximo 10 embeds.",
       "invalidEmbedStructure": "A estrutura do embed é inválida.",
       "missingRoleMappingsEmbed": "É necessário exatamente um embed de associações de cargos.",
@@ -678,7 +679,6 @@
       "voice-hubs": "Hubs de voz",
       "self-roles": "Cargos autoatribuíveis",
       "analytics": "Análise",
-      "reporting": "Relatórios e registos",
       "diagnostics": "Diagnóstico",
       "dashboard-access": "Acesso ao painel",
       "bot-identity": "Identidade do bot"
@@ -712,9 +712,6 @@
       },
       "analytics": {
         "title": "Análise precisa de atenção"
-      },
-      "reporting": {
-        "title": "Relatórios precisam de atenção"
       },
       "diagnostics": {
         "title": "O diagnóstico necessita de configuração"
@@ -1218,7 +1215,13 @@
     "position": "Posição {{position}}",
     "allModules": "Todos os módulos",
     "empty": "Nenhuma função encontrada",
-    "emptyHint": "Altere o termo de pesquisa para apresentar mais funções."
+    "emptyHint": "Altere o termo de pesquisa para apresentar mais funções.",
+    "diagnosticsLink": "Diagnóstico de permissões", "summary": "Resumo de permissões", "adminRoles": "Cargos de administrador", "delegatedRoles": "Cargos delegados", "manualGrants": "Permissões manuais", "updatedAt": "Última atualização", "neverUpdated": "Ainda não atualizado", "dirtyDiff": "Rascunho: {{added}} adicionados, {{removed}} removidos, {{changed}} alterados",
+    "automaticAccess": "Acesso total automático", "automaticDescription": "Proprietário e administradores do Discord", "discordAdminHint": "Concedido automaticamente pela permissão Administrador do Discord", "inheritedDiscord": "Herdado do Discord", "showAllAdmins": "Mostrar os {{count}} cargos de administrador", "showLess": "Mostrar menos cargos de administrador", "delegatedAccess": "Acesso delegado", "delegatedDescription": "Só são mostrados cargos com pelo menos uma permissão manual.", "addRole": "Adicionar cargo", "firstRole": "Adicionar primeiro cargo",
+    "moduleFilter": "Módulo", "elevatedOnly": "Apenas impacto elevado", "sort": "Ordenar", "sortPosition": "Posição no Discord", "sortName": "Nome", "sortAccess": "Número de permissões", "view": "Vista", "rolesView": "Cargos", "modulesView": "Módulos", "emptyDelegated": "Sem cargos delegados", "emptyDelegatedHint": "Adicione um cargo normal ou ajuste os filtros.", "emptyModules": "Nenhum módulo corresponde aos filtros", "noDelegatedRoles": "Sem cargos delegados", "automaticIncluded": "Proprietário + administradores automáticos",
+    "editRoles": "Editar cargos", "edit": "Editar", "moduleCount": "{{count}} módulos", "roleGrantCount": "{{count}} cargos delegados", "close": "Fechar", "chooseRole": "Escolher cargo do Discord", "automatic": "Automático", "alreadyDelegated": "Já delegado", "select": "Selecionar", "permissionEditor": "Editor de permissões", "editorMeta": "Posição {{position}} · {{count}} módulos selecionados", "presetsLabel": "Predefinições de permissões", "editorReplaceCopy": "Aplicar substitui toda a permissão de rascunho deste cargo. Não altera permissões do Discord.", "moduleEditorCopy": "Selecione os cargos normais para este módulo. O acesso automático de administrador não pode ser alterado.",
+    "replacePresetConfirm": "Substituir toda a seleção pelo preset exato «{{preset}}»?", "removeConfirm": "Remover todo o acesso local do Rankoon para {{role}}?", "dangerZone": "Zona de perigo", "removeLocalHint": "Remove todas as permissões manuais deste cargo do rascunho local.", "removeAccess": "Remover acesso local", "apply": "Aplicar ao rascunho", "requires": "Requer {{modules}}", "requiredForAdjustments": "Necessário para correções de XP", "unsavedChanges": "Rascunho de permissões não guardado", "discardConfirm": "Descartar todas as alterações do rascunho local?", "unsavedLeave": "Descartar o rascunho não guardado?", "conflictTitle": "Existe uma revisão de permissões mais recente", "conflictDescription": "O rascunho local foi mantido. Carregue a revisão atual antes de guardar.", "loadCurrent": "Carregar atual", "loadCurrentConfirm": "Descartar o rascunho local e carregar a revisão atual?", "staleBlocksSave": "Carregue a revisão atual antes de guardar.",
+    "categories": { "Progression": "Progressão", "XpModeration": "Moderação de XP", "Community": "Comunidade", "Insights": "Análises" }, "impacts": { "ReadOnly": "Só leitura", "Configuration": "Configuração", "Sensitive": "Sensível" }, "presets": { "analyst": "Analista", "xpModerator": "Moderador de XP", "communityManager": "Gestor de comunidade", "fullAccess": "Acesso total" }
   },
   "modules": {
     "xp": {
@@ -1233,14 +1236,15 @@
       "name": "Hubs de voz",
       "description": "Gerir canais de voz criados ao entrar"
     },
-    "reporting": {
-      "name": "Relatórios",
-      "description": "Ver relatórios de atividade, comandos e erros"
-    },
     "analytics": {
       "name": "Análise",
       "description": "Ver as análises do servidor e a auditoria de atividade"
-    }
+    },
+    "self-roles": { "name": "Cargos automáticos", "description": "Gerir painéis de cargos selecionáveis pelos membros" },
+    "xp-audit": { "name": "Auditoria de XP", "description": "Ver histórico de XP e detalhes de atribuição" },
+    "xp-adjustments": { "name": "Ajustes de XP", "description": "Atribuir, remover e reverter XP de membros" },
+    "xp-announcements": { "name": "Anúncios de nível", "description": "Gerir mensagens e canais de subida de nível" },
+    "diagnostics": { "name": "Diagnóstico", "description": "Ver diagnósticos de permissões e configuração" }
   },
   "selfRoles": {
     "eyebrow": "AUTOMAÇÃO DE FUNÇÕES",

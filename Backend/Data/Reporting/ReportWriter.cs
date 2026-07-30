@@ -26,7 +26,8 @@ public sealed class ReportWriter(RankoonDbContext database, TimeProvider timePro
     private static readonly HashSet<string> AllowedMetadata = new(StringComparer.Ordinal)
     {
         "amount", "channelId", "command", "count", "enabled", "errorType", "eventId", "hubId",
-        "imported", "format", "skippedInvalid", "skippedForeignGuild", "duplicateUsers", "memberId", "source", "state", "targetId", "userId", "voiceChannelId", "seasonId", "sequence", "grantKey"
+        "imported", "format", "skippedInvalid", "skippedForeignGuild", "duplicateUsers", "memberId", "source", "state", "targetId", "userId", "voiceChannelId", "seasonId", "sequence", "grantKey",
+        "oldRevision", "newRevision", "addedRoles", "removedRoles", "addedModules", "removedModules"
     };
 
     public Task WriteAsync(ReportWrite report, CancellationToken cancellationToken = default)
@@ -130,6 +131,7 @@ public sealed class ReportWriter(RankoonDbContext database, TimeProvider timePro
     }
 
     private static GuildAnalyticsFeature Feature(string name, string category) => category == ReportCategories.Command ? GuildAnalyticsFeature.Commands
+        : name.StartsWith("permissions.", StringComparison.Ordinal) ? GuildAnalyticsFeature.Authorization
         : name.Contains("voice", StringComparison.Ordinal) ? GuildAnalyticsFeature.Voice
         : name.Contains("season", StringComparison.Ordinal) ? GuildAnalyticsFeature.Seasons
         : name.Contains("leaderboard", StringComparison.Ordinal) ? GuildAnalyticsFeature.Leaderboard

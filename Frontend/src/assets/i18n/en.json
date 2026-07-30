@@ -701,7 +701,6 @@
       "voice-hubs": "Voice hubs",
       "self-roles": "Self-roles",
       "analytics": "Analytics",
-      "reporting": "Reports & logs",
       "diagnostics": "Diagnostics",
       "dashboard-access": "Dashboard access",
       "bot-identity": "Bot identity"
@@ -735,9 +734,6 @@
       },
       "analytics": {
         "title": "Analytics needs attention"
-      },
-      "reporting": {
-        "title": "Reports need attention"
       },
       "diagnostics": {
         "title": "Diagnostics need setup"
@@ -1241,7 +1237,7 @@
   },
   "rolePermissions": {
     "title": "Roles & permissions",
-    "subtitle": "Choose which Discord roles may manage individual Rankoon modules.",
+    "subtitle": "Choose which members may configure Rankoon. The bot's own Discord permissions are checked in permission diagnostics.",
     "saved": "Role permissions saved.",
     "loading": "Loading permissions",
     "loadingHint": "Retrieving Discord roles and modules.",
@@ -1254,14 +1250,79 @@
     "roleCount": "{{count}} roles, ordered by Discord hierarchy",
     "roleCountOne": "{{count}} role, ordered by Discord hierarchy",
     "roleCountOther": "{{count}} roles, ordered by Discord hierarchy",
-    "search": "Search roles",
-    "searchPlaceholder": "Role name",
     "availableModules": "Available modules",
     "administrator": "Administrator",
+    "empty": "No roles found",
+    "emptyHint": "Change the search term to display more roles.",
+    "diagnosticsLink": "Permission diagnostics",
+    "summary": "Permission summary",
+    "adminRoles": "Admin roles",
+    "delegatedRoles": "Delegated roles",
+    "manualGrants": "Manual grants",
+    "updatedAt": "Last updated",
+    "neverUpdated": "Not yet updated",
+    "dirtyDiff": "Draft: {{added}} added, {{removed}} removed, {{changed}} changed",
+    "automaticAccess": "Automatic full access",
+    "automaticDescription": "Server owner and Discord administrators",
+    "discordAdminHint": "Granted automatically by Discord Administrator permission",
+    "inheritedDiscord": "Inherited from Discord",
+    "showAllAdmins": "Show all {{count}} admin roles",
+    "showLess": "Show fewer admin roles",
+    "delegatedAccess": "Delegated access",
+    "delegatedDescription": "Only roles with at least one manual module grant are shown.",
+    "addRole": "Add role",
+    "firstRole": "Add first role",
+    "search": "Search roles",
+    "searchPlaceholder": "Role name",
     "position": "Position {{position}}",
     "allModules": "All modules",
-    "empty": "No roles found",
-    "emptyHint": "Change the search term to display more roles."
+    "moduleFilter": "Module",
+    "elevatedOnly": "Elevated impact only",
+    "sort": "Sort",
+    "sortPosition": "Discord position",
+    "sortName": "Name",
+    "sortAccess": "Grant count",
+    "view": "View",
+    "rolesView": "Roles",
+    "modulesView": "Modules",
+    "emptyDelegated": "No delegated roles",
+    "emptyDelegatedHint": "Add a normal Discord role or adjust the filters.",
+    "emptyModules": "No modules match these filters",
+    "noDelegatedRoles": "No delegated roles",
+    "automaticIncluded": "Owner + admins automatic",
+    "editRoles": "Edit roles",
+    "edit": "Edit",
+    "moduleCount": "{{count}} modules",
+    "roleGrantCount": "{{count}} delegated roles",
+    "close": "Close",
+    "chooseRole": "Choose a Discord role",
+    "automatic": "Automatic",
+    "alreadyDelegated": "Already delegated",
+    "select": "Select",
+    "permissionEditor": "Permission editor",
+    "editorMeta": "Discord position {{position}} · {{count}} modules selected",
+    "presetsLabel": "Permission presets",
+    "editorReplaceCopy": "Apply replaces this role's complete draft grant. It does not change Discord permissions.",
+    "moduleEditorCopy": "Select the normal roles that should receive this module. Automatic administrator access cannot be changed.",
+    "replacePresetConfirm": "Replace the complete draft selection with the exact “{{preset}}” preset?",
+    "removeConfirm": "Remove all local Rankoon access for {{role}}?",
+    "dangerZone": "Danger zone",
+    "removeLocalHint": "Removes every manual module grant for this role from the local draft.",
+    "removeAccess": "Remove local access",
+    "apply": "Apply to draft",
+    "requires": "Requires {{modules}}",
+    "requiredForAdjustments": "Required for XP adjustments",
+    "unsavedChanges": "Unsaved permission draft",
+    "discardConfirm": "Discard all changes in the local permission draft?",
+    "unsavedLeave": "Discard the unsaved role permission draft?",
+    "conflictTitle": "A newer permission revision exists",
+    "conflictDescription": "Your local draft is retained. Load the current server revision before saving again.",
+    "loadCurrent": "Load current",
+    "loadCurrentConfirm": "Discard the retained local draft and load the current server revision?",
+    "staleBlocksSave": "Load the current revision before saving.",
+    "categories": { "Progression": "Progression", "XpModeration": "XP moderation", "Community": "Community", "Insights": "Insights" },
+    "impacts": { "ReadOnly": "Read only", "Configuration": "Configuration", "Sensitive": "Sensitive" },
+    "presets": { "analyst": "Analyst", "xpModerator": "XP moderator", "communityManager": "Community manager", "fullAccess": "Full access" }
   },
   "modules": {
     "xp": {
@@ -1276,13 +1337,29 @@
       "name": "Voice hubs",
       "description": "Manage join-to-create voice channels"
     },
-    "reporting": {
-      "name": "Reports",
-      "description": "View activity, command and error reports"
-    },
     "analytics": {
       "name": "Analytics",
       "description": "View server analytics and the activity audit"
+    },
+    "self-roles": {
+      "name": "Self-roles",
+      "description": "Manage member-selectable role panels"
+    },
+    "xp-audit": {
+      "name": "XP audit",
+      "description": "View XP history and award details"
+    },
+    "xp-adjustments": {
+      "name": "XP adjustments",
+      "description": "Grant, remove and reverse member XP"
+    },
+    "xp-announcements": {
+      "name": "Level-up announcements",
+      "description": "Manage level-up messages and channels"
+    },
+    "diagnostics": {
+      "name": "Diagnostics",
+      "description": "View permission and configuration diagnostics"
     }
   },
   "selfRoles": {

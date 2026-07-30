@@ -280,6 +280,7 @@
       "emojiInvalid": "Un'associazione dei ruoli autogestiti contiene un'emoji non valida.",
       "emojiRejected": "Discord ha rifiutato l'emoji {{emoji}}. Scegli un'altra emoji o verifica che sia disponibile su questo server.",
       "revisionConflict": "Il pannello dei ruoli autogestiti è cambiato da quando è stato caricato. Ricarica e riprova.",
+      "publishFailed": "Il pannello è stato salvato, ma non è stato pubblicato su Discord. Correggi le autorizzazioni del bot e ripara il pannello.",
       "tooManyEmbeds": "Un pannello dei ruoli autogestiti supporta al massimo 10 embed.",
       "invalidEmbedStructure": "La struttura dell'embed non è valida.",
       "missingRoleMappingsEmbed": "È richiesto esattamente un embed per le associazioni dei ruoli.",
@@ -678,7 +679,6 @@
       "voice-hubs": "Hub vocali",
       "self-roles": "Ruoli autogestiti",
       "analytics": "Analisi",
-      "reporting": "Rapporti e registri",
       "diagnostics": "Diagnostica",
       "dashboard-access": "Accesso al dashboard",
       "bot-identity": "Identità bot"
@@ -712,9 +712,6 @@
       },
       "analytics": {
         "title": "L'analisi ha bisogno di attenzione"
-      },
-      "reporting": {
-        "title": "I resoconti necessitano di attenzione"
       },
       "diagnostics": {
         "title": "La diagnostica deve essere configurata"
@@ -1218,7 +1215,13 @@
     "position": "Posizione {{position}}",
     "allModules": "Tutti i moduli",
     "empty": "Nessun ruolo trovato",
-    "emptyHint": "Modifica il termine di ricerca per visualizzare più ruoli."
+    "emptyHint": "Modifica il termine di ricerca per visualizzare più ruoli.",
+    "diagnosticsLink": "Diagnostica autorizzazioni", "summary": "Riepilogo autorizzazioni", "adminRoles": "Ruoli amministratore", "delegatedRoles": "Ruoli delegati", "manualGrants": "Autorizzazioni manuali", "updatedAt": "Ultimo aggiornamento", "neverUpdated": "Non ancora aggiornato", "dirtyDiff": "Bozza: {{added}} aggiunti, {{removed}} rimossi, {{changed}} modificati",
+    "automaticAccess": "Accesso completo automatico", "automaticDescription": "Proprietario e amministratori Discord", "discordAdminHint": "Concesso automaticamente dall'autorizzazione Amministratore di Discord", "inheritedDiscord": "Ereditato da Discord", "showAllAdmins": "Mostra tutti i {{count}} ruoli amministratore", "showLess": "Mostra meno ruoli amministratore", "delegatedAccess": "Accesso delegato", "delegatedDescription": "Sono mostrati solo i ruoli con almeno un'autorizzazione manuale.", "addRole": "Aggiungi ruolo", "firstRole": "Aggiungi il primo ruolo",
+    "moduleFilter": "Modulo", "elevatedOnly": "Solo impatto elevato", "sort": "Ordina", "sortPosition": "Posizione Discord", "sortName": "Nome", "sortAccess": "Numero autorizzazioni", "view": "Vista", "rolesView": "Ruoli", "modulesView": "Moduli", "emptyDelegated": "Nessun ruolo delegato", "emptyDelegatedHint": "Aggiungi un ruolo Discord normale o modifica i filtri.", "emptyModules": "Nessun modulo corrisponde ai filtri", "noDelegatedRoles": "Nessun ruolo delegato", "automaticIncluded": "Proprietario + amministratori automatici",
+    "editRoles": "Modifica ruoli", "edit": "Modifica", "moduleCount": "{{count}} moduli", "roleGrantCount": "{{count}} ruoli delegati", "close": "Chiudi", "chooseRole": "Scegli un ruolo Discord", "automatic": "Automatico", "alreadyDelegated": "Già delegato", "select": "Seleziona", "permissionEditor": "Editor autorizzazioni", "editorMeta": "Posizione {{position}} · {{count}} moduli selezionati", "presetsLabel": "Preset autorizzazioni", "editorReplaceCopy": "Applica sostituisce tutte le autorizzazioni della bozza di questo ruolo. Non modifica i permessi Discord.", "moduleEditorCopy": "Seleziona i ruoli normali per questo modulo. L'accesso amministratore automatico non può essere modificato.",
+    "replacePresetConfirm": "Sostituire l'intera selezione con il preset esatto «{{preset}}»?", "removeConfirm": "Rimuovere tutto l'accesso Rankoon locale per {{role}}?", "dangerZone": "Zona pericolosa", "removeLocalHint": "Rimuove tutte le autorizzazioni manuali di questo ruolo dalla bozza locale.", "removeAccess": "Rimuovi accesso locale", "apply": "Applica alla bozza", "requires": "Richiede {{modules}}", "requiredForAdjustments": "Necessario per le correzioni XP", "unsavedChanges": "Bozza autorizzazioni non salvata", "discardConfirm": "Scartare tutte le modifiche della bozza locale?", "unsavedLeave": "Scartare la bozza non salvata?", "conflictTitle": "Esiste una revisione più recente", "conflictDescription": "La bozza locale è conservata. Carica la revisione corrente prima di salvare.", "loadCurrent": "Carica corrente", "loadCurrentConfirm": "Scartare la bozza locale e caricare la revisione corrente?", "staleBlocksSave": "Carica la revisione corrente prima di salvare.",
+    "categories": { "Progression": "Progressione", "XpModeration": "Moderazione XP", "Community": "Comunità", "Insights": "Analisi" }, "impacts": { "ReadOnly": "Sola lettura", "Configuration": "Configurazione", "Sensitive": "Sensibile" }, "presets": { "analyst": "Analista", "xpModerator": "Moderatore XP", "communityManager": "Gestore comunità", "fullAccess": "Accesso completo" }
   },
   "modules": {
     "xp": {
@@ -1233,14 +1236,15 @@
       "name": "Hub vocali",
       "description": "Gestisci i canali vocali Unisciti per creare"
     },
-    "reporting": {
-      "name": "Rapporti",
-      "description": "Visualizza rapporti su attività, comandi ed errori"
-    },
     "analytics": {
       "name": "Analitica",
       "description": "Visualizza l'analisi del server e il controllo dell'attività"
-    }
+    },
+    "self-roles": { "name": "Ruoli autonomi", "description": "Gestisci pannelli di ruoli selezionabili dai membri" },
+    "xp-audit": { "name": "Audit XP", "description": "Visualizza cronologia XP e dettagli delle assegnazioni" },
+    "xp-adjustments": { "name": "Modifiche XP", "description": "Assegna, rimuovi e annulla XP dei membri" },
+    "xp-announcements": { "name": "Annunci di livello", "description": "Gestisci messaggi e canali di avanzamento livello" },
+    "diagnostics": { "name": "Diagnostica", "description": "Visualizza diagnostica di autorizzazioni e configurazione" }
   },
   "selfRoles": {
     "eyebrow": "AUTOMAZIONE DEI RUOLI",

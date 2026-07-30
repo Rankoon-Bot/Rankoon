@@ -280,6 +280,7 @@
       "emojiInvalid": "Una asignación de autorrol contiene un emoji no válido.",
       "emojiRejected": "Discord rechazó el emoji {{emoji}}. Elija otro emoji o verifique que esté disponible en este servidor.",
       "revisionConflict": "El panel de autorroles ha cambiado desde que se cargó. Recarga la página e inténtalo de nuevo.",
+      "publishFailed": "El panel se guardó, pero no pudo publicarse en Discord. Corrija los permisos del bot y repare el panel.",
       "tooManyEmbeds": "Un panel de autorroles admite como máximo 10 embeds.",
       "invalidEmbedStructure": "La estructura del embed no es válida.",
       "missingRoleMappingsEmbed": "Se requiere exactamente un embed de asignaciones de roles.",
@@ -684,7 +685,6 @@
       "voice-hubs": "Centros de voz",
       "self-roles": "Autorroles",
       "analytics": "Analítica",
-      "reporting": "Informes y registros",
       "diagnostics": "Diagnóstico",
       "dashboard-access": "Acceso al panel",
       "bot-identity": "Identidad del bot"
@@ -718,9 +718,6 @@
       },
       "analytics": {
         "title": "La analítica necesita atención"
-      },
-      "reporting": {
-        "title": "Los informes necesitan atención"
       },
       "diagnostics": {
         "title": "Es necesario configurar el diagnóstico"
@@ -1224,7 +1221,13 @@
     "position": "Posición {{position}}",
     "allModules": "Todos los módulos",
     "empty": "No se encontraron roles",
-    "emptyHint": "Cambie el término de búsqueda para mostrar más roles."
+    "emptyHint": "Cambie el término de búsqueda para mostrar más roles.",
+    "diagnosticsLink": "Diagnóstico de permisos", "summary": "Resumen de permisos", "adminRoles": "Roles de administrador", "delegatedRoles": "Roles delegados", "manualGrants": "Permisos manuales", "updatedAt": "Última actualización", "neverUpdated": "Aún no actualizado", "dirtyDiff": "Borrador: {{added}} añadidos, {{removed}} eliminados, {{changed}} modificados",
+    "automaticAccess": "Acceso completo automático", "automaticDescription": "Propietario y administradores de Discord", "discordAdminHint": "Concedido automáticamente por el permiso Administrador de Discord", "inheritedDiscord": "Heredado de Discord", "showAllAdmins": "Mostrar los {{count}} roles de administrador", "showLess": "Mostrar menos roles de administrador", "delegatedAccess": "Acceso delegado", "delegatedDescription": "Solo se muestran roles con al menos un permiso manual.", "addRole": "Añadir rol", "firstRole": "Añadir primer rol",
+    "moduleFilter": "Módulo", "elevatedOnly": "Solo impacto elevado", "sort": "Ordenar", "sortPosition": "Posición de Discord", "sortName": "Nombre", "sortAccess": "Número de permisos", "view": "Vista", "rolesView": "Roles", "modulesView": "Módulos", "emptyDelegated": "Sin roles delegados", "emptyDelegatedHint": "Añada un rol normal de Discord o ajuste los filtros.", "emptyModules": "Ningún módulo coincide con los filtros", "noDelegatedRoles": "Sin roles delegados", "automaticIncluded": "Propietario + administradores automáticos",
+    "editRoles": "Editar roles", "edit": "Editar", "moduleCount": "{{count}} módulos", "roleGrantCount": "{{count}} roles delegados", "close": "Cerrar", "chooseRole": "Elegir un rol de Discord", "automatic": "Automático", "alreadyDelegated": "Ya delegado", "select": "Seleccionar", "permissionEditor": "Editor de permisos", "editorMeta": "Posición {{position}} · {{count}} módulos seleccionados", "presetsLabel": "Preajustes de permisos", "editorReplaceCopy": "Aplicar reemplaza todos los permisos del borrador de este rol. No cambia los permisos de Discord.", "moduleEditorCopy": "Seleccione los roles normales que recibirán este módulo. El acceso de administrador automático no se puede cambiar.",
+    "replacePresetConfirm": "¿Reemplazar toda la selección del borrador por el preajuste exacto «{{preset}}»?", "removeConfirm": "¿Eliminar todo el acceso local de Rankoon para {{role}}?", "dangerZone": "Zona de peligro", "removeLocalHint": "Elimina todos los permisos manuales de este rol del borrador local.", "removeAccess": "Eliminar acceso local", "apply": "Aplicar al borrador", "requires": "Requiere {{modules}}", "requiredForAdjustments": "Necesario para ajustes de XP", "unsavedChanges": "Borrador de permisos sin guardar", "discardConfirm": "¿Descartar todos los cambios del borrador local?", "unsavedLeave": "¿Descartar el borrador de permisos sin guardar?", "conflictTitle": "Existe una revisión de permisos más reciente", "conflictDescription": "Su borrador local se conserva. Cargue la revisión actual antes de guardar.", "loadCurrent": "Cargar actual", "loadCurrentConfirm": "¿Descartar el borrador local y cargar la revisión actual?", "staleBlocksSave": "Cargue la revisión actual antes de guardar.",
+    "categories": { "Progression": "Progresión", "XpModeration": "Moderación de XP", "Community": "Comunidad", "Insights": "Análisis" }, "impacts": { "ReadOnly": "Solo lectura", "Configuration": "Configuración", "Sensitive": "Sensible" }, "presets": { "analyst": "Analista", "xpModerator": "Moderador de XP", "communityManager": "Gestor de comunidad", "fullAccess": "Acceso completo" }
   },
   "modules": {
     "xp": {
@@ -1239,14 +1242,15 @@
       "name": "Centros de voz",
       "description": "Gestionar canales de voz creados al unirse"
     },
-    "reporting": {
-      "name": "Informes",
-      "description": "Ver informes de actividad, comandos y errores"
-    },
     "analytics": {
       "name": "Analítica",
       "description": "Ver análisis del servidor y auditoría de actividad."
-    }
+    },
+    "self-roles": { "name": "Roles automáticos", "description": "Gestionar paneles de roles seleccionables por miembros" },
+    "xp-audit": { "name": "Auditoría de XP", "description": "Ver historial de XP y detalles de concesión" },
+    "xp-adjustments": { "name": "Ajustes de XP", "description": "Conceder, quitar y revertir XP de miembros" },
+    "xp-announcements": { "name": "Anuncios de nivel", "description": "Gestionar mensajes y canales de subida de nivel" },
+    "diagnostics": { "name": "Diagnóstico", "description": "Ver diagnósticos de permisos y configuración" }
   },
   "selfRoles": {
     "eyebrow": "AUTOMATIZACIÓN DE ROLES",

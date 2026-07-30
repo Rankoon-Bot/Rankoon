@@ -98,7 +98,7 @@ export class SidebarComponent {
       </svg>`
     });
     const hasModule = (moduleId: GuildModuleId) => capabilities.isOwner || capabilities.moduleIds.includes(moduleId);
-    const hasAnalytics = capabilities.isOwner || capabilities.moduleIds.includes('analytics') || capabilities.moduleIds.includes('reporting');
+    const hasAnalytics = hasModule('analytics');
     if (hasModule('xp')) items.push({
        label: this.i18n.translate('nav.xp'),
        route: '/xp/settings',

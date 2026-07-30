@@ -14,7 +14,7 @@ import { AnalyticsFormatterService } from '../../shared/analytics-chart/analytic
 
 type DashboardMetric = 'xp' | 'voice' | 'activities' | 'members';
 
-const ROUTES: Record<string, string> = { xp: '/xp/settings', seasons: '/xp/seasons', 'level-up-announcements': '/xp/level-up-announcements', leaderboard: '/server-config/leaderboard', 'xp-audit': '/xp/audit', 'voice-hubs': '/vc-hubs', 'self-roles': '/self-roles', analytics: '/analytics/overview', reporting: '/analytics/overview', diagnostics: '/diagnostics/permissions', 'dashboard-access': '/server-config/roles', 'bot-identity': '/server-config/bot-identity' };
+const ROUTES: Record<string, string> = { xp: '/xp/settings', seasons: '/xp/seasons', 'level-up-announcements': '/xp/level-up-announcements', leaderboard: '/server-config/leaderboard', 'xp-audit': '/xp/audit', 'voice-hubs': '/vc-hubs', 'self-roles': '/self-roles', analytics: '/analytics/overview', diagnostics: '/diagnostics/permissions', 'dashboard-access': '/server-config/roles', 'bot-identity': '/server-config/bot-identity' };
 
 @Component({ selector: 'app-dashboard', standalone: true, imports: [CommonModule, RouterLink, TranslocoPipe, AnalyticsLineChartComponent], templateUrl: './dashboard.component.html', styleUrls: ['./dashboard.component.scss'] })
 export class DashboardComponent {
@@ -40,7 +40,7 @@ export class DashboardComponent {
   voice(seconds: number): string { return this.analyticsFormatter.duration(seconds); }
   status(status: DashboardStatus): string { return `dashboard.status.${status}`; }
   route(moduleId: string): string { return ROUTES[moduleId] ?? '/'; }
-  hasModule(overview: DashboardOverview, moduleId: string): boolean { return overview.modules.some(module => module.moduleId === moduleId || moduleId === 'analytics' && module.moduleId === 'reporting'); }
+  hasModule(overview: DashboardOverview, moduleId: string): boolean { return overview.modules.some(module => module.moduleId === moduleId); }
   sourceKey(source: string): string { return `dashboard.sources.${source}`; }
   eventKey(name: string): string { return `domain.reports.names.${name.replaceAll('.', '.')}`; }
   selectMetric(metric: DashboardMetric): void { this.metric.set(metric); }

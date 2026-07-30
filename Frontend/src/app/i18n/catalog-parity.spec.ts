@@ -1,8 +1,9 @@
 import { KNOWN_API_ERROR_KEYS } from '../models/api-error.model';
+import { GUILD_MODULE_IDS } from '../models/guild-permissions.models';
 import { SUPPORTED_LOCALES } from './locale.service';
 
 describe('translation catalogs', () => {
-  const expectedKeyCount = 1751;
+  const expectedKeyCount = 1832;
   const namespaces = [
     'activity',
     'analytics',
@@ -80,6 +81,17 @@ describe('translation catalogs', () => {
     for (const lang of SUPPORTED_LOCALES) {
       const keys = flatten(await catalog(lang));
       for (const key of requiredKeys) expect(keys).toContain(key);
+    }
+  });
+
+  it('defines the exact guild module catalog with names and descriptions', async () => {
+    for (const lang of SUPPORTED_LOCALES) {
+      const translation = await catalog(lang) as { modules: Record<string, { name?: string; description?: string }> };
+      expect(Object.keys(translation.modules)).toEqual([...GUILD_MODULE_IDS]);
+      for (const moduleId of GUILD_MODULE_IDS) {
+        expect(translation.modules[moduleId].name).toBeTruthy();
+        expect(translation.modules[moduleId].description).toBeTruthy();
+      }
     }
   });
 });

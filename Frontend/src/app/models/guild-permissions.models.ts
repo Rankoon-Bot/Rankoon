@@ -1,4 +1,4 @@
-export const GUILD_MODULE_IDS = ['xp', 'xp-audit', 'xp-adjustments', 'xp-announcements', 'leaderboard', 'voice-hubs', 'analytics', 'reporting', 'self-roles', 'diagnostics'] as const;
+export const GUILD_MODULE_IDS = ['xp', 'leaderboard', 'voice-hubs', 'analytics', 'self-roles', 'xp-audit', 'xp-adjustments', 'xp-announcements', 'diagnostics'] as const;
 
 export type GuildModuleId = typeof GUILD_MODULE_IDS[number];
 
@@ -12,16 +12,20 @@ export interface GuildCapabilities {
 
 export interface PermissionModule {
   id: GuildModuleId;
-  name: string;
-  description: string;
+  category: 'Progression' | 'XpModeration' | 'Community' | 'Insights';
+  impact: 'ReadOnly' | 'Configuration' | 'Sensitive';
+  requiredModuleIds: GuildModuleId[];
 }
 
 export interface RolePermission {
   id: string;
   name: string;
   position: number;
+  colorHex: string;
   isAdministrator: boolean;
   moduleIds: GuildModuleId[];
+  effectiveModuleIds: GuildModuleId[];
+  accessSource: 'DiscordAdministrator' | 'Delegated' | 'None';
 }
 
 export interface RolePermissions {

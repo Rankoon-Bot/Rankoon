@@ -56,7 +56,7 @@ public sealed class GuildPermissionsController(
         if (request.Roles.Any(grant => grant == null)) return this.ApiError("permissions.nullRole");
 
         var selectableRoles = guild!.Roles
-            .Where(IsManuallyCreatedRole)
+            .Where(IsDelegatableRole)
             .ToDictionary(role => role.Id);
         var requestedRoles = request.Roles.Select(grant => grant!).ToArray();
         if (requestedRoles.Select(grant => grant.RoleId).Distinct().Count() != requestedRoles.Length)
@@ -68,13 +68,14 @@ public sealed class GuildPermissionsController(
                 return this.ApiError("permissions.roleNotInGuild", new Dictionary<string, object?> { ["roleId"] = grant.RoleId });
             if (grant.ModuleIds == null)
                 return this.ApiError("permissions.modulesRequired", new Dictionary<string, object?> { ["roleId"] = grant.RoleId });
-            if (grant.ModuleIds.Distinct(StringComparer.Ordinal).Count() != grant.ModuleIds.Count)
-                return this.ApiError("permissions.duplicateModule", new Dictionary<string, object?> { ["roleId"] = grant.RoleId });
+            if (grant.ModuleIds.Count == 0)
+                return this.ApiError("permissions.emptyGrant", new Dictionary<string, object?> { ["roleId"] = grant.RoleId });
             var invalidModuleId = grant.ModuleIds.FirstOrDefault(moduleId => !modules.Contains(moduleId));
             if (invalidModuleId != null)
                 return this.ApiError("permissions.unknownModule", new Dictionary<string, object?> { ["moduleId"] = invalidModuleId });
         }
 
+        var previous = await permissions.GetOrInitializeAsync(guild, HttpContext.RequestAborted);
         var saved = await permissions.ReplaceAsync(guild, requestedRoles.Select(grant => new GuildRoleModuleGrant
         {
             RoleId = grant.RoleId,
@@ -89,8 +90,12 @@ public sealed class GuildPermissionsController(
             ActorId: authorization.GetDiscordUserId(User),
             Metadata: new Dictionary<string, object?>
             {
-                ["configuredRoles"] = requestedRoles.Count(grant => grant.ModuleIds!.Count > 0),
-                ["moduleAssignments"] = requestedRoles.Sum(grant => grant.ModuleIds!.Count)
+                ["oldRevision"] = previous.Revision,
+                ["newRevision"] = saved.Revision,
+                ["addedRoles"] = AddedRoleIds(previous.RoleGrants, saved.RoleGrants).Count(),
+                ["removedRoles"] = AddedRoleIds(saved.RoleGrants, previous.RoleGrants).Count(),
+                ["addedModules"] = AddedModuleAssignments(previous.RoleGrants, saved.RoleGrants).Count(),
+                ["removedModules"] = AddedModuleAssignments(saved.RoleGrants, previous.RoleGrants).Count()
             }), HttpContext.RequestAborted);
         return Ok(CreateRolePermissionsResponse(guild, saved));
     }
@@ -98,22 +103,47 @@ public sealed class GuildPermissionsController(
     private object CreateRolePermissionsResponse(SocketGuild guild, GuildRolePermissionPolicy policy)
     {
         var grants = policy.RoleGrants.ToDictionary(grant => grant.RoleId, grant => grant.ModuleIds);
+        var allModuleIds = modules.Modules.Select(module => module.Id).ToArray();
         var roles = guild.Roles
             .Where(IsManuallyCreatedRole)
             .OrderByDescending(role => role.Position)
-            .Select(role => new
+            .Select(role =>
             {
-                id = role.Id,
-                role.Name,
-                role.Position,
-                isAdministrator = role.Permissions.Administrator,
-                moduleIds = grants.GetValueOrDefault(role.Id) ?? []
+                IReadOnlyList<string> moduleIds = role.Permissions.Administrator ? [] : grants.GetValueOrDefault(role.Id) ?? [];
+                IReadOnlyList<string> effectiveModuleIds = role.Permissions.Administrator ? allModuleIds : moduleIds;
+                var accessSource = role.Permissions.Administrator ? "DiscordAdministrator" : moduleIds.Count > 0 ? "Delegated" : "None";
+                return new
+                {
+                    id = role.Id,
+                    role.Name,
+                    role.Position,
+                    colorHex = $"#{role.Color.RawValue:X6}",
+                    isAdministrator = role.Permissions.Administrator,
+                    moduleIds,
+                    effectiveModuleIds,
+                    accessSource
+                };
             })
             .ToArray();
         return new { guildId = guild.Id, isOwner = true, modules = modules.Modules, roles, policy.Revision, policy.UpdatedAt };
     }
 
     private static bool IsManuallyCreatedRole(SocketRole role) => !role.IsManaged && !role.IsEveryone;
+    private static bool IsDelegatableRole(SocketRole role) => IsManuallyCreatedRole(role) && !role.Permissions.Administrator;
+
+    internal static IEnumerable<string> AddedRoleIds(IEnumerable<GuildRoleModuleGrant> oldGrants, IEnumerable<GuildRoleModuleGrant> newGrants)
+    {
+        var oldRoleIds = oldGrants.Select(grant => grant.RoleId).ToHashSet();
+        return newGrants.Select(grant => grant.RoleId).Where(roleId => !oldRoleIds.Contains(roleId)).Order().Select(roleId => roleId.ToString());
+    }
+
+    internal static IEnumerable<string> AddedModuleAssignments(IEnumerable<GuildRoleModuleGrant> oldGrants, IEnumerable<GuildRoleModuleGrant> newGrants)
+    {
+        var oldAssignments = oldGrants.SelectMany(grant => grant.ModuleIds.Select(moduleId => $"{grant.RoleId}:{moduleId}")).ToHashSet(StringComparer.Ordinal);
+        return newGrants.SelectMany(grant => grant.ModuleIds.Select(moduleId => $"{grant.RoleId}:{moduleId}"))
+            .Where(assignment => !oldAssignments.Contains(assignment))
+            .Order(StringComparer.Ordinal);
+    }
 
     private async Task<(SocketGuild? Guild, IActionResult? Error)> AuthorizeOwnerAsync(string guildId)
     {

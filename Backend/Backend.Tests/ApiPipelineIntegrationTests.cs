@@ -268,6 +268,6 @@ internal sealed class AllowGuildAuthorizationService : IGuildAuthorizationServic
     public Task<bool> CanAccessAnyModuleAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     public Task<bool> CanAccessModuleAsync(ClaimsPrincipal user, ulong guildId, string moduleId, CancellationToken cancellationToken = default) => Task.FromResult(true);
     public Task<IReadOnlyList<string>> GetAccessibleModuleIdsAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<string>>([GuildModuleIds.Xp, GuildModuleIds.Leaderboard, GuildModuleIds.VoiceHubs, GuildModuleIds.Reporting]);
+        Task.FromResult<IReadOnlyList<string>>([GuildModuleIds.Xp, GuildModuleIds.Leaderboard, GuildModuleIds.VoiceHubs, GuildModuleIds.Analytics]);
     public ulong? GetDiscordUserId(ClaimsPrincipal user) => 123;
 }

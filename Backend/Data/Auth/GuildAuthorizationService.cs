@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using Discord;
 using Rankoon.Data.Discord;
+using Rankoon.Data.Model;
 
 namespace Rankoon.Data.Auth;
 
@@ -87,14 +88,16 @@ public sealed class GuildAuthorizationService(
             .Where(role => !role.IsManaged && !role.IsEveryone && member.RoleIds.Contains(role.Id))
             .Select(role => role.Id)
             .ToHashSet();
+        return ResolveDelegatedModuleIds(policy, roleIds, modules.Modules);
+    }
+
+    internal static IReadOnlyList<string> ResolveDelegatedModuleIds(GuildRolePermissionPolicy policy, IReadOnlySet<ulong> roleIds, IReadOnlyList<GuildModuleDescriptor> modules)
+    {
         var grantedIds = policy.RoleGrants
             .Where(grant => roleIds.Contains(grant.RoleId))
             .SelectMany(grant => grant.ModuleIds)
             .ToHashSet(StringComparer.Ordinal);
-        if (grantedIds.Contains(GuildModuleIds.XpAdjustments)) grantedIds.Add(GuildModuleIds.XpAudit);
-        if (grantedIds.Contains(GuildModuleIds.Reporting)) grantedIds.Add(GuildModuleIds.Analytics);
-        if (grantedIds.Contains(GuildModuleIds.Analytics)) grantedIds.Add(GuildModuleIds.Reporting);
-        return modules.Modules.Where(module => grantedIds.Contains(module.Id)).Select(module => module.Id).ToArray();
+        return modules.Where(module => grantedIds.Contains(module.Id)).Select(module => module.Id).ToArray();
     }
 
     public ulong? GetDiscordUserId(ClaimsPrincipal user) =>

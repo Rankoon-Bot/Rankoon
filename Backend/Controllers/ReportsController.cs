@@ -56,7 +56,7 @@ public sealed class ReportsController(IGuildAuthorizationService authorization, 
     private async Task<(ulong GuildId, IActionResult? Error)> AuthorizeAsync(string guildId)
     {
         if (!ulong.TryParse(guildId, out var id)) return (0, this.ApiError("guild.invalidId"));
-        if (!await authorization.CanAccessModuleAsync(User, id, GuildModuleIds.Reporting, HttpContext.RequestAborted)) return (0, Forbid());
+        if (!await authorization.CanAccessModuleAsync(User, id, GuildModuleIds.Analytics, HttpContext.RequestAborted)) return (0, Forbid());
         return (id, null);
     }
 }
