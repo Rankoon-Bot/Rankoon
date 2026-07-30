@@ -751,6 +751,26 @@
           },
           "json": {
             "imported": "Leaderboard JSON imported"
+          },
+          "projection": {
+            "repaired": "XP projection repaired"
+          },
+          "manual-adjustment": {
+            "created": "Manual XP adjustment created",
+            "reversed": "Manual XP adjustment reversed"
+          },
+          "level-announcement": {
+            "settings": {
+              "changed": "Level-up announcement settings changed"
+            },
+            "test": {
+              "sent": "Level-up announcement test sent"
+            },
+            "sent": "Level-up announcement sent",
+            "no-template": "Level-up announcement skipped: no template"
+          },
+          "level-roles": {
+            "partially-failed": "Some level roles could not be assigned"
           }
         },
         "voice": {
@@ -781,6 +801,13 @@
         "permissions": {
           "roles": {
             "changed": "Role permissions changed"
+          }
+        },
+        "season": {
+          "started": "Season started",
+          "closed": "Season closed",
+          "carryover": {
+            "applied": "Season XP carryover applied"
           }
         }
       },

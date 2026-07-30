@@ -735,6 +735,26 @@
           },
           "json": {
             "imported": "JSON de clasificación importado"
+          },
+          "projection": {
+            "repaired": "Proyección de XP reparada"
+          },
+          "manual-adjustment": {
+            "created": "Ajuste manual de XP creado",
+            "reversed": "Ajuste manual de XP revertido"
+          },
+          "level-announcement": {
+            "settings": {
+              "changed": "Configuración de anuncios de nivel modificada"
+            },
+            "test": {
+              "sent": "Prueba de anuncio de nivel enviada"
+            },
+            "sent": "Anuncio de nivel enviado",
+            "no-template": "Anuncio de nivel omitido: no hay plantilla"
+          },
+          "level-roles": {
+            "partially-failed": "No se pudieron asignar algunos roles de nivel"
           }
         },
         "voice": {
@@ -765,6 +785,13 @@
         "permissions": {
           "roles": {
             "changed": "Permisos de rol cambiados"
+          }
+        },
+        "season": {
+          "started": "Temporada iniciada",
+          "closed": "Temporada cerrada",
+          "carryover": {
+            "applied": "Transferencia de XP de temporada aplicada"
           }
         }
       },

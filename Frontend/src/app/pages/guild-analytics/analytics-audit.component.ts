@@ -5,6 +5,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { catchError, EMPTY, finalize } from 'rxjs';
 import { LocaleService } from '../../i18n/locale.service';
 import { ApiErrorService } from '../../services/api-error.service';
+import { DomainValueService } from '../../i18n/domain-value.service';
 import { AnalyticsPageBase } from './analytics-page.base';
 import { AnalyticsAuditItem, AnalyticsRange, GuildAnalyticsAudit } from './guild-analytics.models';
 import { GuildAnalyticsService } from './guild-analytics.service';
@@ -16,7 +17,7 @@ import { GuildAnalyticsService } from './guild-analytics.service';
   @if (data(); as report) {
     <section class="rk-panel audit">
       <h2>{{ 'analytics.audit.title' | transloco }}</h2><p>{{ 'analytics.audit.description' | transloco }}</p>
-      <ol>@for (item of report.items; track item.id) { <li><time>{{ locale.date(item.occurredAt, { dateStyle: 'medium', timeStyle: 'short' }) }}</time><div><strong>{{ eventLabel(item) }}</strong><span>{{ item.actorName || item.actorId || ('common.system' | transloco) }} &middot; {{ item.outcome }}</span></div>@if (item.correlationId) { <code>{{ item.correlationId }}</code> }</li> } @empty { <li class="empty">{{ 'analytics.audit.empty' | transloco }}</li> }</ol>
+      <ol>@for (item of report.items; track item.id) { <li><time>{{ locale.date(item.occurredAt, { dateStyle: 'medium', timeStyle: 'short' }) }}</time><div><strong>{{ eventLabel(item) }}</strong><span>{{ item.actorName || item.actorId || ('common.system' | transloco) }} &middot; {{ outcomeLabel(item.outcome) }}</span></div>@if (item.correlationId) { <code>{{ item.correlationId }}</code> }</li> } @empty { <li class="empty">{{ 'analytics.audit.empty' | transloco }}</li> }</ol>
       @if (loadMoreError()) { <p class="rk-notice rk-notice--danger" role="alert">{{ loadMoreError() }}</p> }
       @if (report.nextCursor) { <button class="rk-button" type="button" [disabled]="loadingMore()" (click)="loadMore()">{{ loadingMore() ? ('common.loading' | transloco) : ('common.loadMore' | transloco) }}</button> }
     </section>
@@ -28,6 +29,7 @@ import { GuildAnalyticsService } from './guild-analytics.service';
 export class AnalyticsAuditComponent extends AnalyticsPageBase<GuildAnalyticsAudit> {
   private readonly api = inject(GuildAnalyticsService);
   private readonly auditErrors = inject(ApiErrorService);
+  private readonly domain = inject(DomainValueService);
   private readonly auditDestroyRef = inject(DestroyRef);
   readonly locale = inject(LocaleService);
   readonly loadingMore = signal(false);
@@ -35,7 +37,8 @@ export class AnalyticsAuditComponent extends AnalyticsPageBase<GuildAnalyticsAud
   readonly ranges: readonly AnalyticsRange[] = ['24h', '7d', '30d', '90d'];
   constructor() { super(); this.initialize(); }
   protected request(id: string, range: AnalyticsRange) { return this.api.audit(id, range); }
-  eventLabel(item: AnalyticsAuditItem): string { return item.code; }
+  eventLabel(item: AnalyticsAuditItem): string { return this.domain.activityName(item.code); }
+  outcomeLabel(value: string): string { return this.domain.outcome(value); }
   loadMore(): void {
     const current = this.data(); const guildId = this.appStore.selectedGuild()?.id;
     if (!current?.nextCursor || !guildId || this.loadingMore()) return;

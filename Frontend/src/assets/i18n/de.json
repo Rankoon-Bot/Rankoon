@@ -751,6 +751,26 @@
           },
           "json": {
             "imported": "Ranglisten-JSON importiert"
+          },
+          "projection": {
+            "repaired": "XP-Projektion repariert"
+          },
+          "manual-adjustment": {
+            "created": "Manuelle XP-Korrektur erstellt",
+            "reversed": "Manuelle XP-Korrektur zurückgebucht"
+          },
+          "level-announcement": {
+            "settings": {
+              "changed": "Level-Up-Ankündigungseinstellungen geändert"
+            },
+            "test": {
+              "sent": "Test für Level-Up-Ankündigung gesendet"
+            },
+            "sent": "Level-Up-Ankündigung gesendet",
+            "no-template": "Level-Up-Ankündigung übersprungen: Keine Vorlage"
+          },
+          "level-roles": {
+            "partially-failed": "Einige Levelrollen konnten nicht vergeben werden"
           }
         },
         "voice": {
@@ -781,6 +801,13 @@
         "permissions": {
           "roles": {
             "changed": "Rollenberechtigungen geändert"
+          }
+        },
+        "season": {
+          "started": "Season gestartet",
+          "closed": "Season beendet",
+          "carryover": {
+            "applied": "Season-XP-Übertrag angewendet"
           }
         }
       },
