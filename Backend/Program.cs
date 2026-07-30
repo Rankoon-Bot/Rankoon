@@ -226,6 +226,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonLifecycleService, Rankoon.D
 builder.Services.AddSingleton<Rankoon.Data.Xp.LedgerProjectionRepairService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonCoordinator>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonLevelRoleService>();
 builder.Services.AddSingleton<IDiscordAnnouncementSender, DiscordAnnouncementSender>();
 builder.Services.AddSingleton<LevelProgressionWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();

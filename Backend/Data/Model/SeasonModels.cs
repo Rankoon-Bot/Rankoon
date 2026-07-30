@@ -61,6 +61,20 @@ public sealed class SeasonLevelRole
     [BsonElement("retention"), BsonRepresentation(BsonType.String)] public SeasonLevelRoleRetention Retention { get; set; }
 }
 
+public sealed class SeasonRoleAssignment
+{
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonElement("season_id"), BsonRepresentation(BsonType.ObjectId)] public string SeasonId { get; set; } = string.Empty;
+    [BsonElement("user_id")] public ulong UserId { get; set; }
+    [BsonElement("role_id")] public ulong RoleId { get; set; }
+    [BsonElement("required_level")] public int RequiredLevel { get; set; }
+    [BsonElement("retention"), BsonRepresentation(BsonType.String)] public SeasonLevelRoleRetention Retention { get; set; }
+    [BsonElement("granted_at_utc")] public DateTime GrantedAtUtc { get; set; }
+    [BsonElement("removed_at_utc"), BsonIgnoreIfNull] public DateTime? RemovedAtUtc { get; set; }
+    [BsonElement("was_already_present")] public bool WasAlreadyPresent { get; set; }
+}
+
 public sealed class GuildSeason
 {
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }

@@ -41,6 +41,7 @@ public class RankoonDbContext
     public IMongoCollection<SeasonFinalStanding> SeasonFinalStandings => _database.GetCollection<SeasonFinalStanding>("season_final_standings");
     public IMongoCollection<SeasonCoordinatorLease> SeasonCoordinatorLeases => _database.GetCollection<SeasonCoordinatorLease>("season_coordinator_leases");
     public IMongoCollection<SeasonAnnouncementDelivery> SeasonAnnouncementDeliveries => _database.GetCollection<SeasonAnnouncementDelivery>("season_announcement_deliveries");
+    public IMongoCollection<SeasonRoleAssignment> SeasonRoleAssignments => _database.GetCollection<SeasonRoleAssignment>("season_role_assignments");
     public IMongoCollection<MemberXp> MemberXp => _database.GetCollection<MemberXp>("member_xp");
     public IMongoCollection<GuildUserAvatarCacheEntry> GuildUserAvatarCache => _database.GetCollection<GuildUserAvatarCacheEntry>("guild_user_avatar_cache");
     public IMongoCollection<DevelopmentMockMember> DevelopmentMockMembers => _database.GetCollection<DevelopmentMockMember>("development_mock_members");

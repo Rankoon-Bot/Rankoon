@@ -17,14 +17,9 @@ describe('LevelUpAnnouncementsComponent', () => {
   it('requires a target channel before saving', () => {
     const component = TestBed.createComponent(LevelUpAnnouncementsComponent).componentInstance;
     component.settings.set({
-      enabled: true,
-      channelId: null,
-      notifyMentionedUser: true,
-      useDefaultFallback: true,
-      fallbackLocale: 'en',
-      announceManualAdjustments: false,
-      avoidRecentTemplatesPerUser: 0,
-      templates: [],
+      schemaVersion: 2,
+      lifetime: { enabled: true, channelId: null, notifyUser: true, useDefaultFallback: true, fallbackLocale: 'en', announceManualAdjustments: false, avoidRecentMessagesPerUser: 0, levelUp: { groups: [] }, rewards: { groups: [] } },
+      season: { enabled: false, channelId: null, notifyUser: true, useDefaultFallback: true, fallbackLocale: 'en', announceManualAdjustments: false, avoidRecentMessagesPerUser: 0, levelUp: { groups: [] }, rewards: { groups: [] } },
       revision: 1,
     });
 
@@ -32,7 +27,7 @@ describe('LevelUpAnnouncementsComponent', () => {
     component.save();
     TestBed.inject(HttpTestingController).expectNone(request => request.method === 'PUT');
 
-    component.settings.update(settings => settings ? { ...settings, channelId: '42' } : settings);
+    component.settings.update(settings => settings ? { ...settings, lifetime: { ...settings.lifetime, channelId: '42' } } : settings);
     expect(component.valid()).toBeTrue();
   });
 });

@@ -210,6 +210,9 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         try
         {
             var before = await GetMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken) ?? new MemberXp();
+            var beforeSeason = !string.IsNullOrWhiteSpace(ledger.SeasonId) && XpLedgerSemantics.AffectsSeason(ledger)
+                ? await database.SeasonMemberXp.Find(x => x.SeasonId == ledger.SeasonId && x.UserId == ledger.UserId).FirstOrDefaultAsync(cancellationToken)
+                : null;
             if (recovering && !await RebuildProjectionAsync(ledger, now, owner, projectionLease, cancellationToken))
             {
                 await ReleaseLedgerLeaseAsync(ledger.GrantKey, owner, cancellationToken);
@@ -227,6 +230,16 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             };
             await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionLeaseOwner == owner, Builders<XpLedgerEntry>.Update.Set(x => x.LevelTransitionSnapshot, snapshot), cancellationToken: cancellationToken);
             await transitions.EnsureAsync(ledger, snapshot, cancellationToken);
+            if (beforeSeason != null || !string.IsNullOrWhiteSpace(ledger.SeasonId) && XpLedgerSemantics.AffectsSeason(ledger))
+            {
+                var afterSeason = await database.SeasonMemberXp.Find(x => x.SeasonId == ledger.SeasonId && x.UserId == ledger.UserId).FirstOrDefaultAsync(cancellationToken);
+                var season = await database.GuildSeasons.Find(x => x.Id == ledger.SeasonId).FirstOrDefaultAsync(cancellationToken);
+                if (afterSeason != null && season != null)
+                {
+                    var seasonSnapshot = new LevelTransitionSnapshot { PreviousTotalXp = beforeSeason?.TotalXp ?? 0, NewTotalXp = afterSeason.TotalXp, PreviousLevel = Mee6LevelCurve.GetLevel(beforeSeason?.TotalXp ?? 0), NewLevel = Mee6LevelCurve.GetLevel(afterSeason.TotalXp) };
+                    await transitions.EnsureAsync(ledger.GuildId, ledger.UserId, new(ledger.Source, ledger.GrantKey, ledger.Amount, ledger.ChannelId, ledger.GrantKey, XpLedgerSemantics.GetEffectiveKind(ledger) == XpLedgerEntryKind.SystemMigration), seasonSnapshot, LevelProgressScope.Season, season.Id, season.Name, cancellationToken);
+                }
+            }
             if (!await RenewProjectionOwnershipAsync(ledger.Id!, owner, projectionLease, cancellationToken)) return;
             await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionStatus == SeasonProjectionStatus.Pending && x.ProjectionLeaseOwner == owner,
                 Builders<XpLedgerEntry>.Update.Set(x => x.ProjectionStatus, SeasonProjectionStatus.Applied).Set(x => x.ProjectedAtUtc, now).Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc), cancellationToken: cancellationToken);

@@ -60,6 +60,8 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         }
 
         var before = await database.MemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? new MemberXp();
+        var seasonIds = target.SeasonTotals.Where(x => !string.IsNullOrWhiteSpace(x.SeasonId)).Select(x => x.SeasonId!).Distinct(StringComparer.Ordinal).ToArray();
+        var beforeSeasons = seasonIds.Length == 0 ? [] : await database.SeasonMemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId && seasonIds.Contains(x.SeasonId)).ToListAsync(cancellationToken);
         if (recovering && !await RebuildAbsoluteAsync(target, displayName, now, owner, projectionLease, cancellationToken))
         {
             await ReleaseDayLeaseAsync(claimed.Id!, owner, cancellationToken);
@@ -76,7 +78,16 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         var channels = claimed.Segments.Select(x => x.ChannelId).Distinct().Take(2).ToArray();
         var channelId = channels.Length == 1 ? channels[0] : (ulong?)null;
         await transitions.EnsureAsync(claimed.GuildId, claimed.UserId,
-            new("voice", $"voice:{claimed.Id}:{target.ProjectionRevision}", after.TotalXp - before.TotalXp, channelId), snapshot, cancellationToken);
+            new("voice", $"voice:{claimed.Id}:{target.ProjectionRevision}", after.TotalXp - before.TotalXp, channelId, SuppressAnnouncement: recovering), snapshot, cancellationToken);
+        foreach (var seasonId in seasonIds)
+        {
+            var season = await database.GuildSeasons.Find(x => x.Id == seasonId).FirstOrDefaultAsync(cancellationToken);
+            var afterSeason = await database.SeasonMemberXp.Find(x => x.SeasonId == seasonId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken);
+            if (season == null || afterSeason == null) continue;
+            var beforeSeason = beforeSeasons.FirstOrDefault(x => x.SeasonId == seasonId);
+            var seasonSnapshot = new LevelTransitionSnapshot { PreviousTotalXp = beforeSeason?.TotalXp ?? 0, NewTotalXp = afterSeason.TotalXp, PreviousLevel = Mee6LevelCurve.GetLevel(beforeSeason?.TotalXp ?? 0), NewLevel = Mee6LevelCurve.GetLevel(afterSeason.TotalXp) };
+            await transitions.EnsureAsync(claimed.GuildId, claimed.UserId, new("voice", $"voice:{claimed.Id}:{target.ProjectionRevision}", afterSeason.TotalXp - (beforeSeason?.TotalXp ?? 0), channelId, SuppressAnnouncement: recovering), seasonSnapshot, LevelProgressScope.Season, seasonId, season.Name, cancellationToken);
+        }
 
         if (!await RenewProjectionOwnershipAsync(claimed.Id!, owner, projectionLease, cancellationToken)) return;
         var projectedTotals = ProjectedTotals(target.SeasonTotals);

@@ -78,7 +78,7 @@ public sealed class SeasonService(RankoonDbContext database, TimeProvider timePr
         await database.GuildSeasons.Find(x => x.GuildId == guildId).SortByDescending(x => x.Sequence).ToListAsync(cancellationToken);
 }
 
-public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWriter reports, ILeaderboardRealtimePublisher realtime, TimeProvider timeProvider) : ISeasonLifecycleService
+public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWriter reports, ILeaderboardRealtimePublisher realtime, SeasonLevelRoleService seasonRoles, TimeProvider timeProvider) : ISeasonLifecycleService
 {
     public async Task<bool> ActivateAsync(ulong guildId, string seasonId, CancellationToken cancellationToken = default)
     {
@@ -307,6 +307,8 @@ public sealed class SeasonLifecycleService(RankoonDbContext database, IReportWri
             if (writes.Count > 0) await database.SeasonFinalStandings.BulkWriteAsync(writes, new BulkWriteOptions { IsOrdered = false }, cancellationToken);
             await database.GuildSeasons.UpdateOneAsync(x => x.Id == season.Id && !x.Finalized, Builders<GuildSeason>.Update.Set(x => x.Finalized, true).Set(x => x.Status, SeasonStatus.Closed).Unset(x => x.ActiveGuildId).Set(x => x.ClosedAtUtc, now), cancellationToken: cancellationToken);
         }
+        // Only persisted bot assignments are eligible for removal; retries are safe via RemovedAtUtc.
+        await seasonRoles.FinalizeAsync(current, cancellationToken);
         await ReportOnceAsync(season, "close_reported", ReportNames.SeasonClosed, cancellationToken);
         await PublishOnceAsync(season, "close_realtime_published", cancellationToken);
     }
