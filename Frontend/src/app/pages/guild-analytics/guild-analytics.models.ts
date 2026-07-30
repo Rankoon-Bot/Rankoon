@@ -92,6 +92,7 @@ export interface AnalyticsAuditItem {
   metadata: Record<string, string | number | boolean | null>;
   channelId: string | null;
   channelName: string | null;
+  hubName: string | null;
 }
 
 export interface GuildAnalyticsAudit extends GuildAnalyticsResponse {

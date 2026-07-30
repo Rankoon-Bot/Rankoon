@@ -380,7 +380,10 @@
     "audit": {
       "title": "Audit-Ereignisse",
       "description": "Chronologische Aktivität mit Akteuren und Korrelations-IDs.",
-      "empty": "Keine Audit-Ereignisse in diesem Zeitraum."
+      "empty": "Keine Audit-Ereignisse in diesem Zeitraum.",
+      "subject": "Betreff",
+      "hub": "Voice-Hub",
+      "metadata": "Metadaten anzeigen"
     },
     "domain": {
       "kpis": {
