@@ -87,7 +87,7 @@ describe('GuildService permissions API', () => {
 
   it('uses string IDs for season configuration and lifecycle endpoints', () => {
     const settings: SeasonSettings = {
-      enabled: true, defaultLeaderboardScope: 'CurrentSeason', timeZoneId: 'Europe/Berlin', scheduleKind: 'Monthly', scheduleAnchorUtc: '2027-01-01T00:00:00.000Z', fixedDurationDays: null,
+      enabled: true, defaultLeaderboardScope: 'CurrentSeason', timeZoneId: 'Europe/Berlin', scheduleKind: 'Monthly', planningMode: 'Explicit', scheduleAnchorUtc: '2027-01-01T00:00:00.000Z', fixedDurationDays: null,
       gapDays: 0, preparedSeasonCount: 3, pauseBehavior: 'NoSeasonXp', publicHistoryCount: 3, initialXpMode: 'Zero', initialXpPercentage: 0, carryOverMode: 'None', carryOverPercentage: 0,
       carryOverMaximumXp: null, announcementChannelId: 'channel-1', announcements: { startEnabled: false, endEnabled: false, winnerEnabled: false, warningOffsetsMinutes: [] }, winnerCount: 3,
       nameTemplate: 'Season {number}', rotation: [], rotationOffset: 0, seasonLevelRoles: []
@@ -102,6 +102,13 @@ describe('GuildService permissions API', () => {
     const preview = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/seasons/preview?count=6`);
     expect(preview.request.method).toBe('POST');
     preview.flush([]);
+
+    service.setupSeasonSystem('guild-1', settings, 2, 'operation-1').subscribe();
+    const setup = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/seasons/setup`);
+    expect(setup.request.method).toBe('POST');
+    expect(setup.request.body.seasonCount).toBe(2);
+    expect(setup.request.body.operationId).toBe('operation-1');
+    setup.flush({ settings, seasons: [] });
 
     service.startSeason('guild-1', 'season-1').subscribe();
     const start = http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/seasons/season-1/start`);

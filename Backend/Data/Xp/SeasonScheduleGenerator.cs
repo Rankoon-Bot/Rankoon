@@ -55,6 +55,7 @@ public sealed class SeasonScheduleGenerator
         if (settings.GuildId == 0) Invalid("guildId");
         if (!Enum.IsDefined(settings.DefaultLeaderboardScope)) Invalid("defaultLeaderboardScope");
         if (!Enum.IsDefined(settings.ScheduleKind)) Invalid("scheduleKind");
+        if (!Enum.IsDefined(settings.PlanningMode)) Invalid("planningMode");
         if (!Enum.IsDefined(settings.InitialXpMode)) Invalid("initialXpMode");
         if (!Enum.IsDefined(settings.CarryOverMode)) Invalid("carryOverMode");
         if (settings.GapDays < 0) Invalid("gapDays");
@@ -148,20 +149,19 @@ public static class SeasonSchedulePlanner
     private const int BatchSize = 120;
     private const int MaximumOccurrences = 36_600;
 
-    public static IReadOnlyList<SeasonScheduleCandidate> GenerateMissing(GuildSeasonSettings settings, IReadOnlyCollection<GuildSeason> existing, int desiredPreparedCount, DateTime notEndedAfterUtc)
+    public static IReadOnlyList<SeasonScheduleCandidate> GenerateAdditional(GuildSeasonSettings settings, IReadOnlyCollection<GuildSeason> existing, int count, DateTime notEndedAfterUtc)
     {
-        var missing = desiredPreparedCount - SeasonCoordinator.CountPrepared(existing, notEndedAfterUtc);
-        if (missing <= 0 || settings.ScheduleKind == SeasonScheduleKind.Manual) return [];
+        if (count <= 0 || settings.ScheduleKind == SeasonScheduleKind.Manual) return [];
 
         var firstSequence = Math.Max(existing.Select(x => x.Sequence + 1).DefaultIfEmpty(1).Max(), settings.NextSequenceAfterDeletion);
         var prepared = existing.Where(x => x.Status is SeasonStatus.Scheduled or SeasonStatus.Active or SeasonStatus.Closing && x.EndsAtUtc > notEndedAfterUtc).ToList();
         var latestPrepared = prepared.OrderByDescending(x => x.EndsAtUtc).ThenByDescending(x => x.Sequence).FirstOrDefault();
         DateTime? continuationAnchor = latestPrepared == null ? null : latestPrepared.EndsAtUtc.AddDays(settings.GapDays);
         var firstNumber = NextNumber(settings, existing);
-        var selected = new List<SeasonScheduleCandidate>(missing);
+        var selected = new List<SeasonScheduleCandidate>(count);
         var generator = new SeasonScheduleGenerator();
 
-        for (var offset = 0; offset < MaximumOccurrences && selected.Count < missing; offset += BatchSize)
+        for (var offset = 0; offset < MaximumOccurrences && selected.Count < count; offset += BatchSize)
         {
             var batch = generator.Generate(settings, "Guild", 1, Math.Min(BatchSize, MaximumOccurrences - offset), occurrenceOffset: offset, anchorOverrideUtc: continuationAnchor);
             foreach (var candidate in batch)
@@ -171,11 +171,17 @@ public static class SeasonSchedulePlanner
                 var sequence = firstSequence + selected.Count;
                 var number = firstNumber + selected.Count;
                 selected.Add(candidate with { Sequence = sequence, Number = number, Name = SeasonNamingService.Format(settings, number, candidate.StartsAtUtc, candidate.EndsAtUtc, "Guild") });
-                if (selected.Count == missing) break;
+                if (selected.Count == count) break;
             }
         }
 
         return selected;
+    }
+
+    public static IReadOnlyList<SeasonScheduleCandidate> GenerateMissing(GuildSeasonSettings settings, IReadOnlyCollection<GuildSeason> existing, int desiredPreparedCount, DateTime notEndedAfterUtc)
+    {
+        var missing = desiredPreparedCount - SeasonCoordinator.CountPrepared(existing, notEndedAfterUtc);
+        return GenerateAdditional(settings, existing, missing, notEndedAfterUtc);
     }
 
     public static long EffectiveNumber(GuildSeason season) => season.Number ?? season.Sequence;

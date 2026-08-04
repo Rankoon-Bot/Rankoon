@@ -222,6 +222,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.ServerBoosterXpMultiplierResolver>
     builder.Services.AddSingleton<Rankoon.Data.Xp.VoiceActivityProjectionRepairService>();
     builder.Services.AddSingleton<Rankoon.Data.Xp.VoiceLedgerMigrationService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonService, Rankoon.Data.Xp.SeasonService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonPlanningService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonLifecycleService, Rankoon.Data.Xp.SeasonLifecycleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LedgerProjectionRepairService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonCoordinator>();

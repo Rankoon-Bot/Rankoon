@@ -234,6 +234,48 @@ public sealed class SeasonScheduleGeneratorTests
     }
 
     [Fact]
+    public void Planning_mode_defaults_to_explicit_for_legacy_settings()
+    {
+        Assert.Equal(SeasonPlanningMode.Explicit, new GuildSeasonSettings().PlanningMode);
+    }
+
+    [Fact]
+    public void Additional_planning_count_is_not_a_prepared_total()
+    {
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        settings.FixedDurationDays = 30;
+        var existing = new[] { new GuildSeason { GuildId = 1, Sequence = 1, Number = 1, Status = SeasonStatus.Scheduled, StartsAtUtc = settings.ScheduleAnchorUtc!.Value, EndsAtUtc = settings.ScheduleAnchorUtc.Value.AddDays(30) } };
+
+        var planned = SeasonSchedulePlanner.GenerateAdditional(settings, existing, 2, new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(2, planned.Count);
+        Assert.Equal(new long[] { 2, 3 }, planned.Select(x => x.Sequence));
+        Assert.Equal(new long[] { 2, 3 }, planned.Select(x => x.Number!.Value));
+    }
+
+    [Fact]
+    public void Additional_monthly_plan_after_active_august_season_starts_in_september()
+    {
+        var settings = Settings(SeasonScheduleKind.Monthly, "UTC", new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc));
+        var august = new GuildSeason
+        {
+            GuildId = 1,
+            Sequence = 1,
+            Number = 1,
+            Status = SeasonStatus.Active,
+            StartsAtUtc = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc),
+            EndsAtUtc = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc)
+        };
+
+        var planned = SeasonSchedulePlanner.GenerateAdditional(settings, [august], 1, new DateTime(2026, 8, 4, 0, 0, 0, DateTimeKind.Utc));
+
+        var september = Assert.Single(planned);
+        Assert.Equal(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc), september.StartsAtUtc);
+        Assert.Equal(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), september.EndsAtUtc);
+        Assert.Equal(2, september.Sequence);
+    }
+
+    [Fact]
     public void Hard_deleted_seasons_do_not_advance_the_schedule_window()
     {
         var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));

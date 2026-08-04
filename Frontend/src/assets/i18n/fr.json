@@ -117,7 +117,8 @@
     "seasonSave": "Impossible d'enregistrer les paramètres de saison.",
     "seasonPreview": "Impossible de créer un aperçu de la saison.",
     "seasonAction": "Impossible d'effectuer l'action de la saison.",
-    "seasonPlan": "Impossible de planifier les saisons demandées."
+    "seasonPlan": "Impossible de planifier les saisons demandées.",
+    "seasonSetup": "Impossible de configurer le système de saisons."
   },
   "apiErrors": {
     "request": {
@@ -361,7 +362,10 @@
     "audit": {
       "title": "Événements d'audit",
       "description": "Activité chronologique avec acteurs et identifiants de corrélation.",
-      "empty": "Aucun événement d'audit au cours de cette période."
+      "empty": "Aucun événement d'audit au cours de cette période.",
+      "subject": "Sujet",
+      "hub": "Hub vocal",
+      "metadata": "Afficher les métadonnées"
     },
     "domain": {
       "kpis": {
@@ -1596,6 +1600,9 @@
     "enableHint": "L'XP cumulé reste inchangé. L'XP de saison ne démarre que pendant une saison active.",
     "configuratorLegend": "Configuration des saisons",
     "schedule": "Calendrier",
+    "planningMode": "Planification automatique",
+    "autoPrepare": "Préparer automatiquement les saisons futures",
+    "autoPrepareHint": "Désactivé : Rankoon ne crée des saisons qu'après confirmation. Activé : Rankoon maintient le nombre configuré de saisons futures.",
     "timeZone": "Fuseau horaire",
     "anchor": "Ancre de planification",
     "durationDays": "Durée en jours",
@@ -1606,6 +1613,7 @@
     "optional": "Facultatif",
     "gapDays": "Écart en jours",
     "preparedCount": "Nombre total de saisons préparées",
+    "setupCount": "Saisons à créer maintenant",
     "historyCount": "Saisons archivées publiques",
     "defaultScope": "Classement par défaut",
     "initialMode": "La première saison commence avec",
@@ -1625,6 +1633,10 @@
     "plan": "Planifier les saisons",
     "planningNow": "Planification...",
     "planSucceeded": "{{count}} saisons prévues.",
+    "setupSucceeded": "{{count}} saisons créées.",
+    "saveAndCreate": "Enregistrer et créer {{count}} saisons",
+    "create": "Créer {{count}} saisons",
+    "createMore": "Créer d'autres saisons",
     "planTitle": "Préparer les prochaines saisons",
     "planHint": "Créez des saisons planifiées jusqu'à en avoir {{count}} préparées au total, y compris la saison active ou en cours de clôture.",
     "saveBeforePlan": "Enregistrez vos modifications avant de planifier des saisons.",

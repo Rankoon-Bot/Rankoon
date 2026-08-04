@@ -117,7 +117,8 @@
     "seasonSave": "Die Season-Einstellungen konnten nicht gespeichert werden.",
     "seasonPreview": "Die Season-Vorschau konnte nicht erstellt werden.",
     "seasonAction": "Die Season-Aktion konnte nicht ausgeführt werden.",
-    "seasonPlan": "Die angeforderten Seasons konnten nicht geplant werden."
+    "seasonPlan": "Die angeforderten Seasons konnten nicht geplant werden.",
+    "seasonSetup": "Das Season-System konnte nicht eingerichtet werden."
   },
   "apiErrors": {
     "request": {
@@ -1703,6 +1704,9 @@
     "enableHint": "Ergänze die dauerhafte Lifetime-Rangliste um zeitlich begrenzte XP-Wettbewerbe.",
     "configuratorLegend": "Season-Konfiguration",
     "schedule": "Zeitplan",
+    "planningMode": "Automatische Vorausplanung",
+    "autoPrepare": "Zukünftige Seasons automatisch vorbereiten",
+    "autoPrepareHint": "Deaktiviert: Rankoon legt neue Seasons nur nach ausdrücklicher Bestätigung an. Aktiviert: Rankoon hält die konfigurierte Anzahl zukünftiger Seasons bereit.",
     "timeZone": "Zeitzone",
     "anchor": "Startpunkt des Zeitplans",
     "durationDays": "Dauer in Tagen",
@@ -1713,6 +1717,7 @@
     "optional": "Optional",
     "gapDays": "Pause in Tagen",
     "preparedCount": "Insgesamt vorbereitete Seasons",
+    "setupCount": "Jetzt anzulegende Seasons",
     "historyCount": "Öffentlicher Season-Verlauf",
     "defaultScope": "Standard-Rangliste",
     "initialMode": "Season-XP zum Start",
@@ -1732,6 +1737,10 @@
     "plan": "Seasons planen",
     "planningNow": "Wird geplant...",
     "planSucceeded": "{{count}} Seasons geplant.",
+    "setupSucceeded": "{{count}} Seasons angelegt.",
+    "saveAndCreate": "Speichern und {{count}} Seasons anlegen",
+    "create": "{{count}} Seasons anlegen",
+    "createMore": "Weitere Seasons anlegen",
     "planTitle": "Kommende Seasons vorbereiten",
     "planHint": "Erstelle geplante Seasons, bis insgesamt {{count}} Seasons vorbereitet sind, einschließlich der aktuell aktiven oder abschließenden Season.",
     "saveBeforePlan": "Speichere deine Änderungen, bevor du Seasons planst.",

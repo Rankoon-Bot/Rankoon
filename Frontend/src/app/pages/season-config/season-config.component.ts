@@ -39,6 +39,7 @@ export function defaultSeasonSettings(): SeasonSettings {
     defaultLeaderboardScope: 'Lifetime',
     timeZoneId: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     scheduleKind: 'FixedDuration',
+    planningMode: 'Explicit',
     scheduleAnchorUtc: null,
     fixedDurationDays: 30,
     gapDays: 0,
@@ -87,7 +88,9 @@ export class SeasonConfigComponent {
 
   @ViewChild(ConfirmationDialogComponent) private readonly confirmDialog?: ConfirmationDialogComponent;
 
-  readonly settings = signal<SeasonSettings | null>(null);
+  readonly persistedSettings = signal<SeasonSettings | null>(null);
+  readonly draftSettings = signal<SeasonSettings | null>(null);
+  readonly settings = this.draftSettings;
   readonly resources = signal<GuildResources>({ roles: [], channels: [] });
   readonly seasons = signal<Season[]>([]);
   readonly preview = signal<SeasonPreview[]>([]);
@@ -110,6 +113,10 @@ export class SeasonConfigComponent {
   private loadedGuild: Guild | null = null;
   private suppressNextGuildReload = false;
   private approvedGuildChangeId: string | null = null;
+  initialSeasonCount = 3;
+  additionalSeasonCount = 3;
+  private setupOperationId: string | null = null;
+  private setupRequestSnapshot: string | null = null;
 
   constructor() {
     effect(() => {
@@ -165,7 +172,8 @@ export class SeasonConfigComponent {
       next: value => {
         if (request !== this.loadRequest || this.store.selectedGuild()?.id !== guildId) return;
         const settings = this.fromApi(value.settings);
-        this.settings.set(settings);
+        this.persistedSettings.set(structuredClone(settings));
+        this.draftSettings.set(structuredClone(settings));
         this.baseline = this.serialize(settings);
         this.seasons.set(this.sortSeasons(value.seasons));
         this.resources.set(value.resources);
@@ -197,8 +205,9 @@ export class SeasonConfigComponent {
       next: saved => {
         if (this.store.selectedGuild()?.id !== guildId) return;
         const normalized = this.fromApi(saved);
+        this.persistedSettings.set(structuredClone(normalized));
         this.baseline = this.serialize(normalized);
-        if (this.settings() && this.serialize(this.settings()!) === requestSnapshot) this.settings.set(normalized);
+        if (this.settings() && this.serialize(this.settings()!) === requestSnapshot) this.draftSettings.set(structuredClone(normalized));
         this.toast.success(this.i18n.translate('seasons.saved'));
         this.refreshPreview();
         this.reloadSeasons(guildId);
@@ -214,7 +223,7 @@ export class SeasonConfigComponent {
 
   reset(): void {
     if (!this.baseline) return;
-    this.settings.set(JSON.parse(this.baseline) as SeasonSettings);
+    this.draftSettings.set(JSON.parse(this.baseline) as SeasonSettings);
     this.rotationInput = '';
     this.serverErrors.set({});
     this.pageError.set('');
@@ -232,7 +241,7 @@ export class SeasonConfigComponent {
     }
 
     this.previewing.set(true);
-    this.api.previewSeasons(guildId, this.toRequest(settings), 3).pipe(finalize(() => {
+    this.api.previewSeasons(guildId, this.toRequest(settings), this.planningCount()).pipe(finalize(() => {
       if (request === this.previewRequest) this.previewing.set(false);
     })).subscribe({
       next: preview => {
@@ -353,19 +362,41 @@ export class SeasonConfigComponent {
     this.refreshPreview();
   }
 
-  plan(): void {
+  setup(): void {
     const guildId = this.store.selectedGuild()?.id;
     const settings = this.settings();
-    if (!guildId || !settings?.enabled || this.dirty() || settings.scheduleKind === 'Manual' || !this.valid(settings) || this.planning()) return;
+    if (!guildId || !settings?.enabled || settings.scheduleKind === 'Manual' || !this.valid(settings) || this.planning() || this.planningCount() < 1) return;
+    const requestSnapshot = `${this.serialize(settings)}|${this.planningCount()}`;
+    if (!this.setupOperationId || this.setupRequestSnapshot !== requestSnapshot) {
+      this.setupOperationId = crypto.randomUUID();
+      this.setupRequestSnapshot = requestSnapshot;
+    }
     this.planning.set(true);
-    this.api.planSeasons(guildId, settings.preparedSeasonCount).pipe(finalize(() => this.planning.set(false))).subscribe({
-      next: planned => {
-        this.toast.success(this.i18n.translate('seasons.planSucceeded', { count: planned.length }));
-        this.reloadSeasons(guildId);
+    this.api.setupSeasonSystem(guildId, this.toRequest(settings), this.planningCount(), this.setupOperationId).pipe(finalize(() => this.planning.set(false))).subscribe({
+      next: response => {
+        if (this.store.selectedGuild()?.id !== guildId) return;
+        const saved = this.fromApi(response.settings);
+        this.persistedSettings.set(structuredClone(saved));
+        this.draftSettings.set(structuredClone(saved));
+        this.baseline = this.serialize(saved);
+        this.seasons.set(this.sortSeasons([...this.seasons(), ...response.seasons]));
+        this.setupOperationId = null;
+        this.setupRequestSnapshot = null;
+        this.toast.success(this.i18n.translate('seasons.setupSucceeded', { count: response.seasons.length }));
+        this.refreshPreview();
       },
-      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.seasonPlan').message),
+      error: error => {
+        const resolved = this.apiErrors.resolve(error, 'errors.seasonSetup');
+        this.serverErrors.set(this.mapServerErrors(resolved.validation));
+        this.pageError.set(resolved.message);
+        this.toast.error(resolved.message);
+      },
     });
   }
+
+  planningCount(): number { return this.seasons().some(season => season.status === 'Active' || season.status === 'Closing' || season.status === 'Scheduled') ? this.additionalSeasonCount : this.initialSeasonCount; }
+  hasConfirmedSeasons(): boolean { return this.seasons().some(season => season.status === 'Active' || season.status === 'Closing' || season.status === 'Scheduled'); }
+  setupActionKey(): string { return this.dirty() ? 'seasons.saveAndCreate' : (this.hasConfirmedSeasons() ? 'seasons.createMore' : 'seasons.create'); }
 
   requestAction(action: SeasonAction, season: Season): void {
     const guildId = this.store.selectedGuild()?.id;
@@ -623,7 +654,8 @@ export class SeasonConfigComponent {
       next: value => {
         if (this.store.selectedGuild()?.id !== guildId) return;
         const settings = this.fromApi(value.settings);
-        this.settings.set(settings);
+        this.persistedSettings.set(structuredClone(settings));
+        this.draftSettings.set(structuredClone(settings));
         this.baseline = this.serialize(settings);
         this.seasons.set(this.sortSeasons(value.seasons));
         this.serverErrors.set({});
@@ -633,12 +665,15 @@ export class SeasonConfigComponent {
     });
   }
 
-  private sortSeasons(items: Season[]): Season[] { return [...items].sort((a, b) => Number(b.sequence) - Number(a.sequence)); }
+  private sortSeasons(items: Season[]): Season[] {
+    const unique = new Map(items.map(item => [item.id ?? String(item.sequence), item]));
+    return [...unique.values()].sort((a, b) => Number(b.sequence) - Number(a.sequence));
+  }
 
   private toRequest(settings: SeasonSettings): SeasonSettings {
     return {
       ...settings,
-      scheduleAnchorUtc: settings.scheduleAnchorUtc ? new Date(settings.scheduleAnchorUtc).toISOString() : null,
+      scheduleAnchorUtc: settings.scheduleAnchorUtc ? this.localDateTimeToUtc(settings.scheduleAnchorUtc, settings.timeZoneId) : null,
       fixedDurationDays: settings.fixedDurationDays == null ? null : Number(settings.fixedDurationDays),
       gapDays: Number(settings.gapDays),
       preparedSeasonCount: Number(settings.preparedSeasonCount),
@@ -653,6 +688,7 @@ export class SeasonConfigComponent {
 
   private fromApi(settings: SeasonSettings): SeasonSettings {
     const result = structuredClone(settings);
+    result.planningMode ??= 'Explicit';
     result.fixedDurationDays = result.fixedDurationDays == null ? null : Number(result.fixedDurationDays);
     result.gapDays = Number(result.gapDays);
     result.preparedSeasonCount = Number(result.preparedSeasonCount);
@@ -665,12 +701,35 @@ export class SeasonConfigComponent {
     result.rotation ??= [];
     result.announcements ??= { startEnabled: false, endEnabled: false, winnerEnabled: false, warningOffsetsMinutes: [] };
     result.seasonLevelRoles ??= [];
-    if (result.scheduleAnchorUtc) {
-      const local = new Date(result.scheduleAnchorUtc);
-      const pad = (value: number) => value.toString().padStart(2, '0');
-      result.scheduleAnchorUtc = `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
-    }
+    if (result.scheduleAnchorUtc) result.scheduleAnchorUtc = this.utcToLocalDateTime(result.scheduleAnchorUtc, result.timeZoneId);
     return result;
+  }
+
+  private localDateTimeToUtc(value: string, timeZone: string): string {
+    const [date, time] = value.split('T');
+    const [year, month, day] = date.split('-').map(Number);
+    const [hour, minute] = time.split(':').map(Number);
+    const wall = Date.UTC(year, month - 1, day, hour, minute);
+    const candidates = this.timeZoneOffsets(timeZone, wall).map(offset => wall - offset);
+    const matching = candidates.filter(instant => this.utcToLocalDateTime(new Date(instant).toISOString(), timeZone) === value);
+    const instant = matching.length ? Math.min(...matching) : wall - this.timeZoneOffset(timeZone, wall);
+    return new Date(instant).toISOString();
+  }
+
+  private utcToLocalDateTime(value: string, timeZone: string): string {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(value));
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
+  }
+
+  private timeZoneOffsets(timeZone: string, wall: number): number[] {
+    return [...new Set([-172800000, -86400000, 0, 86400000, 172800000].map(delta => this.timeZoneOffset(timeZone, wall + delta)))];
+  }
+
+  private timeZoneOffset(timeZone: string, instant: number): number {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(instant));
+    const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(item => item.type === type)?.value ?? 0);
+    return Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second')) - instant;
   }
 
   private serialize(settings: SeasonSettings): string { return JSON.stringify(settings); }

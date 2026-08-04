@@ -42,6 +42,7 @@ public sealed class SeasonService(RankoonDbContext database, TimeProvider timePr
             .Set(x => x.DefaultLeaderboardScope, settings.DefaultLeaderboardScope)
             .Set(x => x.TimeZoneId, settings.TimeZoneId)
             .Set(x => x.ScheduleKind, settings.ScheduleKind)
+            .Set(x => x.PlanningMode, settings.PlanningMode)
             .Set(x => x.ScheduleAnchorUtc, settings.ScheduleAnchorUtc)
             .Set(x => x.FixedDurationDays, settings.FixedDurationDays)
             .Set(x => x.GapDays, settings.GapDays)

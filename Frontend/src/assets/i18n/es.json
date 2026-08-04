@@ -117,7 +117,8 @@
     "seasonSave": "No se pudo guardar la configuración de la temporada.",
     "seasonPreview": "No se pudo crear una vista previa de la temporada.",
     "seasonAction": "No se pudo realizar la acción de temporada.",
-    "seasonPlan": "No se pudieron planificar las temporadas solicitadas."
+    "seasonPlan": "No se pudieron planificar las temporadas solicitadas.",
+    "seasonSetup": "No se pudo configurar el sistema de temporadas."
   },
   "apiErrors": {
     "request": {
@@ -367,7 +368,10 @@
     "audit": {
       "title": "Eventos de auditoría",
       "description": "Actividad cronológica con actores e ID de correlación.",
-      "empty": "No hubo eventos de auditoría en este período."
+      "empty": "No hubo eventos de auditoría en este período.",
+      "subject": "Asunto",
+      "hub": "Hub de voz",
+      "metadata": "Mostrar metadatos"
     },
     "domain": {
       "kpis": {
@@ -1602,6 +1606,9 @@
     "enableHint": "El XP histórico no cambia. El XP de temporada solo se acumula durante una temporada activa.",
     "configuratorLegend": "Configuración de temporadas",
     "schedule": "Programación",
+    "planningMode": "Planificación automática",
+    "autoPrepare": "Preparar temporadas futuras automáticamente",
+    "autoPrepareHint": "Desactivado: Rankoon solo crea temporadas tras una confirmación explícita. Activado: Rankoon mantiene preparadas las temporadas futuras configuradas.",
     "timeZone": "Huso horario",
     "anchor": "Inicio de la programación",
     "durationDays": "Duración en días",
@@ -1612,6 +1619,7 @@
     "optional": "Opcional",
     "gapDays": "Intervalo en días",
     "preparedCount": "Total de temporadas preparadas",
+    "setupCount": "Temporadas que crear ahora",
     "historyCount": "Temporadas archivadas públicas",
     "defaultScope": "Tabla de clasificación predeterminada",
     "initialMode": "La primera temporada comienza con",
@@ -1631,6 +1639,10 @@
     "plan": "Planificar temporadas",
     "planningNow": "Planificando...",
     "planSucceeded": "{{count}} temporadas planificadas.",
+    "setupSucceeded": "{{count}} temporadas creadas.",
+    "saveAndCreate": "Guardar y crear {{count}} temporadas",
+    "create": "Crear {{count}} temporadas",
+    "createMore": "Crear más temporadas",
     "planTitle": "Preparar próximas temporadas",
     "planHint": "Crea temporadas programadas hasta tener {{count}} preparadas en total, incluida la temporada activa o en cierre.",
     "saveBeforePlan": "Guarda los cambios antes de planificar temporadas.",

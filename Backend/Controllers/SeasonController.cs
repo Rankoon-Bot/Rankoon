@@ -11,12 +11,14 @@ using Rankoon.Data.Xp;
 namespace Rankoon.Controllers;
 
 public sealed record PlanSeasonsRequest(int Count);
+public sealed record SetupSeasonSystemRequest(GuildSeasonSettings Settings, int SeasonCount, string? OperationId = null);
+public sealed record SetupSeasonSystemResponse(GuildSeasonSettings Settings, IReadOnlyList<GuildSeason> Seasons);
 public sealed record SeasonBulkResult(long AffectedCount);
 
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}/xp/seasons")]
-public sealed class SeasonController(IGuildAuthorizationService authorization, RankoonDbContext database, ISeasonService seasons, ISeasonLifecycleService lifecycle, SeasonCoordinator coordinator, TimeProvider timeProvider) : ControllerBase
+public sealed class SeasonController(IGuildAuthorizationService authorization, RankoonDbContext database, ISeasonService seasons, ISeasonLifecycleService lifecycle, SeasonCoordinator coordinator, SeasonPlanningService planning, TimeProvider timeProvider) : ControllerBase
 {
     private async Task<(ulong Id, IActionResult? Error)> AuthorizeAsync(string guildId)
     {
@@ -60,9 +62,30 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
             }
             var existing = await database.GuildSeasons.Find(x => x.GuildId == id).ToListAsync(HttpContext.RequestAborted);
             var now = timeProvider.GetUtcNow().UtcDateTime;
-            return Ok(SeasonSchedulePlanner.GenerateMissing(settings, existing, SeasonCoordinator.CountPrepared(existing, now) + count, now));
+            return Ok(planning.PlanAdditional(settings, existing, count, now));
         }
         catch (SeasonSettingsValidationException exception) { return ValidationError(exception); }
+        catch (TimeZoneNotFoundException) { return this.ApiError("season.invalidTimeZone"); }
+        catch (ArgumentException) { return this.ApiError("season.invalidSchedule"); }
+    }
+
+    [HttpPost("setup")]
+    public async Task<IActionResult> Setup(string guildId, [FromBody] SetupSeasonSystemRequest request)
+    {
+        var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
+        if (request.SeasonCount is < 1 or > 24) return this.ApiError("season.invalidSchedule", errors: new Dictionary<string, IReadOnlyList<ApiValidationError>>(StringComparer.Ordinal) { ["seasonCount"] = [ApiErrorFactory.Validation("season.invalidSchedule")] });
+        request.Settings.GuildId = id;
+        try
+        {
+            SeasonScheduleGenerator.Validate(request.Settings);
+            if (!request.Settings.Enabled) return this.ApiError("season.invalidTransition");
+            if (request.Settings.ScheduleKind == SeasonScheduleKind.Manual) return this.ApiError("season.manualSchedule");
+            var operationId = string.IsNullOrWhiteSpace(request.OperationId) ? Guid.NewGuid().ToString("N") : request.OperationId;
+            var result = await planning.SetupAsync(request.Settings, request.SeasonCount, operationId, HttpContext.RequestAborted);
+            return Ok(new SetupSeasonSystemResponse(result.Settings, result.Seasons));
+        }
+        catch (SeasonSettingsValidationException exception) { return ValidationError(exception); }
+        catch (SeasonPlanningConflictException) { return this.ApiError("season.planConflict"); }
         catch (TimeZoneNotFoundException) { return this.ApiError("season.invalidTimeZone"); }
         catch (ArgumentException) { return this.ApiError("season.invalidSchedule"); }
     }
@@ -114,24 +137,12 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
         if (settings.ScheduleKind == SeasonScheduleKind.Manual) return this.ApiError("season.manualSchedule");
         try
         {
-            var existing = await database.GuildSeasons.Find(x => x.GuildId == id).SortBy(x => x.Sequence).ToListAsync(HttpContext.RequestAborted);
-            var now = timeProvider.GetUtcNow().UtcDateTime;
-            var missing = request.Count - SeasonCoordinator.CountPrepared(existing, now);
-            if (missing <= 0) return Ok(Array.Empty<GuildSeason>());
-            var generated = SeasonSchedulePlanner.GenerateMissing(settings, existing, request.Count, now);
-            if (generated.Count != missing) return this.ApiError("season.planConflict");
-            var planned = new List<GuildSeason>();
-            foreach (var candidate in generated)
-            {
-                var plannedSeason = new GuildSeason { Id = ObjectId.GenerateNewId().ToString(), GuildId = id, Sequence = candidate.Sequence, Number = candidate.Number, NumberingEpoch = settings.NumberingEpoch, Name = candidate.Name, StartsAtUtc = candidate.StartsAtUtc, EndsAtUtc = candidate.EndsAtUtc, CreatedAtUtc = now, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, ScheduleOccurrence = candidate.ScheduleOccurrence, AutomaticallyNamed = true, SettingsSnapshot = settings };
-                planned.Add(plannedSeason);
-            }
-            if (planned.Count > 0) await database.GuildSeasons.InsertManyAsync(planned, cancellationToken: HttpContext.RequestAborted);
-            return Ok(planned);
+            return Ok(await planning.PlanExplicitAsync(settings, request.Count, HttpContext.RequestAborted));
         }
         catch (TimeZoneNotFoundException) { return this.ApiError("season.invalidTimeZone"); }
         catch (ArgumentException) { return this.ApiError("season.invalidSchedule"); }
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { return this.ApiError("season.planConflict"); }
+        catch (SeasonPlanningConflictException) { return this.ApiError("season.planConflict"); }
     }
 
     [HttpPut("{seasonId}")]

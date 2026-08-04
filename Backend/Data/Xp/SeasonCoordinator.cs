@@ -8,7 +8,7 @@ namespace Rankoon.Data.Xp;
 
 public sealed record SeasonCoordinatorStatus(DateTimeOffset? LastRunAt, string? LastError, int EnabledGuildCount = 0, int LeasesHeld = 0);
 
-public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycleService lifecycle, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<SeasonCoordinator> logger) : BackgroundService
+public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycleService lifecycle, SeasonPlanningService planning, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<SeasonCoordinator> logger) : BackgroundService
 {
     private readonly string instanceId = Guid.NewGuid().ToString("N");
     private volatile SeasonCoordinatorStatus status = new(null, null);
@@ -87,16 +87,10 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
 
     private async Task PrepareAsync(GuildSeasonSettings settings, IReadOnlyList<GuildSeason> existing, DateTime now, CancellationToken cancellationToken)
     {
-        if (settings.ScheduleKind == SeasonScheduleKind.Manual) return;
+        if (settings.PlanningMode != SeasonPlanningMode.MaintainPreparedBuffer || settings.ScheduleKind == SeasonScheduleKind.Manual) return;
         var missing = settings.PreparedSeasonCount - CountPrepared(existing, now);
         if (missing <= 0) return;
-        var generated = SeasonSchedulePlanner.GenerateMissing(settings, existing, settings.PreparedSeasonCount, now);
-        foreach (var item in generated)
-        {
-            var season = new GuildSeason { GuildId = settings.GuildId, Sequence = item.Sequence, Number = item.Number, NumberingEpoch = settings.NumberingEpoch, Name = item.Name, StartsAtUtc = item.StartsAtUtc, EndsAtUtc = item.EndsAtUtc, CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, ScheduleOccurrence = item.ScheduleOccurrence, AutomaticallyNamed = true, SettingsSnapshot = settings };
-            try { await database.GuildSeasons.InsertOneAsync(season, cancellationToken: cancellationToken); existing = existing.Append(season).ToList(); }
-            catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
-        }
+        await planning.PlanExplicitAsync(settings, missing, cancellationToken);
     }
 
     public static int CountPrepared(IEnumerable<GuildSeason> seasons, DateTime? notEndedAfterUtc = null) => seasons.Count(x =>

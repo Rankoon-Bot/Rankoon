@@ -255,6 +255,7 @@ export type SeasonScheduleKind =
   | 'Quarterly'
   | 'SemiAnnual'
   | 'Annual';
+export type SeasonPlanningMode = 'Explicit' | 'MaintainPreparedBuffer';
 export type SeasonStatus =
   'Scheduled' | 'Active' | 'Closing' | 'Closed' | 'Cancelled';
 export type SeasonLeaderboardScope = 'Lifetime' | 'CurrentSeason' | 'Season';
@@ -277,6 +278,7 @@ export interface SeasonSettings {
   defaultLeaderboardScope: SeasonLeaderboardScope;
   timeZoneId: string;
   scheduleKind: SeasonScheduleKind;
+  planningMode: SeasonPlanningMode;
   scheduleAnchorUtc: string | null;
   fixedDurationDays: number | null;
   gapDays: number;
@@ -324,6 +326,10 @@ export interface SeasonPreview {
   startsAtUtc: string;
   endsAtUtc: string;
   name: string;
+}
+export interface SeasonSetupResponse {
+  settings: SeasonSettings;
+  seasons: Season[];
 }
 export interface SeasonBulkOperationResult {
   affectedCount: number;
@@ -561,6 +567,17 @@ export class GuildService {
   }
   deleteSeason(guildId: string, seasonId: string): Observable<void> {
     return this.http.delete<void>(this.url(guildId, `xp/seasons/${seasonId}`));
+  }
+  setupSeasonSystem(
+    guildId: string,
+    settings: SeasonSettings,
+    seasonCount: number,
+    operationId: string,
+  ): Observable<SeasonSetupResponse> {
+    return this.http.post<SeasonSetupResponse>(
+      this.url(guildId, 'xp/seasons/setup'),
+      { settings, seasonCount, operationId },
+    );
   }
   resetSeasonCounter(guildId: string): Observable<SeasonBulkOperationResult> {
     return this.http.post<SeasonBulkOperationResult>(

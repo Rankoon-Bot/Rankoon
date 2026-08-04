@@ -117,7 +117,8 @@
     "seasonSave": "Could not save season settings.",
     "seasonPreview": "Could not create a season preview.",
     "seasonAction": "Could not perform the season action.",
-    "seasonPlan": "Could not plan the requested seasons."
+    "seasonPlan": "Could not plan the requested seasons.",
+    "seasonSetup": "Could not set up the season system."
   },
   "apiErrors": {
     "request": {
@@ -1718,6 +1719,9 @@
     "enableHint": "Add time-limited XP competitions alongside your permanent lifetime leaderboard.",
     "configuratorLegend": "Season configuration",
     "schedule": "Schedule",
+    "planningMode": "Automatic planning",
+    "autoPrepare": "Automatically prepare future seasons",
+    "autoPrepareHint": "Disabled: Rankoon creates seasons only after explicit confirmation. Enabled: Rankoon keeps the configured number of future seasons ready.",
     "timeZone": "Time zone",
     "anchor": "Schedule anchor",
     "durationDays": "Duration in days",
@@ -1728,6 +1732,7 @@
     "optional": "Optional",
     "gapDays": "Gap in days",
     "preparedCount": "Total seasons kept prepared",
+    "setupCount": "Seasons to create now",
     "historyCount": "Public season history",
     "defaultScope": "Default leaderboard",
     "initialMode": "Starting season XP",
@@ -1747,6 +1752,10 @@
     "plan": "Plan seasons",
     "planningNow": "Planning...",
     "planSucceeded": "Planned {{count}} seasons.",
+    "setupSucceeded": "Created {{count}} seasons.",
+    "saveAndCreate": "Save and create {{count}} seasons",
+    "create": "Create {{count}} seasons",
+    "createMore": "Create more seasons",
     "planTitle": "Prepare upcoming seasons",
     "planHint": "Create scheduled seasons until {{count}} seasons are prepared in total, including the current active or closing season.",
     "saveBeforePlan": "Save your changes before planning seasons.",

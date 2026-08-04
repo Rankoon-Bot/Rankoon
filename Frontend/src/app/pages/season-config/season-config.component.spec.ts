@@ -448,6 +448,42 @@ describe('SeasonConfigComponent', () => {
     http.expectOne(previewUrl).flush(previews);
   });
 
+  it('shows setup attention until a confirmed season exists, then sends settings and count together', () => {
+    flushInitialLoad(createSettings(), []);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.status-card')?.getAttribute('data-status')).toBe('attention');
+
+    component.initialSeasonCount = 2;
+    component.refreshPreview();
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/seasons/preview?count=2`).flush(previews);
+    component.setup();
+
+    const setup = http.expectOne(`${seasonsUrl}/setup`);
+    expect(setup.request.body.seasonCount).toBe(2);
+    expect(setup.request.body.settings.winnerCount).toBe(3);
+    setup.flush({ settings: createSettings(), seasons: [createSeason(1, 'Scheduled')] });
+    http.expectOne(previewUrl).flush(previews);
+    fixture.detectChanges();
+
+    expect(component.dirty()).toBeFalse();
+    expect(component.hasConfirmedSeasons()).toBeTrue();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.status-card')?.getAttribute('data-status')).toBe('ready');
+  });
+
+  it('keeps a failed setup draft and does not report success', () => {
+    flushInitialLoad(createSettings(), []);
+    const toast = TestBed.inject(ToastService);
+    spyOn(toast, 'success');
+    spyOn(toast, 'error');
+    component.settings()!.winnerCount = 5;
+    component.setup();
+    http.expectOne(`${seasonsUrl}/setup`).flush({ errorKey: 'season.planConflict' }, { status: 409, statusText: 'Conflict' });
+
+    expect(component.settings()!.winnerCount).toBe(5);
+    expect(component.dirty()).toBeTrue();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalled();
+  });
+
   it('resets the counter for following seasons through the confirmed endpoint', () => {
     flushInitialLoad();
     component.requestBulkAction('resetCounter');

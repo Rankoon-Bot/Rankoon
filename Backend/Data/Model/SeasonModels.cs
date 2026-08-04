@@ -5,6 +5,7 @@ using MongoDB.Bson.Serialization.IdGenerators;
 namespace Rankoon.Data.Model;
 
 public enum SeasonScheduleKind { Manual, FixedDuration, Monthly, Quarterly, SemiAnnual, Annual }
+public enum SeasonPlanningMode { Explicit, MaintainPreparedBuffer }
 public enum SeasonInitialXpMode { Zero, Lifetime, LifetimePercentage }
 public enum SeasonCarryOverMode { None, Percentage }
 public enum SeasonStatus { Scheduled, Active, Closing, Closed, Cancelled }
@@ -20,6 +21,7 @@ public sealed class GuildSeasonSettings
     [BsonElement("default_leaderboard_scope"), BsonRepresentation(BsonType.String)] public SeasonLeaderboardScope DefaultLeaderboardScope { get; set; } = SeasonLeaderboardScope.Lifetime;
     [BsonElement("time_zone_id")] public string TimeZoneId { get; set; } = "UTC";
     [BsonElement("schedule_kind"), BsonRepresentation(BsonType.String)] public SeasonScheduleKind ScheduleKind { get; set; } = SeasonScheduleKind.Manual;
+    [BsonElement("planning_mode"), BsonRepresentation(BsonType.String)] public SeasonPlanningMode PlanningMode { get; set; } = SeasonPlanningMode.Explicit;
     [BsonElement("schedule_anchor_utc")] public DateTime? ScheduleAnchorUtc { get; set; }
     [BsonElement("fixed_duration_days")] public int? FixedDurationDays { get; set; }
     [BsonElement("gap_days")] public int GapDays { get; set; }
@@ -153,6 +155,33 @@ public sealed class SeasonCoordinatorLease
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("owner_id")] public string OwnerId { get; set; } = string.Empty;
     [BsonElement("expires_at_utc")] public DateTime ExpiresAtUtc { get; set; }
+}
+
+public sealed class SeasonPlanningLease
+{
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonElement("owner_id")] public string OwnerId { get; set; } = string.Empty;
+    [BsonElement("expires_at_utc")] public DateTime ExpiresAtUtc { get; set; }
+}
+
+public sealed class SeasonSetupOperation
+{
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonElement("operation_id")] public string OperationId { get; set; } = string.Empty;
+    [BsonElement("candidates")] public List<SeasonSetupCandidate> Candidates { get; set; } = [];
+    [BsonElement("season_ids"), BsonRepresentation(BsonType.ObjectId)] public List<string> SeasonIds { get; set; } = [];
+}
+
+public sealed class SeasonSetupCandidate
+{
+    [BsonElement("sequence")] public long Sequence { get; set; }
+    [BsonElement("number"), BsonIgnoreIfNull] public long? Number { get; set; }
+    [BsonElement("starts_at_utc")] public DateTime StartsAtUtc { get; set; }
+    [BsonElement("ends_at_utc")] public DateTime EndsAtUtc { get; set; }
+    [BsonElement("name")] public string Name { get; set; } = string.Empty;
+    [BsonElement("schedule_occurrence")] public int ScheduleOccurrence { get; set; }
 }
 
 public sealed class SeasonAnnouncementDelivery
