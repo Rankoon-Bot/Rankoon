@@ -38,6 +38,7 @@ public sealed class LevelAnnouncementProfile
     [BsonElement("notify_user")] public bool NotifyUser { get; set; } = true;
     [BsonElement("announce_manual_adjustments")] public bool AnnounceManualAdjustments { get; set; }
     [BsonElement("avoid_recent_messages_per_user")] public int AvoidRecentMessagesPerUser { get; set; } = 3;
+    [BsonElement("avoid_recent_messages_per_guild")] public int AvoidRecentMessagesPerGuild { get; set; } = 10;
     [BsonElement("use_default_fallback")] public bool UseDefaultFallback { get; set; } = true;
     [BsonElement("fallback_locale")] public string FallbackLocale { get; set; } = "en";
     [BsonElement("level_up")] public LevelAnnouncementSet LevelUp { get; set; } = new();
@@ -68,6 +69,8 @@ public sealed class LevelAnnouncementConditions
     [BsonElement("exact_levels")] public List<int> ExactLevels { get; set; } = [];
     [BsonElement("sources")] public List<string> Sources { get; set; } = [];
 }
+
+public sealed record LevelAnnouncementRecentSelection(string? GroupId, string? MessageId);
 
 // Retained exclusively for schema-v1 MongoDB deserialization and migration.
 public sealed class LevelUpMessageTemplate

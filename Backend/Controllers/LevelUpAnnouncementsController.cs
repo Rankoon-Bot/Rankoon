@@ -31,7 +31,7 @@ public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService au
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
         var validation = Validate(settings); var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild;
         ValidateChannel(validation, "lifetime.channelId", settings.Lifetime, guild); ValidateChannel(validation, "season.channelId", settings.Season, guild);
-        if (validation.Count > 0) return this.ApiError("levelAnnouncements.settingsInvalid", errors: validation.GroupBy(x => x.Field).ToDictionary(x => x.Key, x => (IReadOnlyList<ApiValidationError>)x.Select(e => ApiErrorFactory.Validation(e.Code)).ToArray()));
+        if (validation.Count > 0) return this.ApiError("levelAnnouncements.settingsInvalid", errors: validation.GroupBy(x => x.Field).ToDictionary(x => x.Key, x => (IReadOnlyList<ApiValidationError>)x.Select(e => ApiErrorFactory.Validation($"levelAnnouncements.{e.Code}")).ToArray()));
         settings.Id = null; settings.GuildId = id; settings.SchemaVersion = 2; settings.UpdatedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
         var replacement = Builders<GuildLevelUpAnnouncementSettings>.Update.Set(x => x.SchemaVersion, 2).Set(x => x.Lifetime, settings.Lifetime).Set(x => x.Season, settings.Season).Set(x => x.UpdatedAtUtc, settings.UpdatedAtUtc).Unset("enabled").Unset("channel_id").Unset("notify_mentioned_user").Unset("use_default_fallback").Unset("fallback_locale").Unset("announce_manual_adjustments").Unset("avoid_recent_templates_per_user").Unset("templates").Inc(x => x.Revision, 1);
         var saved = await database.GuildLevelUpAnnouncementSettings.FindOneAndUpdateAsync(x => x.GuildId == id && x.Revision == settings.Revision, replacement, new FindOneAndUpdateOptions<GuildLevelUpAnnouncementSettings> { ReturnDocument = ReturnDocument.After }, HttpContext.RequestAborted);
@@ -95,6 +95,7 @@ public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService au
     private void ValidateProfile(List<TemplateValidationError> errors, LevelAnnouncementProfile profile, LevelProgressScope scope, string prefix)
     {
         if (profile.AvoidRecentMessagesPerUser is < 0 or > 20) errors.Add(new($"{prefix}.avoidRecentMessagesPerUser", "invalid"));
+        if (profile.AvoidRecentMessagesPerGuild is < 0 or > 100) errors.Add(new($"{prefix}.avoidRecentMessagesPerGuild", "invalid"));
         foreach (var (set, kind, key) in new[] { (profile.LevelUp, LevelAnnouncementKind.LevelUp, "levelUp"), (profile.Rewards, LevelAnnouncementKind.Reward, "rewards") }) foreach (var (group, index) in set.Groups.Select((g, i) => (g, i)))
         {
             var path = $"{prefix}.{key}.groups[{index}]"; if (string.IsNullOrWhiteSpace(group.Name)) errors.Add(new(path + ".name", "required")); if (group.Weight is < 1 or > 10000) errors.Add(new(path + ".weight", "invalid"));

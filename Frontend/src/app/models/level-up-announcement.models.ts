@@ -4,7 +4,7 @@ export interface LevelAnnouncementConditions { minimumLevel: number | null; maxi
 export interface LevelAnnouncementMessage { id: string; enabled: boolean; content: string; }
 export interface LevelAnnouncementGroup { id: string; name: string; enabled: boolean; weight: number; conditions: LevelAnnouncementConditions; messages: LevelAnnouncementMessage[]; }
 export interface LevelAnnouncementSet { groups: LevelAnnouncementGroup[]; }
-export interface LevelAnnouncementProfile { enabled: boolean; channelId: string | null; notifyUser: boolean; announceManualAdjustments: boolean; avoidRecentMessagesPerUser: number; useDefaultFallback: boolean; fallbackLocale: string; levelUp: LevelAnnouncementSet; rewards: LevelAnnouncementSet; }
+export interface LevelAnnouncementProfile { enabled: boolean; channelId: string | null; notifyUser: boolean; announceManualAdjustments: boolean; avoidRecentMessagesPerUser: number; avoidRecentMessagesPerGuild: number; useDefaultFallback: boolean; fallbackLocale: string; levelUp: LevelAnnouncementSet; rewards: LevelAnnouncementSet; }
 export interface LevelUpAnnouncementSettings { guildId?: string; schemaVersion: number; lifetime: LevelAnnouncementProfile; season: LevelAnnouncementProfile; revision: number; updatedAtUtc?: string; }
 export interface LevelUpAnnouncementResponse { settings: LevelUpAnnouncementSettings; migrated: boolean; channelStatus: { lifetime: { exists: boolean; canSend: boolean }; season: { exists: boolean; canSend: boolean } }; }
 export interface TemplateToken { name: string; requiresRewardRole: boolean; requiresSeason: boolean; }

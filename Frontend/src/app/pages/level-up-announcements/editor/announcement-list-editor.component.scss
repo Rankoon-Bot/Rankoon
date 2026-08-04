@@ -1,0 +1,15 @@
+:host { display: block; }
+.hint { color: var(--rk-text-muted); margin: 0 0 var(--rk-space-3); }
+.syntax-help { color: var(--rk-text-muted); margin-bottom: var(--rk-space-3); }
+.syntax-help summary { cursor: pointer; color: var(--rk-text-strong); padding: var(--rk-space-2) 0; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--rk-text-strong); background: var(--rk-surface-2); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-md); padding: var(--rk-space-3); }
+.line-editor { display: grid; grid-template-columns: auto minmax(0, 1fr); background: var(--rk-surface-2); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-md); overflow: hidden; }
+.line-numbers { display: grid; grid-auto-rows: var(--rk-control-height); padding: var(--rk-space-2) var(--rk-space-3); color: var(--rk-text-muted); background: var(--rk-surface-1); line-height: var(--rk-control-height); text-align: end; user-select: none; }
+.line-numbers span { display: block; height: var(--rk-control-height); }
+textarea { min-height: calc(var(--rk-control-height) * 18); resize: vertical; border: 0; border-radius: 0; font: inherit; line-height: var(--rk-control-height); padding: var(--rk-space-2); }
+.editor-meta, .tokens, .editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--rk-space-2); margin-top: var(--rk-space-3); color: var(--rk-text-muted); }
+.tokens button, .editor-actions button { width: auto; min-height: var(--rk-control-height); }
+.diagnostics { display: grid; gap: var(--rk-space-2); margin-top: var(--rk-space-3); }
+.diagnostics p { margin: 0; padding: var(--rk-space-2); border-left: 3px solid var(--rk-danger); background: var(--rk-surface-2); }
+.diagnostics p.warning { border-color: var(--rk-status-warning); }
+@media (max-width: 768px) { .line-editor { grid-template-columns: min-content minmax(0, 1fr); } .line-numbers { padding-inline: var(--rk-space-2); } }

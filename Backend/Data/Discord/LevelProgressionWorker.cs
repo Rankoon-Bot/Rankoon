@@ -17,10 +17,14 @@ public interface IDiscordAnnouncementSender
 
 public sealed class DiscordAnnouncementSender : IDiscordAnnouncementSender
 {
+    internal static AllowedMentions CreateAllowedMentions(ulong targetUserId, bool notifyUser) => notifyUser
+        ? new AllowedMentions(null) { UserIds = [targetUserId] }
+        : AllowedMentions.None;
+
     public async Task<ulong> SendAsync(SocketTextChannel channel, string content, ulong targetUserId, bool notifyUser, CancellationToken cancellationToken = default)
     {
         // Only the transition user may be pinged. Role mentions remain visual text.
-        var mentions = new AllowedMentions(AllowedMentionTypes.Users) { UserIds = notifyUser ? [targetUserId] : [] };
+        var mentions = CreateAllowedMentions(targetUserId, notifyUser);
         var message = await channel.SendMessageAsync(content, allowedMentions: mentions, options: new RequestOptions { CancelToken = cancellationToken });
         return message.Id;
     }
@@ -69,9 +73,17 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
             if (guild == null || user == null || channel == null) { await FailAsync(claimed, "channelUnavailable", true, cancellationToken); return; }
             var member = await database.MemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? new MemberXp();
             var context = new LevelUpRenderContext($"<@{claimed.UserId}>", user.DisplayName, user.Username, claimed.UserId, claimed.PreviousLevel, claimed.NewLevel, claimed.PreviousTotalXp, claimed.NewTotalXp, cause.GainedXp, claimed.Source, cause.ChannelId is { } sourceChannel ? $"<#{sourceChannel}>" : null, guild.Name, guild.MemberCount, member.MessageCount, member.VoiceSeconds, null, roleResult.Added.OrderBy(x => x.RequiredLevel).ToArray()) { Scope = claimed.Scope, SeasonId = claimed.SeasonId, SeasonName = claimed.SeasonNameSnapshot };
-            var recentEvents = await database.LevelTransitionEvents.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId && x.Scope == claimed.Scope && x.Status == LevelTransitionStatus.Delivered).SortByDescending(x => x.CompletedAtUtc).Limit(announcementSettings.AvoidRecentMessagesPerUser).Project(x => new { x.SelectedGroupId, x.SelectedMessageId }).ToListAsync(cancellationToken);
             var kind = roleResult.Added.Count > 0 ? LevelAnnouncementKind.Reward : LevelAnnouncementKind.LevelUp;
-            var selection = selector.Select(announcementSettings, kind, context, recentEvents.Where(x => x.SelectedGroupId != null).Select(x => x.SelectedGroupId!).ToArray(), recentEvents.Where(x => x.SelectedMessageId != null).Select(x => x.SelectedMessageId!).ToArray());
+            var recentUserEvents = announcementSettings.AvoidRecentMessagesPerUser == 0
+                ? Array.Empty<LevelAnnouncementRecentSelection>()
+                : (await database.LevelTransitionEvents.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId && x.Scope == claimed.Scope && x.Status == LevelTransitionStatus.Delivered && (claimed.Scope != LevelProgressScope.Season || x.SeasonId == claimed.SeasonId)).SortByDescending(x => x.CompletedAtUtc).Limit(announcementSettings.AvoidRecentMessagesPerUser).Project(x => new LevelAnnouncementRecentSelection(x.SelectedGroupId, x.SelectedMessageId)).ToListAsync(cancellationToken)).ToArray();
+            var recentGuildEvents = announcementSettings.AvoidRecentMessagesPerGuild == 0
+                ? Array.Empty<LevelAnnouncementRecentSelection>()
+                : (await database.LevelTransitionEvents.Find(x => x.GuildId == claimed.GuildId && x.Scope == claimed.Scope && x.Status == LevelTransitionStatus.Delivered && (claimed.Scope != LevelProgressScope.Season || x.SeasonId == claimed.SeasonId)).SortByDescending(x => x.CompletedAtUtc).Limit(announcementSettings.AvoidRecentMessagesPerGuild).Project(x => new LevelAnnouncementRecentSelection(x.SelectedGroupId, x.SelectedMessageId)).ToListAsync(cancellationToken)).ToArray();
+            var recentEvents = recentUserEvents.Concat(recentGuildEvents).ToArray();
+            var recentGroups = recentEvents.Where(x => x.GroupId != null).Select(x => x.GroupId!).Distinct(StringComparer.Ordinal).ToArray();
+            var recentMessages = recentEvents.Where(x => x.MessageId != null).Select(x => x.MessageId!).Distinct(StringComparer.Ordinal).ToArray();
+            var selection = selector.Select(announcementSettings, kind, context, recentGroups, recentMessages);
             if (selection == null && kind == LevelAnnouncementKind.Reward) selection = selector.Select(announcementSettings, LevelAnnouncementKind.LevelUp, context, [], []);
             var contentTemplate = selection?.Message.Content ?? (announcementSettings.UseDefaultFallback ? LevelAnnouncementFallbacks.Content(announcementSettings.FallbackLocale, kind == LevelAnnouncementKind.Reward) : null);
             if (contentTemplate == null) { await ReportAsync(claimed, ReportNames.LevelAnnouncementNoTemplate, ReportOutcomes.Rejected, cancellationToken); await CompleteAsync(claimed, LevelTransitionStatus.CompletedWithoutAnnouncement, null, cancellationToken); return; }

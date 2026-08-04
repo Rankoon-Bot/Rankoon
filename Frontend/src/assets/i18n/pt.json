@@ -246,7 +246,7 @@
       "channelUnavailable": "O canal configurado não está disponível.",
       "revisionConflict": "As mensagens de subida de nível mudaram desde que foram carregadas.",
       "settingsInvalid": "As definições de anúncio de subida de nível são inválidas.",
-      "templateInvalid": "O modelo não pode ser renderizado."
+      "templateInvalid": "O modelo não pode ser renderizado.", "required": "A required announcement value is missing.", "invalid": "An announcement value is invalid.", "activeMessageRequired": "An enabled announcement group needs an active message.", "duplicateId": "Announcement group and message IDs must be unique.", "length": "The announcement message length is invalid.", "unknownToken": "The announcement contains an unknown template token.", "missingContext": "The announcement token context is unavailable.", "invalidToken": "The announcement contains an invalid template token.", "rewardTokenRequiresRewardSet": "Reward tokens can only be used in the Rewards set.", "seasonTokenRequiresSeasonScope": "Season tokens can only be used in the Season scope.", "channelInvalid": "The selected channel is invalid."
     },
     "customBotIdentity": {
       "disabled": "Custom Bot Identity está desativado nesta instância Rankoon.",
@@ -1044,7 +1044,11 @@
     "channel": "Canal alvo",
     "channelRequired": "Escolha um canal de texto antes de guardar.",
     "notify": "Notificar o utilizador que subiu de nível",
-    "repetition": "Proteção contra repetições",
+    "notifyHint": "Allows {user.mention} to ping the user who leveled up. The message is still sent when this is disabled, but without a notification ping.",
+    "repetition": "Repeat protection per user",
+    "repetitionHint": "Number of recent messages per user to avoid. 0 disables it; 1 avoids the last message; 3 avoids the last three when alternatives exist. Repeats remain possible if no suitable alternative exists.",
+    "repetitionGuild": "Global repeat protection",
+    "repetitionGuildHint": "Number of recent messages from the entire server to avoid. 0 disables global protection; 10 avoids repeats across the last 10 level-up messages.",
     "save": "Guardar",
     "reset": "Redefinir alterações",
     "test": "Enviar mensagem de teste",
@@ -1063,7 +1067,9 @@
     "roleCondition": "Requisito de função",
     "templateActions": "Ações para {{name}}",
     "duplicate": "Duplicado",
-    "delete": "Eliminar"
+    "delete": "Eliminar",
+    "serverLevel": "Server level", "seasonLevel": "Season level", "levelUp": "Level up", "rewards": "Rewards", "oneLineHint": "One line is one Discord message.", "syntaxHelp": "Syntax help", "syntaxHelpText": "Use a relative positive weight.", "editorPlaceholder": "// @group Standard | weight=60\nCongratulations {user.mention}! You reached level {level}.", "lines": "lines", "insertToken": "Insert token:", "diagnosticLine": "Line {{line}}:", "normalize": "Normalize formatting", "recognizedGroups": "Recognized groups", "probabilityHint": "Percentages are normalized across enabled groups.", "noGroups": "No groups or messages recognized yet.", "activeMessages": "active messages", "disabledMessages": "disabled messages", "optionalRules": "Optional selection rules for {{name}}", "rulesHint": "These conditions remain structured settings.", "minimumLevel": "Minimum level", "maximumLevel": "Maximum level", "everyNthLevel": "Every nth level", "conditionInvalid": "O valor deve estar vazio ou ser pelo menos 1.", "fixErrors": "Corrija os erros destacados antes de guardar.",
+    "errors": { "invalidGroupDirective": "Invalid group directive.", "emptyGroupName": "The group name cannot be empty.", "invalidWeight": "The weight is invalid.", "duplicateGroupName": "Group names must be unique.", "emptyGroup": "This group has no messages.", "activeMessageRequired": "An enabled group needs an active message.", "messageTooLong": "This message is too long.", "emptyOffMessage": "A disabled message needs content.", "emptyMessage": "A message cannot be empty.", "unknownDirective": "Unknown directive.", "unknownToken": "Unknown template token: {{token}}.", "rewardTokenRequiresRewardSet": "Reward tokens require the Rewards set.", "seasonTokenRequiresSeasonScope": "Season tokens require the Season scope." }, "warnings": { "duplicateMessage": "Duplicate message text increases its probability.", "noGroups": "No groups were recognized." }
   },
   "nav": {
     "leaderboard": "Tabela de classificação",

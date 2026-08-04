@@ -246,7 +246,8 @@
       "channelUnavailable": "Der konfigurierte Kanal ist nicht verfügbar.",
       "revisionConflict": "Die Level-Up-Nachrichten wurden zwischenzeitlich geändert.",
       "settingsInvalid": "Die Level-Up-Einstellungen sind ungültig.",
-      "templateInvalid": "Die Vorlage kann nicht gerendert werden."
+      "templateInvalid": "Die Vorlage kann nicht gerendert werden.",
+      "required": "Ein erforderlicher Wert fuer die Ankuendigung fehlt.", "invalid": "Ein Wert der Ankuendigung ist ungueltig.", "activeMessageRequired": "Eine aktive Spruchgruppe benoetigt einen aktiven Spruch.", "duplicateId": "Gruppen- und Spruch-IDs muessen eindeutig sein.", "length": "Die Laenge des Spruchs ist ungueltig.", "unknownToken": "Die Ankuendigung enthaelt einen unbekannten Template-Token.", "missingContext": "Der Kontext fuer einen Ankuendigungs-Token ist nicht verfuegbar.", "invalidToken": "Die Ankuendigung enthaelt einen ungueltigen Template-Token.", "rewardTokenRequiresRewardSet": "Reward-Tokens koennen nur im Rewards-Set verwendet werden.", "seasonTokenRequiresSeasonScope": "Season-Tokens koennen nur im Season-Scope verwendet werden.", "channelInvalid": "Der ausgewaehlte Kanal ist ungueltig."
     },
     "customBotIdentity": {
       "disabled": "Custom Bot Identity ist auf dieser Rankoon-Instanz deaktiviert.",
@@ -1086,7 +1087,11 @@
     "channel": "Zielkanal",
     "channelRequired": "Wähle vor dem Speichern einen Textkanal aus.",
     "notify": "Aufgestiegenen Nutzer benachrichtigen",
-    "repetition": "Wiederholungsschutz",
+    "notifyHint": "Erlaubt {user.mention}, den aufgestiegenen Nutzer zu markieren. Die Nachricht wird auch bei deaktivierter Option gesendet, aber ohne Benachrichtigungs-Ping.",
+    "repetition": "Wiederholungsschutz pro Nutzer",
+    "repetitionHint": "Anzahl der letzten Sprueche pro Nutzer, die vermieden werden sollen. 0 deaktiviert den Schutz; 1 vermeidet den letzten Spruch; 3 die letzten drei, sofern Alternativen vorhanden sind. Wiederholungen bleiben moeglich, wenn kein passender Ersatz existiert.",
+    "repetitionGuild": "Globale Wiederholungsvermeidung",
+    "repetitionGuildHint": "Anzahl der letzten Sprueche des gesamten Servers, die vermieden werden sollen. 0 deaktiviert den globalen Schutz; 10 verhindert Wiederholungen ueber die letzten 10 Level-Up-Nachrichten hinweg.",
     "save": "Speichern",
     "reset": "Aenderungen zuruecksetzen",
     "test": "Testnachricht senden",
@@ -1105,7 +1110,11 @@
     "roleCondition": "Rollenbedingung",
     "templateActions": "Aktionen fuer {{name}}",
     "duplicate": "Duplizieren",
-    "delete": "Loeschen"
+    "delete": "Loeschen",
+    "serverLevel": "Server-Level", "seasonLevel": "Season-Level", "levelUp": "Level Up", "rewards": "Belohnungen",
+    "oneLineHint": "Eine Zeile entspricht genau einer Discord-Nachricht. Gruppen beginnen mit einer Gruppendirektive.", "syntaxHelp": "Syntaxhilfe", "syntaxHelpText": "Verwende eine positive relative Gewichtung. Leerzeilen werden ignoriert. Mit @off bleiben deaktivierte Sprueche erhalten.", "editorPlaceholder": "// @group Standard | weight=60\nGlückwunsch {user.mention}! Du hast Level {level} erreicht.", "lines": "Zeilen", "insertToken": "Token einfuegen:", "diagnosticLine": "Zeile {{line}}:", "normalize": "Formatierung normalisieren", "recognizedGroups": "Erkannte Gruppen", "probabilityHint": "Prozentwerte werden ueber aktive Gruppen normalisiert. Auswahlregeln und Wiederholungsschutz koennen die tatsaechliche Wahrscheinlichkeit veraendern.", "noGroups": "Noch wurden keine Gruppen oder Sprueche erkannt.", "activeMessages": "aktive Sprueche", "disabledMessages": "deaktivierte Sprueche", "optionalRules": "Optionale Auswahlregeln fuer {{name}}", "rulesHint": "Diese Bedingungen bleiben strukturierte Einstellungen und veraendern den Editortext nicht.", "minimumLevel": "Mindestlevel", "maximumLevel": "Hoechstlevel", "everyNthLevel": "Jedes n-te Level", "conditionInvalid": "Der Wert muss leer bleiben oder mindestens 1 sein.", "fixErrors": "Behebe die hervorgehobenen Fehler vor dem Speichern.",
+    "errors": { "invalidGroupDirective": "Ungueltige Gruppendirektive. Erwartet: // @group Name | weight=10", "emptyGroupName": "Der Gruppenname darf nicht leer sein.", "invalidWeight": "Die Gewichtung muss zwischen 1 und {{maximum}} liegen.", "duplicateGroupName": "Gruppennamen muessen innerhalb eines Sets eindeutig sein.", "emptyGroup": "Diese Gruppe enthaelt keine Sprueche.", "activeMessageRequired": "Eine aktive Gruppe benoetigt mindestens einen aktiven Spruch.", "messageTooLong": "Dieser Spruch ist laenger als {{maximum}} Zeichen.", "emptyOffMessage": "Ein deaktivierter Spruch benoetigt Inhalt nach @off.", "emptyMessage": "Ein Spruch darf nicht leer sein.", "unknownDirective": "Unbekannte //-Direktive. Erlaubt sind nur @group und @off.", "unknownToken": "Unbekannter Template-Token: {{token}}.", "rewardTokenRequiresRewardSet": "Reward-Tokens koennen nur im Rewards-Set verwendet werden.", "seasonTokenRequiresSeasonScope": "Season-Tokens koennen nur im Season-Scope verwendet werden." },
+    "warnings": { "duplicateMessage": "Doppelte Sprueche erhoehen die effektive Wahrscheinlichkeit dieses Textes.", "noGroups": "Es wurden keine Gruppen erkannt." }
   },
   "nav": {
     "leaderboard": "Rangliste",

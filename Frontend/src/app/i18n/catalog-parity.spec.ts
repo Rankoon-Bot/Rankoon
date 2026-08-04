@@ -3,7 +3,7 @@ import { GUILD_MODULE_IDS } from '../models/guild-permissions.models';
 import { SUPPORTED_LOCALES } from './locale.service';
 
 describe('translation catalogs', () => {
-  const expectedKeyCount = 1832;
+  const expectedKeyCount = 1886;
   const namespaces = [
     'activity',
     'analytics',
