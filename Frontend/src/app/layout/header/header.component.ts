@@ -20,7 +20,10 @@ import { ApiErrorService } from '../../services/api-error.service';
                 <button *ngIf="authStore.isAuthenticated()" class="menu-btn" type="button" [attr.aria-label]="'header.toggleNavigation' | transloco" [attr.aria-expanded]="layoutState.mobileNavigationOpen()" aria-controls="primary-navigation" (click)="layoutState.toggleMobileNavigation()">
                     <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
                 </button>
-                <a class="logo" routerLink="/">Rankoon</a>
+                <a class="logo" routerLink="/">
+                    <img src="/rankoon/icon.png" alt="" aria-hidden="true">
+                    <span>Rankoon</span>
+                </a>
                 <div *ngIf="appStore.hasSelectedGuild()" class="guild-picker">
                   <button #guildTrigger class="guild-info" type="button" aria-haspopup="menu" [attr.aria-expanded]="isGuildDropdownOpen" (click)="toggleGuildDropdown()">
                     <div class="guild-icon">
@@ -190,10 +193,16 @@ export class HeaderComponent implements OnInit {
 
     getAvatarUrl(): string | undefined {
         const user = this.authStore.user();
-        if (user && user.discordId && user.avatar) {
+        if (!user?.discordId) return undefined;
+        if (user.avatar) {
             return `https://cdn.discordapp.com/avatars/${user.discordId}/${user.avatar}.webp?size=128`;
         }
-        return undefined;
+        try {
+            const defaultAvatarIndex = (BigInt(user.discordId) >> 22n) % 6n;
+            return `https://cdn.discordapp.com/embed/avatars/${defaultAvatarIndex}.png`;
+        } catch {
+            return undefined;
+        }
     }
 
     goToServerSelection(): void {

@@ -21,6 +21,9 @@
 }
 
 .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rk-space-2);
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -28,6 +31,19 @@
   margin: 0;
   color: var(--rk-text-strong);
   white-space: nowrap;
+  text-decoration: none;
+  border-radius: var(--rk-radius-sm);
+
+  img {
+    width: var(--rk-control-height-compact);
+    height: var(--rk-control-height-compact);
+    object-fit: contain;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--rk-focus-ring);
+  }
 }
 
 .guild-picker { position: relative; min-width: 0; }
@@ -450,6 +466,11 @@
 
   .logo {
     font-size: 0.85rem;
+
+    img {
+      width: var(--rk-space-6);
+      height: var(--rk-space-6);
+    }
   }
 
   .guild-info {

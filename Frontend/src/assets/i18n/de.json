@@ -10,6 +10,7 @@
     "active": "Aktiv",
     "inactive": "Inaktiv",
     "paused": "Pausiert",
+    "edit": "Bearbeiten",
     "on": "An",
     "off": "Aus",
     "all": "Alle",
@@ -380,7 +381,10 @@
     "audit": {
       "title": "Audit-Ereignisse",
       "description": "Chronologische Aktivität mit Akteuren und Korrelations-IDs.",
-      "empty": "Keine Audit-Ereignisse in diesem Zeitraum."
+      "empty": "Keine Audit-Ereignisse in diesem Zeitraum.",
+      "subject": "Betreff",
+      "hub": "Voice-Hub",
+      "metadata": "Metadaten anzeigen"
     },
     "domain": {
       "kpis": {
@@ -429,7 +433,7 @@
     "secure": "Sichere Authentifizierung",
     "control": "Vollständige Bot-Kontrolle",
     "analytics": "Detaillierte Logs & Analytics",
-    "copyright": "© 2025 Rankoon Dashboard. Alle Rechte vorbehalten."
+    "copyright": "© 2026 Rankoon. Alle Rechte vorbehalten."
   },
   "authCallback": {
     "processing": "Anmeldung wird verarbeitet...",
@@ -751,6 +755,26 @@
           },
           "json": {
             "imported": "Ranglisten-JSON importiert"
+          },
+          "projection": {
+            "repaired": "XP-Projektion repariert"
+          },
+          "manual-adjustment": {
+            "created": "Manuelle XP-Korrektur erstellt",
+            "reversed": "Manuelle XP-Korrektur zurückgebucht"
+          },
+          "level-announcement": {
+            "settings": {
+              "changed": "Level-Up-Ankündigungseinstellungen geändert"
+            },
+            "test": {
+              "sent": "Test für Level-Up-Ankündigung gesendet"
+            },
+            "sent": "Level-Up-Ankündigung gesendet",
+            "no-template": "Level-Up-Ankündigung übersprungen: Keine Vorlage"
+          },
+          "level-roles": {
+            "partially-failed": "Einige Levelrollen konnten nicht vergeben werden"
           }
         },
         "voice": {
@@ -781,6 +805,13 @@
         "permissions": {
           "roles": {
             "changed": "Rollenberechtigungen geändert"
+          }
+        },
+        "season": {
+          "started": "Season gestartet",
+          "closed": "Season beendet",
+          "carryover": {
+            "applied": "Season-XP-Übertrag angewendet"
           }
         }
       },

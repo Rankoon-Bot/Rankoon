@@ -19,7 +19,7 @@ public sealed record GuildAnalyticsOverviewResponse(DateTimeOffset GeneratedAt, 
 public sealed record GuildAnalyticsXpResponse(DateTimeOffset GeneratedAt, AnalyticsPeriod Period, IReadOnlyList<AnalyticsKpi> Kpis, IReadOnlyList<AnalyticsTrendPoint> Trend, IReadOnlyList<AnalyticsBreakdown> Breakdown, IReadOnlyList<AnalyticsInsight> Insights) : GuildAnalyticsPageResponse(GeneratedAt, Period, Kpis, Trend, Breakdown, Insights);
 public sealed record GuildAnalyticsVoiceResponse(DateTimeOffset GeneratedAt, AnalyticsPeriod Period, IReadOnlyList<AnalyticsKpi> Kpis, IReadOnlyList<AnalyticsTrendPoint> Trend, IReadOnlyList<AnalyticsBreakdown> Breakdown, IReadOnlyList<AnalyticsInsight> Insights) : GuildAnalyticsPageResponse(GeneratedAt, Period, Kpis, Trend, Breakdown, Insights);
 public sealed record GuildAnalyticsFeaturesResponse(DateTimeOffset GeneratedAt, AnalyticsPeriod Period, IReadOnlyList<AnalyticsKpi> Kpis, IReadOnlyList<AnalyticsTrendPoint> Trend, IReadOnlyList<AnalyticsBreakdown> Breakdown, IReadOnlyList<AnalyticsInsight> Insights) : GuildAnalyticsPageResponse(GeneratedAt, Period, Kpis, Trend, Breakdown, Insights);
-public sealed record AnalyticsAuditItem(string Id, DateTimeOffset OccurredAt, string Code, string? ActorId, string? ActorName, string? SubjectId, string? SubjectName, string Outcome, string? CorrelationId, IReadOnlyDictionary<string, string> Metadata, string? ChannelId = null, string? ChannelName = null);
+public sealed record AnalyticsAuditItem(string Id, DateTimeOffset OccurredAt, string Code, string? ActorId, string? ActorName, string? SubjectId, string? SubjectName, string Outcome, string? CorrelationId, IReadOnlyDictionary<string, string> Metadata, string? ChannelId = null, string? ChannelName = null, string? HubName = null);
 public sealed record GuildAnalyticsAuditResponse(DateTimeOffset GeneratedAt, AnalyticsPeriod Period, IReadOnlyList<AnalyticsKpi> Kpis, IReadOnlyList<AnalyticsTrendPoint> Trend, IReadOnlyList<AnalyticsBreakdown> Breakdown, IReadOnlyList<AnalyticsInsight> Insights, IReadOnlyList<AnalyticsAuditItem> Items, string? NextCursor) : GuildAnalyticsPageResponse(GeneratedAt, Period, Kpis, Trend, Breakdown, Insights);
 public sealed record AnalyticsAuditQuery(string? Range, DateTimeOffset? From, DateTimeOffset? To, string? Type, string? Feature, string? Outcome, ulong? ActorUserId, ulong? ChannelId, string? Search, string? Cursor, int Limit = 50);
 
@@ -35,6 +35,8 @@ public interface IGuildAnalyticsQueryService
 
 public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimeProvider timeProvider, IMemoryCache cache, ISignedCursorService cursors, IGuildDiscordContextResolver discord, IGuildAnalyticsRecorder telemetry) : IGuildAnalyticsQueryService
 {
+    private const string ExperienceFeature = "experience";
+
     public static bool TryParseRange(string? value, out AnalyticsRange range)
     {
         range = value switch { "24h" => AnalyticsRange.Last24Hours, null or "" or "7d" => AnalyticsRange.Last7Days, "30d" => AnalyticsRange.Last30Days, "90d" => AnalyticsRange.Last90Days, _ => default };
@@ -155,7 +157,7 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
         else { if (!TryParseRange(query.Range, out var range)) throw new ArgumentException("Invalid range."); period = CreatePeriod(range, now); }
         if (query.Limit is < 1 or > 100) throw new ArgumentException("Invalid limit.");
         var binding = $"audit|{guildId}|{period.From:O}|{period.To:O}|{NormalizeBinding(query.Type)}|{NormalizeBinding(query.Feature)}|{NormalizeBinding(query.Outcome)}|{query.ActorUserId}|{query.ChannelId}|{NormalizeBinding(query.Search)}|{query.Limit}";
-        var filter = Builders<GuildAuditEvent>.Filter.Eq(x => x.GuildId, guildId) & Builders<GuildAuditEvent>.Filter.Gte(x => x.OccurredAtUtc, period.From.UtcDateTime) & Builders<GuildAuditEvent>.Filter.Lte(x => x.OccurredAtUtc, period.To.UtcDateTime);
+        var filter = Builders<GuildAuditEvent>.Filter.Eq(x => x.GuildId, guildId) & Builders<GuildAuditEvent>.Filter.Ne(x => x.Feature, ExperienceFeature) & Builders<GuildAuditEvent>.Filter.Gte(x => x.OccurredAtUtc, period.From.UtcDateTime) & Builders<GuildAuditEvent>.Filter.Lte(x => x.OccurredAtUtc, period.To.UtcDateTime);
         if (!string.IsNullOrWhiteSpace(query.Type)) filter &= Builders<GuildAuditEvent>.Filter.Eq(x => x.Type, NormalizeFilter(query.Type));
         if (!string.IsNullOrWhiteSpace(query.Feature)) filter &= Builders<GuildAuditEvent>.Filter.Eq(x => x.Feature, NormalizeFilter(query.Feature));
         if (!string.IsNullOrWhiteSpace(query.Outcome)) filter &= Builders<GuildAuditEvent>.Filter.Eq(x => x.Outcome, NormalizeFilter(query.Outcome));
@@ -176,6 +178,13 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
         var documents = await database.GuildAuditEvents.Find(filter).Sort(Builders<GuildAuditEvent>.Sort.Descending(x => x.OccurredAtUtc).Descending("_id")).Limit(query.Limit + 1).ToListAsync(token);
         var page = documents.Take(query.Limit).ToArray(); var last = page.LastOrDefault();
         var next = documents.Count > query.Limit && last?.Id != null ? cursors.Create(new DateTimeOffset(DateTime.SpecifyKind(last.OccurredAtUtc, DateTimeKind.Utc)), last.Id, binding) : null;
+        var hubIds = page.SelectMany(x => x.Metadata.TryGetValue("hubId", out var hubId) && !string.IsNullOrWhiteSpace(hubId) ? [hubId] : Array.Empty<string>()).Distinct().ToArray();
+        var hubNames = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (hubIds.Length > 0)
+        {
+            var hubs = await database.VcHubs.Find(x => x.GuildId == guildId && x.Id != null && hubIds.Contains(x.Id)).Project(x => new { x.Id, x.HubChannelName }).ToListAsync(token);
+            foreach (var hub in hubs) if (hub.Id != null && !string.IsNullOrWhiteSpace(hub.HubChannelName)) hubNames[hub.Id] = hub.HubChannelName;
+        }
         GuildDiscordContext? context = null;
         try { context = await discord.ResolveAsync(guildId, token); }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
@@ -185,7 +194,8 @@ public sealed class GuildAnalyticsQueryService(RankoonDbContext database, TimePr
             var actorName = x.ActorUserId is { } actorId ? context?.Guild.GetUser(actorId)?.DisplayName : null;
             var subjectName = ulong.TryParse(x.SubjectId, out var subjectId) ? context?.Guild.GetUser(subjectId)?.DisplayName : null;
             var channelName = x.ChannelId is { } channelId ? context?.Guild.GetChannel(channelId)?.Name : null;
-            return new AnalyticsAuditItem(x.Id!, Utc(x.OccurredAtUtc), $"{x.Feature}.{x.Action}", x.ActorUserId?.ToString(), actorName, x.SubjectId, subjectName, x.Outcome, EmptyToNull(x.CorrelationId), x.Metadata, x.ChannelId?.ToString(), channelName);
+            var hubName = x.Metadata.TryGetValue("hubId", out var hubId) ? hubNames.GetValueOrDefault(hubId) : null;
+            return new AnalyticsAuditItem(x.Id!, Utc(x.OccurredAtUtc), $"{x.Feature}.{x.Action}", x.ActorUserId?.ToString(), actorName, x.SubjectId, subjectName, x.Outcome, EmptyToNull(x.CorrelationId), x.Metadata, x.ChannelId?.ToString(), channelName, hubName);
         }).ToArray();
         return new(now, period, [Kpi("events", items.Length, null)], [], [], [], items, next);
     }
