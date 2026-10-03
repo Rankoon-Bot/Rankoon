@@ -9,6 +9,6 @@ import { AuthStore } from '../../store/auth.store';
 export class BotManagementComponent {
   private readonly i18n = inject(TranslocoService);
   private readonly authStore = inject(AuthStore);
-  items = () => [...['overview', 'incidents', 'guilds', 'usage'], ...(this.authStore.canManageGuilds() ? ['maintainer'] : [])]
+  items = () => [...['overview', 'incidents', 'guilds', 'history', 'usage'], ...(this.authStore.canManageGuilds() ? ['maintainer'] : [])]
     .map(path => ({ path, label: this.i18n.translate(`botManagement.pages.${path}`) }));
 }

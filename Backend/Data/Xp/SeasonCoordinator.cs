@@ -41,6 +41,7 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
     {
         var enabledGuilds = await database.GuildSeasonSettings.Find(x => x.Enabled).Project(x => x.GuildId).ToListAsync(cancellationToken);
         var pendingGuilds = await database.SeasonSetupOperations.Find(x => !x.Completed && x.Settings != null).Project(x => x.GuildId).ToListAsync(cancellationToken);
+        pendingGuilds.AddRange(await database.SeasonPlanChanges.Find(x => !x.Completed).Project(x => x.GuildId).ToListAsync(cancellationToken));
         enabledGuilds = enabledGuilds.Concat(pendingGuilds).Distinct().ToList();
         var leasesHeld = 0;
         string? lastError = null;

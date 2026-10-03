@@ -9,6 +9,14 @@ export interface BotManagementGuild {
   activeDayCount: number; activityPerHundredMembers: number; status: BotManagementStatus;
 }
 export interface OperationsMetric { code: string; value: number; previousValue: number | null; changePercent: number | null; }
+export interface BotGuildHistoryItem {
+  id: string; botId: string; guildId: string; guildName: string; identity: string; memberCount: number;
+  joinedAt: string; firstObservedAt: string; joinObserved: boolean; removedAt: string | null; removalEvidence: 'observed' | 'detected' | null;
+}
+export interface BotGuildHistoryResponse {
+  generatedAt: string; metrics: OperationsMetric[]; items: BotGuildHistoryItem[];
+  total: number; nextOffset: number | null; trackingSince: string | null;
+}
 export interface OperationsTrendPoint { timestamp: string; value: number; previousValue: number | null; }
 export interface OperationsInsight { code: string; severity: 'info' | 'success' | 'warning' | 'critical'; context: Record<string, string | number | boolean | null>; }
 export interface OperationsOverview {

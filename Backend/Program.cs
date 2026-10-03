@@ -171,6 +171,8 @@ builder.Services.AddSingleton<IGuildAuditWriter, GuildAuditWriter>();
 builder.Services.AddSingleton<IOperationalErrorRecorder, OperationalErrorRecorder>();
 builder.Services.AddSingleton<IWorkerHealthRegistry, WorkerHealthRegistry>();
 builder.Services.AddSingleton<IOperationsQueryService, OperationsQueryService>();
+builder.Services.AddSingleton<BotGuildHistoryRecorder>();
+builder.Services.AddSingleton<BotGuildHistoryQuery>();
 builder.Services.AddSingleton<ISignedCursorService, SignedCursorService>();
 
 // Register HTTP client for Discord API calls

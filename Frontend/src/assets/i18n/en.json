@@ -483,7 +483,8 @@
       "incidents": "Incidents",
       "guilds": "Server Health",
       "usage": "Global Usage",
-      "maintainer": "Maintainer Access"
+      "maintainer": "Maintainer Access",
+      "history": "Server history"
     },
     "sections": {
       "overview": {
@@ -501,6 +502,10 @@
       "usage": {
         "title": "Global Usage",
         "description": "Feature demand and usage trends across all servers."
+      },
+      "history": {
+        "title": "Server history",
+        "description": "Installations, removals and baseline observations by bot and server."
       }
     },
     "ranges": {
@@ -582,7 +587,14 @@
         "databaseWriterFailures": "Database write failures",
         "unhealthyWorkers": "Unhealthy workers",
         "guilds": "Servers",
-        "errors": "Errors"
+        "errors": "Errors",
+        "botInstallations": "Observed installations",
+        "botRemovals": "Observed removals",
+        "detectedRemovals": "Removals detected later",
+        "baselineInstallations": "First recorded baseline",
+        "connectedInactiveGuilds": "Connected servers without activity",
+        "disconnectedActiveGuilds": "Previously active servers currently disconnected",
+        "historyWriteFailures": "Failed history write attempts"
       },
       "insights": {
         "incident_spike": "Incident spike",
@@ -605,7 +617,41 @@
         "discord": "Discord",
         "operations": "Operations"
       }
-    }
+    },
+    "history": {
+      "explanation": "History permanently stores bot installations, including removed bots. The range shows first observations and detected removals. Metrics cover the whole range regardless of search filters. Each reinstallation is a separate entry; multiple bots on one server are counted separately. Discord does not provide the person responsible or the reason for removal.",
+      "all": "All states",
+      "present": "Installed (last confirmed)",
+      "removed": "Removed",
+      "refresh": "Refresh",
+      "tracking": "Tracking since",
+      "updated": "Data as of",
+      "results": "{{total}} installations in range",
+      "bot": "Bot",
+      "installed": "Installation observed",
+      "knownJoin": "Joined according to Discord",
+      "firstObserved": "First recorded",
+      "membersSnapshot": "Members (last snapshot)",
+      "detected": "Removal detected",
+      "uninstalled": "Removal observed",
+      "baselineNote": "Baseline: This bot was already installed when first recorded. This is not counted as a new installation.",
+      "detectedNote": "Reconciliation after connecting found this installation was no longer present. The actual removal time is unknown.",
+      "empty": "No installations or removals match this range and these filters. Choose a longer range or reset the filters.",
+      "pagination": "Server history pages",
+      "previous": "Previous page",
+      "next": "Next page"
+    },
+    "metricHelp": {
+      "adoptingGuilds": "All servers with recorded activity in the range, including servers since removed.",
+      "connectedGuilds": "Current server membership reported by bot runtimes. This is not a range total.",
+      "memberSum": "Current member counts across connected servers; a user may belong to multiple servers.",
+      "connectedInactiveGuilds": "Currently connected servers without recorded activity in the selected range.",
+      "disconnectedActiveGuilds": "Servers active in the range but currently absent from all bot runtimes. This alone does not prove an uninstall.",
+      "telemetryDrops": "Dropped measurements since the last backend start.",
+      "databaseWriterFailures": "Failed error-log writes since backend startup.",
+      "historyWriteFailures": "Since backend startup. Failures can leave gaps in history; gateway reconciliation helps recovery."
+    },
+    "historyLink": "View installations and removals in server history"
   },
   "customBotIdentity": {
     "title": "Bot Identity",
@@ -935,10 +981,12 @@
     "loading": "Loading mock status ...",
     "removeConfirm": "Remove all mock users and their XP events?",
     "status": {
-      "label": "Active server",
-      "users": "Mock users",
-      "events": "XP events",
-      "xp": "Total mock XP"
+      "scheduled": "Scheduled",
+      "active": "Active",
+      "closing": "Closing",
+      "closed": "Closed",
+      "cancelled": "Cancelled",
+      "paused": "Break"
     },
     "generate": {
       "title": "Populate leaderboard",
@@ -1640,6 +1688,7 @@
     "minimumCharacters": "Minimum characters",
     "maximumCharacters": "Maximum characters",
     "maximumValidation": "Maximum values must be at least as large as their minimum values.",
+    "messageRangeNumberValidation": "Enter valid whole numbers of 0 or more for XP and characters.",
     "voiceXp": "Voice XP",
     "voiceHint": "Choose when and how much active voice time is rewarded.",
     "voiceEligibilityKicker": "VOICE RULES",
@@ -1764,6 +1813,45 @@
     "seasons": "Manage seasons"
   },
   "seasons": {
+    "planEdit": {
+      "advanced": "More management actions",
+      "title": {
+        "Delete": "Delete planned season",
+        "DeleteScheduled": "Delete all planned seasons",
+        "Update": "Edit season",
+        "Pause": "Skip season for a break",
+        "ResumePause": "Plan a season in this break"
+      },
+      "deleteAll": "Delete all planned ({{count}})",
+      "hint": "The preview shows every affected entry. Running seasons and results remain.",
+      "following": "What should happen to later drafts?",
+      "KeepDates": "Keep their dates",
+      "KeepDatesHint": "Other seasons keep their dates. A gap in the plan is allowed.",
+      "Shift": "Shift later dates",
+      "ShiftHint": "When deleting, the next draft starts at the deleted season’s original start. When editing, later drafts shift by the change to the end date. Gaps and local times are preserved.",
+      "Delete": "Also delete later drafts",
+      "DeleteHint": "Removes later planned and never-started cancelled seasons. Scheduled breaks remain.",
+      "retry": "The plan may have changed. Check the preview again. Your input is preserved.",
+      "previewTitle": "Changes to your plan",
+      "summary": "{{deleted}} seasons will be deleted; {{changed}} entries will be updated. Planned season numbers are adjusted.",
+      "removed": "Will be permanently deleted",
+      "noChanges": "No changes needed.",
+      "back": "Back",
+      "preview": "Check impact",
+      "loading": "Checking preview …",
+      "saving": "Saving …",
+      "confirmDelete": "Permanently delete {{count}} seasons",
+      "confirmEdit": "Apply changes",
+      "saved": "Season plan updated.",
+      "pauseXp": "Break · no season XP",
+      "automation": "Automatic planning will be paused after this change.",
+      "pauseXpHint": "No season XP is awarded during the break. Lifetime XP continues.",
+      "pauseName": "Name of the break",
+      "pauseExample": "For example: summer break",
+      "ShiftEditHint": "Shifts later seasons by the same amount as the end date. Gaps are preserved.",
+      "ShiftDeleteHint": "The next season starts at the original start. Later dates shift with it."
+    },
+    "pause": "Skip for a break",
     "draftHint": "You are editing a draft. The status above still shows the saved state. Check the preview and choose “Save and create seasons” below to complete setup.",
     "eyebrow": "SEASON CONTROL",
     "title": "Seasons",

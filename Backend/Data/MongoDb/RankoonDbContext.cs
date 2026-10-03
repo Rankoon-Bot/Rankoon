@@ -41,6 +41,7 @@ public class RankoonDbContext
     public IMongoCollection<SeasonFinalStanding> SeasonFinalStandings => _database.GetCollection<SeasonFinalStanding>("season_final_standings");
     public IMongoCollection<SeasonCoordinatorLease> SeasonCoordinatorLeases => _database.GetCollection<SeasonCoordinatorLease>("season_coordinator_leases");
     public IMongoCollection<SeasonPlanningLease> SeasonPlanningLeases => _database.GetCollection<SeasonPlanningLease>("season_planning_leases");
+    public IMongoCollection<Rankoon.Data.Xp.SeasonPlanChangeOperation> SeasonPlanChanges => _database.GetCollection<Rankoon.Data.Xp.SeasonPlanChangeOperation>("season_plan_changes");
     public IMongoCollection<SeasonSetupOperation> SeasonSetupOperations => _database.GetCollection<SeasonSetupOperation>("season_setup_operations");
     public IMongoCollection<SeasonAnnouncementDelivery> SeasonAnnouncementDeliveries => _database.GetCollection<SeasonAnnouncementDelivery>("season_announcement_deliveries");
     public IMongoCollection<SeasonRoleAssignment> SeasonRoleAssignments => _database.GetCollection<SeasonRoleAssignment>("season_role_assignments");
@@ -71,6 +72,7 @@ public class RankoonDbContext
     public IMongoCollection<GuildAnalyticsBucket> GuildAnalyticsBuckets => _database.GetCollection<GuildAnalyticsBucket>("guild_analytics_buckets");
     public IMongoCollection<OperationalErrorOccurrence> OperationalErrorOccurrences => _database.GetCollection<OperationalErrorOccurrence>("operational_error_occurrences");
     public IMongoCollection<OperationalIncident> OperationalIncidents => _database.GetCollection<OperationalIncident>("operational_incidents");
+    public IMongoCollection<BotGuildInstallation> BotGuildInstallations => _database.GetCollection<BotGuildInstallation>("bot_guild_installations");
 }
 
 /// <summary>

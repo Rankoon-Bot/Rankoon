@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, effect, HostListener, inject, signal, ViewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, effect, HostListener, inject, signal, ViewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -13,6 +13,8 @@ import {
   Season,
   SeasonInitialXpMode,
   SeasonPreview,
+  SeasonPlanChangeRequest,
+  SeasonPlanChangePreview,
   SeasonScheduleKind,
   SeasonSettings,
 } from '../../services/guild.service';
@@ -26,7 +28,7 @@ import { SeasonInstanceListComponent } from './components/season-instance-list.c
 import { SeasonStatusSummaryComponent } from './components/season-status-summary.component';
 import { SeasonTimelinePreviewComponent } from './components/season-timeline-preview.component';
 
-export type SeasonAction = 'start' | 'close' | 'cancel' | 'resume' | 'delete';
+export type SeasonAction = 'start' | 'close' | 'cancel' | 'resume' | 'delete' | 'pause';
 type SeasonBulkAction = 'cancelScheduled' | 'deleteCancelled' | 'resetCounter';
 type PendingAction = { action: SeasonAction; season: Season; guildId: string } | { action: SeasonBulkAction; season: null; guildId: string };
 export type SchedulePreset = 'monthly' | 'quarterly' | 'custom';
@@ -125,7 +127,7 @@ export class SeasonConfigComponent {
   constructor() {
     interval(30_000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       const guildId = this.store.selectedGuild()?.id;
-      if (guildId && !this.loading() && !this.busy() && !this.pending()) this.reloadSeasons(guildId);
+      if (guildId && !this.loading() && !this.busy() && !this.pending() && !this.planChange()) this.reloadSeasons(guildId);
     });
     effect(() => {
       const selected = this.store.selectedGuild();
@@ -141,6 +143,7 @@ export class SeasonConfigComponent {
       if (this.loadedGuild && selected?.id !== this.loadedGuild.id) {
         this.approvedGuildChangeId = selected?.id ?? null;
         this.confirmDialog?.close();
+        this.planDialog?.nativeElement.close(); this.planChange.set(null); this.invalidateChange();
         this.pending.set(null);
         this.seasonEditor.set(null);
       }
@@ -439,6 +442,61 @@ export class SeasonConfigComponent {
     this.refreshPreview();
   }
 
+  @ViewChild('planDialog') planDialog?: ElementRef<HTMLDialogElement>;
+  readonly planChange = signal<{ kind: 'Delete' | 'DeleteScheduled' | 'Update' | 'Pause' | 'ResumePause'; season?: Season; guildId: string } | null>(null);
+  readonly changePreview = signal<SeasonPlanChangePreview | null>(null);
+  readonly changeError = signal('');
+  readonly previewBusy = signal(false);
+  pauseName = '';
+  followUp: 'KeepDates' | 'Shift' | 'Delete' = 'KeepDates';
+  private approvedChange: SeasonPlanChangeRequest | null = null;
+
+  openPlanChange(kind: 'Delete' | 'DeleteScheduled' | 'Update' | 'Pause' | 'ResumePause', season?: Season): void {
+    const guildId = this.store.selectedGuild()?.id;
+    if (!guildId || this.busy() || this.dirty()) return;
+    this.followUp = 'KeepDates';
+    this.pauseName = this.i18n.translate('seasons.status.paused');
+    this.invalidateChange();
+    this.planChange.set({ kind, season, guildId });
+    this.planDialog?.nativeElement.showModal();
+  }
+  invalidateChange(): void { this.changePreview.set(null); this.approvedChange = null; this.changeError.set(''); }
+  dismissPlanChange(): void {
+    if (this.busy() || this.previewBusy()) return;
+    this.planDialog?.nativeElement.close();
+    this.planChange.set(null); this.seasonEditor.set(null); this.invalidateChange();
+  }
+  previewPlanChange(): void {
+    const change = this.planChange(); const cfg = this.settings(); const draft = this.seasonEditor();
+    if (!change || !cfg || this.previewBusy() || this.busy() || change.kind === 'Update' && !this.seasonEditorValid()) return;
+    const request: SeasonPlanChangeRequest = { kind: change.kind, seasonId: change.season?.id, followUp: this.followUp, operationId: crypto.randomUUID() };
+    if (change.kind === 'Pause') request.name = this.pauseName;
+    if (change.kind === 'Update' && draft) Object.assign(request, { name: draft.name, startsAtUtc: this.localDateTimeToUtc(draft.startsAtUtc, cfg.timeZoneId), endsAtUtc: this.localDateTimeToUtc(draft.endsAtUtc, cfg.timeZoneId) });
+    this.invalidateChange(); this.previewBusy.set(true);
+    this.api.previewSeasonChange(change.guildId, request).pipe(finalize(() => this.previewBusy.set(false))).subscribe({
+      next: preview => {
+        if (this.planChange() !== change || this.store.selectedGuild()?.id !== change.guildId) return;
+        this.changePreview.set(preview); this.approvedChange = { ...request, expectedPlanToken: preview.planToken };
+      }, error: error => this.changeError.set(this.apiErrors.resolve(error, 'errors.seasonAction').message),
+    });
+  }
+  applyPlanChange(): void {
+    const change = this.planChange(); const request = this.approvedChange;
+    if (!change || !request || !this.changePreview() || this.busy() || this.previewBusy() || this.store.selectedGuild()?.id !== change.guildId) return;
+    this.actionBusy.set(true); this.changeError.set('');
+    this.api.changeSeasonPlan(change.guildId, request).pipe(finalize(() => this.actionBusy.set(false))).subscribe({
+      next: result => {
+        if (this.store.selectedGuild()?.id !== change.guildId) return;
+        this.seasons.set(this.sortSeasons(result.seasons));
+        this.planDialog?.nativeElement.close(); this.planChange.set(null); this.seasonEditor.set(null); this.invalidateChange();
+        this.reloadAfterAction(change.guildId);
+        this.toast.success(this.i18n.translate('seasons.planEdit.saved'));
+      }, error: error => this.changeError.set(this.apiErrors.resolve(error, 'errors.seasonAction').message),
+    });
+  }
+  changeDeletedCount(): number { return this.changePreview()?.changes.filter(r => !r.after).length ?? 0; }
+  changeDate(value: string): string { return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'short', timeZone: this.settings()?.timeZoneId }); }
+
   editSeason(season?: Season): void {
     const cfg = this.settings();
     if (!cfg || this.busy()) return;
@@ -452,6 +510,7 @@ export class SeasonConfigComponent {
     draft.endsAtUtc = this.utcToLocalDateTime(draft.endsAtUtc, cfg.timeZoneId);
     this.seasonEditor.set(draft);
     this.editorBaseline = JSON.stringify(draft);
+    if (season) this.openPlanChange('Update', season);
     this.pageError.set('');
   }
 
@@ -496,6 +555,9 @@ export class SeasonConfigComponent {
       this.pageError.set(this.i18n.translate('seasons.unsaved'));
       return;
     }
+    if (action === 'pause') { this.openPlanChange('Pause', season); return; }
+    if (action === 'resume' && season.status === 'Paused') { this.openPlanChange('ResumePause', season); return; }
+    if (action === 'delete' && (season.status === 'Scheduled' || !season.activatedAtUtc && !season.baselineInitialized && !season.carryOverApplied && !season.finalized)) { this.openPlanChange('Delete', season); return; }
     this.pending.set({ action, season, guildId });
     this.confirmDialog?.open();
   }
@@ -674,8 +736,9 @@ export class SeasonConfigComponent {
     const result: SeasonAction[] = [];
     if (season.status === 'Scheduled') {
       if (this.persistedSettings()?.enabled && !this.currentSeason() && new Date(season.startsAtUtc).getTime() <= Date.now() && Date.now() < new Date(season.endsAtUtc).getTime()) result.push('start');
-      result.push('cancel');
+      result.push('pause', 'delete');
     }
+    if (season.status === 'Paused') result.push(...(new Date(season.endsAtUtc).getTime() > Date.now() ? ['resume' as const] : []), 'delete');
     if (season.status === 'Active') result.push('close', 'cancel');
     if (this.isResumable(season)) result.push('resume');
     if (season.status === 'Cancelled' && !this.seasons().some(item => item.previousSeasonId === season.id)) result.push('delete');
@@ -683,7 +746,7 @@ export class SeasonConfigComponent {
   }
 
   scheduledCount(): number { return this.seasons().filter(season => season.status === 'Scheduled').length; }
-  cancelledCount(): number { return this.seasons().filter(season => season.status === 'Cancelled').length; }
+  cancelledCount(): number { return this.seasons().filter(season => season.status === 'Cancelled' && !season.activatedAtUtc && !season.baselineInitialized && !season.carryOverApplied && !season.finalized).length; }
 
   isActive(season: Season): boolean { return season.status === 'Active' || season.status === 'Closing'; }
   isResumable(season: Season): boolean {

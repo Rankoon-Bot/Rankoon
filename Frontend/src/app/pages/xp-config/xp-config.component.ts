@@ -173,29 +173,52 @@ export class XpConfigComponent {
 
   boosterTierErrors(config: XpConfig, tier: ServerBoosterXpTier): string[] {
     const errors: string[] = [];
-    const months = Number(tier.minimumBoostMonths);
-    const multiplier = Number(tier.multiplier);
-    if (!Number.isInteger(months) || months < 0)
+    const months = this.parseConfigNumber(tier.minimumBoostMonths);
+    const validMonths = Number.isInteger(months) && months >= 0;
+    const multiplier = this.parseConfigNumber(tier.multiplier);
+    const validMultiplier =
+      Number.isFinite(multiplier) &&
+      multiplier >= 1 &&
+      multiplier <= 10 &&
+      /^\d+(\.\d{1,2})?$/.test(String(tier.multiplier));
+
+    if (!validMonths)
       errors.push('xp.boosterMonthsValidation');
     if (
-      config.serverBooster.tiers.filter(
-        (item) => Number(item.minimumBoostMonths) === months,
-      ).length > 1
+      validMonths &&
+      config.serverBooster.tiers.filter((item) => {
+        const itemMonths = this.parseConfigNumber(item.minimumBoostMonths);
+        return (
+          Number.isInteger(itemMonths) &&
+          itemMonths >= 0 &&
+          itemMonths === months
+        );
+      }).length > 1
     )
       errors.push('xp.boosterDuplicateValidation');
-    if (
-      !Number.isFinite(multiplier) ||
-      multiplier < 1 ||
-      multiplier > 10 ||
-      !/^\d+(\.\d{1,2})?$/.test(String(tier.multiplier))
-    )
+    if (!validMultiplier)
       errors.push('xp.boosterMultiplierValidation');
-    const sorted = [...config.serverBooster.tiers].sort(
-      (a, b) => Number(a.minimumBoostMonths) - Number(b.minimumBoostMonths),
-    );
+    const sorted = config.serverBooster.tiers
+      .filter((item) => {
+        const itemMonths = this.parseConfigNumber(item.minimumBoostMonths);
+        return Number.isInteger(itemMonths) && itemMonths >= 0;
+      })
+      .sort(
+        (a, b) => Number(a.minimumBoostMonths) - Number(b.minimumBoostMonths),
+      );
     const index = sorted.indexOf(tier);
-    if (index > 0 && multiplier < Number(sorted[index - 1].multiplier))
-      errors.push('xp.boosterOrderValidation');
+    if (index > 0 && validMultiplier) {
+      const previousMultiplier = this.parseConfigNumber(
+        sorted[index - 1].multiplier,
+      );
+      const previousMultiplierValid =
+        Number.isFinite(previousMultiplier) &&
+        previousMultiplier >= 1 &&
+        previousMultiplier <= 10 &&
+        /^\d+(\.\d{1,2})?$/.test(String(sorted[index - 1].multiplier));
+      if (previousMultiplierValid && multiplier < previousMultiplier)
+        errors.push('xp.boosterOrderValidation');
+    }
     return errors;
   }
 
@@ -377,12 +400,36 @@ export class XpConfigComponent {
     );
   }
 
+  messageRangeValidation(config: XpConfig): string {
+    const values: unknown[] = [
+      config.message.minimumPoints,
+      config.message.maximumPoints,
+      config.message.minimumCharacters,
+      config.message.maximumCharacters,
+    ];
+    const numbers = values.map((value) => this.parseConfigNumber(value));
+
+    if (numbers.some((value) => !Number.isInteger(value) || value < 0))
+      return 'xp.messageRangeNumberValidation';
+
+    const [
+      minimumPoints,
+      maximumPoints,
+      minimumCharacters,
+      maximumCharacters,
+    ] = numbers;
+    if (
+      maximumPoints < minimumPoints ||
+      maximumCharacters < minimumCharacters
+    )
+      return 'xp.maximumValidation';
+
+    return '';
+  }
+
   isValid(config: XpConfig): boolean {
     return (
-      config.message.minimumPoints >= 0 &&
-      config.message.maximumPoints >= config.message.minimumPoints &&
-      config.message.minimumCharacters >= 0 &&
-      config.message.maximumCharacters >= config.message.minimumCharacters &&
+      !this.messageRangeValidation(config) &&
       config.message.cooldownSeconds >= 0 &&
       config.voice.pointsPerMinute >= 0 &&
       config.voice.minimumSessionSeconds >= 0 &&
@@ -511,6 +558,18 @@ export class XpConfigComponent {
   }
 
   private normalizeConfig(config: XpConfig): void {
+    config.message.minimumPoints = this.parseConfigNumber(
+      config.message.minimumPoints,
+    );
+    config.message.maximumPoints = this.parseConfigNumber(
+      config.message.maximumPoints,
+    );
+    config.message.minimumCharacters = this.parseConfigNumber(
+      config.message.minimumCharacters,
+    );
+    config.message.maximumCharacters = this.parseConfigNumber(
+      config.message.maximumCharacters,
+    );
     config.voice.settingsVersion ??= 2;
     config.voice.eligibility ??= {
       awardWhileSelfMuted: true, awardWhileSelfDeafened: true, awardWhileGuildMuted: true,
@@ -524,6 +583,16 @@ export class XpConfigComponent {
     config.serverBooster.tiers.sort(
       (a, b) => Number(a.minimumBoostMonths) - Number(b.minimumBoostMonths),
     );
+  }
+
+  private parseConfigNumber(value: unknown): number {
+    if (
+      value === null ||
+      value === undefined ||
+      (typeof value === 'string' && !value.trim())
+    )
+      return Number.NaN;
+    return Number(value);
   }
 
   private serialize(config: XpConfig): string {

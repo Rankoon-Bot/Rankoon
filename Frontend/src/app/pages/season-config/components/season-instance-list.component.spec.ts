@@ -17,8 +17,8 @@ describe('SeasonInstanceListComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('requires cancellation before an individual season can be deleted', () => {
-    expect(component.actions(season(1, 'Scheduled'))).toEqual(['cancel']);
+  it('offers direct deletion and a break for planned seasons', () => {
+    expect(component.actions(season(1, 'Scheduled'))).toEqual(['pause', 'delete']);
     expect(component.actions(season(1, 'Cancelled'))).toEqual(['resume', 'delete']);
   });
 
@@ -32,11 +32,11 @@ describe('SeasonInstanceListComponent', () => {
   it('offers starting only inside the period with seasons enabled and no other live season', () => {
     const current = { ...season(1, 'Scheduled'), startsAtUtc: new Date(Date.now() - 60000).toISOString(), endsAtUtc: new Date(Date.now() + 60000).toISOString() };
     component.seasons = [current];
-    expect(component.actions(current)).toEqual(['start', 'cancel']);
+    expect(component.actions(current)).toEqual(['start', 'pause', 'delete']);
     component.enabled = false;
-    expect(component.actions(current)).toEqual(['cancel']);
+    expect(component.actions(current)).toEqual(['pause', 'delete']);
     component.enabled = true;
     component.seasons.push(season(2, 'Closing'));
-    expect(component.actions(current)).toEqual(['cancel']);
+    expect(component.actions(current)).toEqual(['pause', 'delete']);
   });
 });

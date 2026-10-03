@@ -8,7 +8,7 @@ public enum SeasonScheduleKind { Manual, FixedDuration, Monthly, Quarterly, Semi
 public enum SeasonPlanningMode { Explicit, MaintainPreparedBuffer }
 public enum SeasonInitialXpMode { Zero, Lifetime, LifetimePercentage }
 public enum SeasonCarryOverMode { None, Percentage }
-public enum SeasonStatus { Scheduled, Active, Closing, Closed, Cancelled }
+public enum SeasonStatus { Scheduled, Active, Closing, Closed, Cancelled, Paused }
 public enum SeasonLeaderboardScope { Lifetime, CurrentSeason, Season }
 public enum SeasonLevelRoleRetention { RemoveAtSeasonEnd, Keep }
 public enum SeasonProjectionStatus { Pending, Applied }
@@ -86,6 +86,7 @@ public sealed class GuildSeason
     [BsonElement("number"), BsonIgnoreIfNull] public long? Number { get; set; }
     [BsonElement("numbering_epoch"), BsonIgnoreIfDefault] public long NumberingEpoch { get; set; }
     [BsonElement("name")] public string Name { get; set; } = string.Empty;
+    [BsonElement("pause_label"), BsonIgnoreIfNull] public string? PauseLabel { get; set; }
     [BsonElement("description")] public string? Description { get; set; }
     [BsonElement("status"), BsonRepresentation(BsonType.String)] public SeasonStatus Status { get; set; }
     // Present only while active so MongoDB can enforce one active season per guild without transactions.

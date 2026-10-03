@@ -24,6 +24,7 @@ public sealed class DiscordRuntimeEventDispatcher(
     Rankoon.Data.Xp.IGuildUserAvatarObserver avatars,
     ApplicationCommandRegistrar commands,
     RankoonInteractionHandler interactions,
+    Rankoon.Data.Operations.BotGuildHistoryRecorder history,
     ILogger<DiscordRuntimeEventDispatcher> logger) : IDiscordRuntimeEventDispatcher, IHostedService
 {
     private readonly ConcurrentDictionary<string, Binding> bindings = new(StringComparer.Ordinal);
@@ -35,6 +36,7 @@ public sealed class DiscordRuntimeEventDispatcher(
     private readonly Rankoon.Data.Xp.IGuildUserAvatarObserver avatars = avatars;
     private readonly ApplicationCommandRegistrar commands = commands;
     private readonly RankoonInteractionHandler interactions = interactions;
+    private readonly Rankoon.Data.Operations.BotGuildHistoryRecorder history = history;
     private readonly ILogger<DiscordRuntimeEventDispatcher> logger = logger;
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -82,6 +84,9 @@ public sealed class DiscordRuntimeEventDispatcher(
             client.UserJoined += UserJoinedAsync;
             client.UserLeft += UserLeftAsync;
             client.ShardReady += ReadyAsync;
+            client.JoinedGuild += JoinedGuildAsync;
+            client.LeftGuild += LeftGuildAsync;
+            client.GuildAvailable += GuildAvailableAsync;
         }
 
         public void Unsubscribe()
@@ -98,6 +103,9 @@ public sealed class DiscordRuntimeEventDispatcher(
             client.UserJoined -= UserJoinedAsync;
             client.UserLeft -= UserLeftAsync;
             client.ShardReady -= ReadyAsync;
+            client.JoinedGuild -= JoinedGuildAsync;
+            client.LeftGuild -= LeftGuildAsync;
+            client.GuildAvailable -= GuildAvailableAsync;
         }
 
         private Task MessageAsync(SocketMessage message)
@@ -129,8 +137,17 @@ public sealed class DiscordRuntimeEventDispatcher(
         private Task UserLeftAsync(SocketGuild guild, SocketUser user) => Allowed(guild.Id) ? owner.memberships.UserLeftAsync(guild, user) : Task.CompletedTask;
         private async Task ReadyAsync(DiscordSocketClient shard)
         {
+            await owner.history.SafelyAsync(() => owner.history.ReconcileAsync(shard, client.Shards.Count, mode.ToString(), assignedGuildId));
             await InitializeAvailableGuildsAsync();
         }
+
+        private bool Tracks(SocketGuild guild) => !assignedGuildId.HasValue || assignedGuildId.Value == guild.Id;
+        private Task JoinedGuildAsync(SocketGuild guild) => Tracks(guild) ? owner.history.SafelyAsync(() => owner.history.ObserveAsync(client.CurrentUser.Id, mode.ToString(), guild, true)) : Task.CompletedTask;
+        private Task LeftGuildAsync(SocketGuild guild) => Tracks(guild) ? owner.history.SafelyAsync(async () => {
+            await owner.history.ObserveAsync(client.CurrentUser.Id, mode.ToString(), guild, false);
+            await owner.history.RemovedAsync(client.CurrentUser.Id, guild);
+        }) : Task.CompletedTask;
+        private Task GuildAvailableAsync(SocketGuild guild) => Tracks(guild) ? owner.history.SafelyAsync(() => owner.history.ObserveAsync(client.CurrentUser.Id, mode.ToString(), guild, false)) : Task.CompletedTask;
 
         public async Task InitializeAvailableGuildsAsync()
         {

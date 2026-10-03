@@ -145,15 +145,15 @@
         <div class="bulk-actions">
             <div><strong>{{ 'seasons.instances.bulkTitle' | transloco }}</strong><span>{{ 'seasons.instances.bulkHint' | transloco }}</span></div>
             <div>
-              @if (scheduledCount()) { <button class="rk-button rk-button--secondary" type="button" [disabled]="dirty() || busy()" (click)="requestBulkAction('cancelScheduled')">{{ 'seasons.instances.cancelAll' | transloco: { count: scheduledCount() } }}</button> }
-              <button class="rk-button rk-button--secondary" type="button" [disabled]="dirty() || busy()" (click)="requestBulkAction('resetCounter')">{{ 'seasons.instances.resetCounter' | transloco }}</button>
-              @if (cancelledCount()) { <button class="rk-button rk-button--danger" type="button" [disabled]="dirty() || busy()" (click)="requestBulkAction('deleteCancelled')">{{ 'seasons.instances.deleteAll' | transloco: { count: cancelledCount() } }}</button> }
+              @if (scheduledCount()) { <button class="rk-button rk-button--secondary" type="button" [disabled]="dirty() || busy()" (click)="openPlanChange('DeleteScheduled')">{{ 'seasons.planEdit.deleteAll' | transloco: { count: scheduledCount() } }}</button> }
+              <details><summary>{{ 'seasons.planEdit.advanced' | transloco }}</summary><button class="rk-button rk-button--secondary" type="button" [disabled]="dirty() || busy()" (click)="requestBulkAction('resetCounter')">{{ 'seasons.instances.resetCounter' | transloco }}</button>
+              @if (cancelledCount()) { <button class="rk-button rk-button--danger" type="button" [disabled]="dirty() || busy()" (click)="requestBulkAction('deleteCancelled')">{{ 'seasons.instances.deleteAll' | transloco: { count: cancelledCount() } }}</button> }</details>
             </div>
         </div>
         <p class="helper">{{ 'seasons.instanceActionHint' | transloco }}</p>
         <rk-season-instance-list [seasons]="seasons()" [limit]="24" [dirty]="dirty()" [busy]="busy()" [enabled]="!!persistedSettings()?.enabled" [timeZone]="persistedSettings()?.timeZoneId" (action)="requestAction($event.action, $event.season)" (edit)="editSeason($event)" />
         @if (cfg.enabled && cfg.scheduleKind === 'Manual') { <button class="rk-button rk-button--primary" type="button" [disabled]="dirty() || busy()" (click)="editSeason()">{{ 'seasons.manualCreate' | transloco }}</button> }
-        @if (seasonEditor(); as draft) {
+        @if (!planChange() && seasonEditor(); as draft) {
           <form class="fields" (submit)="$event.preventDefault(); saveSeasonDetails()">
             <h3>{{ (draft.id ? 'seasons.editDetails' : 'seasons.manualCreate') | transloco }}</h3>
             <p>{{ 'seasons.editorHint' | transloco: { zone: cfg.timeZoneId } }}</p>
@@ -169,6 +169,51 @@
        @if (cfg.enabled && cfg.scheduleKind !== 'Manual') { <div class="plan-strip"><div><strong>{{ setupActionKey() | transloco: { count: planningCount() } }}</strong><span>{{ 'seasons.planHint' | transloco: { count: planningCount() } }}</span></div><label class="plan-count" for="setup-count">{{ 'seasons.setupCount' | transloco }}<span class="input-with-suffix"><input id="setup-count" [disabled]="busy()" type="number" min="1" max="24" [ngModel]="planningCount()" (ngModelChange)="hasConfirmedSeasons() ? additionalSeasonCount = +$event : initialSeasonCount = +$event" (change)="refreshPreview()" name="setupCount"><b>{{ 'seasons.units.seasons' | transloco }}</b></span></label><button class="rk-button rk-button--primary" type="button" [disabled]="busy() || !valid(cfg) || !countValid()" (click)="setup()">@if (planning()) { <span class="rk-spinner" aria-hidden="true"></span> }{{ (planning() ? 'seasons.planningNow' : setupActionKey()) | transloco: { count: planningCount() } }}</button></div> }
     </section>
 
+    <dialog #planDialog class="plan-dialog" aria-labelledby="plan-change-title" (cancel)="$event.preventDefault(); dismissPlanChange()">
+      @if (planChange(); as change) {
+        <h2 id="plan-change-title">{{ ('seasons.planEdit.title.' + change.kind) | transloco }}</h2>
+        @if (change.season) { <p>{{ change.season.status === 'Paused' ? (change.season.pauseLabel || change.season.name) : change.season.name }}<small class="change-period">{{ changeDate(change.season.startsAtUtc) }} – {{ changeDate(change.season.endsAtUtc) }}</small></p> }
+        <p class="helper">{{ 'seasons.planEdit.hint' | transloco }}</p>
+        @if (change.kind === 'Pause') { <label for="pause-name">{{ 'seasons.planEdit.pauseName' | transloco }}<input id="pause-name" [(ngModel)]="pauseName" (ngModelChange)="invalidateChange()" maxlength="120" [disabled]="busy() || previewBusy()" [placeholder]="'seasons.planEdit.pauseExample' | transloco"></label> }
+        @if (change.kind === 'Update' && seasonEditor(); as draft) {
+          <div class="fields">
+            <p>{{ 'seasons.editorHint' | transloco: { zone: cfg.timeZoneId } }}</p>
+            <label for="plan-name">{{ 'seasons.editorName' | transloco }}<input id="plan-name" [(ngModel)]="draft.name" (ngModelChange)="invalidateChange()" maxlength="120" [disabled]="busy() || previewBusy()"></label>
+            <label for="plan-start">{{ 'seasons.editorStart' | transloco }}<input id="plan-start" type="datetime-local" [(ngModel)]="draft.startsAtUtc" (ngModelChange)="invalidateChange()" [disabled]="busy() || previewBusy()"></label>
+            <label for="plan-end">{{ 'seasons.editorEnd' | transloco }}<input id="plan-end" type="datetime-local" [(ngModel)]="draft.endsAtUtc" (ngModelChange)="invalidateChange()" [disabled]="busy() || previewBusy()"></label>
+            @if (!seasonEditorValid()) { <p class="validation">{{ 'seasons.editorInvalid' | transloco }}</p> }
+          </div>
+        }
+        @if (change.kind === 'Delete' || change.kind === 'Update') {
+          <fieldset class="plan-options"><legend>{{ 'seasons.planEdit.following' | transloco }}</legend>
+            @for (policy of ['KeepDates', 'Shift', 'Delete']; track policy) {
+              <label class="radio-card" [class.selected]="followUp === policy"><input type="radio" name="followUp" [value]="policy" [(ngModel)]="followUp" (ngModelChange)="invalidateChange()" [disabled]="busy() || previewBusy()"><span><strong>{{ ('seasons.planEdit.' + policy) | transloco }}</strong><small>{{ ('seasons.planEdit.' + (policy === 'Shift' ? (change.kind === 'Update' ? 'ShiftEditHint' : 'ShiftDeleteHint') : policy + 'Hint')) | transloco }}</small></span></label>
+            }
+          </fieldset>
+        }
+        @if (change.kind === 'Pause' || change.kind === 'ResumePause') { <p class="helper">{{ 'seasons.planEdit.pauseXpHint' | transloco }}</p> }
+        <p class="helper">{{ 'seasons.planEdit.automation' | transloco }}</p>
+        @if (changeError()) { <p class="validation" role="alert">{{ changeError() }}</p><p class="helper">{{ 'seasons.planEdit.retry' | transloco }}</p> }
+        @if (changePreview(); as preview) {
+          <section class="change-preview" aria-live="polite">
+            <h3>{{ 'seasons.planEdit.previewTitle' | transloco }}</h3>
+            <p>{{ 'seasons.planEdit.summary' | transloco: { deleted: changeDeletedCount(), changed: preview.changes.length - changeDeletedCount() } }}</p>
+            @for (row of preview.changes; track row.before.id) {
+              <div class="change-row"><div><strong>{{ row.before.name }}</strong><small>{{ changeDate(row.before.startsAtUtc) }} – {{ changeDate(row.before.endsAtUtc) }}</small></div><span aria-hidden="true">→</span><div>
+                @if (row.after; as after) { <strong>{{ after.status === 'Paused' ? (after.pauseLabel || after.name) : after.name }} · {{ ('seasons.status.' + after.status.toLowerCase()) | transloco }}</strong><small>{{ changeDate(after.startsAtUtc) }} – {{ changeDate(after.endsAtUtc) }}</small> }
+                @else { <strong class="validation">{{ 'seasons.planEdit.removed' | transloco }}</strong> }
+              </div></div>
+            }
+            @if (!preview.changes.length) { <p>{{ 'seasons.planEdit.noChanges' | transloco }}</p> }
+          </section>
+        }
+        <div class="dialog-actions">
+          <button type="button" class="rk-button rk-button--secondary" [disabled]="busy() || previewBusy()" (click)="dismissPlanChange()">{{ 'seasons.planEdit.back' | transloco }}</button>
+          <button type="button" class="rk-button rk-button--secondary" [disabled]="busy() || previewBusy() || change.kind === 'Update' && !seasonEditorValid()" (click)="previewPlanChange()">{{ (previewBusy() ? 'seasons.planEdit.loading' : 'seasons.planEdit.preview') | transloco }}</button>
+          @if (changePreview()?.changes?.length) { <button type="button" [class]="changeDeletedCount() ? 'rk-button rk-button--danger' : 'rk-button rk-button--primary'" [disabled]="busy() || previewBusy()" (click)="applyPlanChange()">{{ (busy() ? 'seasons.planEdit.saving' : changeDeletedCount() ? 'seasons.planEdit.confirmDelete' : 'seasons.planEdit.confirmEdit') | transloco: { count: changeDeletedCount() } }}</button> }
+        </div>
+      }
+    </dialog>
     <rk-confirmation-dialog [title]="actionTitle()" [description]="actionDescription()" [impact]="actionImpact()" [confirmLabel]="'seasons.confirmAction' | transloco" [busy]="actionBusy()" [dangerous]="pending()?.action === 'close' || pending()?.action === 'cancel' || pending()?.action === 'delete' || pending()?.action === 'deleteCancelled'" [irreversible]="pending()?.action === 'close' || pending()?.action === 'delete' || pending()?.action === 'deleteCancelled'" (confirmed)="confirmAction()" (dismissed)="closeDialog()" />
     <rk-sticky-save-bar [dirty]="dirty()" [saving]="busy()" [valid]="valid(cfg)" [message]="'seasons.unsaved' | transloco" [validationMessage]="'seasons.invalidSave' | transloco" (save)="save()" (reset)="reset()" />
     }

@@ -483,7 +483,8 @@
       "incidents": "Vorfälle",
       "guilds": "Serverzustand",
       "usage": "Globale Nutzung",
-      "maintainer": "Maintainer-Zugriff"
+      "maintainer": "Maintainer-Zugriff",
+      "history": "Serverhistorie"
     },
     "sections": {
       "overview": {
@@ -501,6 +502,10 @@
       "usage": {
         "title": "Globale Nutzung",
         "description": "Feature-Nachfrage und Nutzungstrends über alle Server."
+      },
+      "history": {
+        "title": "Serverhistorie",
+        "description": "Installationen, Entfernungen und Bestandsaufnahmen je Bot und Server."
       }
     },
     "ranges": {
@@ -582,7 +587,14 @@
         "databaseWriterFailures": "Fehler beim Datenbankschreiben",
         "unhealthyWorkers": "Worker mit Problemen",
         "guilds": "Server",
-        "errors": "Fehler"
+        "errors": "Fehler",
+        "botInstallations": "Beobachtete Installationen",
+        "botRemovals": "Beobachtete Entfernungen",
+        "detectedRemovals": "Nachträglich erkannte Entfernungen",
+        "baselineInstallations": "Erstmals erfasster Bestand",
+        "connectedInactiveGuilds": "Verbundene Server ohne Aktivität",
+        "disconnectedActiveGuilds": "Früher aktive, aktuell nicht verbundene Server",
+        "historyWriteFailures": "Fehlgeschlagene Historien-Schreibversuche"
       },
       "insights": {
         "incident_spike": "Vorfallsanstieg",
@@ -605,7 +617,41 @@
         "discord": "Discord",
         "operations": "Betrieb"
       }
-    }
+    },
+    "history": {
+      "explanation": "Die Historie speichert Bot-Installationen dauerhaft, auch nach einer Entfernung. Der Zeitraum zeigt erstmals erfasste Installationen und erkannte Entfernungen. Die Kennzahlen gelten für den gesamten Zeitraum, unabhängig von den Suchfiltern. Jede erneute Installation ist ein eigener Eintrag; mehrere Bots auf demselben Server werden getrennt gezählt. Discord nennt weder den ausführenden Nutzer noch den Grund der Entfernung.",
+      "all": "Alle Zustände",
+      "present": "Installiert (zuletzt bestätigt)",
+      "removed": "Entfernt",
+      "refresh": "Aktualisieren",
+      "tracking": "Erfassung seit",
+      "updated": "Datenstand",
+      "results": "{{total}} Installationen im Zeitraum",
+      "bot": "Bot",
+      "installed": "Installation beobachtet",
+      "knownJoin": "Beitritt laut Discord",
+      "firstObserved": "Erstmals erfasst",
+      "membersSnapshot": "Mitglieder (letzter Stand)",
+      "detected": "Entfernung festgestellt",
+      "uninstalled": "Entfernung beobachtet",
+      "baselineNote": "Bestandsaufnahme: Dieser Bot war bei der ersten Erfassung bereits installiert. Dies zählt nicht als neue Installation.",
+      "detectedNote": "Beim Abgleich nach einer Verbindung war diese Installation nicht mehr vorhanden. Der tatsächliche Entfernungszeitpunkt ist unbekannt.",
+      "empty": "Keine Installationen oder Entfernungen für diesen Zeitraum und diese Filter. Wähle einen längeren Zeitraum oder setze die Filter zurück.",
+      "pagination": "Seiten der Serverhistorie",
+      "previous": "Vorherige Seite",
+      "next": "Nächste Seite"
+    },
+    "metricHelp": {
+      "adoptingGuilds": "Alle Server mit gespeicherter Aktivität im Zeitraum, auch inzwischen entfernte Server.",
+      "connectedGuilds": "Aktueller Serverbestand laut Bot-Laufzeiten. Das ist kein Zeitraumwert.",
+      "memberSum": "Aktueller Mitgliederstand der verbundenen Server; Nutzer können auf mehreren Servern vorkommen.",
+      "connectedInactiveGuilds": "Aktuell verbundene Server ohne gespeicherte Aktivität im gewählten Zeitraum.",
+      "disconnectedActiveGuilds": "Server mit Aktivität im Zeitraum, die aktuell in keiner Bot-Laufzeit vorhanden sind. Dies allein belegt keine Deinstallation.",
+      "telemetryDrops": "Verworfene Messungen seit dem letzten Backend-Start.",
+      "databaseWriterFailures": "Fehlgeschlagene Fehlerprotokoll-Schreibvorgänge seit dem Backend-Start.",
+      "historyWriteFailures": "Seit Backend-Start. Bei Fehlern kann die Historie Lücken enthalten; Gateway-Abgleiche helfen bei der Wiederherstellung."
+    },
+    "historyLink": "Installationen und Entfernungen in der Serverhistorie ansehen"
   },
   "customBotIdentity": {
     "title": "Bot-Identität",
@@ -935,10 +981,12 @@
     "loading": "Mock-Status wird geladen ...",
     "removeConfirm": "Alle Mock-Nutzer und ihre XP-Ereignisse entfernen?",
     "status": {
-      "label": "Aktiver Server",
-      "users": "Mock-Nutzer",
-      "events": "XP-Ereignisse",
-      "xp": "Mock-XP gesamt"
+      "scheduled": "Geplant",
+      "active": "Aktiv",
+      "closing": "Wird abgeschlossen",
+      "closed": "Abgeschlossen",
+      "cancelled": "Abgebrochen",
+      "paused": "Pause"
     },
     "generate": {
       "title": "Rangliste fuellen",
@@ -1625,6 +1673,7 @@
     "minimumCharacters": "Minimum Zeichen",
     "maximumCharacters": "Maximum Zeichen",
     "maximumValidation": "Maximum-Werte müssen mindestens so groß wie die jeweiligen Minimum-Werte sein.",
+    "messageRangeNumberValidation": "Gib für XP und Zeichen gültige ganze Zahlen ab 0 ein.",
     "voiceXp": "Voice-XP",
     "voiceHint": "Lege fest, wann und wie stark aktive Sprachzeit belohnt wird.",
     "voiceEligibilityKicker": "VOICE-REGELN",
@@ -1749,6 +1798,45 @@
     "seasons": "Seasons verwalten"
   },
   "seasons": {
+    "planEdit": {
+      "advanced": "Weitere Verwaltungsaktionen",
+      "title": {
+        "Delete": "Geplante Season löschen",
+        "DeleteScheduled": "Alle geplanten Seasons löschen",
+        "Update": "Season bearbeiten",
+        "Pause": "Season aussetzen",
+        "ResumePause": "Pause wieder als Season planen"
+      },
+      "deleteAll": "Alle geplanten löschen ({{count}})",
+      "hint": "Die Vorschau zeigt alle betroffenen Einträge. Laufende Seasons und Ergebnisse bleiben erhalten.",
+      "following": "Was soll mit nachfolgenden Entwürfen passieren?",
+      "KeepDates": "Termine beibehalten",
+      "KeepDatesHint": "Andere Seasons behalten ihre Termine. Eine Pause im Plan ist erlaubt.",
+      "Shift": "Nachfolgende Termine verschieben",
+      "ShiftHint": "Beim Löschen beginnt der nächste Entwurf am bisherigen Start der gelöschten Season. Beim Bearbeiten verschiebt sich die Folge um die Änderung des Enddatums. Abstände und lokale Uhrzeiten bleiben erhalten.",
+      "Delete": "Nachfolgende Entwürfe ebenfalls löschen",
+      "DeleteHint": "Entfernt auch spätere geplante und nie gestartete abgebrochene Seasons. Eingetragene Pausen bleiben erhalten.",
+      "retry": "Der Plan hat sich möglicherweise geändert. Prüfe die Vorschau erneut. Deine Eingaben bleiben erhalten.",
+      "previewTitle": "Das wird geändert",
+      "summary": "{{deleted}} Seasons werden gelöscht, {{changed}} Einträge werden geändert. Geplante Seasons werden neu nummeriert.",
+      "removed": "Wird endgültig gelöscht",
+      "noChanges": "Keine Änderungen erforderlich.",
+      "back": "Zurück",
+      "preview": "Auswirkungen prüfen",
+      "loading": "Vorschau wird geprüft …",
+      "saving": "Wird gespeichert …",
+      "confirmDelete": "{{count}} Seasons endgültig löschen",
+      "confirmEdit": "Änderungen übernehmen",
+      "saved": "Season-Plan aktualisiert.",
+      "pauseXp": "Pause · keine Season-XP",
+      "automation": "Nach dieser Änderung ist die automatische Vorausplanung pausiert.",
+      "pauseXpHint": "Während der Pause gibt es keine Season-XP. Lifetime-XP laufen weiter.",
+      "pauseName": "Name der Pause",
+      "pauseExample": "Zum Beispiel: Sommerpause",
+      "ShiftEditHint": "Verschiebt die Folge um dieselbe Zeit wie das Enddatum. Abstände bleiben erhalten.",
+      "ShiftDeleteHint": "Die nächste Season startet am bisherigen Beginn. Weitere Termine verschieben sich mit."
+    },
+    "pause": "Aussetzen",
     "draftHint": "Du bearbeitest einen Entwurf. Die Statusanzeige oben zeigt weiterhin den gespeicherten Stand. Prüfe die Vorschau und wähle unten „Speichern und Seasons anlegen“, um die Einrichtung abzuschließen.",
     "eyebrow": "SEASON-STEUERUNG",
     "title": "Seasons",
@@ -2051,7 +2139,7 @@
     },
     "workflowHint": "So geht’s: Seasons aktivieren, Zeitraum wählen, Vorschau prüfen und genau die gewünschte Anzahl anlegen. Geplante Seasons starten und enden zum angezeigten Zeitpunkt automatisch. Speichern allein legt im manuellen Planungsmodus keine Seasons an.",
     "useLocalTimeZone": "Meine Zeitzone verwenden",
-    "instanceActionHint": "Starten ist nur im angegebenen Zeitraum möglich, wenn keine andere Season läuft. Abbrechen stoppt auch die automatische Vorausplanung. Bereits geplante andere Seasons bleiben erhalten.",
+    "instanceActionHint": "Geplante Seasons kannst du direkt bearbeiten, löschen oder als Pause aussetzen. Die Vorschau zeigt dir die Auswirkungen auf den gesamten Plan.",
     "manualCreate": "Einzelne Season anlegen",
     "editDetails": "Name und Zeitraum bearbeiten",
     "editorHint": "Alle Eingaben gelten in der Zeitzone {{zone}}. Zeiträume dürfen sich nicht überschneiden. Nur geplante Seasons lassen sich bearbeiten.",

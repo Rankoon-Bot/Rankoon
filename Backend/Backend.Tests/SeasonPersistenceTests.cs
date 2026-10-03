@@ -213,6 +213,71 @@ public sealed class SeasonPersistenceTests : IAsyncLifetime
         Assert.Equal(SeasonStatus.Active, (await settings.GetSeasonsAsync(1)).Single().Status);
     }
 
+    [SeasonMongoFact]
+    public async Task Plan_change_is_idempotent_and_deleted_tail_does_not_leave_a_date_cursor()
+    {
+        var cfg = Config(); cfg.ScheduleAnchorUtc = DateTime.UtcNow.Date.AddDays(1); cfg.PlanningMode = SeasonPlanningMode.MaintainPreparedBuffer;
+        var initial = await planning.SetupAsync(cfg, 3, "setup");
+        SeasonPlanChangeRequest request;
+        await using (await planning.AcquireLeaseAsync(1, default))
+        {
+            request = new("Delete", initial.Seasons[1].Id, "Delete", OperationId: Guid.NewGuid().ToString());
+            var preview = await planning.PreviewChangeUnderLeaseAsync(1, request, default);
+            request = request with { ExpectedPlanToken = preview.PlanToken };
+            var result = await planning.ApplyChangeUnderLeaseAsync(1, request, default);
+            Assert.Single(result.Seasons); Assert.Null(result.Settings.NextSeasonStartUtc);
+            Assert.Equal(SeasonPlanningMode.Explicit, result.Settings.PlanningMode);
+            Assert.Single((await planning.ApplyChangeUnderLeaseAsync(1, request, default)).Seasons);
+        }
+        var additional = await planning.PlanExplicitAsync(await settings.GetSettingsAsync(1), 1);
+        Assert.Equal(initial.Seasons[1].StartsAtUtc, additional.Single().StartsAtUtc);
+        await using (await planning.AcquireLeaseAsync(1, default))
+            Assert.Equal(2, (await planning.ApplyChangeUnderLeaseAsync(1, request, default)).Seasons.Count);
+    }
+    [SeasonMongoFact]
+    public async Task Stale_preview_cannot_delete_a_changed_plan()
+    {
+        var initial = await planning.SetupAsync(Config(), 2, "setup");
+        await using var lease = await planning.AcquireLeaseAsync(1, default);
+        var request = new SeasonPlanChangeRequest("Delete", initial.Seasons[1].Id, OperationId: Guid.NewGuid().ToString());
+        var preview = await planning.PreviewChangeUnderLeaseAsync(1, request, default);
+        await database.GuildSeasons.UpdateOneAsync(x => x.Id == initial.Seasons[1].Id, Builders<GuildSeason>.Update.Set(x => x.Name, "Changed"));
+        await Assert.ThrowsAsync<SeasonPlanningConflictException>(() => planning.ApplyChangeUnderLeaseAsync(1, request with { ExpectedPlanToken = preview.PlanToken }, default));
+        Assert.Equal(2, (await settings.GetSeasonsAsync(1)).Count);
+    }
+    [SeasonMongoFact]
+    public async Task Interrupted_plan_change_is_recovered_before_the_next_mutation()
+    {
+        var cfg = Config(); cfg.ScheduleAnchorUtc = DateTime.UtcNow.Date.AddDays(1);
+        var initial = await planning.SetupAsync(cfg, 3, "setup");
+        var survivor = initial.Seasons[0]; survivor.Name = "Recovered";
+        var op = new SeasonPlanChangeOperation { GuildId = 1, Settings = initial.Settings, DeletedIds = initial.Seasons.Skip(1).Select(x => x.Id!).ToList(), Updated = [survivor] };
+        op.Settings.Revision++;
+        await database.SeasonPlanChanges.InsertOneAsync(op);
+        await database.GuildSeasons.DeleteOneAsync(x => x.Id == initial.Seasons[1].Id); // Simulate a process dying halfway through.
+        await using (await planning.AcquireLeaseAsync(1, default))
+        {
+            Assert.Equal("Recovered", (await settings.GetSeasonsAsync(1)).Single().Name);
+            Assert.True((await database.SeasonPlanChanges.Find(x => x.Id == op.Id).SingleAsync()).Completed);
+        }
+    }
+    [SeasonMongoFact]
+    public async Task Coordinator_does_not_start_or_fill_a_reserved_break()
+    {
+        var initial = await planning.SetupAsync(Config(), 1, "setup");
+        await using (await planning.AcquireLeaseAsync(1, default))
+        {
+            var request = new SeasonPlanChangeRequest("Pause", initial.Seasons.Single().Id, Name: "Summer", OperationId: Guid.NewGuid().ToString());
+            var preview = await planning.PreviewChangeUnderLeaseAsync(1, request, default);
+            await planning.ApplyChangeUnderLeaseAsync(1, request with { ExpectedPlanToken = preview.PlanToken }, default);
+        }
+        await Coordinator().RunOnceAsync();
+        Assert.Equal(SeasonStatus.Paused, (await settings.GetSeasonsAsync(1)).Single().Status);
+        Assert.Null(await settings.ResolveAsync(1, DateTime.UtcNow));
+        Assert.Empty(await database.SeasonMemberXp.Find(x => x.GuildId == 1).ToListAsync());
+        Assert.False(await lifecycle.ActivateAsync(1, initial.Seasons.Single().Id!));
+    }
+
     private SeasonCoordinator Coordinator() => new(database, lifecycle, planning, new Errors(), new WorkerHealthRegistry(TimeProvider.System), TimeProvider.System, NullLogger<SeasonCoordinator>.Instance);
     private static GuildSeasonSettings Config() => new() { GuildId = 1, Enabled = true, TimeZoneId = "UTC", ScheduleKind = SeasonScheduleKind.FixedDuration, ScheduleAnchorUtc = DateTime.UtcNow.Date.AddDays(-1), FixedDurationDays = 7 };
     private static GuildSeason Instance(long sequence, DateTime start, DateTime end) => new() { Id = ObjectId.GenerateNewId().ToString(), GuildId = 1, Sequence = sequence, Name = $"Season {sequence}", StartsAtUtc = start, EndsAtUtc = end, SettingsSnapshot = Config() };

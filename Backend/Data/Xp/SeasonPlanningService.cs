@@ -15,7 +15,7 @@ public interface ISeasonMutationLease : IAsyncDisposable
     CancellationToken CancellationToken { get; }
 }
 
-public sealed class SeasonPlanningService(RankoonDbContext database, ISeasonService seasonSettings, TimeProvider timeProvider)
+public sealed partial class SeasonPlanningService(RankoonDbContext database, ISeasonService seasonSettings, TimeProvider timeProvider)
 {
     private readonly string ownerPrefix = $"setup-{Guid.NewGuid():N}";
 
@@ -143,6 +143,7 @@ public sealed class SeasonPlanningService(RankoonDbContext database, ISeasonServ
         cancellationToken = lease.CancellationToken;
         try
         {
+            await RecoverPlanChangesAsync(guildId, cancellationToken);
             var unfinished = await database.SeasonSetupOperations.Find(x => x.GuildId == guildId && !x.Completed).ToListAsync(cancellationToken);
             foreach (var operation in unfinished)
             {

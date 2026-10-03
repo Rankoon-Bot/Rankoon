@@ -63,3 +63,15 @@ input, select { width: 100%; min-height: var(--rk-control-height); }
 @media (max-width: 900px) { .schedule-layout, .naming-layout, .summary-grid { grid-template-columns: 1fr; } }
 @media (max-width: 768px) { .page { padding-bottom: calc(var(--rk-control-height) * 3 + env(safe-area-inset-bottom)); } .step-nav { top: var(--rk-header-height); margin-inline: calc(var(--rk-page-gutter-mobile) * -1); border-radius: 0; } .step-nav button { font-size: 0; } .step-nav button span { font-size: var(--rk-font-caption); } .step-card { padding: var(--rk-space-5); } .step-heading { grid-template-columns: auto minmax(0, 1fr); } .step-heading > .toggle { grid-column: 1 / -1; } .preset-grid, .radio-grid, .comparison-grid { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .page-header { margin-bottom: var(--rk-space-4); } .step-card { padding: var(--rk-space-4); } .preview-heading { display: grid; } .preview-heading button { width: 100%; } }
+.plan-dialog { width: min(calc(100% - var(--rk-space-6)), var(--rk-dialog-width-wide)); max-height: calc(100dvh - var(--rk-space-8)); overflow-y: auto; padding: var(--rk-space-6); color: var(--rk-text); background: var(--rk-surface-1); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-float); }
+.plan-dialog::backdrop { background: var(--rk-overlay); }
+.plan-dialog > p, .plan-dialog .fields, .plan-options, .change-preview { margin-top: var(--rk-space-4); }
+.plan-options { display: grid; gap: var(--rk-space-3); padding: var(--rk-space-3); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-md); }
+.plan-options .radio-card { grid-template-columns: auto minmax(0, 1fr); }
+.plan-options input { width: auto; }
+.change-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--rk-space-3); padding-block: var(--rk-space-3); border-bottom: 1px solid var(--rk-border-subtle); overflow-wrap: anywhere; }
+.change-row small { display: block; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--rk-space-3); margin-top: var(--rk-space-5); }
+@media (max-width: 520px) { .plan-dialog { padding: var(--rk-space-4); } .change-row { grid-template-columns: minmax(0, 1fr); } .dialog-actions { display: grid; } }
+
+.change-period { display: block; margin-top: var(--rk-space-1); }

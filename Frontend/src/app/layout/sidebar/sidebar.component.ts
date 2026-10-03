@@ -77,6 +77,7 @@ export class SidebarComponent {
       { label: this.i18n.translate('nav.operationsOverview'), route: '/bot-management/overview', icon: '' },
       { label: this.i18n.translate('nav.incidents'), route: '/bot-management/incidents', icon: '' },
       { label: this.i18n.translate('nav.guildHealth'), route: '/bot-management/guilds', icon: '' },
+      { label: this.i18n.translate('botManagement.pages.history'), route: '/bot-management/history', icon: '' },
       { label: this.i18n.translate('nav.globalUsage'), route: '/bot-management/usage', icon: '' },
       ...(this.authStore.canManageGuilds() ? [{ label: this.i18n.translate('nav.maintainerAccess'), route: '/bot-management/maintainer', icon: '' }] : []),
     ] }] : [];

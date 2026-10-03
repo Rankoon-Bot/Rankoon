@@ -27,7 +27,7 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
         if (context.ActionArguments.TryGetValue("seasonId", out var seasonId) && !ObjectId.TryParse(seasonId?.ToString(), out _))
         { context.Result = this.ApiError("season.invalidTransition"); return; }
         var action = context.ActionDescriptor.RouteValues["action"];
-        if (HttpMethods.IsGet(Request.Method) || action is nameof(Preview) or nameof(Plan) or nameof(Setup)) { await next(); return; }
+        if (action is nameof(Preview) or nameof(Plan) or nameof(Setup)) { await next(); return; }
         var (id, error) = await AuthorizeAsync(context.ActionArguments["guildId"]?.ToString() ?? "");
         if (error != null) { context.Result = error; return; }
         try
@@ -45,6 +45,23 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
     {
         if (!ulong.TryParse(guildId, out var id) || id == 0) return (0, this.ApiError("guild.invalidId"));
         return await authorization.CanAccessModuleAsync(User, id, GuildModuleIds.Xp, HttpContext.RequestAborted) ? (id, null) : (0, Forbid());
+    }
+
+    [HttpPost("plan-changes/preview")]
+    public async Task<IActionResult> PreviewChange(string guildId, [FromBody] SeasonPlanChangeRequest request)
+    {
+        var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
+        try { return Ok(await planning.PreviewChangeUnderLeaseAsync(id, request, HttpContext.RequestAborted)); }
+        catch (SeasonPlanningConflictException) { return this.ApiError("season.planConflict"); }
+        catch (ArgumentException) { return this.ApiError("season.invalidSchedule"); }
+    }
+    [HttpPost("plan-changes")]
+    public async Task<IActionResult> ChangePlan(string guildId, [FromBody] SeasonPlanChangeRequest request)
+    {
+        var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
+        try { return Ok(await planning.ApplyChangeUnderLeaseAsync(id, request, HttpContext.RequestAborted)); }
+        catch (SeasonPlanningConflictException) { return this.ApiError("season.planConflict"); }
+        catch (ArgumentException) { return this.ApiError("season.invalidSchedule"); }
     }
 
     [HttpGet("config")]
@@ -217,6 +234,14 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
     public async Task<IActionResult> Delete(string guildId, string seasonId)
     {
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
+        var draft = await database.GuildSeasons.Find(x => x.GuildId == id && x.Id == seasonId).FirstOrDefaultAsync(HttpContext.RequestAborted);
+        if (draft != null && SeasonPlanEditor.IsDraft(draft))
+        {
+            var request = new SeasonPlanChangeRequest("Delete", seasonId, OperationId: Guid.NewGuid().ToString());
+            var preview = await planning.PreviewChangeUnderLeaseAsync(id, request, HttpContext.RequestAborted);
+            await planning.ApplyChangeUnderLeaseAsync(id, request with { ExpectedPlanToken = preview.PlanToken }, HttpContext.RequestAborted);
+            return NoContent();
+        }
         return await lifecycle.DeleteCancelledAsync(id, seasonId, HttpContext.RequestAborted) ? NoContent() : this.ApiError("season.invalidTransition");
     }
 
@@ -224,7 +249,16 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
     public async Task<IActionResult> DeleteCancelled(string guildId)
     {
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
-        return Ok(new SeasonBulkResult(await lifecycle.DeleteAllCancelledAsync(id, HttpContext.RequestAborted)));
+        var cancelled = await database.GuildSeasons.Find(x => x.GuildId == id && x.Status == SeasonStatus.Cancelled).ToListAsync(HttpContext.RequestAborted);
+        long deleted = 0;
+        foreach (var season in cancelled.Where(SeasonPlanEditor.IsDraft).OrderByDescending(x => x.StartsAtUtc))
+        {
+            var request = new SeasonPlanChangeRequest("Delete", season.Id, OperationId: Guid.NewGuid().ToString());
+            var preview = await planning.PreviewChangeUnderLeaseAsync(id, request, HttpContext.RequestAborted);
+            await planning.ApplyChangeUnderLeaseAsync(id, request with { ExpectedPlanToken = preview.PlanToken }, HttpContext.RequestAborted);
+            deleted++;
+        }
+        return Ok(new SeasonBulkResult(deleted));
     }
 
     [HttpPost("counter/reset")]

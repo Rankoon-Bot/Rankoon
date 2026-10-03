@@ -133,12 +133,9 @@
                 </div>
               </div>
             </div>
-            @if (
-              cfg.message.maximumPoints < cfg.message.minimumPoints ||
-              cfg.message.maximumCharacters < cfg.message.minimumCharacters
-            ) {
+            @if (messageRangeValidation(cfg); as messageRangeError) {
               <p class="validation" role="alert">
-                {{ "xp.maximumValidation" | transloco }}
+                {{ messageRangeError | transloco }}
               </p>
             }
           </article>

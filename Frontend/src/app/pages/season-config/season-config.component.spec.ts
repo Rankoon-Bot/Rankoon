@@ -547,14 +547,38 @@ describe('SeasonConfigComponent', () => {
     flushInitialLoad();
     component.editSeason(createSeason(2, 'Scheduled'));
     component.seasonEditor()!.name = 'My season';
-    component.saveSeasonDetails();
-    const request = http.expectOne(`${seasonsUrl}/season-2`);
-    expect(request.request.method).toBe('PUT');
+    component.previewPlanChange();
+    const preview = http.expectOne(seasonsUrl + '/plan-changes/preview');
+    preview.flush({ planToken: 'current', changes: [{ before: createSeason(2, 'Scheduled'), after: { ...createSeason(2, 'Scheduled'), name: 'My season' } }] });
+    component.applyPlanChange();
+    const request = http.expectOne(seasonsUrl + '/plan-changes');
+    expect(request.request.method).toBe('POST');
     expect(request.request.body.startsAtUtc).toBe('2030-01-01T00:00:00.000Z');
     request.flush({}, { status: 409, statusText: 'Conflict' });
     expect(component.seasonEditor()!.name).toBe('My season');
   });
 
+  it('requires a reviewed plan and retains the operation id when retrying deletion', () => {
+    flushInitialLoad(); const target = createSeason(2, 'Scheduled');
+    component.requestAction('delete', target); expect(component.pending()).toBeNull();
+    component.applyPlanChange(); http.expectNone(seasonsUrl + '/plan-changes');
+    component.previewPlanChange();
+    http.expectOne(seasonsUrl + '/plan-changes/preview').flush({ planToken: 'checked', changes: [{ before: target, after: null }] });
+    component.applyPlanChange(); const first = http.expectOne(seasonsUrl + '/plan-changes');
+    const id = first.request.body.operationId; expect(first.request.body.expectedPlanToken).toBe('checked');
+    first.flush({}, { status: 503, statusText: 'Unavailable' });
+    component.applyPlanChange(); const retry = http.expectOne(seasonsUrl + '/plan-changes');
+    expect(retry.request.body.operationId).toBe(id); retry.flush({}, { status: 503, statusText: 'Unavailable' });
+    component.invalidateChange(); component.applyPlanChange(); http.expectNone(seasonsUrl + '/plan-changes');
+  });
+  it('previews a named break without cancelling', () => {
+    flushInitialLoad(); component.requestAction('pause', createSeason(2, 'Scheduled'));
+    component.pauseName = 'Summer'; component.previewPlanChange();
+    const request = http.expectOne(seasonsUrl + '/plan-changes/preview');
+    expect(request.request.body.kind).toBe('Pause'); expect(request.request.body.name).toBe('Summer');
+    expect(request.request.body.followUp).toBe('KeepDates'); request.flush({ planToken: 'checked', changes: [] });
+    http.expectNone(seasonsUrl + '/season-2/cancel');
+  });
   it('resets the counter for following seasons through the confirmed endpoint', () => {
     flushInitialLoad();
     component.requestBulkAction('resetCounter');

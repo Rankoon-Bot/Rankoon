@@ -9,7 +9,7 @@ using Rankoon.Data.Operations;
 namespace Rankoon.Controllers;
 
 [ApiController, EnableRateLimiting("bot-management"), Route("api/bot-management")]
-public sealed class BotManagementController(IBotOperatorAccessService access, IOperationsQueryService operations) : ControllerBase
+public sealed class BotManagementController(IBotOperatorAccessService access, IOperationsQueryService operations, BotGuildHistoryQuery history) : ControllerBase
 {
     [HttpGet("access"), Authorize]
     public async Task<IActionResult> GetAccess()
@@ -21,6 +21,14 @@ public sealed class BotManagementController(IBotOperatorAccessService access, IO
     [HttpGet("operations/overview"), HttpGet("overview"), Authorize(Policy = AuthorizationPolicies.BotOperator)] public async Task<IActionResult> Overview([FromQuery] string? range) => TryRange(range, operations.OverviewAsync, out var task) ? Ok(await task) : this.ApiError("botManagement.invalidRange");
     [HttpGet("guild-health"), HttpGet("guilds"), Authorize(Policy = AuthorizationPolicies.BotOperator)] public async Task<IActionResult> GuildHealth([FromQuery] string? range) => TryRange(range, operations.GuildHealthAsync, out var task) ? Ok(await task) : this.ApiError("botManagement.invalidRange");
     [HttpGet("usage"), Authorize(Policy = AuthorizationPolicies.BotOperator)] public async Task<IActionResult> Usage([FromQuery] string? range) => TryRange(range, operations.UsageAsync, out var task) ? Ok(await task) : this.ApiError("botManagement.invalidRange");
+
+    [HttpGet("server-history"), Authorize(Policy = AuthorizationPolicies.BotOperator)]
+    public async Task<IActionResult> ServerHistory([FromQuery] string? range, [FromQuery] string? search, [FromQuery] string? status, [FromQuery] int offset = 0)
+    {
+        if (!GuildAnalyticsQueryService.TryParseRange(range, out var parsed)) return this.ApiError("botManagement.invalidRange");
+        try { return Ok(await history.QueryAsync(parsed, search, status, offset, HttpContext.RequestAborted)); }
+        catch (ArgumentException) { return this.ApiError("reports.invalidQuery"); }
+    }
 
     [HttpGet("incidents"), Authorize(Policy = AuthorizationPolicies.BotOperator)]
     public async Task<IActionResult> Incidents([FromQuery] IncidentQuery query) { try { return Ok(await operations.IncidentsAsync(query, HttpContext.RequestAborted)); } catch (ArgumentException) { return this.ApiError("reports.invalidQuery"); } }

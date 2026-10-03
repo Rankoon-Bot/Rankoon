@@ -463,7 +463,8 @@
       "incidents": "Incidenti",
       "guilds": "Stato dei server",
       "usage": "Utilizzo globale",
-      "maintainer": "Accesso maintainer"
+      "maintainer": "Accesso maintainer",
+      "history": "Cronologia dei server"
     },
     "sections": {
       "overview": {
@@ -481,6 +482,10 @@
       "usage": {
         "title": "Utilizzo globale",
         "description": "Tendenze della domanda e dell'utilizzo delle funzionalità su tutti i server."
+      },
+      "history": {
+        "title": "Cronologia dei server",
+        "description": "Installazioni, rimozioni e rilevamenti iniziali per bot e server."
       }
     },
     "ranges": {
@@ -562,7 +567,14 @@
         "databaseWriterFailures": "Errori di scrittura del database",
         "unhealthyWorkers": "Worker non integri",
         "guilds": "Server",
-        "errors": "Errori"
+        "errors": "Errori",
+        "botInstallations": "Installazioni osservate",
+        "botRemovals": "Rimozioni osservate",
+        "detectedRemovals": "Rimozioni rilevate successivamente",
+        "baselineInstallations": "Primo rilevamento delle installazioni esistenti",
+        "connectedInactiveGuilds": "Server connessi senza attività",
+        "disconnectedActiveGuilds": "Server prima attivi e ora disconnessi",
+        "historyWriteFailures": "Tentativi di scrittura della cronologia non riusciti"
       },
       "insights": {
         "incident_spike": "Picco di incidenti",
@@ -585,6 +597,40 @@
         "discord": "Discord",
         "operations": "Operazioni"
       }
+    },
+    "history": {
+      "all": "Tutti gli stati",
+      "present": "Installato (ultima conferma)",
+      "removed": "Rimosso",
+      "refresh": "Aggiorna",
+      "tracking": "Rilevamento dal",
+      "updated": "Dati aggiornati",
+      "results": "{{total}} installazioni nel periodo",
+      "bot": "Bot",
+      "installed": "Installazione osservata",
+      "knownJoin": "Ingresso secondo Discord",
+      "firstObserved": "Primo rilevamento",
+      "membersSnapshot": "Membri (ultimo rilevamento)",
+      "detected": "Rimozione rilevata",
+      "uninstalled": "Rimozione osservata",
+      "baselineNote": "Rilevamento iniziale: il bot era già installato. Non conta come nuova installazione.",
+      "detectedNote": "Dopo la riconnessione questa installazione non era più presente. La data esatta della rimozione è sconosciuta.",
+      "empty": "Nessun risultato. Amplia il periodo o modifica i filtri.",
+      "pagination": "Pagine della cronologia",
+      "previous": "Pagina precedente",
+      "next": "Pagina successiva",
+      "explanation": "La cronologia conserva installazioni e rimozioni per bot e server. Il periodo mostra i primi rilevamenti e le rimozioni rilevate. Le metriche non dipendono dai filtri di ricerca. Ogni reinstallazione ha una voce distinta. Discord non indica chi ha rimosso il bot né il motivo."
+    },
+    "historyLink": "Visualizza installazioni e rimozioni nella cronologia",
+    "metricHelp": {
+      "adoptingGuilds": "All servers with recorded activity in the range, including servers since removed.",
+      "connectedGuilds": "Current server membership reported by bot runtimes. This is not a range total.",
+      "memberSum": "Current member counts across connected servers; a user may belong to multiple servers.",
+      "connectedInactiveGuilds": "Currently connected servers without recorded activity in the selected range.",
+      "disconnectedActiveGuilds": "Servers active in the range but currently absent from all bot runtimes. This alone does not prove an uninstall.",
+      "telemetryDrops": "Dropped measurements since the last backend start.",
+      "databaseWriterFailures": "Failed error-log writes since backend startup.",
+      "historyWriteFailures": "Since backend startup. Failures can leave gaps in history; gateway reconciliation helps recovery."
     }
   },
   "customBotIdentity": {
@@ -912,10 +958,12 @@
     "loading": "Caricamento stato fittizio...",
     "removeConfirm": "Rimuovere tutti gli utenti fittizi e i relativi eventi XP?",
     "status": {
-      "label": "Server attivo",
-      "users": "Utenti finti",
-      "events": "Eventi XP",
-      "xp": "XP simulati totali"
+      "scheduled": "Programmato",
+      "active": "Attivo",
+      "closing": "Chiusura",
+      "closed": "Chiuso",
+      "cancelled": "Annullato",
+      "paused": "Break"
     },
     "generate": {
       "title": "Popolare la classifica",
@@ -1645,6 +1693,45 @@
     "seasons": "Gestisci le stagioni"
   },
   "seasons": {
+    "planEdit": {
+      "advanced": "More management actions",
+      "title": {
+        "Delete": "Delete planned season",
+        "DeleteScheduled": "Delete all planned seasons",
+        "Update": "Edit season",
+        "Pause": "Skip season for a break",
+        "ResumePause": "Plan a season in this break"
+      },
+      "deleteAll": "Delete all planned ({{count}})",
+      "hint": "The preview shows every affected entry. Running seasons and results remain.",
+      "following": "What should happen to later drafts?",
+      "KeepDates": "Keep their dates",
+      "KeepDatesHint": "Other seasons keep their dates. A gap in the plan is allowed.",
+      "Shift": "Shift later dates",
+      "ShiftHint": "When deleting, the next draft starts at the deleted season’s original start. When editing, later drafts shift by the change to the end date. Gaps and local times are preserved.",
+      "Delete": "Also delete later drafts",
+      "DeleteHint": "Removes later planned and never-started cancelled seasons. Scheduled breaks remain.",
+      "retry": "The plan may have changed. Check the preview again. Your input is preserved.",
+      "previewTitle": "Changes to your plan",
+      "summary": "{{deleted}} seasons will be deleted; {{changed}} entries will be updated. Planned season numbers are adjusted.",
+      "removed": "Will be permanently deleted",
+      "noChanges": "No changes needed.",
+      "back": "Back",
+      "preview": "Check impact",
+      "loading": "Checking preview …",
+      "saving": "Saving …",
+      "confirmDelete": "Permanently delete {{count}} seasons",
+      "confirmEdit": "Apply changes",
+      "saved": "Season plan updated.",
+      "pauseXp": "Break · no season XP",
+      "automation": "Automatic planning will be paused after this change.",
+      "pauseXpHint": "No season XP is awarded during the break. Lifetime XP continues.",
+      "pauseName": "Name of the break",
+      "pauseExample": "For example: summer break",
+      "ShiftEditHint": "Shifts later seasons by the same amount as the end date. Gaps are preserved.",
+      "ShiftDeleteHint": "The next season starts at the original start. Later dates shift with it."
+    },
+    "pause": "Skip for a break",
     "draftHint": "Stai modificando una bozza. Lo stato in alto mostra i dati salvati. Controlla l’anteprima e scegli «Salva e crea stagioni» in basso.",
     "eyebrow": "CONTROLLO DELLA STAGIONE",
     "title": "Stagioni XP",

@@ -257,7 +257,7 @@ export type SeasonScheduleKind =
   | 'Annual';
 export type SeasonPlanningMode = 'Explicit' | 'MaintainPreparedBuffer';
 export type SeasonStatus =
-  'Scheduled' | 'Active' | 'Closing' | 'Closed' | 'Cancelled';
+  'Scheduled' | 'Active' | 'Closing' | 'Closed' | 'Cancelled' | 'Paused';
 export type SeasonLeaderboardScope = 'Lifetime' | 'CurrentSeason' | 'Season';
 export type SeasonInitialXpMode = 'Zero' | 'Lifetime' | 'LifetimePercentage';
 export type SeasonCarryOverMode = 'None' | 'Percentage';
@@ -301,6 +301,8 @@ export interface SeasonSettings {
   numberingEpoch?: number;
 }
 export interface Season {
+  pauseLabel?: string | null;
+  baselineInitialized?: boolean;
   id?: string;
   guildId?: string;
   sequence: number;
@@ -327,6 +329,12 @@ export interface SeasonPreview {
   endsAtUtc: string;
   name: string;
 }
+export interface SeasonPlanChangeRequest {
+  kind: 'Delete' | 'DeleteScheduled' | 'Update' | 'Pause' | 'ResumePause'; seasonId?: string;
+  followUp: 'KeepDates' | 'Shift' | 'Delete'; name?: string; startsAtUtc?: string; endsAtUtc?: string;
+  operationId?: string; expectedPlanToken?: string;
+}
+export interface SeasonPlanChangePreview { planToken: string; changes: Array<{ before: Season; after: Season | null }>; }
 export interface SeasonSetupResponse {
   settings: SeasonSettings;
   seasons: Season[];
@@ -564,6 +572,12 @@ export class GuildService {
       this.url(guildId, `xp/seasons/${seasonId}/resume`),
       {},
     );
+  }
+  previewSeasonChange(guildId: string, request: SeasonPlanChangeRequest): Observable<SeasonPlanChangePreview> {
+    return this.http.post<SeasonPlanChangePreview>(this.url(guildId, 'xp/seasons/plan-changes/preview'), request);
+  }
+  changeSeasonPlan(guildId: string, request: SeasonPlanChangeRequest): Observable<SeasonSetupResponse> {
+    return this.http.post<SeasonSetupResponse>(this.url(guildId, 'xp/seasons/plan-changes'), request);
   }
   deleteSeason(guildId: string, seasonId: string): Observable<void> {
     return this.http.delete<void>(this.url(guildId, `xp/seasons/${seasonId}`));

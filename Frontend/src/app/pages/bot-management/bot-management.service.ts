@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { BotIncident, BotManagementRange, GlobalUsageResponse, GuildHealthResponse, IncidentQuery, IncidentResponse, OperationsOverview } from './bot-management.models';
+import { BotGuildHistoryResponse, BotIncident, BotManagementRange, GlobalUsageResponse, GuildHealthResponse, IncidentQuery, IncidentResponse, OperationsOverview } from './bot-management.models';
 
 @Injectable({ providedIn: 'root' })
 export class BotManagementService {
@@ -9,6 +9,9 @@ export class BotManagementService {
   getOperationsOverview(range: BotManagementRange) { return this.http.get<OperationsOverview>(`${environment.apiBaseUrl}/bot-management/overview`, { params: { range } }); }
   getGuilds(range: BotManagementRange) { return this.http.get<GuildHealthResponse>(`${environment.apiBaseUrl}/bot-management/guilds`, { params: { range } }); }
   getUsage(range: BotManagementRange) { return this.http.get<GlobalUsageResponse>(`${environment.apiBaseUrl}/bot-management/usage`, { params: { range } }); }
+  getServerHistory(range: BotManagementRange, search: string, status: string, offset: number) {
+    return this.http.get<BotGuildHistoryResponse>(`${environment.apiBaseUrl}/bot-management/server-history`, { params: { range, search, status, offset } });
+  }
   getIncidents(query: IncidentQuery) {
     const params = Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined && value !== '')) as Record<string, string>;
     return this.http.get<IncidentResponse>(`${environment.apiBaseUrl}/bot-management/incidents`, { params });
