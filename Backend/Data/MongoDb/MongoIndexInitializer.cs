@@ -78,6 +78,7 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                 await database.LevelTransitionEvents.Indexes.CreateManyAsync([
                      new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.EventKey), new CreateIndexOptions { Unique = true, Name = "event_key_unique" }),
                      new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.NextAttemptAtUtc), new CreateIndexOptions { Name = "open_delivery" }),
+                     new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.LeaseExpiresAtUtc), new CreateIndexOptions { Name = "expired_delivery_leases" }),
                      new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId).Ascending(x => x.Scope).Descending(x => x.CreatedAtUtc), new CreateIndexOptions { Name = "guild_user_scope_recent" }),
                      new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Scope).Descending(x => x.CompletedAtUtc), new CreateIndexOptions { Name = "guild_scope_completed_recent" }),
                      new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.SeasonId).Ascending(x => x.Status), new CreateIndexOptions { Name = "season_delivery" })

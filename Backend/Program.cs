@@ -233,6 +233,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.LedgerProjectionRepairService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonCoordinator>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonLevelRoleService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleRepairService>();
 builder.Services.AddSingleton<IDiscordAnnouncementSender, DiscordAnnouncementSender>();
 builder.Services.AddSingleton<LevelProgressionWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
@@ -268,6 +269,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.VoiceLedgerMigrationService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<LevelProgressionWorker>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LevelRoleRepairService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.GuildUserAvatarObservationWorker>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.GuildUserAvatarHydrationWorker>());
