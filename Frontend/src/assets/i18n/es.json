@@ -1566,6 +1566,7 @@
     "charactersUnit": "caracteres",
     "messageXp": "XP por mensajes",
     "messageHint": "Recompense las contribuciones útiles sin fomentar el spam.",
+    "messageRangeNumberValidation": "Introduce números enteros válidos de 0 o más para XP y caracteres.",
     "minimumXp": "XP mínima",
     "minimumXpHint": "Límite inferior por mensaje",
     "maximumXp": "XP máxima",
