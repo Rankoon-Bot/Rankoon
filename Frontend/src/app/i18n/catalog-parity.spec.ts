@@ -27,6 +27,7 @@ describe('translation catalogs', () => {
     'language',
     'leaderboard',
     'leaderboardSettings',
+    'legal',
     'levelUpAnnouncements',
     'login',
     'modules',
