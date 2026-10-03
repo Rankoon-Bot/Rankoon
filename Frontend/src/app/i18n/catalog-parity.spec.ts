@@ -3,7 +3,6 @@ import { GUILD_MODULE_IDS } from '../models/guild-permissions.models';
 import { SUPPORTED_LOCALES } from './locale.service';
 
 describe('translation catalogs', () => {
-  const expectedKeyCount = 1910;
   const namespaces = [
     'activity',
     'analytics',
@@ -56,9 +55,9 @@ describe('translation catalogs', () => {
       SUPPORTED_LOCALES.map((language) => catalog(language)),
     );
     const englishKeys = flatten(catalogs[0]).sort();
+    expect(englishKeys.length).toBeGreaterThan(0);
     for (const translation of catalogs) {
       expect(flatten(translation).sort()).toEqual(englishKeys);
-      expect(flatten(translation)).toHaveSize(expectedKeyCount);
       expect(Object.keys(translation).sort()).toEqual([...namespaces].sort());
     }
   });

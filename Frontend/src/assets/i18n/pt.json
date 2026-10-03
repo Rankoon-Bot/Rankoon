@@ -273,7 +273,7 @@
       "handoverIncomplete": "A transferência do bot personalizado ainda não foi concluída.",
       "returnToPlatformRequired": "Regresse ao bot oficial Rankoon antes de concluir esta operação."
     },
-    "selfroles": {
+    "selfRoles": {
       "invalidPanel": "O painel de cargos autoatribuíveis é inválido.",
       "tooManyMappings": "Um painel de cargos autoatribuíveis suporta no máximo 20 associações.",
       "duplicateEmoji": "Cada associação de cargo autoatribuível deve utilizar um emoji único.",
@@ -385,7 +385,7 @@
         "reactions": "Reações",
         "threads": "Tópicos",
         "commands": "Comandos",
-        "selfroles": "Cargos autoatribuíveis",
+        "selfRoles": "Cargos autoatribuíveis",
         "voiceHubs": "Hubs de voz",
         "xp": "XP"
       },
@@ -987,7 +987,7 @@
       "voiceXp": "Voz XP",
       "levelUpAnnouncements": "Mensagens de subida de nível",
       "levelRoles": "Cargos de nível",
-      "selfroles": "Cargos autoatribuíveis",
+      "selfRoles": "Cargos autoatribuíveis",
       "voiceHubs": "Hubs de voz"
     },
     "permission": {
@@ -1166,7 +1166,7 @@
     "levelUpAnnouncements": "Mensagens de subida de nível",
     "xpAudit": "Histórico e ajustes de XP",
     "voiceHubs": "Hubs de voz",
-    "selfroles": "Cargos autoatribuíveis",
+    "selfRoles": "Cargos autoatribuíveis",
     "leaderboardSettings": "Definições da tabela de classificação",
     "roles": "Funções e permissões",
     "botIdentity": "Identidade do bot",
@@ -1339,7 +1339,7 @@
     "xp-announcements": { "name": "Anúncios de nível", "description": "Gerir mensagens e canais de subida de nível" },
     "diagnostics": { "name": "Diagnóstico", "description": "Ver diagnósticos de permissões e configuração" }
   },
-  "selfroles": {
+  "selfRoles": {
     "eyebrow": "AUTOMAÇÃO DE FUNÇÕES",
     "title": "Cargos autoatribuíveis",
     "subtitle": "Permita que os membros atribuam a si próprios cargos aprovados através de uma mensagem num canal de texto.",

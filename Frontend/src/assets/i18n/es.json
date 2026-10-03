@@ -273,7 +273,7 @@
       "handoverIncomplete": "La transferencia al bot personalizado aún no se ha completado.",
       "returnToPlatformRequired": "Regrese al bot oficial de Rankoon antes de completar esta operación."
     },
-    "selfroles": {
+    "selfRoles": {
       "invalidPanel": "El panel de autorroles no es válido.",
       "tooManyMappings": "Un panel de autorroles admite como máximo 20 asignaciones.",
       "duplicateEmoji": "Cada asignación de autorrol debe utilizar un emoji único.",
@@ -391,7 +391,7 @@
         "reactions": "Reacciones",
         "threads": "Hilos",
         "commands": "Comandos",
-        "selfroles": "Autorroles",
+        "selfRoles": "Autorroles",
         "voiceHubs": "Centros de voz",
         "xp": "XP"
       },
@@ -993,7 +993,7 @@
       "voiceXp": "XP de voz",
       "levelUpAnnouncements": "Mensajes de subida de nivel",
       "levelRoles": "Roles de nivel",
-      "selfroles": "Autorroles",
+      "selfRoles": "Autorroles",
       "voiceHubs": "Centros de voz"
     },
     "permission": {
@@ -1172,7 +1172,7 @@
     "levelUpAnnouncements": "Mensajes de subida de nivel",
     "xpAudit": "Historial de XP y ajustes",
     "voiceHubs": "Centros de voz",
-    "selfroles": "Autorroles",
+    "selfRoles": "Autorroles",
     "leaderboardSettings": "Configuración de la tabla de clasificación",
     "roles": "Roles y permisos",
     "botIdentity": "Identidad del bot",
@@ -1345,7 +1345,7 @@
     "xp-announcements": { "name": "Anuncios de nivel", "description": "Gestionar mensajes y canales de subida de nivel" },
     "diagnostics": { "name": "Diagnóstico", "description": "Ver diagnósticos de permisos y configuración" }
   },
-  "selfroles": {
+  "selfRoles": {
     "eyebrow": "AUTOMATIZACIÓN DE ROLES",
     "title": "Autorroles",
     "subtitle": "Permita que los miembros asignen roles aprobados desde un mensaje en un canal de texto.",
