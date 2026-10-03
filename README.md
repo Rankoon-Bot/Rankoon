@@ -204,6 +204,7 @@ ready. Discord may take time to propagate global command changes.
 
 | Command | Description |
 | --- | --- |
+| `/help` | Show Rankoon commands and how to use them |
 | `/rank` | Show your level, total XP, and next cumulative level threshold |
 | `/leaderboard` | Show the top ten current members by XP |
 | `/voice action:name value:<name>` | Rename the temporary channel you own |
@@ -211,8 +212,9 @@ ready. Discord may take time to propagate global command changes.
 | `/voice action:kick member:<member>` | Disconnect a selected member while managing your owned channel |
 | `/voice action:transfer member:<member>` | Transfer the stored channel ownership to another member |
 
-Command responses are ephemeral. The `/voice` command works only while the
-invoking member is connected to the temporary channel recorded as theirs.
+Command responses are ephemeral. `/help` also links to the dashboard and
+self-hosting instructions. The `/voice` command works only while the invoking
+member is connected to the temporary channel recorded as theirs.
 
 ## Import existing XP
 

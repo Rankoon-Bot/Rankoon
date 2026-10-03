@@ -428,6 +428,14 @@
     }
   },
   "login": {
+    "back": "Back to home",
+    "title": "Your server. Your control deck.",
+    "intro": "Keep track of XP, levels and server activity. Manage everything in one place with Rankoon.",
+    "panelTitle": "Sign in to the dashboard",
+    "continueHint": "You will be redirected to Discord to sign in with your account.",
+    "retryHint": "Try signing in again using the Discord button.",
+    "authNote": "Your password stays with Discord. Rankoon does not need a separate password.",
+    "legalAria": "Legal information",
     "logoAlt": "Rankoon logo",
     "subtitle": "Manage your Discord bot with ease",
     "signIn": "Sign in with Discord",
@@ -2348,5 +2356,75 @@
     "unsaved": "Unsaved changes",
     "reset": "Reset changes",
     "invalid": "Fix highlighted fields before saving."
+  },
+  "legal": {
+    "back": "Back to home",
+    "overline": "RANKOON / LEGAL",
+    "terms": {
+      "title": "Terms of Service",
+      "intro": "Terms for using Rankoon, the Discord bot for leveling and community voice management.",
+      "section1": {
+        "title": "Scope",
+        "body": "These terms apply to the use of Rankoon and its associated dashboard. By installing the bot, signing in to the dashboard or using its features, you agree to these terms."
+      },
+      "section2": {
+        "title": "Discord account and permissions",
+        "body": "A Discord account is required to use the dashboard. Sign-in takes place through Discord. Administrators and server owners are responsible for using Rankoon only on servers for which they have the necessary permissions and for managing dashboard access appropriately."
+      },
+      "section3": {
+        "title": "Permitted use",
+        "body": "Rankoon may only be used in accordance with the Discord Terms of Service, the Discord Community Guidelines and all applicable laws. Using the bot to circumvent Discord rules, harass others, collect data without authorization or disrupt the service is prohibited."
+      },
+      "section4": {
+        "title": "Features and availability",
+        "body": "Rankoon provides features including XP and leaderboards, temporary voice channels, role rewards and reports. Features may change, be restricted or be discontinued. No guarantee is provided regarding uninterrupted availability, the accuracy of statistics or the retention of data."
+      },
+      "section5": {
+        "title": "Responsibility for server content",
+        "body": "Server operators remain responsible for their servers, content, members and configurations. Rankoon is not a moderation service and does not replace your own administration or backups of important configuration data."
+      },
+      "section6": {
+        "title": "Privacy",
+        "beforeLink": "The processing of personal data is governed by the ",
+        "afterLink": ". For self-hosted instances, the operator is responsible for privacy information and requests."
+      },
+      "section7": {
+        "title": "Changes",
+        "body": "These terms of service may be updated when required due to legal, technical or functional changes. Continued use after publication of the updated terms constitutes acceptance."
+      }
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "intro": "Information about the processing of personal data by Rankoon.",
+      "section1": {
+        "title": "Data controller",
+        "body": "For self-hosted instances, the respective operator of the Rankoon instance is responsible for data processing. Server operators who use Rankoon remain responsible for their own community and the rules that apply there."
+      },
+      "section2": {
+        "title": "Data processed",
+        "body": "Rankoon processes Discord account and server data to the extent necessary for the features provided. This includes Discord user and server IDs, display names, avatars, role and permission information, and server and channel names.",
+        "activity": "For leveling and leaderboards, activity data is stored, such as message counts, reactions, thread activity, interest in scheduled events, voice connection duration, XP, levels and, where applicable, the public visibility of a leaderboard entry. Message content is not stored as a permanent record; it is only processed when the enabled XP rule requires evaluating message length."
+      },
+      "section3": {
+        "title": "Purposes and legal bases",
+        "body": "Data processing supports bot operation, the calculation of XP and leaderboards, the creation of temporary voice channels, the management of role rewards, dashboard security and error analysis. Processing takes place to provide the features enabled by the server operator and on the basis of a legitimate interest in a functioning community service or consent that has been given, where required."
+      },
+      "section4": {
+        "title": "Sign-in and security",
+        "body": "Dashboard sign-in takes place through Discord OAuth. Rankoon receives the Discord information necessary for sign-in and permission checks and creates its own access and refresh tokens. Refresh tokens are stored for session management and are valid for up to 30 days by default. Access to the dashboard and changes to settings may be recorded in activity reports."
+      },
+      "section5": {
+        "title": "Storage and deletion",
+        "body": "Configuration, XP, leaderboard and voice data is stored for as long as the bot is used on the server or the data is necessary for the respective feature. Activity, command and error reports are automatically deleted after 90 days. When the bot is removed or a deletion request is made, the responsible instance or server operator decides on the deletion of the associated data."
+      },
+      "section6": {
+        "title": "Recipients and third parties",
+        "body": "Discord processes data under its own terms and privacy policy. Rankoon transmits data to Discord only to the extent necessary for the Discord API and bot features. Data is stored in the database configured by the operator; it is not shared for advertising or sales purposes."
+      },
+      "section7": {
+        "title": "Your rights",
+        "body": "Data subjects may contact the operator of the respective Rankoon instance to request access, rectification, deletion or restriction of processing, or to object to processing. For data processed directly by Discord, Discord's privacy information also applies."
+      }
+    }
   }
 }

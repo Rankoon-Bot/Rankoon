@@ -15,10 +15,11 @@ namespace Rankoon.Data.Discord;
 
 public sealed class RankoonCommandSchemaProvider
 {
-    public const string Version = "1";
+    public const string Version = "2";
 
     public IReadOnlyList<ApplicationCommandProperties> GetCommands() =>
     [
+        new SlashCommandBuilder().WithName("help").WithDescription("Zeigt die Rankoon-Befehle und ihre Anwendung").Build(),
         new SlashCommandBuilder().WithName("rank").WithDescription("Zeigt deinen Rankoon-Rang").Build(),
         new SlashCommandBuilder().WithName("leaderboard").WithDescription("Zeigt die Rankoon-Rangliste").Build(),
         new SlashCommandBuilder().WithName("voice").WithDescription("Verwaltet deinen temporaeren Voice-Kanal")
@@ -31,6 +32,7 @@ public sealed class RankoonCommandSchemaProvider
 
     public object[] GetRestPayload() =>
     [
+        new { name = "help", description = "Zeigt die Rankoon-Befehle und ihre Anwendung", type = 1 },
         new { name = "rank", description = "Zeigt deinen Rankoon-Rang", type = 1 },
         new { name = "leaderboard", description = "Zeigt die Rankoon-Rangliste", type = 1 },
         new { name = "voice", description = "Verwaltet deinen temporaeren Voice-Kanal", type = 1, options = new object[]
@@ -101,11 +103,25 @@ public sealed class RankoonInteractionHandler(IXpService xp, VcHubService hubs, 
     private async Task<string> HandleCommandAsync(SocketSlashCommand command)
     {
         if (command.GuildId is not ulong guildId || command.User is not SocketGuildUser member) return ReportOutcomes.Rejected;
+        if (command.Data.Name == "help") { await SendHelpAsync(command); return ReportOutcomes.Succeeded; }
         if (command.Data.Name == "rank") { await SendRankAsync(command, guildId, member); return ReportOutcomes.Succeeded; }
         if (command.Data.Name == "leaderboard") { var entries = await xp.GetLeaderboardAsync(guildId, 10); await command.RespondAsync(string.Join("\n", entries.Select((entry, index) => $"**{index + 1}.** {entry.DisplayName} - Level {Mee6LevelCurve.GetLevel(entry.ImportedMee6Xp + entry.EarnedXp + entry.ManualAdjustment)} ({entry.ImportedMee6Xp + entry.EarnedXp + entry.ManualAdjustment:0} XP)")), ephemeral: true); return ReportOutcomes.Succeeded; }
         if (command.Data.Name == "voice") return await HandleVoiceAsync(command, guildId, member);
         return ReportOutcomes.Rejected;
     }
+
+    private static Task SendHelpAsync(SocketSlashCommand command) => command.RespondAsync(
+        "**Rankoon – Hilfe**\n" +
+        "`/rank` – Zeigt dein Level, deine XP und die XP-Schwelle zur nächsten Stufe.\n" +
+        "`/leaderboard` – Zeigt die Top 10 deines Servers.\n" +
+        "`/voice action:name value:<Name>` – Benennt deinen temporären Voice-Kanal um.\n" +
+        "`/voice action:limit value:<0–99>` – Ändert das Nutzerlimit; `0` bedeutet unbegrenzt.\n" +
+        "`/voice action:kick member:<Mitglied>` – Trennt ein Mitglied von deinem Kanal.\n" +
+        "`/voice action:transfer member:<Mitglied>` – Überträgt den Kanalbesitz.\n\n" +
+        "Voice-Aktionen funktionieren in einem Rankoon-Voice-Kanal, dessen Besitzer du bist. " +
+        "Admins richten XP, Ranglisten und Voice-Hubs im [Dashboard](https://rankoon.fun/dashboard) ein.\n" +
+        "[Self-hosting und Quellcode](https://github.com/Rankoon-Bot/Rankoon)",
+        ephemeral: true);
 
     private async Task SendRankAsync(SocketSlashCommand command, ulong guildId, SocketGuildUser member)
     {

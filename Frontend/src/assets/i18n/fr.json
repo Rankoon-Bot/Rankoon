@@ -408,6 +408,14 @@
     }
   },
   "login": {
+    "back": "Retour à l’accueil",
+    "title": "Ton serveur. Ton centre de contrôle.",
+    "intro": "Suis l’XP, les niveaux et l’activité de ton serveur. Gère tout au même endroit avec Rankoon.",
+    "panelTitle": "Se connecter au tableau de bord",
+    "continueHint": "Tu seras redirigé vers Discord pour te connecter avec ton compte.",
+    "retryHint": "Réessaie de te connecter avec le bouton Discord.",
+    "authNote": "Ton mot de passe reste chez Discord. Rankoon n’a pas besoin d’un mot de passe distinct.",
+    "legalAria": "Informations légales",
     "logoAlt": "Logo Rankoon",
     "subtitle": "Gérez facilement votre bot Discord",
     "signIn": "Connectez-vous avec Discord",
@@ -2215,5 +2223,75 @@
   "confirmation": {
     "irreversible": "Cette action est irréversible."
   },
-  "saveBar": { "unsaved": "Unsaved changes", "reset": "Reset changes", "invalid": "Fix highlighted fields before saving." }
+  "saveBar": { "unsaved": "Unsaved changes", "reset": "Reset changes", "invalid": "Fix highlighted fields before saving." },
+  "legal": {
+    "back": "Retour à l’accueil",
+    "overline": "RANKOON / INFORMATIONS LÉGALES",
+    "terms": {
+      "title": "Conditions d’utilisation",
+      "intro": "Conditions d’utilisation de Rankoon, le bot Discord pour les niveaux et la gestion des salons vocaux de la communauté.",
+      "section1": {
+        "title": "Champ d’application",
+        "body": "Ces conditions s’appliquent à l’utilisation de Rankoon et de son tableau de bord associé. En installant le bot, en te connectant au tableau de bord ou en utilisant ses fonctionnalités, tu acceptes ces conditions."
+      },
+      "section2": {
+        "title": "Compte Discord et autorisations",
+        "body": "Un compte Discord est nécessaire pour utiliser le tableau de bord. La connexion s’effectue via Discord. Les administrateurs et propriétaires de serveurs sont responsables de l’utilisation de Rankoon uniquement sur les serveurs pour lesquels ils disposent des autorisations nécessaires et de la gestion appropriée des accès au tableau de bord."
+      },
+      "section3": {
+        "title": "Utilisation autorisée",
+        "body": "Rankoon ne peut être utilisé que conformément aux Conditions d’utilisation de Discord, aux Règles de la communauté de Discord et à toutes les lois applicables. Il est interdit d’utiliser le bot pour contourner les règles de Discord, harceler, collecter des données sans autorisation ou perturber le service."
+      },
+      "section4": {
+        "title": "Fonctionnalités et disponibilité",
+        "body": "Rankoon propose notamment des fonctionnalités d’XP et de classement, des salons vocaux temporaires, des récompenses sous forme de rôles et des rapports. Les fonctionnalités peuvent être modifiées, limitées ou supprimées. Aucune garantie n’est donnée concernant la disponibilité ininterrompue, l’exactitude des statistiques ou la conservation des données."
+      },
+      "section5": {
+        "title": "Responsabilité concernant le contenu des serveurs",
+        "body": "Les exploitants de serveurs restent responsables de leurs serveurs, contenus, membres et configurations. Rankoon n’est pas un service de modération et ne remplace ni ta propre administration ni la sauvegarde des données de configuration importantes."
+      },
+      "section6": {
+        "title": "Confidentialité",
+        "beforeLink": "Le traitement des données à caractère personnel est régi par la ",
+        "afterLink": ". Pour les instances auto-hébergées, l’exploitant est responsable des informations et des demandes relatives à la protection des données."
+      },
+      "section7": {
+        "title": "Modifications",
+        "body": "Ces conditions d’utilisation peuvent être adaptées lorsque des changements juridiques, techniques ou fonctionnels le rendent nécessaire. La poursuite de l’utilisation après la publication des conditions mises à jour vaut acceptation."
+      }
+    },
+    "privacy": {
+      "title": "Politique de confidentialité",
+      "intro": "Informations sur le traitement des données à caractère personnel par Rankoon.",
+      "section1": {
+        "title": "Responsable du traitement",
+        "body": "Pour les instances auto-hébergées, l’exploitant de l’instance Rankoon concernée est responsable du traitement des données. Les exploitants de serveurs qui utilisent Rankoon restent responsables de leur propre communauté et des règles qui s’y appliquent."
+      },
+      "section2": {
+        "title": "Données traitées",
+        "body": "Rankoon traite les données des comptes et des serveurs Discord dans la mesure nécessaire aux fonctionnalités proposées. Cela comprend les identifiants des utilisateurs et des serveurs Discord, les noms d’affichage, les avatars, les informations sur les rôles et les autorisations, ainsi que les noms des serveurs et des salons.",
+        "activity": "Pour les niveaux et les classements, des données d’activité sont enregistrées, telles que le nombre de messages, les réactions, l’activité dans les fils, l’intérêt pour les événements programmés, la durée des connexions vocales, l’XP, les niveaux et, le cas échéant, la visibilité publique d’une entrée du classement. Le contenu des messages n’est pas conservé en tant qu’enregistrement permanent ; il n’est traité que lorsque la règle d’XP activée exige d’évaluer la longueur du message."
+      },
+      "section3": {
+        "title": "Finalités et bases juridiques",
+        "body": "Le traitement des données sert au fonctionnement du bot, au calcul de l’XP et des classements, à la création de salons vocaux temporaires, à la gestion des récompenses sous forme de rôles, à la sécurisation du tableau de bord et à l’analyse des erreurs. Le traitement est effectué pour fournir les fonctionnalités activées par l’exploitant du serveur et sur la base de l’intérêt légitime à disposer d’un service communautaire fonctionnel ou d’un consentement donné, lorsque celui-ci est nécessaire."
+      },
+      "section4": {
+        "title": "Connexion et sécurité",
+        "body": "La connexion au tableau de bord s’effectue via Discord OAuth. Rankoon reçoit les informations Discord nécessaires à la connexion et à la vérification des autorisations et crée ses propres jetons d’accès et de renouvellement. Les jetons de renouvellement sont enregistrés pour la gestion des sessions et sont valables jusqu’à 30 jours par défaut. Les accès au tableau de bord et les modifications des paramètres peuvent être consignés dans des rapports d’activité."
+      },
+      "section5": {
+        "title": "Conservation et suppression",
+        "body": "Les données de configuration, d’XP, de classement et de voix sont conservées tant que le bot est utilisé sur le serveur ou qu’elles sont nécessaires à la fonctionnalité concernée. Les rapports d’activité, de commandes et d’erreurs sont automatiquement supprimés après 90 jours. Lors du retrait du bot ou d’une demande de suppression, l’exploitant responsable de l’instance ou du serveur décide de la suppression des données associées."
+      },
+      "section6": {
+        "title": "Destinataires et tiers",
+        "body": "Discord traite les données conformément à ses propres conditions et à sa politique de confidentialité. Rankoon transmet des données à Discord uniquement dans la mesure nécessaire à l’API Discord et aux fonctionnalités du bot. Les données sont conservées dans la base de données configurée par l’exploitant ; elles ne sont pas transmises à des fins publicitaires ou de vente."
+      },
+      "section7": {
+        "title": "Tes droits",
+        "body": "Les personnes concernées peuvent contacter l’exploitant de l’instance Rankoon correspondante pour demander l’accès, la rectification, l’effacement ou la limitation du traitement de leurs données, ou pour s’opposer à leur traitement. Pour les données traitées directement par Discord, les informations de Discord sur la protection des données s’appliquent également."
+      }
+    }
+  }
 }
