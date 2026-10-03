@@ -16,5 +16,6 @@ export class SeasonTimelinePreviewComponent {
   @Input() gapDays = 0;
   @Input() loading = false;
   @Input() unavailable = false;
-  format(value: string): string { return this.locale.date(value, { day: '2-digit', month: 'short', year: 'numeric' }); }
+  @Input() timeZone: string | undefined;
+  format(value: string): string { return this.locale.date(value, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: this.timeZone }); }
 }

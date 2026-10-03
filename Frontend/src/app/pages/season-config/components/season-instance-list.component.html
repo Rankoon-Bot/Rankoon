@@ -10,6 +10,7 @@
         <span class="origin">{{ (season.settingsSnapshot?.scheduleKind === 'Manual' ? 'seasons.schedules.manual' : 'seasons.instances.automatic') | transloco }}</span>
         @if (actions(season).length) {
           <div class="instance-actions">
+            @if (season.status === 'Scheduled') { <button type="button" class="rk-button rk-button--secondary" [disabled]="busy || dirty" (click)="edit.emit(season)">{{ 'seasons.editDetails' | transloco }}</button> }
             @for (item of actions(season); track item) {
               <button type="button" class="rk-button" [class.rk-button--danger]="dangerous(item)" [class.rk-button--secondary]="!dangerous(item)" [disabled]="busy || dirty" (click)="action.emit({ action: item, season })">{{ ('seasons.' + item) | transloco }}</button>
             }

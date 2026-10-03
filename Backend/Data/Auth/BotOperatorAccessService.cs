@@ -17,6 +17,12 @@ public enum BotOperatorRole
 
 public sealed record BotOperatorAccessResult(bool IsAuthorized, BotOperatorRole? Role, bool IsAvailable = true);
 
+public static class BotOperatorAccessRules
+{
+    public static bool CanManageGuildSettings(BotOperatorAccessResult result) =>
+        result.IsAuthorized && result.Role is (BotOperatorRole.ApplicationOwner or BotOperatorRole.TeamOwner or BotOperatorRole.TeamAdmin);
+}
+
 public interface IBotOperatorAccessService
 {
     Task<BotOperatorAccessResult> GetAccessAsync(ulong discordUserId, CancellationToken cancellationToken = default);
@@ -115,9 +121,11 @@ public sealed class BotOperatorAccessService(DiscordShardedClient discord, TimeP
 public static class AuthorizationPolicies
 {
     public const string BotOperator = "botOperator";
+    public const string BotMaintainer = "botMaintainer";
 }
 
 public sealed class BotOperatorRequirement : IAuthorizationRequirement;
+public sealed class BotMaintainerRequirement : IAuthorizationRequirement;
 
 public sealed class BotOperatorAuthorizationHandler(IBotOperatorAccessService access) : AuthorizationHandler<BotOperatorRequirement>
 {
@@ -127,6 +135,17 @@ public sealed class BotOperatorAuthorizationHandler(IBotOperatorAccessService ac
         var result = await access.GetAccessAsync(userId);
         if (!result.IsAvailable && context.Resource is HttpContext httpContext) httpContext.Items["BotOperatorUnavailable"] = true;
         if (result.IsAuthorized) context.Succeed(requirement);
+    }
+}
+
+public sealed class BotMaintainerAuthorizationHandler(IBotOperatorAccessService access) : AuthorizationHandler<BotMaintainerRequirement>
+{
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, BotMaintainerRequirement requirement)
+    {
+        if (!ulong.TryParse(context.User.FindFirst("discord_id")?.Value, out var userId)) return;
+        var result = await access.GetAccessAsync(userId);
+        if (!result.IsAvailable && context.Resource is HttpContext httpContext) httpContext.Items["BotOperatorUnavailable"] = true;
+        if (BotOperatorAccessRules.CanManageGuildSettings(result)) context.Succeed(requirement);
     }
 }
 

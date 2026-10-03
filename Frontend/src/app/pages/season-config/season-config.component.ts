@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, effect, HostListener, inject, signal, ViewChild } from '@angular/core';
+import { Component, DestroyRef, effect, HostListener, inject, signal, ViewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { catchError, finalize, forkJoin, Observable, of } from 'rxjs';
+import { catchError, finalize, forkJoin, interval, Observable, of } from 'rxjs';
 import { LocaleService } from '../../i18n/locale.service';
 import { ApiValidationItem } from '../../models/api-error.model';
 import { ApiErrorService } from '../../services/api-error.service';
@@ -39,6 +40,7 @@ export function defaultSeasonSettings(): SeasonSettings {
     defaultLeaderboardScope: 'Lifetime',
     timeZoneId: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     scheduleKind: 'FixedDuration',
+    planningMode: 'Explicit',
     scheduleAnchorUtc: null,
     fixedDurationDays: 30,
     gapDays: 0,
@@ -84,10 +86,13 @@ export class SeasonConfigComponent {
   private readonly locale = inject(LocaleService);
   private readonly apiErrors = inject(ApiErrorService);
   private readonly toast = inject(ToastService);
+  private readonly destroyRef = inject(DestroyRef);
 
   @ViewChild(ConfirmationDialogComponent) private readonly confirmDialog?: ConfirmationDialogComponent;
 
-  readonly settings = signal<SeasonSettings | null>(null);
+  readonly persistedSettings = signal<SeasonSettings | null>(null);
+  readonly draftSettings = signal<SeasonSettings | null>(null);
+  readonly settings = this.draftSettings;
   readonly resources = signal<GuildResources>({ roles: [], channels: [] });
   readonly seasons = signal<Season[]>([]);
   readonly preview = signal<SeasonPreview[]>([]);
@@ -101,6 +106,7 @@ export class SeasonConfigComponent {
   readonly advanced = signal(false);
   readonly pending = signal<PendingAction | null>(null);
   readonly serverErrors = signal<Record<string, string>>({});
+  readonly seasonEditor = signal<Season | null>(null);
   readonly supportedTokens = SUPPORTED_TOKENS;
 
   rotationInput = '';
@@ -110,15 +116,24 @@ export class SeasonConfigComponent {
   private loadedGuild: Guild | null = null;
   private suppressNextGuildReload = false;
   private approvedGuildChangeId: string | null = null;
+  initialSeasonCount = 1;
+  additionalSeasonCount = 1;
+  private setupOperationId: string | null = null;
+  private setupRequestSnapshot: string | null = null;
+  private editorBaseline = '';
 
   constructor() {
+    interval(30_000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      const guildId = this.store.selectedGuild()?.id;
+      if (guildId && !this.loading() && !this.busy() && !this.pending()) this.reloadSeasons(guildId);
+    });
     effect(() => {
       const selected = this.store.selectedGuild();
       if (this.suppressNextGuildReload && selected?.id === this.loadedGuild?.id) {
         this.suppressNextGuildReload = false;
         return;
       }
-      if (this.loadedGuild && selected?.id !== this.loadedGuild.id && this.dirty() && !window.confirm(this.i18n.translate('seasons.unsavedLeave'))) {
+      if (this.loadedGuild && selected?.id !== this.loadedGuild.id && this.hasUnsavedChanges() && !window.confirm(this.i18n.translate('seasons.unsavedLeave'))) {
         this.suppressNextGuildReload = true;
         this.store.setSelectedGuild(this.loadedGuild);
         return;
@@ -127,6 +142,7 @@ export class SeasonConfigComponent {
         this.approvedGuildChangeId = selected?.id ?? null;
         this.confirmDialog?.close();
         this.pending.set(null);
+        this.seasonEditor.set(null);
       }
       this.load();
     });
@@ -134,13 +150,13 @@ export class SeasonConfigComponent {
 
   @HostListener('window:beforeunload', ['$event'])
   protectUnsavedChanges(event: BeforeUnloadEvent): void {
-    if (!this.dirty()) return;
+    if (!this.hasUnsavedChanges()) return;
     event.preventDefault();
     event.returnValue = '';
   }
 
   canDeactivate(): boolean {
-    return !this.dirty() || this.store.selectedGuild()?.id === this.approvedGuildChangeId || window.confirm(this.i18n.translate('seasons.unsavedLeave'));
+    return !this.hasUnsavedChanges() || this.store.selectedGuild()?.id === this.approvedGuildChangeId || window.confirm(this.i18n.translate('seasons.unsavedLeave'));
   }
 
   load(): void {
@@ -165,7 +181,8 @@ export class SeasonConfigComponent {
       next: value => {
         if (request !== this.loadRequest || this.store.selectedGuild()?.id !== guildId) return;
         const settings = this.fromApi(value.settings);
-        this.settings.set(settings);
+        this.persistedSettings.set(structuredClone(settings));
+        this.draftSettings.set(structuredClone(settings));
         this.baseline = this.serialize(settings);
         this.seasons.set(this.sortSeasons(value.seasons));
         this.resources.set(value.resources);
@@ -183,7 +200,7 @@ export class SeasonConfigComponent {
   save(): void {
     const guildId = this.store.selectedGuild()?.id;
     const settings = this.settings();
-    if (!guildId || !settings || !this.dirty() || !this.valid(settings) || this.saving()) return;
+    if (!guildId || !settings || !this.dirty() || !this.valid(settings) || this.busy()) return;
     if (!settings.enabled && this.seasons().some(season => this.isActive(season))) {
       this.pageError.set(this.i18n.translate('seasons.validation.closeBeforeDisable'));
       return;
@@ -197,8 +214,9 @@ export class SeasonConfigComponent {
       next: saved => {
         if (this.store.selectedGuild()?.id !== guildId) return;
         const normalized = this.fromApi(saved);
+        this.persistedSettings.set(structuredClone(normalized));
         this.baseline = this.serialize(normalized);
-        if (this.settings() && this.serialize(this.settings()!) === requestSnapshot) this.settings.set(normalized);
+        if (this.settings() && this.serialize(this.settings()!) === requestSnapshot) this.draftSettings.set(structuredClone(normalized));
         this.toast.success(this.i18n.translate('seasons.saved'));
         this.refreshPreview();
         this.reloadSeasons(guildId);
@@ -213,8 +231,8 @@ export class SeasonConfigComponent {
   }
 
   reset(): void {
-    if (!this.baseline) return;
-    this.settings.set(JSON.parse(this.baseline) as SeasonSettings);
+    if (!this.baseline || this.busy()) return;
+    this.draftSettings.set(JSON.parse(this.baseline) as SeasonSettings);
     this.rotationInput = '';
     this.serverErrors.set({});
     this.pageError.set('');
@@ -225,14 +243,15 @@ export class SeasonConfigComponent {
     const guildId = this.store.selectedGuild()?.id;
     const settings = this.settings();
     const request = ++this.previewRequest;
-    if (!guildId || !settings || settings.scheduleKind === 'Manual' || !this.scheduleValid(settings) || !this.namingValid(settings)) {
+    if (!guildId || !settings || settings.scheduleKind === 'Manual' || !this.scheduleValid(settings) || !this.namingValid(settings) || !this.countValid()) {
       this.preview.set([]);
       this.previewing.set(false);
       return;
     }
 
     this.previewing.set(true);
-    this.api.previewSeasons(guildId, this.toRequest(settings), 3).pipe(finalize(() => {
+    this.preview.set([]);
+    this.api.previewSeasons(guildId, this.toRequest(settings), this.planningCount()).pipe(finalize(() => {
       if (request === this.previewRequest) this.previewing.set(false);
     })).subscribe({
       next: preview => {
@@ -251,6 +270,7 @@ export class SeasonConfigComponent {
     if (!settings) return;
     if (preset === 'monthly') settings.scheduleKind = 'Monthly';
     if (preset === 'quarterly') settings.scheduleKind = 'Quarterly';
+    if (preset !== 'custom') settings.gapDays = 0;
     if (preset === 'custom' && settings.scheduleKind !== 'FixedDuration' && settings.scheduleKind !== 'Manual') settings.scheduleKind = 'FixedDuration';
     if (settings.scheduleKind === 'FixedDuration' && !settings.fixedDurationDays) settings.fixedDurationDays = 30;
     this.clearServerError('scheduleKind');
@@ -308,7 +328,7 @@ export class SeasonConfigComponent {
     this.refreshPreview();
   }
 
-  namePreview(settings: SeasonSettings, count = 5): string[] {
+  namePreview(settings: SeasonSettings, count = this.planningCount()): string[] {
     if (!this.namingValid(settings)) return [];
     const first = this.preview()[0];
     const dateDependent = /\{(?:year|endYear|month|monthName|quarter|start:|end:)/.test(settings.nameTemplate);
@@ -353,23 +373,125 @@ export class SeasonConfigComponent {
     this.refreshPreview();
   }
 
-  plan(): void {
+  setup(): void {
     const guildId = this.store.selectedGuild()?.id;
     const settings = this.settings();
-    if (!guildId || !settings?.enabled || this.dirty() || settings.scheduleKind === 'Manual' || !this.valid(settings) || this.planning()) return;
+    if (!guildId || !settings?.enabled || settings.scheduleKind === 'Manual' || !this.valid(settings) || this.busy() || !this.countValid()) return;
+    const requestSnapshot = `${guildId}|${this.serialize(settings)}|${this.planningCount()}`;
+    if (!this.setupOperationId || this.setupRequestSnapshot !== requestSnapshot) {
+      this.setupOperationId = crypto.randomUUID();
+      this.setupRequestSnapshot = requestSnapshot;
+    }
     this.planning.set(true);
-    this.api.planSeasons(guildId, settings.preparedSeasonCount).pipe(finalize(() => this.planning.set(false))).subscribe({
-      next: planned => {
-        this.toast.success(this.i18n.translate('seasons.planSucceeded', { count: planned.length }));
-        this.reloadSeasons(guildId);
+    this.pageError.set('');
+    this.serverErrors.set({});
+    const draftSnapshot = this.serialize(settings);
+    this.api.setupSeasonSystem(guildId, this.toRequest(settings), this.planningCount(), this.setupOperationId).pipe(finalize(() => this.planning.set(false))).subscribe({
+      next: response => {
+        if (this.store.selectedGuild()?.id !== guildId) return;
+        const saved = this.fromApi(response.settings);
+        this.persistedSettings.set(structuredClone(saved));
+        this.baseline = this.serialize(saved);
+        if (this.settings() && this.serialize(this.settings()!) === draftSnapshot) this.draftSettings.set(structuredClone(saved));
+        this.seasons.set(this.sortSeasons([...this.seasons(), ...response.seasons]));
+        this.setupOperationId = null;
+        this.setupRequestSnapshot = null;
+        this.toast.success(this.i18n.translate('seasons.setupSucceeded', { count: response.seasons.length }));
+        this.refreshPreview();
       },
-      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.seasonPlan').message),
+      error: error => {
+        const resolved = this.apiErrors.resolve(error, 'errors.seasonSetup');
+        this.serverErrors.set(this.mapServerErrors(resolved.validation));
+        this.pageError.set(resolved.message);
+        this.toast.error(resolved.message);
+      },
     });
   }
 
+  planningCount(): number { return this.seasons().some(season => season.status === 'Active' || season.status === 'Closing' || season.status === 'Scheduled') ? this.additionalSeasonCount : this.initialSeasonCount; }
+  busy(): boolean { return this.saving() || this.planning() || this.actionBusy(); }
+  countValid(): boolean { return Number.isInteger(this.planningCount()) && this.planningCount() >= 1 && this.planningCount() <= 24; }
+
+  enableSeasons(enabled: boolean): void {
+    const cfg = this.settings();
+    if (!cfg || this.busy()) return;
+    if (!enabled && this.currentSeason()) {
+      this.pageError.set(this.i18n.translate('seasons.validation.closeBeforeDisable'));
+      return;
+    }
+    cfg.enabled = enabled;
+    if (enabled && cfg.scheduleKind === 'Manual' && !cfg.scheduleAnchorUtc && !this.seasons().length) {
+      cfg.scheduleKind = 'Monthly';
+      cfg.timeZoneId = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    }
+    if (enabled && cfg.scheduleKind !== 'Manual' && !cfg.scheduleAnchorUtc) {
+      const tomorrow = this.seasonDateParts(new Date(Date.now() + 86_400_000), cfg.timeZoneId);
+      cfg.scheduleAnchorUtc = `${tomorrow.year}-${tomorrow.month}-${tomorrow.day}T00:00`;
+    }
+    this.refreshPreview();
+  }
+
+  useLocalTimeZone(): void {
+    const cfg = this.settings();
+    if (!cfg || this.busy()) return;
+    cfg.timeZoneId = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    this.clearServerError('timeZoneId');
+    this.refreshPreview();
+  }
+
+  editSeason(season?: Season): void {
+    const cfg = this.settings();
+    if (!cfg || this.busy()) return;
+    if (this.dirty()) { this.pageError.set(this.i18n.translate('seasons.unsaved')); return; }
+    const start = this.nextSeason()?.endsAtUtc ?? new Date(Date.now() + 86_400_000).toISOString();
+    const draft = season ? structuredClone(season) : {
+      sequence: 0, name: `Season ${this.seasons().length + 1}`, description: null, status: 'Scheduled' as const,
+      startsAtUtc: start, endsAtUtc: new Date(new Date(start).getTime() + 30 * 86_400_000).toISOString(),
+    };
+    draft.startsAtUtc = this.utcToLocalDateTime(draft.startsAtUtc, cfg.timeZoneId);
+    draft.endsAtUtc = this.utcToLocalDateTime(draft.endsAtUtc, cfg.timeZoneId);
+    this.seasonEditor.set(draft);
+    this.editorBaseline = JSON.stringify(draft);
+    this.pageError.set('');
+  }
+
+  seasonEditorValid(): boolean {
+    const draft = this.seasonEditor();
+    const cfg = this.settings();
+    if (!draft || !cfg || !draft.name.trim() || draft.name.length > 120) return false;
+    try {
+      const start = this.localDateTimeToUtc(draft.startsAtUtc, cfg.timeZoneId);
+      const end = this.localDateTimeToUtc(draft.endsAtUtc, cfg.timeZoneId);
+      return start < end && new Date(end).getTime() > Date.now();
+    } catch { return false; }
+  }
+
+  saveSeasonDetails(): void {
+    const cfg = this.settings();
+    const draft = this.seasonEditor();
+    const guildId = this.store.selectedGuild()?.id;
+    if (!cfg?.enabled || !guildId || !draft || !this.seasonEditorValid() || this.busy() || this.dirty()) return;
+    const request = { ...draft, startsAtUtc: this.localDateTimeToUtc(draft.startsAtUtc, cfg.timeZoneId), endsAtUtc: this.localDateTimeToUtc(draft.endsAtUtc, cfg.timeZoneId) };
+    this.actionBusy.set(true);
+    const operation = draft.id ? this.api.updateSeason(guildId, request) : this.api.createSeason(guildId, request);
+    operation.pipe(finalize(() => this.actionBusy.set(false))).subscribe({
+      next: saved => {
+        if (this.store.selectedGuild()?.id !== guildId) return;
+        this.seasonEditor.set(null);
+        this.pageError.set('');
+        this.seasons.set(this.sortSeasons([...this.seasons(), saved]));
+        this.toast.success(this.i18n.translate('seasons.detailsSaved'));
+        this.refreshPreview();
+      },
+      error: error => this.pageError.set(this.apiErrors.resolve(error, 'errors.seasonAction').message),
+    });
+  }
+  hasConfirmedSeasons(): boolean { return this.seasons().some(season => season.status === 'Active' || season.status === 'Closing' || season.status === 'Scheduled'); }
+  setupActionKey(): string { return this.dirty() ? 'seasons.saveAndCreate' : (this.hasConfirmedSeasons() ? 'seasons.createMore' : 'seasons.create'); }
+
   requestAction(action: SeasonAction, season: Season): void {
     const guildId = this.store.selectedGuild()?.id;
-    if (!guildId) return;
+    if (!guildId || this.busy()) return;
     if (this.dirty()) {
       this.pageError.set(this.i18n.translate('seasons.unsaved'));
       return;
@@ -380,14 +502,14 @@ export class SeasonConfigComponent {
 
   requestBulkAction(action: SeasonBulkAction): void {
     const guildId = this.store.selectedGuild()?.id;
-    if (!guildId || this.dirty()) return;
+    if (!guildId || this.dirty() || this.busy()) return;
     this.pending.set({ action, season: null, guildId });
     this.confirmDialog?.open();
   }
 
   confirmAction(): void {
     const pending = this.pending();
-    if (!pending || this.actionBusy() || (pending.season && !pending.season.id)) return;
+    if (!pending || this.busy() || (pending.season && !pending.season.id)) return;
     const guildId = pending.guildId;
     const seasonId = pending.season?.id;
     if (this.store.selectedGuild()?.id !== guildId) {
@@ -445,6 +567,8 @@ export class SeasonConfigComponent {
     return !!settings && this.serialize(settings) !== this.baseline;
   }
 
+  hasUnsavedChanges(): boolean { return this.dirty() || !!this.seasonEditor() && JSON.stringify(this.seasonEditor()) !== this.editorBaseline; }
+
   valid(settings: SeasonSettings): boolean {
     return this.validationKeys(settings).length === 0;
   }
@@ -452,8 +576,8 @@ export class SeasonConfigComponent {
   validationKeys(settings: SeasonSettings): string[] {
     const errors = new Set<string>();
     if (!settings.enabled) return [];
-    if (!settings.timeZoneId?.trim()) errors.add('seasons.validation.timeZone');
-    if (settings.scheduleKind !== 'Manual' && !settings.scheduleAnchorUtc) errors.add('seasons.validation.anchor');
+    if (!this.timeZoneValid(settings.timeZoneId)) errors.add('seasons.validation.timeZone');
+    if (settings.scheduleKind !== 'Manual' && !this.anchorValid(settings)) errors.add('seasons.validation.anchor');
     if (settings.scheduleKind === 'FixedDuration' && (!Number.isInteger(Number(settings.fixedDurationDays)) || Number(settings.fixedDurationDays) < 1 || Number(settings.fixedDurationDays) > 3660)) errors.add('seasons.validation.duration');
     if (!Number.isInteger(Number(settings.gapDays)) || Number(settings.gapDays) < 0 || this.gapMaximum(settings) < Number(settings.gapDays)) errors.add('seasons.validation.gap');
     if (!Number.isInteger(Number(settings.preparedSeasonCount)) || Number(settings.preparedSeasonCount) < 0 || Number(settings.preparedSeasonCount) > 24) errors.add('seasons.validation.prepared');
@@ -473,7 +597,8 @@ export class SeasonConfigComponent {
 
   fieldError(settings: SeasonSettings, field: string): string {
     if (this.serverErrors()[field]) return this.serverErrors()[field];
-    if (field === 'scheduleAnchorUtc' && settings.scheduleKind !== 'Manual' && !settings.scheduleAnchorUtc) return this.i18n.translate('seasons.validation.anchor');
+    if (field === 'timeZoneId' && !this.timeZoneValid(settings.timeZoneId)) return this.i18n.translate('seasons.validation.timeZone');
+    if (field === 'scheduleAnchorUtc' && settings.scheduleKind !== 'Manual' && !this.anchorValid(settings)) return this.i18n.translate('seasons.validation.anchor');
     if (field === 'fixedDurationDays' && settings.scheduleKind === 'FixedDuration' && (!Number.isInteger(Number(settings.fixedDurationDays)) || Number(settings.fixedDurationDays) < 1 || Number(settings.fixedDurationDays) > 3660)) return this.i18n.translate('seasons.validation.duration');
     if (field === 'gapDays' && (!Number.isInteger(Number(settings.gapDays)) || Number(settings.gapDays) < 0 || this.gapMaximum(settings) < Number(settings.gapDays))) return this.i18n.translate('seasons.validation.gap');
     if (field === 'nameTemplate' && this.unknownTokens(settings).length) return this.i18n.translate('seasons.validation.tokens', { tokens: this.unknownTokens(settings).join(', ') });
@@ -492,8 +617,8 @@ export class SeasonConfigComponent {
   }
 
   scheduleValid(settings: SeasonSettings): boolean {
-    return !!settings.timeZoneId?.trim()
-      && (settings.scheduleKind === 'Manual' || !!settings.scheduleAnchorUtc)
+    return this.timeZoneValid(settings.timeZoneId)
+      && (settings.scheduleKind === 'Manual' || this.anchorValid(settings))
       && (settings.scheduleKind !== 'FixedDuration' || Number(settings.fixedDurationDays) >= 1 && Number(settings.fixedDurationDays) <= 3660)
       && Number(settings.gapDays) >= 0 && Number(settings.gapDays) <= this.gapMaximum(settings);
   }
@@ -522,7 +647,8 @@ export class SeasonConfigComponent {
   }
 
   carryExample(settings: SeasonSettings): number {
-    return settings.carryOverMode === 'Percentage' ? Math.round(10000 * Number(settings.carryOverPercentage) / 100) : 0;
+    const amount = settings.carryOverMode === 'Percentage' ? Math.round(10000 * Number(settings.carryOverPercentage) / 100) : 0;
+    return settings.carryOverMaximumXp == null ? amount : Math.min(amount, Number(settings.carryOverMaximumXp));
   }
 
   setInitialMode(mode: SeasonInitialXpMode): void {
@@ -546,7 +672,10 @@ export class SeasonConfigComponent {
   availableActions(season: Season): SeasonAction[] {
     if (this.dirty()) return [];
     const result: SeasonAction[] = [];
-    if (season.status === 'Scheduled') result.push('start', 'cancel');
+    if (season.status === 'Scheduled') {
+      if (this.persistedSettings()?.enabled && !this.currentSeason() && new Date(season.startsAtUtc).getTime() <= Date.now() && Date.now() < new Date(season.endsAtUtc).getTime()) result.push('start');
+      result.push('cancel');
+    }
     if (season.status === 'Active') result.push('close', 'cancel');
     if (this.isResumable(season)) result.push('resume');
     if (season.status === 'Cancelled' && !this.seasons().some(item => item.previousSeasonId === season.id)) result.push('delete');
@@ -559,11 +688,17 @@ export class SeasonConfigComponent {
   isActive(season: Season): boolean { return season.status === 'Active' || season.status === 'Closing'; }
   isResumable(season: Season): boolean {
     const now = Date.now();
-    return season.status === 'Cancelled' && !season.carryOverApplied && !season.finalized
-      && new Date(season.startsAtUtc).getTime() <= now && now < new Date(season.endsAtUtc).getTime();
+    return !!this.persistedSettings()?.enabled && season.status === 'Cancelled' && !season.finalized
+      && now < new Date(season.endsAtUtc).getTime()
+      && !this.seasons().some(item => item.id !== season.id && item.status !== 'Cancelled'
+        && new Date(item.startsAtUtc) < new Date(season.endsAtUtc) && new Date(season.startsAtUtc) < new Date(item.endsAtUtc))
+      && (new Date(season.startsAtUtc).getTime() > now || !this.currentSeason());
   }
   actionIsDangerous(action: SeasonAction): boolean { return action === 'close' || action === 'cancel' || action === 'delete'; }
-  formatDate(value: string | Date): string { return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'short' }); }
+  formatDate(value: string | Date): string {
+    const zone = this.settings()?.timeZoneId;
+    return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'short', timeZone: zone && this.timeZoneValid(zone) ? zone : undefined });
+  }
   formatNumber(value: number): string { return this.locale.number(value); }
   channelOptions(): DiscordChannelOption[] { return normalizeDiscordChannels(this.resources().channels); }
 
@@ -579,6 +714,13 @@ export class SeasonConfigComponent {
   }
 
   private percentageValid(value: number): boolean { return Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100; }
+  private timeZoneValid(value: string): boolean {
+    try { new Intl.DateTimeFormat('en', { timeZone: value }).format(); return !!value?.trim(); } catch { return false; }
+  }
+  private anchorValid(settings: SeasonSettings): boolean {
+    if (!settings.scheduleAnchorUtc || !this.timeZoneValid(settings.timeZoneId)) return false;
+    try { this.localDateTimeToUtc(settings.scheduleAnchorUtc, settings.timeZoneId); return true; } catch { return false; }
+  }
   private seasonDateParts(value: Date, timeZone: string): { year: string; month: string; day: string } {
     const parts = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).formatToParts(value);
     const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value ?? '';
@@ -623,7 +765,8 @@ export class SeasonConfigComponent {
       next: value => {
         if (this.store.selectedGuild()?.id !== guildId) return;
         const settings = this.fromApi(value.settings);
-        this.settings.set(settings);
+        this.persistedSettings.set(structuredClone(settings));
+        this.draftSettings.set(structuredClone(settings));
         this.baseline = this.serialize(settings);
         this.seasons.set(this.sortSeasons(value.seasons));
         this.serverErrors.set({});
@@ -633,12 +776,15 @@ export class SeasonConfigComponent {
     });
   }
 
-  private sortSeasons(items: Season[]): Season[] { return [...items].sort((a, b) => Number(b.sequence) - Number(a.sequence)); }
+  private sortSeasons(items: Season[]): Season[] {
+    const unique = new Map(items.map(item => [item.id ?? String(item.sequence), item]));
+    return [...unique.values()].sort((a, b) => Number(b.sequence) - Number(a.sequence));
+  }
 
   private toRequest(settings: SeasonSettings): SeasonSettings {
     return {
       ...settings,
-      scheduleAnchorUtc: settings.scheduleAnchorUtc ? new Date(settings.scheduleAnchorUtc).toISOString() : null,
+      scheduleAnchorUtc: settings.scheduleAnchorUtc ? this.localDateTimeToUtc(settings.scheduleAnchorUtc, settings.timeZoneId) : null,
       fixedDurationDays: settings.fixedDurationDays == null ? null : Number(settings.fixedDurationDays),
       gapDays: Number(settings.gapDays),
       preparedSeasonCount: Number(settings.preparedSeasonCount),
@@ -653,6 +799,7 @@ export class SeasonConfigComponent {
 
   private fromApi(settings: SeasonSettings): SeasonSettings {
     const result = structuredClone(settings);
+    result.planningMode ??= 'Explicit';
     result.fixedDurationDays = result.fixedDurationDays == null ? null : Number(result.fixedDurationDays);
     result.gapDays = Number(result.gapDays);
     result.preparedSeasonCount = Number(result.preparedSeasonCount);
@@ -665,12 +812,36 @@ export class SeasonConfigComponent {
     result.rotation ??= [];
     result.announcements ??= { startEnabled: false, endEnabled: false, winnerEnabled: false, warningOffsetsMinutes: [] };
     result.seasonLevelRoles ??= [];
-    if (result.scheduleAnchorUtc) {
-      const local = new Date(result.scheduleAnchorUtc);
-      const pad = (value: number) => value.toString().padStart(2, '0');
-      result.scheduleAnchorUtc = `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
-    }
+    if (result.scheduleAnchorUtc) result.scheduleAnchorUtc = this.utcToLocalDateTime(result.scheduleAnchorUtc, result.timeZoneId);
     return result;
+  }
+
+  private localDateTimeToUtc(value: string, timeZone: string): string {
+    const [date, time] = value.split('T');
+    const [year, month, day] = date.split('-').map(Number);
+    const [hour, minute] = time.split(':').map(Number);
+    const wall = Date.UTC(year, month - 1, day, hour, minute);
+    const candidates = this.timeZoneOffsets(timeZone, wall).map(offset => wall - offset);
+    const matching = candidates.filter(instant => this.utcToLocalDateTime(new Date(instant).toISOString(), timeZone) === value);
+    if (!matching.length) throw new Error('This local time does not exist in the selected time zone.');
+    const instant = Math.min(...matching);
+    return new Date(instant).toISOString();
+  }
+
+  private utcToLocalDateTime(value: string, timeZone: string): string {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(value));
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
+  }
+
+  private timeZoneOffsets(timeZone: string, wall: number): number[] {
+    return [...new Set([-172800000, -86400000, 0, 86400000, 172800000].map(delta => this.timeZoneOffset(timeZone, wall + delta)))];
+  }
+
+  private timeZoneOffset(timeZone: string, instant: number): number {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(instant));
+    const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(item => item.type === type)?.value ?? 0);
+    return Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second')) - instant;
   }
 
   private serialize(settings: SeasonSettings): string { return JSON.stringify(settings); }

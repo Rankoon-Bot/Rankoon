@@ -16,5 +16,6 @@ export class BotManagementService {
   getIncident(id: string) { return this.http.get<BotIncident>(`${environment.apiBaseUrl}/bot-management/incidents/${encodeURIComponent(id)}`); }
   acknowledgeIncident(id: string) { return this.http.post<BotIncident>(`${environment.apiBaseUrl}/bot-management/incidents/${encodeURIComponent(id)}/acknowledge`, {}); }
   resolveIncident(id: string) { return this.http.post<BotIncident>(`${environment.apiBaseUrl}/bot-management/incidents/${encodeURIComponent(id)}/resolve`, {}); }
+  ignoreIncident(id: string) { return this.http.post<BotIncident>(`${environment.apiBaseUrl}/bot-management/incidents/${encodeURIComponent(id)}/ignore`, {}); }
   reopenIncident(id: string) { return this.http.post<BotIncident>(`${environment.apiBaseUrl}/bot-management/incidents/${encodeURIComponent(id)}/reopen`, {}); }
 }

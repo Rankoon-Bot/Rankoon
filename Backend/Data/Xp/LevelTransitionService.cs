@@ -8,6 +8,7 @@ public interface ILevelTransitionService
 {
     Task EnsureAsync(XpLedgerEntry ledger, LevelTransitionSnapshot snapshot, CancellationToken cancellationToken = default);
     Task EnsureAsync(ulong guildId, ulong userId, LevelTransitionCause cause, LevelTransitionSnapshot snapshot, CancellationToken cancellationToken = default);
+    Task EnsureAsync(ulong guildId, ulong userId, LevelTransitionCause cause, LevelTransitionSnapshot snapshot, LevelProgressScope scope, string? seasonId, string? seasonName, CancellationToken cancellationToken = default);
 }
 
 public sealed record LevelTransitionCause(string Source, string Key, decimal GainedXp, ulong? ChannelId = null, string? LedgerGrantKey = null, bool SuppressAnnouncement = false);
@@ -22,13 +23,17 @@ public sealed class LevelTransitionService(RankoonDbContext database, TimeProvid
     }
 
     public async Task EnsureAsync(ulong guildId, ulong userId, LevelTransitionCause cause, LevelTransitionSnapshot snapshot, CancellationToken cancellationToken = default)
+        => await EnsureAsync(guildId, userId, cause, snapshot, LevelProgressScope.Lifetime, null, null, cancellationToken);
+
+    public async Task EnsureAsync(ulong guildId, ulong userId, LevelTransitionCause cause, LevelTransitionSnapshot snapshot, LevelProgressScope scope, string? seasonId, string? seasonName, CancellationToken cancellationToken = default)
     {
         if (snapshot.NewLevel == snapshot.PreviousLevel) return;
-        var key = CreateEventKey(cause.Key);
+        if (scope == LevelProgressScope.Season && string.IsNullOrWhiteSpace(seasonId)) return;
+        var key = CreateEventKey(cause.Key, scope, seasonId);
         var transition = new LevelTransitionEvent
         {
             EventKey = key, LedgerGrantKey = cause.LedgerGrantKey, CauseKey = cause.Key, GuildId = guildId, UserId = userId, Source = cause.Source,
-            SourceChannelId = cause.ChannelId, GainedXp = cause.GainedXp, SuppressAnnouncement = cause.SuppressAnnouncement,
+            Scope = scope, SeasonId = seasonId, SeasonNameSnapshot = seasonName, SourceChannelId = cause.ChannelId, GainedXp = cause.GainedXp, SuppressAnnouncement = cause.SuppressAnnouncement,
             PreviousTotalXp = snapshot.PreviousTotalXp, NewTotalXp = snapshot.NewTotalXp, PreviousLevel = snapshot.PreviousLevel, NewLevel = snapshot.NewLevel,
             CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime, NextAttemptAtUtc = timeProvider.GetUtcNow().UtcDateTime
         };
@@ -36,5 +41,7 @@ public sealed class LevelTransitionService(RankoonDbContext database, TimeProvid
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
     }
 
-    internal static string CreateEventKey(string causeKey) => $"level-transition:{causeKey}:lifetime";
+    internal static string CreateEventKey(string causeKey, LevelProgressScope scope = LevelProgressScope.Lifetime, string? seasonId = null) => scope == LevelProgressScope.Lifetime
+        ? $"level-transition:{causeKey}:lifetime"
+        : $"level-transition:{causeKey}:season:{seasonId}";
 }

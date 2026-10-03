@@ -5,6 +5,7 @@ using MongoDB.Bson.Serialization.IdGenerators;
 namespace Rankoon.Data.Model;
 
 public enum SeasonScheduleKind { Manual, FixedDuration, Monthly, Quarterly, SemiAnnual, Annual }
+public enum SeasonPlanningMode { Explicit, MaintainPreparedBuffer }
 public enum SeasonInitialXpMode { Zero, Lifetime, LifetimePercentage }
 public enum SeasonCarryOverMode { None, Percentage }
 public enum SeasonStatus { Scheduled, Active, Closing, Closed, Cancelled }
@@ -20,6 +21,7 @@ public sealed class GuildSeasonSettings
     [BsonElement("default_leaderboard_scope"), BsonRepresentation(BsonType.String)] public SeasonLeaderboardScope DefaultLeaderboardScope { get; set; } = SeasonLeaderboardScope.Lifetime;
     [BsonElement("time_zone_id")] public string TimeZoneId { get; set; } = "UTC";
     [BsonElement("schedule_kind"), BsonRepresentation(BsonType.String)] public SeasonScheduleKind ScheduleKind { get; set; } = SeasonScheduleKind.Manual;
+    [BsonElement("planning_mode"), BsonRepresentation(BsonType.String)] public SeasonPlanningMode PlanningMode { get; set; } = SeasonPlanningMode.Explicit;
     [BsonElement("schedule_anchor_utc")] public DateTime? ScheduleAnchorUtc { get; set; }
     [BsonElement("fixed_duration_days")] public int? FixedDurationDays { get; set; }
     [BsonElement("gap_days")] public int GapDays { get; set; }
@@ -39,6 +41,7 @@ public sealed class GuildSeasonSettings
     [BsonElement("rotation_offset")] public int RotationOffset { get; set; }
     [BsonElement("season_level_roles")] public List<SeasonLevelRole> SeasonLevelRoles { get; set; } = [];
     [BsonElement("next_sequence_after_deletion"), BsonIgnoreIfDefault] public long NextSequenceAfterDeletion { get; set; }
+    [BsonElement("next_season_start_utc"), BsonIgnoreIfNull] public DateTime? NextSeasonStartUtc { get; set; }
     [BsonElement("next_schedule_occurrence_after_deletion"), BsonIgnoreIfDefault] public int NextScheduleOccurrenceAfterDeletion { get; set; }
     [BsonElement("numbering_epoch"), BsonIgnoreIfDefault] public long NumberingEpoch { get; set; }
     [BsonElement("numbering_epoch_updated_at_utc"), BsonIgnoreIfNull] public DateTime? NumberingEpochUpdatedAtUtc { get; set; }
@@ -59,6 +62,20 @@ public sealed class SeasonLevelRole
     [BsonElement("level")] public int Level { get; set; }
     [BsonElement("role_id")] public ulong RoleId { get; set; }
     [BsonElement("retention"), BsonRepresentation(BsonType.String)] public SeasonLevelRoleRetention Retention { get; set; }
+}
+
+public sealed class SeasonRoleAssignment
+{
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonElement("season_id"), BsonRepresentation(BsonType.ObjectId)] public string SeasonId { get; set; } = string.Empty;
+    [BsonElement("user_id")] public ulong UserId { get; set; }
+    [BsonElement("role_id")] public ulong RoleId { get; set; }
+    [BsonElement("required_level")] public int RequiredLevel { get; set; }
+    [BsonElement("retention"), BsonRepresentation(BsonType.String)] public SeasonLevelRoleRetention Retention { get; set; }
+    [BsonElement("granted_at_utc")] public DateTime GrantedAtUtc { get; set; }
+    [BsonElement("removed_at_utc"), BsonIgnoreIfNull] public DateTime? RemovedAtUtc { get; set; }
+    [BsonElement("was_already_present")] public bool WasAlreadyPresent { get; set; }
 }
 
 public sealed class GuildSeason
@@ -139,6 +156,36 @@ public sealed class SeasonCoordinatorLease
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("owner_id")] public string OwnerId { get; set; } = string.Empty;
     [BsonElement("expires_at_utc")] public DateTime ExpiresAtUtc { get; set; }
+}
+
+public sealed class SeasonPlanningLease
+{
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonElement("owner_id")] public string OwnerId { get; set; } = string.Empty;
+    [BsonElement("expires_at_utc")] public DateTime ExpiresAtUtc { get; set; }
+}
+
+public sealed class SeasonSetupOperation
+{
+    [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
+    [BsonElement("guild_id")] public ulong GuildId { get; set; }
+    [BsonElement("operation_id")] public string OperationId { get; set; } = string.Empty;
+    [BsonElement("settings"), BsonIgnoreIfNull] public GuildSeasonSettings? Settings { get; set; }
+    [BsonElement("request_json"), BsonIgnoreIfNull] public string? RequestJson { get; set; }
+    [BsonElement("completed")] public bool Completed { get; set; }
+    [BsonElement("candidates")] public List<SeasonSetupCandidate> Candidates { get; set; } = [];
+    [BsonElement("season_ids"), BsonRepresentation(BsonType.ObjectId)] public List<string> SeasonIds { get; set; } = [];
+}
+
+public sealed class SeasonSetupCandidate
+{
+    [BsonElement("sequence")] public long Sequence { get; set; }
+    [BsonElement("number"), BsonIgnoreIfNull] public long? Number { get; set; }
+    [BsonElement("starts_at_utc")] public DateTime StartsAtUtc { get; set; }
+    [BsonElement("ends_at_utc")] public DateTime EndsAtUtc { get; set; }
+    [BsonElement("name")] public string Name { get; set; } = string.Empty;
+    [BsonElement("schedule_occurrence")] public int ScheduleOccurrence { get; set; }
 }
 
 public sealed class SeasonAnnouncementDelivery

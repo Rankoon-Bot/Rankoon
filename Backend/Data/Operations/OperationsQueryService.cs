@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Rankoon.Data.Analytics;
+using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Utils;
@@ -57,16 +58,20 @@ public interface IOperationsQueryService
     Task<ErrorOccurrenceResponse?> OccurrenceAsync(string id, CancellationToken token);
 }
 
-public sealed class OperationsQueryService(RankoonDbContext database, DiscordShardedClient discord, TimeProvider timeProvider, IMemoryCache cache, ISignedCursorService cursors, IGuildAnalyticsRecorder telemetry, IOperationalErrorRecorder errors, IWorkerHealthRegistry workers) : IOperationsQueryService
+public sealed class OperationsQueryService(RankoonDbContext database, DiscordShardedClient discord, TimeProvider timeProvider, IMemoryCache cache, ISignedCursorService cursors, IGuildAnalyticsRecorder telemetry, IOperationalErrorRecorder errors, IWorkerHealthRegistry workers, IBotRuntimeManager runtimes, IGuildBotAuthority authority) : IOperationsQueryService
 {
     public async Task<OperationsOverviewResponse> OverviewAsync(AnalyticsRange range, CancellationToken token)
     {
         var data = await UsageData(range, token); var open = await database.OperationalIncidents.CountDocumentsAsync(x => x.Status == OperationalIncidentStatus.New || x.Status == OperationalIncidentStatus.Acknowledged, cancellationToken: token);
         var critical = await database.OperationalIncidents.CountDocumentsAsync(x => (x.Status == OperationalIncidentStatus.New || x.Status == OperationalIncidentStatus.Acknowledged) && x.Severity == OperationalSeverity.Critical, cancellationToken: token);
-        var errorGuilds = await database.OperationalErrorOccurrences.Aggregate().Match(x => x.OccurredAtUtc >= data.Range.From.UtcDateTime && x.OccurredAtUtc <= data.Range.To.UtcDateTime && x.GuildId != null).Group(x => x.GuildId, x => new GuildErrorAggregate(x.Key, x.LongCount())).Count().FirstOrDefaultAsync(token);
         var health = workers.GetSnapshot(TimeSpan.FromMinutes(5));
-        var connected = discord.Guilds.Count; var activeGuilds = data.Current.Select(x => x.GuildId).Distinct().Count(); var errorGuildCount = errorGuilds?.Count ?? 0;
-        var metrics = data.Metrics.Concat([Metric("connectedGuilds", connected, null), Metric("memberSum", discord.Guilds.Sum(x => (decimal)x.MemberCount), null), Metric("activeGuilds", activeGuilds, data.Previous.Select(x => x.GuildId).Distinct().Count()), Metric("errorGuilds", errorGuildCount, null), Metric("openIncidents", open, null), Metric("openCriticalIncidents", critical, null), Metric("errorFreeRate", connected == 0 ? 100 : decimal.Round((connected - errorGuildCount) * 100m / connected, 2), null), Metric("globalActivity", data.Current.Sum(x => x.Count), data.Previous.Sum(x => x.Count)), Metric("telemetryDrops", telemetry.DroppedCount, null), Metric("databaseWriterFailures", errors.PersistenceFailureCount, null), Metric("unhealthyWorkers", health.Count(x => x.IsStale || x.State != WorkerHealthState.Healthy), null)]).ToArray();
+        var runtimeGuilds = await GetConnectedGuildsAsync(token);
+        var connectedGuildIds = runtimeGuilds.Select(guild => guild.Id).ToArray();
+        var errorGuilds = connectedGuildIds.Length == 0 ? null : await database.OperationalErrorOccurrences.Aggregate()
+            .Match(x => x.OccurredAtUtc >= data.Range.From.UtcDateTime && x.OccurredAtUtc <= data.Range.To.UtcDateTime && x.GuildId != null && connectedGuildIds.Contains(x.GuildId.Value))
+            .Group(x => x.GuildId, x => new GuildErrorAggregate(x.Key, x.LongCount())).Count().FirstOrDefaultAsync(token);
+        var connected = runtimeGuilds.Count; var activeGuilds = data.Current.Select(x => x.GuildId).Distinct().Count(); var errorGuildCount = errorGuilds?.Count ?? 0;
+        var metrics = data.Metrics.Concat([Metric("connectedGuilds", connected, null), Metric("memberSum", runtimeGuilds.Sum(x => (decimal)x.MemberCount), null), Metric("activeGuilds", activeGuilds, data.Previous.Select(x => x.GuildId).Distinct().Count()), Metric("errorGuilds", errorGuildCount, null), Metric("openIncidents", open, null), Metric("openCriticalIncidents", critical, null), Metric("errorFreeRate", connected == 0 ? 100 : decimal.Round((connected - errorGuildCount) * 100m / connected, 2), null), Metric("globalActivity", data.Current.Sum(x => x.Count), data.Previous.Sum(x => x.Count)), Metric("telemetryDrops", telemetry.DroppedCount, null), Metric("databaseWriterFailures", errors.PersistenceFailureCount, null), Metric("unhealthyWorkers", health.Count(x => x.IsStale || x.State != WorkerHealthState.Healthy), null)]).ToArray();
         var insights = health.Where(x => x.IsStale || x.State != WorkerHealthState.Healthy).Take(1).Select(x => new OperationsInsight("workerHealth", x.State == WorkerHealthState.Unhealthy ? "critical" : "warning", new Dictionary<string, object?> { ["worker"] = x.Worker, ["state"] = x.State.ToString(), ["stale"] = x.IsStale })).Concat(errorGuildCount > 0 ? [new OperationsInsight("actionGuilds", "warning", new Dictionary<string, object?> { ["count"] = errorGuildCount })] : []).Concat(critical > 0 ? [new OperationsInsight("criticalIncidents", "critical", new Dictionary<string, object?> { ["count"] = critical })] : []).Take(3).ToArray();
         var breakdown = data.Breakdown.Concat([new UsageBreakdown("gateway", discord.ConnectionState.ToString(), discord.ConnectionState == global::Discord.ConnectionState.Connected ? 1 : 0, null), new UsageBreakdown("build", typeof(OperationsQueryService).Assembly.GetName().Version?.ToString(), 1, null)]).ToArray();
         return new(data.Now, data.Range, metrics, data.Trend, insights, breakdown);
@@ -79,9 +84,10 @@ public sealed class OperationsQueryService(RankoonDbContext database, DiscordSha
             .Group(x => new { x.GuildId, x.Feature, x.Outcome }, x => new GuildAggregate(x.Key.GuildId, x.Key.Feature, x.Key.Outcome, x.Sum(y => y.Count), x.Max(y => y.BucketStartUtc))).Limit(100_000).ToListAsync(token);
         var occurrenceCounts = await database.OperationalErrorOccurrences.Aggregate().Match(x => x.OccurredAtUtc >= period.From.UtcDateTime && x.OccurredAtUtc <= period.To.UtcDateTime && x.GuildId != null).Group(x => x.GuildId, x => new GuildErrorAggregate(x.Key, x.LongCount())).ToListAsync(token);
         var byGuild = rows.GroupBy(x => x.GuildId).ToDictionary(x => x.Key, x => x.ToArray()); var errorByGuild = occurrenceCounts.ToDictionary(x => x.GuildId!.Value, x => x.Count);
-        var connectedGuildIds = discord.Guilds.Select(guild => guild.Id).ToArray();
+        var runtimeGuilds = await GetConnectedGuildsAsync(token);
+        var connectedGuildIds = runtimeGuilds.Select(guild => guild.Id).ToArray();
         var configuredGuilds = (await database.GuildXpSettings.Find(x => connectedGuildIds.Contains(x.GuildId)).Project(x => x.GuildId).ToListAsync(token)).ToHashSet();
-        var guilds = discord.Guilds.Select(guild =>
+        var guilds = runtimeGuilds.Select(guild =>
         {
             var events = byGuild.GetValueOrDefault(guild.Id) ?? []; var count = events.Sum(x => x.Count); var commands = events.Where(x => x.Feature == GuildAnalyticsFeature.Commands).Sum(x => x.Count); var failed = events.Where(x => x.Outcome == GuildAnalyticsOutcome.Failed).Sum(x => x.Count); var errorCount = errorByGuild.GetValueOrDefault(guild.Id); var last = events.Length == 0 ? (DateTimeOffset?)null : Utc(events.Max(x => x.Last)); var intensity = guild.MemberCount == 0 ? 0 : decimal.Round(count * 100m / guild.MemberCount, 2);
             var reasons = new List<string>(); string status;
@@ -171,6 +177,21 @@ public sealed class OperationsQueryService(RankoonDbContext database, DiscordSha
         var rows = await database.GuildAnalyticsBuckets.Aggregate().Match(x => x.Granularity == granularity && x.BucketStartUtc >= period.PreviousFrom.UtcDateTime && x.BucketStartUtc <= period.To.UtcDateTime).Group(x => new { x.BucketStartUtc, x.GuildId, x.Feature }, x => new UsageAggregate(x.Key.BucketStartUtc, x.Key.GuildId, x.Key.Feature, x.Sum(y => y.Count))).Limit(100_000).ToListAsync(token);
         var current = rows.Where(x => x.At >= period.From.UtcDateTime).ToArray(); var previous = rows.Where(x => x.At < period.From.UtcDateTime).ToArray(); var trend = current.GroupBy(x => x.At).OrderBy(x => x.Key).Select(x => new OperationsTrendPoint(Utc(x.Key), x.Sum(y => y.Count), previous.Where(y => y.At == x.Key - (period.To - period.From)).Sum(y => y.Count))).ToArray(); var breakdown = current.GroupBy(x => x.Feature).Select(x => new UsageBreakdown("adoption:" + x.Key, null, x.Select(y => y.GuildId).Distinct().Count(), previous.Where(y => y.Feature == x.Key).Select(y => y.GuildId).Distinct().Count())).OrderByDescending(x => x.Value).ToArray();
         var result = new UsageDataResult(now, new(period.Range, period.From, period.To), [Metric("events", current.Sum(x => x.Count), previous.Sum(x => x.Count)), Metric("adoptingGuilds", current.Select(x => x.GuildId).Distinct().Count(), previous.Select(x => x.GuildId).Distinct().Count())], trend, breakdown, current, previous); cache.Set(key, result, TimeSpan.FromSeconds(30)); return result;
+    }
+
+    private async Task<IReadOnlyList<SocketGuild>> GetConnectedGuildsAsync(CancellationToken token)
+    {
+        var candidates = discord.Guilds.Select(guild => (RuntimeId: "platform", Guild: guild)).ToList();
+        var customSnapshots = runtimes.GetRuntimeSnapshots()
+            .Where(snapshot => snapshot.RuntimeId.StartsWith("custom:", StringComparison.Ordinal) && snapshot.GuildId.HasValue);
+        var customContexts = await Task.WhenAll(customSnapshots.Select(async snapshot =>
+            await runtimes.GetCustomRuntimeAsync(snapshot.RuntimeId["custom:".Length..], token)));
+        candidates.AddRange(customContexts.Where(context => context != null).Select(context => (context!.RuntimeId, context.Guild)));
+
+        return candidates.GroupBy(candidate => candidate.Guild.Id)
+            .Select(group => group.Where(candidate => authority.IsAuthoritative(group.Key, candidate.RuntimeId))
+                .Select(candidate => candidate.Guild).FirstOrDefault() ?? group.First().Guild)
+            .ToArray();
     }
 
     private static BotIncidentDto Map(OperationalIncident x, IReadOnlyList<IncidentOccurrenceDto> occurrences, IReadOnlyDictionary<string, IReadOnlyList<IncidentDimension>>? dimensions = null, IReadOnlyList<IncidentFrequencyPoint>? trend = null) => new(x.Fingerprint, x.Fingerprint, x.Title, x.Source, x.Severity.ToString().ToLowerInvariant(), Status(x.Status), x.OccurrenceCount, x.AffectedGuildCount, Utc(x.FirstSeenAtUtc), Utc(x.LastSeenAtUtc), NullableUtc(x.AcknowledgedAtUtc), x.AcknowledgedBy?.ToString(), NullableUtc(x.ResolvedAtUtc), x.ResolvedBy?.ToString(), x.StatusNote, occurrences, dimensions, trend);

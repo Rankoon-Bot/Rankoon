@@ -1,0 +1,22 @@
+<div class="editor-shell">
+  <p class="hint">{{ 'levelUpAnnouncements.oneLineHint' | transloco }}</p>
+  <details class="syntax-help">
+    <summary>{{ 'levelUpAnnouncements.syntaxHelp' | transloco }}</summary>
+    <pre>// @group Standard | weight=60
+&#123;user.mention&#125;! Level &#123;level&#125; reached!</pre>
+    <p>{{ 'levelUpAnnouncements.syntaxHelpText' | transloco }}</p>
+  </details>
+  <div class="line-editor">
+    <div class="line-numbers" aria-hidden="true"><span *ngFor="let line of lineNumbers">{{ line }}</span></div>
+    <textarea #editor rows="18" [value]="value" [placeholder]="'levelUpAnnouncements.editorPlaceholder' | transloco" spellcheck="true" (input)="onInput(editor.value)" (click)="onCursor(editor)" (keyup)="onCursor(editor)" (select)="onCursor(editor)" (scroll)="onCursor(editor)" aria-label="Announcement list"></textarea>
+  </div>
+  <div class="editor-meta"><span>{{ 'levelUpAnnouncements.lineCharacters' | transloco:{ line: activeLine, count: activeCharacters } }}</span><span>{{ lines.length }} {{ 'levelUpAnnouncements.lines' | transloco }}</span></div>
+  <div class="tokens" *ngIf="availableTokens.length">
+    <span>{{ 'levelUpAnnouncements.insertToken' | transloco }}</span>
+    <button type="button" *ngFor="let token of availableTokens" [disabled]="activeText.startsWith('//') && !activeText.startsWith('\\//')" (click)="insertToken(token, editor)">{{ tokenLabel(token) }}</button>
+  </div>
+  <div class="diagnostics" *ngIf="parsed.diagnostics.length" aria-live="polite">
+    <p *ngFor="let diagnostic of parsed.diagnostics" [class.warning]="diagnostic.severity === 'warning'" [class.error]="diagnostic.severity === 'error'">{{ 'levelUpAnnouncements.diagnosticLine' | transloco:{ line: diagnostic.line } }} {{ diagnostic.messageKey | transloco:diagnostic.params }}</p>
+  </div>
+  <div class="editor-actions"><button type="button" (click)="normalize()" [disabled]="errors.length > 0">{{ 'levelUpAnnouncements.normalize' | transloco }}</button></div>
+</div>

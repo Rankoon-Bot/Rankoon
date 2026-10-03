@@ -50,10 +50,10 @@ function capabilityGuardFor(kind: 'settings' | 'module' | 'owner'): CanActivateF
     return access.loadCapabilities(guild.id).pipe(
       map(capabilities => {
         const allowed = kind === 'owner'
-          ? capabilities.isOwner
+          ? capabilities.isOwner || capabilities.isMaintainer === true
           : kind === 'module'
-            ? capabilities.isOwner || (!!requiredModule && capabilities.moduleIds.includes(requiredModule))
-            : capabilities.isOwner || capabilities.canAccessSettings;
+            ? capabilities.isOwner || capabilities.isMaintainer === true || (!!requiredModule && capabilities.moduleIds.includes(requiredModule))
+            : capabilities.isOwner || capabilities.isMaintainer === true || capabilities.canAccessSettings;
         return allowed ? true : access.destination(capabilities);
       }),
       catchError(error => of(router.createUrlTree(['/server-selection'], {
@@ -72,6 +72,13 @@ export const botOperatorGuard: CanActivateFn = (route, state) => {
   const router = inject(Router);
   if (!authStore.isAuthenticated()) return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
   return authStore.isBotOperator() ? true : router.createUrlTree(['/server-selection'], { queryParams: { access: 'forbidden' } });
+};
+
+export const botMaintainerGuard: CanActivateFn = (route, state) => {
+  const authStore = inject(AuthStore);
+  const router = inject(Router);
+  if (!authStore.isAuthenticated()) return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
+  return authStore.canManageGuilds() ? true : router.createUrlTree(['/server-selection'], { queryParams: { access: 'forbidden' } });
 };
 
 export const serverSelectionGuard: CanActivateFn = (route, state) => {

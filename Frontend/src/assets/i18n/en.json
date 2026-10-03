@@ -117,7 +117,8 @@
     "seasonSave": "Could not save season settings.",
     "seasonPreview": "Could not create a season preview.",
     "seasonAction": "Could not perform the season action.",
-    "seasonPlan": "Could not plan the requested seasons."
+    "seasonPlan": "Could not plan the requested seasons.",
+    "seasonSetup": "Could not set up the season system."
   },
   "apiErrors": {
     "request": {
@@ -167,6 +168,7 @@
     },
     "botManagement": {
       "invalidRange": "The bot management range is invalid.",
+      "maintainerRevisionConflict": "Maintainer access changed since it was loaded. Reload and try again.",
       "unavailable": "Bot management is temporarily unavailable."
     },
     "permissions": {
@@ -247,7 +249,8 @@
       "channelUnavailable": "The configured channel is unavailable.",
       "revisionConflict": "Level-up messages changed since they were loaded.",
       "settingsInvalid": "Level-up announcement settings are invalid.",
-      "templateInvalid": "The template cannot be rendered."
+      "templateInvalid": "The template cannot be rendered.",
+      "required": "A required announcement value is missing.", "invalid": "An announcement value is invalid.", "activeMessageRequired": "An enabled announcement group needs an active message.", "duplicateId": "Announcement group and message IDs must be unique.", "length": "The announcement message length is invalid.", "unknownToken": "The announcement contains an unknown template token.", "missingContext": "The announcement token context is unavailable.", "invalidToken": "The announcement contains an invalid template token.", "rewardTokenRequiresRewardSet": "Reward tokens can only be used in the Rewards set.", "seasonTokenRequiresSeasonScope": "Season tokens can only be used in the Season scope.", "channelInvalid": "The selected channel is invalid."
     },
     "customBotIdentity": {
       "disabled": "Custom Bot Identity is disabled on this Rankoon instance.",
@@ -380,7 +383,10 @@
     "audit": {
       "title": "Audit events",
       "description": "Chronological activity with actors and correlation IDs.",
-      "empty": "No audit events in this period."
+      "empty": "No audit events in this period.",
+      "subject": "Subject",
+      "hub": "Voice hub",
+      "metadata": "Show metadata"
     },
     "domain": {
       "kpis": {
@@ -439,7 +445,7 @@
   "botManagement": {
     "eyebrow": "Bot operations",
     "title": "Bot Operations",
-    "description": "Global reliability, incidents, guild health and usage across Rankoon.",
+    "description": "Global reliability, incidents, server health and usage across Rankoon.",
     "navigation": "Bot Operations sections",
     "range": "Time range",
     "search": "Search server name or ID",
@@ -449,11 +455,35 @@
     "noComparison": "No comparison",
     "insights": "Operational insights",
     "usageBreakdown": "Usage breakdown",
+    "maintainer": {
+      "eyebrow": "PER-GUILD ACCESS",
+      "title": "Maintainer access",
+      "description": "Choose which Rankoon servers you want to manage through the web UI.",
+      "notice": "This setting is shared for the guild. When enabled, authorized application maintainers can view and change its settings. Turn it off to use your ordinary Discord permissions there.",
+      "refresh": "Refresh list",
+      "loading": "Loading managed servers...",
+      "emptyTitle": "No managed servers",
+      "emptyDescription": "No Rankoon-managed Discord servers were found.",
+      "guildId": "Server ID",
+      "runtimeAvailable": "Bot runtime online",
+      "runtimeUnavailable": "Bot runtime unavailable",
+      "access": "Maintainer access",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "enableAccess": "Enable maintainer access for {{name}}",
+      "disableAccess": "Disable maintainer access for {{name}}",
+      "openMaintainer": "Open settings",
+      "openRegular": "Open as regular user",
+      "loadFailed": "Could not load managed servers.",
+      "saveFailed": "Could not update maintainer access.",
+      "openFailed": "Could not open this server's settings."
+    },
     "pages": {
       "overview": "Operations Overview",
       "incidents": "Incidents",
-      "guilds": "Guild Health",
-      "usage": "Global Usage"
+      "guilds": "Server Health",
+      "usage": "Global Usage",
+      "maintainer": "Maintainer Access"
     },
     "sections": {
       "overview": {
@@ -462,10 +492,10 @@
       },
       "incidents": {
         "title": "Incidents",
-        "description": "Triage global failures without exposing technical errors to guild users."
+        "description": "Triage global failures without exposing technical errors to server users."
       },
       "guilds": {
-        "title": "Guild Health",
+        "title": "Server Health",
         "description": "Connectivity, activity and reliability by Discord server."
       },
       "usage": {
@@ -494,12 +524,13 @@
       "status": "Status"
     },
     "status": {
-      "veryActive": "Very active",
-      "active": "Active",
+      "healthy": "Healthy",
+      "operationalErrors": "Operational errors",
+      "permissionAttention": "Permissions need attention",
+      "configurationAttention": "Configuration missing",
       "lowActivity": "Low activity",
       "inactive": "Inactive",
-      "new": "New",
-      "attentionRequired": "Attention required"
+      "new": "New"
     },
     "incidents": {
       "search": "Search incident, source or code",
@@ -516,8 +547,9 @@
       "detailPanel": "Incident details",
       "empty": "No incidents match these filters.",
       "acknowledge": "Acknowledge",
-      "resolve": "Resolve",
+      "resolve": "Mark resolved",
       "reopen": "Reopen",
+      "ignore": "Ignore",
       "global": "Global",
       "stackTrace": "Stack trace",
       "copyStack": "Copy stack trace",
@@ -526,25 +558,52 @@
       "statuses": {
         "open": "Open",
         "acknowledged": "Acknowledged",
-        "resolved": "Resolved"
+        "resolved": "Resolved",
+        "ignored": "Ignored"
       }
     },
     "domain": {
       "metrics": {
-        "healthyGuilds": "Healthy guilds",
+        "healthyGuilds": "Healthy servers",
         "openIncidents": "Open incidents",
         "events": "Events",
         "failureRate": "Failure rate",
-        "connectedGuilds": "Connected guilds",
-        "activeGuilds": "Active guilds",
+        "connectedGuilds": "Connected servers",
+        "activeGuilds": "Active servers",
         "commands": "Commands",
-        "uniqueUsers": "Unique users"
+        "uniqueUsers": "Unique users",
+        "adoptingGuilds": "Servers active in period",
+        "memberSum": "Total members",
+        "errorGuilds": "Servers with errors",
+        "openCriticalIncidents": "Open critical incidents",
+        "errorFreeRate": "Error-free servers (%)",
+        "globalActivity": "Activity events",
+        "telemetryDrops": "Telemetry events dropped",
+        "databaseWriterFailures": "Database write failures",
+        "unhealthyWorkers": "Unhealthy workers",
+        "guilds": "Servers",
+        "errors": "Errors"
       },
       "insights": {
         "incident_spike": "Incident spike",
-        "guild_health_down": "Guild health declined",
+        "guild_health_down": "Server health declined",
         "usage_up": "Usage increased",
-        "all_systems_healthy": "All systems healthy"
+        "all_systems_healthy": "All systems healthy",
+        "workerHealth": "Worker needs attention",
+        "actionGuilds": "Servers with recent errors",
+        "criticalIncidents": "Open critical incidents"
+      },
+      "breakdown": {
+        "unspecified": "Other",
+        "commands": "Commands",
+        "experience": "Experience",
+        "leaderboard": "Leaderboard",
+        "seasons": "Seasons",
+        "voice": "Voice",
+        "selfroles": "Self roles",
+        "authorization": "Permissions",
+        "discord": "Discord",
+        "operations": "Operations"
       }
     }
   },
@@ -1114,7 +1173,11 @@
     "channel": "Target channel",
     "channelRequired": "Choose a text channel before saving.",
     "notify": "Notify leveled-up user",
-    "repetition": "Repeat protection",
+    "notifyHint": "Allows {user.mention} to ping the user who leveled up. The message is still sent when this is disabled, but without a notification ping.",
+    "repetition": "Repeat protection per user",
+    "repetitionHint": "Number of recent messages per user to avoid. 0 disables it; 1 avoids the last message; 3 avoids the last three when alternatives exist. Repeats remain possible if no suitable alternative exists.",
+    "repetitionGuild": "Global repeat protection",
+    "repetitionGuildHint": "Number of recent messages from the entire server to avoid. 0 disables global protection; 10 avoids repeats across the last 10 level-up messages.",
     "save": "Save",
     "reset": "Reset changes",
     "test": "Send test message",
@@ -1133,7 +1196,11 @@
     "roleCondition": "Role requirement",
     "templateActions": "Actions for {{name}}",
     "duplicate": "Duplicate",
-    "delete": "Delete"
+    "delete": "Delete",
+    "serverLevel": "Server level", "seasonLevel": "Season level", "levelUp": "Level up", "rewards": "Rewards",
+    "oneLineHint": "One line is one Discord message. Groups start with a group directive.", "syntaxHelp": "Syntax help", "syntaxHelpText": "Use a relative positive weight. Empty lines are ignored. Use @off to keep a disabled message.", "editorPlaceholder": "// @group Standard | weight=60\nCongratulations {user.mention}! You reached level {level}.", "lines": "lines", "insertToken": "Insert token:", "diagnosticLine": "Line {{line}}:", "normalize": "Normalize formatting", "recognizedGroups": "Recognized groups", "probabilityHint": "Percentages are normalized across enabled groups. Runtime conditions and repeat protection can change the actual probability.", "noGroups": "No groups or messages recognized yet.", "activeMessages": "active messages", "disabledMessages": "disabled messages", "optionalRules": "Optional selection rules for {{name}}", "rulesHint": "These conditions remain structured settings and do not change the editor text.", "minimumLevel": "Minimum level", "maximumLevel": "Maximum level", "everyNthLevel": "Every nth level", "conditionInvalid": "The value must be empty or at least 1.", "fixErrors": "Fix the highlighted errors before saving.",
+    "errors": { "invalidGroupDirective": "Invalid group directive. Expected: // @group Name | weight=10", "emptyGroupName": "The group name cannot be empty.", "invalidWeight": "The weight must be between 1 and {{maximum}}.", "duplicateGroupName": "Group names must be unique within this set.", "emptyGroup": "This group has no messages.", "activeMessageRequired": "An enabled group needs at least one active message.", "messageTooLong": "This message is longer than {{maximum}} characters.", "emptyOffMessage": "A disabled message needs content after @off.", "emptyMessage": "A message cannot be empty.", "unknownDirective": "Unknown // directive. Only @group and @off are allowed.", "unknownToken": "Unknown template token: {{token}}.", "rewardTokenRequiresRewardSet": "Reward tokens can only be used in the Rewards set.", "seasonTokenRequiresSeasonScope": "Season tokens can only be used in the Season scope." },
+    "warnings": { "duplicateMessage": "Duplicate message text increases that text's effective probability.", "noGroups": "No groups were recognized." }
   },
   "nav": {
     "leaderboard": "Leaderboard",
@@ -1166,7 +1233,8 @@
     "operationsOverview": "Operations Overview",
     "incidents": "Incidents",
     "guildHealth": "Guild Health",
-    "globalUsage": "Global Usage"
+    "globalUsage": "Global Usage",
+    "maintainerAccess": "Maintainer Access"
   },
   "reports": {
     "eyebrow": "REPORTING",
@@ -1696,6 +1764,7 @@
     "seasons": "Manage seasons"
   },
   "seasons": {
+    "draftHint": "You are editing a draft. The status above still shows the saved state. Check the preview and choose “Save and create seasons” below to complete setup.",
     "eyebrow": "SEASON CONTROL",
     "title": "Seasons",
     "subtitle": "Split your leaderboard into manageable competitive periods.",
@@ -1706,6 +1775,9 @@
     "enableHint": "Add time-limited XP competitions alongside your permanent lifetime leaderboard.",
     "configuratorLegend": "Season configuration",
     "schedule": "Schedule",
+    "planningMode": "Automatic planning",
+    "autoPrepare": "Automatically prepare future seasons",
+    "autoPrepareHint": "Only when enabled: Rankoon maintains the chosen total of running and upcoming seasons (maximum 24). Cancelling a season stops this automation.",
     "timeZone": "Time zone",
     "anchor": "Schedule anchor",
     "durationDays": "Duration in days",
@@ -1716,6 +1788,7 @@
     "optional": "Optional",
     "gapDays": "Gap in days",
     "preparedCount": "Total seasons kept prepared",
+    "setupCount": "Seasons to create now",
     "historyCount": "Public season history",
     "defaultScope": "Default leaderboard",
     "initialMode": "Starting season XP",
@@ -1735,8 +1808,12 @@
     "plan": "Plan seasons",
     "planningNow": "Planning...",
     "planSucceeded": "Planned {{count}} seasons.",
+    "setupSucceeded": "Created {{count}} seasons.",
+    "saveAndCreate": "Save and create {{count}} seasons",
+    "create": "Create {{count}} seasons",
+    "createMore": "Create more seasons",
     "planTitle": "Prepare upcoming seasons",
-    "planHint": "Create scheduled seasons until {{count}} seasons are prepared in total, including the current active or closing season.",
+    "planHint": "Exactly {{count}} additional seasons will be created. Check the preview first. Existing seasons and their XP rules are retained.",
     "saveBeforePlan": "Save your changes before planning seasons.",
     "operationsKicker": "SEASON OPERATIONS",
     "operations": "Manage scheduled and active seasons",
@@ -1817,10 +1894,10 @@
     "confirmImpact": {
       "start": "Season XP begins immediately and the season becomes active.",
       "close": "Final standings will be recorded and XP carry-over will be applied.",
-      "cancel": "Season XP stops. The season may be resumable only during its original time window.",
-      "resume": "Season XP continues until the season's original end time.",
+      "cancel": "Season XP stops. The season may be resumable only during its original time window. Automatic preparation is stopped.",
+      "resume": "Future seasons are scheduled again; seasons in their current period resume with their existing XP. Automatic preparation stays off.",
       "delete": "The season instance and its standings will be permanently removed.",
-      "cancelScheduled": "All scheduled seasons will be cancelled and can be deleted afterward.",
+      "cancelScheduled": "All scheduled seasons will be cancelled and can be deleted afterward. Automatic preparation is stopped.",
       "deleteCancelled": "All cancelled season instances will be permanently removed.",
       "resetCounter": "The running season remains unchanged. Scheduled and following seasons start again at Season 1."
     },
@@ -1950,6 +2027,7 @@
       "cancelled": "Cancelled"
     },
     "statusSummary": {
+      "closing": "Closing",
       "disabled": "Disabled",
       "active": "Active",
       "ready": "Ready",
@@ -1972,7 +2050,7 @@
     "validation": {
       "closeBeforeDisable": "Close the active season before disabling seasons.",
       "timeZone": "Enter a valid IANA time zone.",
-      "anchor": "Choose a schedule anchor for automatic seasons.",
+      "anchor": "Choose a valid start time. A time skipped by daylight saving changes cannot be used.",
       "duration": "Enter a duration from 1 to 3,660 days.",
       "gap": "Enter a valid gap that leaves time for the selected season cadence.",
       "prepared": "Prepared season count must be between 0 and 24.",
@@ -1985,7 +2063,18 @@
       "rotationDuplicate": "Each rotation name must be unique.",
       "nameTemplate": "Enter a valid name template of no more than 120 characters.",
       "generic": "Check this value and try again."
-    }
+    },
+    "workflowHint": "Enable seasons, choose a period, check the preview and create exactly the number you want. Scheduled seasons start and end automatically at the displayed times. Saving alone creates no seasons in explicit planning mode.",
+    "useLocalTimeZone": "Use my time zone",
+    "instanceActionHint": "Starting is available only during the displayed period when no other season is running. Cancelling also stops automatic preparation. Other scheduled seasons are retained.",
+    "manualCreate": "Create an individual season",
+    "editDetails": "Edit name and dates",
+    "editorHint": "All inputs use the {{zone}} time zone. Periods cannot overlap. Only scheduled seasons can be edited.",
+    "editorName": "Season name",
+    "editorStart": "Start",
+    "editorEnd": "End",
+    "editorInvalid": "Enter a name and valid dates. The end must be after the start and in the future. Times during daylight saving changes may be invalid.",
+    "detailsSaved": "Season saved."
   },
   "xpAudit": {
     "title": "XP History & Adjustments",

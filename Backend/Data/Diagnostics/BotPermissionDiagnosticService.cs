@@ -67,8 +67,8 @@ public sealed class BotPermissionDiagnosticService(DiscordShardedClient discord,
         AddFeature(DiagnosticFeatureKeys.ReactionXp, settings.Enabled && settings.Reaction.Enabled, text);
         AddFeature(DiagnosticFeatureKeys.ThreadXp, settings.Enabled && settings.Thread.Enabled, guildChannels.Where(channel => Kind(channel) is "Text" or "Thread").Where(channel => !IsExcluded(channel)));
         AddFeature(DiagnosticFeatureKeys.VoiceXp, settings.Enabled && settings.Voice.Enabled, voice);
-        AddFeature(DiagnosticFeatureKeys.LevelUpAnnouncements, announcements?.Enabled == true && announcements.ChannelId.HasValue,
-            announcements?.ChannelId is ulong channelId && guild.GetChannel(channelId) is SocketGuildChannel output ? [output] : []);
+        var announcementChannels = announcements == null ? [] : new[] { announcements.Lifetime, announcements.Season }.Where(x => x.Enabled && x.ChannelId.HasValue).Select(x => x.ChannelId!.Value).Distinct().Select(guild.GetChannel).OfType<SocketGuildChannel>().ToArray();
+        AddFeature(DiagnosticFeatureKeys.LevelUpAnnouncements, announcementChannels.Length > 0, announcementChannels);
         AddFeature(DiagnosticFeatureKeys.SelfRoles, panels.Count > 0, panels.Select(panel => guild.GetChannel(panel.ChannelId)).OfType<SocketGuildChannel>());
         AddFeature(DiagnosticFeatureKeys.VoiceHubs, hubs.Count > 0, hubs.Select(hub => guild.GetChannel(hub.JoinChannelId)).OfType<SocketGuildChannel>());
 
@@ -118,7 +118,7 @@ public sealed class BotPermissionDiagnosticService(DiscordShardedClient discord,
             DiagnosticFeatureKeys.ReactionXp => settings.Enabled && settings.Reaction.Enabled,
             DiagnosticFeatureKeys.ThreadXp => settings.Enabled && settings.Thread.Enabled,
             DiagnosticFeatureKeys.VoiceXp => settings.Enabled && settings.Voice.Enabled,
-            DiagnosticFeatureKeys.LevelUpAnnouncements => announcements?.Enabled == true,
+            DiagnosticFeatureKeys.LevelUpAnnouncements => announcements != null && (announcements.Lifetime.Enabled || announcements.Season.Enabled),
             DiagnosticFeatureKeys.LevelRoles => settings.LevelRoles.Count > 0,
             DiagnosticFeatureKeys.SelfRoles => panels.Count > 0,
             DiagnosticFeatureKeys.VoiceHubs => hubs.Count > 0,

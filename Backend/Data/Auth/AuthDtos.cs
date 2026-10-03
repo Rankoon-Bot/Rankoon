@@ -79,6 +79,7 @@ public record DiscordUserDto
     public string? Avatar { get; init; }
     public bool Verified { get; init; }
     public bool IsBotOperator { get; init; }
+    public bool CanManageGuilds { get; init; }
     public BotOperatorRole? BotOperatorRole { get; init; }
 }
 

@@ -34,7 +34,7 @@ describe('SeasonConfigComponent', () => {
   };
   const configUrl = `${environment.apiBaseUrl}/guilds/guild-1/xp/seasons/config`;
   const seasonsUrl = `${environment.apiBaseUrl}/guilds/guild-1/xp/seasons`;
-  const previewUrl = `${environment.apiBaseUrl}/guilds/guild-1/xp/seasons/preview?count=3`;
+  const previewUrl = `${environment.apiBaseUrl}/guilds/guild-1/xp/seasons/preview?count=1`;
   const resourcesUrl = `${environment.apiBaseUrl}/guilds/guild-1/resources`;
 
   const createSettings = (
@@ -94,7 +94,7 @@ describe('SeasonConfigComponent', () => {
     http.expectOne(configUrl).flush(settings);
     http.expectOne(seasonsUrl).flush(seasons);
     http.expectOne(resourcesUrl).flush({ roles: [], channels: [] });
-    http.expectOne(previewUrl).flush(previews);
+    if (settings.scheduleKind !== 'Manual') http.expectOne(previewUrl).flush(previews);
     fixture.detectChanges();
   }
 
@@ -364,7 +364,7 @@ describe('SeasonConfigComponent', () => {
   });
 
   it('offers resume only while an unfinalized cancelled season is in its window', () => {
-    flushInitialLoad();
+    flushInitialLoad(createSettings(), []);
     const now = Date.now();
     const resumable = createSeason(4, 'Cancelled', {
       startsAtUtc: new Date(now - 60_000).toISOString(),
@@ -375,7 +375,7 @@ describe('SeasonConfigComponent', () => {
     expect(component.availableActions(resumable)).toEqual(['resume', 'delete']);
     expect(
       component.isResumable({ ...resumable, carryOverApplied: true }),
-    ).toBeFalse();
+    ).toBeTrue();
     expect(
       component.isResumable({ ...resumable, finalized: true }),
     ).toBeFalse();
@@ -446,6 +446,113 @@ describe('SeasonConfigComponent', () => {
     http.expectOne(configUrl).flush(createSettings());
     http.expectOne(seasonsUrl).flush([]);
     http.expectOne(previewUrl).flush(previews);
+  });
+
+  it('shows setup attention until a confirmed season exists, then sends settings and count together', () => {
+    flushInitialLoad(createSettings(), []);
+    expect((fixture.nativeElement as HTMLElement).querySelector('.status-card')?.getAttribute('data-status')).toBe('attention');
+
+    component.initialSeasonCount = 2;
+    component.refreshPreview();
+    http.expectOne(`${environment.apiBaseUrl}/guilds/guild-1/xp/seasons/preview?count=2`).flush(previews);
+    component.setup();
+
+    const setup = http.expectOne(`${seasonsUrl}/setup`);
+    expect(setup.request.body.seasonCount).toBe(2);
+    expect(setup.request.body.settings.winnerCount).toBe(3);
+    setup.flush({ settings: createSettings(), seasons: [createSeason(1, 'Scheduled')] });
+    http.expectOne(previewUrl).flush(previews);
+    fixture.detectChanges();
+
+    expect(component.dirty()).toBeFalse();
+    expect(component.hasConfirmedSeasons()).toBeTrue();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.status-card')?.getAttribute('data-status')).toBe('ready');
+  });
+
+  it('keeps a failed setup draft and does not report success', () => {
+    flushInitialLoad(createSettings(), []);
+    const toast = TestBed.inject(ToastService);
+    spyOn(toast, 'success');
+    spyOn(toast, 'error');
+    component.settings()!.winnerCount = 5;
+    component.setup();
+    http.expectOne(`${seasonsUrl}/setup`).flush({ errorKey: 'season.planConflict' }, { status: 409, statusText: 'Conflict' });
+
+    expect(component.settings()!.winnerCount).toBe(5);
+    expect(component.dirty()).toBeTrue();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalled();
+  });
+
+  it('uses a single season by default and rejects fractional or excessive creation counts', () => {
+    flushInitialLoad(createSettings(), []);
+    expect(component.planningCount()).toBe(1);
+    for (const count of [0, 1.5, 25, NaN]) {
+      component.initialSeasonCount = count;
+      component.setup();
+      http.expectNone(`${seasonsUrl}/setup`);
+      expect(component.countValid()).toBeFalse();
+    }
+  });
+
+  it('gives a new user a ready monthly schedule on enabling untouched manual settings', () => {
+    flushInitialLoad(createSettings({ enabled: false, scheduleKind: 'Manual', scheduleAnchorUtc: null }), []);
+    component.enableSeasons(true);
+    const request = http.expectOne(previewUrl);
+    expect(request.request.body.planningMode).toBe('Explicit');
+    expect(request.request.body.scheduleKind).toBe('Monthly');
+    expect(request.request.body.scheduleAnchorUtc).toBeTruthy();
+    request.flush(previews);
+    expect(component.valid(component.settings()!)).toBeTrue();
+    expect(component.dirty()).toBeTrue();
+  });
+
+  it('rejects invalid time zones and missing local times during daylight saving changes', () => {
+    flushInitialLoad();
+    const cfg = component.settings()!;
+    cfg.timeZoneId = 'Invalid/Zone';
+    expect(component.scheduleValid(cfg)).toBeFalse();
+    component.refreshPreview();
+    http.expectNone(previewUrl);
+    cfg.timeZoneId = 'Europe/Berlin';
+    cfg.scheduleAnchorUtc = '2027-03-28T02:30';
+    expect(component.scheduleValid(cfg)).toBeFalse();
+    cfg.scheduleAnchorUtc = '2027-03-28T03:30';
+    expect(component.scheduleValid(cfg)).toBeTrue();
+    component.refreshPreview();
+    const request = http.expectOne(previewUrl);
+    expect(request.request.body.scheduleAnchorUtc).toBe('2027-03-28T01:30:00.000Z');
+    request.flush(previews);
+  });
+
+  it('retries the same setup operation and preserves edits made during the request', () => {
+    flushInitialLoad(createSettings(), []);
+    component.setup();
+    const first = http.expectOne(`${seasonsUrl}/setup`);
+    const operation = first.request.body.operationId;
+    first.flush({}, { status: 503, statusText: 'Unavailable' });
+    component.setup();
+    const retry = http.expectOne(`${seasonsUrl}/setup`);
+    expect(retry.request.body.operationId).toBe(operation);
+    component.settings()!.winnerCount = 8;
+    component.save();
+    http.expectNone(configUrl);
+    retry.flush({ settings: createSettings(), seasons: [createSeason(1, 'Scheduled')] });
+    http.expectOne(previewUrl).flush(previews);
+    expect(component.settings()!.winnerCount).toBe(8);
+    expect(component.dirty()).toBeTrue();
+  });
+
+  it('edits a scheduled season using UTC requests and retains the editor on failure', () => {
+    flushInitialLoad();
+    component.editSeason(createSeason(2, 'Scheduled'));
+    component.seasonEditor()!.name = 'My season';
+    component.saveSeasonDetails();
+    const request = http.expectOne(`${seasonsUrl}/season-2`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body.startsAtUtc).toBe('2030-01-01T00:00:00.000Z');
+    request.flush({}, { status: 409, statusText: 'Conflict' });
+    expect(component.seasonEditor()!.name).toBe('My season');
   });
 
   it('resets the counter for following seasons through the confirmed endpoint', () => {

@@ -5,6 +5,7 @@ export type GuildModuleId = typeof GUILD_MODULE_IDS[number];
 export interface GuildCapabilities {
   guildId: string;
   isOwner: boolean;
+  isMaintainer?: boolean;
   canAccessSettings: boolean;
   moduleIds: GuildModuleId[];
   leaderboardAlias: string;
@@ -31,6 +32,7 @@ export interface RolePermission {
 export interface RolePermissions {
   guildId: string;
   isOwner: boolean;
+  isMaintainer?: boolean;
   revision: number;
   modules: PermissionModule[];
   roles: RolePermission[];

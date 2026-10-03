@@ -10,6 +10,8 @@ public interface IGuildAuthorizationService
 {
     Task<IGuildUser?> ResolveMemberAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default);
     Task<bool> IsOwnerAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default);
+    Task<bool> IsMaintainerAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+    Task<bool> CanManageGuildAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default) => IsOwnerAsync(user, guildId, cancellationToken);
     Task<bool> IsMemberAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default);
     Task<bool> CanAccessAnyModuleAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default);
     Task<bool> CanAccessModuleAsync(ClaimsPrincipal user, ulong guildId, string moduleId, CancellationToken cancellationToken = default);
@@ -21,7 +23,9 @@ public sealed class GuildAuthorizationService(
     IGuildDiscordContextResolver guildResolver,
     IUserDiscordGuildProvider userGuilds,
     IGuildRolePermissionService permissions,
-    IGuildModuleRegistry modules) : IGuildAuthorizationService
+    IGuildModuleRegistry modules,
+    IBotOperatorAccessService? botOperators = null,
+    IGuildMaintainerAccessService? maintainerAccess = null) : IGuildAuthorizationService
 {
     public async Task<IGuildUser?> ResolveMemberAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default)
     {
@@ -48,6 +52,16 @@ public sealed class GuildAuthorizationService(
         return context != null ? context.Guild.OwnerId == userId.Value : await userGuilds.IsGuildOwnerAsync(userId.Value, guildId, cancellationToken);
     }
 
+    public async Task<bool> IsMaintainerAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default)
+    {
+        var userId = GetDiscordUserId(user);
+        if (userId == null || botOperators == null || maintainerAccess == null || !await maintainerAccess.IsEnabledAsync(guildId, cancellationToken)) return false;
+        return BotOperatorAccessRules.CanManageGuildSettings(await botOperators.GetAccessAsync(userId.Value, cancellationToken));
+    }
+
+    public async Task<bool> CanManageGuildAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default) =>
+        await IsOwnerAsync(user, guildId, cancellationToken) || await IsMaintainerAsync(user, guildId, cancellationToken);
+
     public async Task<bool> IsMemberAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default)
     {
         var context = await guildResolver.ResolveAsync(guildId, cancellationToken);
@@ -65,6 +79,7 @@ public sealed class GuildAuthorizationService(
 
     public async Task<IReadOnlyList<string>> GetAccessibleModuleIdsAsync(ClaimsPrincipal user, ulong guildId, CancellationToken cancellationToken = default)
     {
+        if (await IsMaintainerAsync(user, guildId, cancellationToken)) return modules.Modules.Select(module => module.Id).ToArray();
         var context = await guildResolver.ResolveAsync(guildId, cancellationToken);
         var userId = GetDiscordUserId(user);
         if (userId == null) return [];

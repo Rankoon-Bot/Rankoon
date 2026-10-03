@@ -117,7 +117,8 @@
     "seasonSave": "Die Season-Einstellungen konnten nicht gespeichert werden.",
     "seasonPreview": "Die Season-Vorschau konnte nicht erstellt werden.",
     "seasonAction": "Die Season-Aktion konnte nicht ausgeführt werden.",
-    "seasonPlan": "Die angeforderten Seasons konnten nicht geplant werden."
+    "seasonPlan": "Die angeforderten Seasons konnten nicht geplant werden.",
+    "seasonSetup": "Das Season-System konnte nicht eingerichtet werden."
   },
   "apiErrors": {
     "request": {
@@ -167,6 +168,7 @@
     },
     "botManagement": {
       "invalidRange": "Der Zeitraum für die Bot-Verwaltung ist ungültig.",
+      "maintainerRevisionConflict": "Der Maintainer-Zugriff wurde inzwischen geändert. Bitte lade die Liste neu.",
       "unavailable": "Die Bot-Verwaltung ist vorübergehend nicht verfügbar."
     },
     "permissions": {
@@ -237,17 +239,18 @@
     "season": {
       "invalidTimeZone": "Die Zeitzone der Season ist ungültig.",
       "invalidSchedule": "Der Season-Zeitplan oder das Namens-Template ist ungültig.",
-      "invalidTransition": "Der angeforderte Season-Statusübergang ist nicht zulässig.",
+      "invalidTransition": "Diese Aktion passt nicht zum aktuellen Season-Status. Prüfe den Zeitraum und ob bereits eine Season läuft. Aktualisiere die Seite und versuche es erneut.",
       "activeConflict": "Für diesen Server ist bereits eine andere Season aktiv.",
       "manualSchedule": "Manuelle Zeitpläne benötigen explizite Zeitpunkte.",
-      "planConflict": "Die angeforderten Seasons überschneiden sich mit dem bestehenden Plan.",
-      "notResumable": "Diese Season kann nur innerhalb ihres ursprünglichen Zeitraums fortgesetzt werden."
+      "planConflict": "Der Season-Plan wurde inzwischen geändert oder die Zeiträume überschneiden sich. Lade die Seite neu, prüfe den aktuellen Plan und versuche es erneut.",
+      "notResumable": "Diese Season kann nicht wiederhergestellt werden. Prüfe, ob sie bereits abgelaufen ist oder sich mit einer anderen Season überschneidet."
     },
     "levelAnnouncements": {
       "channelUnavailable": "Der konfigurierte Kanal ist nicht verfügbar.",
       "revisionConflict": "Die Level-Up-Nachrichten wurden zwischenzeitlich geändert.",
       "settingsInvalid": "Die Level-Up-Einstellungen sind ungültig.",
-      "templateInvalid": "Die Vorlage kann nicht gerendert werden."
+      "templateInvalid": "Die Vorlage kann nicht gerendert werden.",
+      "required": "Ein erforderlicher Wert fuer die Ankuendigung fehlt.", "invalid": "Ein Wert der Ankuendigung ist ungueltig.", "activeMessageRequired": "Eine aktive Spruchgruppe benoetigt einen aktiven Spruch.", "duplicateId": "Gruppen- und Spruch-IDs muessen eindeutig sein.", "length": "Die Laenge des Spruchs ist ungueltig.", "unknownToken": "Die Ankuendigung enthaelt einen unbekannten Template-Token.", "missingContext": "Der Kontext fuer einen Ankuendigungs-Token ist nicht verfuegbar.", "invalidToken": "Die Ankuendigung enthaelt einen ungueltigen Template-Token.", "rewardTokenRequiresRewardSet": "Reward-Tokens koennen nur im Rewards-Set verwendet werden.", "seasonTokenRequiresSeasonScope": "Season-Tokens koennen nur im Season-Scope verwendet werden.", "channelInvalid": "Der ausgewaehlte Kanal ist ungueltig."
     },
     "customBotIdentity": {
       "disabled": "Custom Bot Identity ist auf dieser Rankoon-Instanz deaktiviert.",
@@ -380,7 +383,10 @@
     "audit": {
       "title": "Audit-Ereignisse",
       "description": "Chronologische Aktivität mit Akteuren und Korrelations-IDs.",
-      "empty": "Keine Audit-Ereignisse in diesem Zeitraum."
+      "empty": "Keine Audit-Ereignisse in diesem Zeitraum.",
+      "subject": "Betreff",
+      "hub": "Voice-Hub",
+      "metadata": "Metadaten anzeigen"
     },
     "domain": {
       "kpis": {
@@ -449,11 +455,35 @@
     "noComparison": "Kein Vergleich",
     "insights": "Betriebliche Erkenntnisse",
     "usageBreakdown": "Nutzungsaufschlüsselung",
+    "maintainer": {
+      "eyebrow": "ZUGRIFF JE SERVER",
+      "title": "Maintainer-Zugriff",
+      "description": "Wähle, welche Rankoon-Server du über die Weboberfläche verwalten möchtest.",
+      "notice": "Diese Einstellung gilt gemeinsam für den Server. Wenn sie aktiv ist, können berechtigte App-Maintainer dessen Einstellungen ansehen und ändern. Deaktiviere sie, um dort deine normalen Discord-Berechtigungen zu verwenden.",
+      "refresh": "Liste aktualisieren",
+      "loading": "Verwaltbare Server werden geladen …",
+      "emptyTitle": "Keine verwaltbaren Server",
+      "emptyDescription": "Es wurden keine von Rankoon verwalteten Discord-Server gefunden.",
+      "guildId": "Server-ID",
+      "runtimeAvailable": "Bot-Laufzeit online",
+      "runtimeUnavailable": "Bot-Laufzeit nicht verfügbar",
+      "access": "Maintainer-Zugriff",
+      "enabled": "Aktiv",
+      "disabled": "Inaktiv",
+      "enableAccess": "Maintainer-Zugriff für {{name}} aktivieren",
+      "disableAccess": "Maintainer-Zugriff für {{name}} deaktivieren",
+      "openMaintainer": "Einstellungen öffnen",
+      "openRegular": "Als normaler Nutzer öffnen",
+      "loadFailed": "Die verwaltbaren Server konnten nicht geladen werden.",
+      "saveFailed": "Der Maintainer-Zugriff konnte nicht geändert werden.",
+      "openFailed": "Die Einstellungen dieses Servers konnten nicht geöffnet werden."
+    },
     "pages": {
       "overview": "Betriebsüberblick",
       "incidents": "Vorfälle",
       "guilds": "Serverzustand",
-      "usage": "Globale Nutzung"
+      "usage": "Globale Nutzung",
+      "maintainer": "Maintainer-Zugriff"
     },
     "sections": {
       "overview": {
@@ -494,12 +524,13 @@
       "status": "Status"
     },
     "status": {
-      "veryActive": "Sehr aktiv",
-      "active": "Aktiv",
-      "lowActivity": "Gering aktiv",
+      "healthy": "Gesund",
+      "operationalErrors": "Betriebsfehler",
+      "permissionAttention": "Berechtigungen prüfen",
+      "configurationAttention": "Konfiguration fehlt",
+      "lowActivity": "Geringe Aktivität",
       "inactive": "Inaktiv",
-      "new": "Neu",
-      "attentionRequired": "Auffällig"
+      "new": "Neu"
     },
     "incidents": {
       "search": "Vorfall, Quelle oder Code suchen",
@@ -516,8 +547,9 @@
       "detailPanel": "Vorfallsdetails",
       "empty": "Keine Vorfälle entsprechen diesen Filtern.",
       "acknowledge": "Bestätigen",
-      "resolve": "Beheben",
+      "resolve": "Als behoben markieren",
       "reopen": "Wieder öffnen",
+      "ignore": "Ignorieren",
       "global": "Global",
       "stackTrace": "Stacktrace",
       "copyStack": "Stacktrace kopieren",
@@ -526,7 +558,8 @@
       "statuses": {
         "open": "Offen",
         "acknowledged": "Bestätigt",
-        "resolved": "Behoben"
+        "resolved": "Behoben",
+        "ignored": "Ignoriert"
       }
     },
     "domain": {
@@ -537,14 +570,40 @@
         "failureRate": "Fehlerquote",
         "connectedGuilds": "Verbundene Server",
         "activeGuilds": "Aktive Server",
-        "commands": "Commands",
-        "uniqueUsers": "Eindeutige Nutzer"
+        "commands": "Befehle",
+        "uniqueUsers": "Eindeutige Nutzer",
+        "adoptingGuilds": "Server mit Aktivität im Zeitraum",
+        "memberSum": "Mitglieder insgesamt",
+        "errorGuilds": "Server mit Fehlern",
+        "openCriticalIncidents": "Offene kritische Vorfälle",
+        "errorFreeRate": "Fehlerfreie Server (%)",
+        "globalActivity": "Aktivitätsereignisse",
+        "telemetryDrops": "Verworfene Telemetrieereignisse",
+        "databaseWriterFailures": "Fehler beim Datenbankschreiben",
+        "unhealthyWorkers": "Worker mit Problemen",
+        "guilds": "Server",
+        "errors": "Fehler"
       },
       "insights": {
         "incident_spike": "Vorfallsanstieg",
         "guild_health_down": "Serverzustand gesunken",
         "usage_up": "Nutzung gestiegen",
-        "all_systems_healthy": "Alle Systeme gesund"
+        "all_systems_healthy": "Alle Systeme gesund",
+        "workerHealth": "Worker benötigt Aufmerksamkeit",
+        "actionGuilds": "Server mit kürzlichen Fehlern",
+        "criticalIncidents": "Kritische Vorfälle offen"
+      },
+      "breakdown": {
+        "unspecified": "Sonstige",
+        "commands": "Befehle",
+        "experience": "Erfahrung",
+        "leaderboard": "Rangliste",
+        "seasons": "Saisons",
+        "voice": "Voice",
+        "selfroles": "Selbstzuweisbare Rollen",
+        "authorization": "Berechtigungen",
+        "discord": "Discord",
+        "operations": "Betrieb"
       }
     }
   },
@@ -1114,7 +1173,11 @@
     "channel": "Zielkanal",
     "channelRequired": "Wähle vor dem Speichern einen Textkanal aus.",
     "notify": "Aufgestiegenen Nutzer benachrichtigen",
-    "repetition": "Wiederholungsschutz",
+    "notifyHint": "Erlaubt {user.mention}, den aufgestiegenen Nutzer zu markieren. Die Nachricht wird auch bei deaktivierter Option gesendet, aber ohne Benachrichtigungs-Ping.",
+    "repetition": "Wiederholungsschutz pro Nutzer",
+    "repetitionHint": "Anzahl der letzten Sprueche pro Nutzer, die vermieden werden sollen. 0 deaktiviert den Schutz; 1 vermeidet den letzten Spruch; 3 die letzten drei, sofern Alternativen vorhanden sind. Wiederholungen bleiben moeglich, wenn kein passender Ersatz existiert.",
+    "repetitionGuild": "Globale Wiederholungsvermeidung",
+    "repetitionGuildHint": "Anzahl der letzten Sprueche des gesamten Servers, die vermieden werden sollen. 0 deaktiviert den globalen Schutz; 10 verhindert Wiederholungen ueber die letzten 10 Level-Up-Nachrichten hinweg.",
     "save": "Speichern",
     "reset": "Aenderungen zuruecksetzen",
     "test": "Testnachricht senden",
@@ -1133,7 +1196,11 @@
     "roleCondition": "Rollenbedingung",
     "templateActions": "Aktionen fuer {{name}}",
     "duplicate": "Duplizieren",
-    "delete": "Loeschen"
+    "delete": "Loeschen",
+    "serverLevel": "Server-Level", "seasonLevel": "Season-Level", "levelUp": "Level Up", "rewards": "Belohnungen",
+    "oneLineHint": "Eine Zeile entspricht genau einer Discord-Nachricht. Gruppen beginnen mit einer Gruppendirektive.", "syntaxHelp": "Syntaxhilfe", "syntaxHelpText": "Verwende eine positive relative Gewichtung. Leerzeilen werden ignoriert. Mit @off bleiben deaktivierte Sprueche erhalten.", "editorPlaceholder": "// @group Standard | weight=60\nGlückwunsch {user.mention}! Du hast Level {level} erreicht.", "lines": "Zeilen", "insertToken": "Token einfuegen:", "diagnosticLine": "Zeile {{line}}:", "normalize": "Formatierung normalisieren", "recognizedGroups": "Erkannte Gruppen", "probabilityHint": "Prozentwerte werden ueber aktive Gruppen normalisiert. Auswahlregeln und Wiederholungsschutz koennen die tatsaechliche Wahrscheinlichkeit veraendern.", "noGroups": "Noch wurden keine Gruppen oder Sprueche erkannt.", "activeMessages": "aktive Sprueche", "disabledMessages": "deaktivierte Sprueche", "optionalRules": "Optionale Auswahlregeln fuer {{name}}", "rulesHint": "Diese Bedingungen bleiben strukturierte Einstellungen und veraendern den Editortext nicht.", "minimumLevel": "Mindestlevel", "maximumLevel": "Hoechstlevel", "everyNthLevel": "Jedes n-te Level", "conditionInvalid": "Der Wert muss leer bleiben oder mindestens 1 sein.", "fixErrors": "Behebe die hervorgehobenen Fehler vor dem Speichern.",
+    "errors": { "invalidGroupDirective": "Ungueltige Gruppendirektive. Erwartet: // @group Name | weight=10", "emptyGroupName": "Der Gruppenname darf nicht leer sein.", "invalidWeight": "Die Gewichtung muss zwischen 1 und {{maximum}} liegen.", "duplicateGroupName": "Gruppennamen muessen innerhalb eines Sets eindeutig sein.", "emptyGroup": "Diese Gruppe enthaelt keine Sprueche.", "activeMessageRequired": "Eine aktive Gruppe benoetigt mindestens einen aktiven Spruch.", "messageTooLong": "Dieser Spruch ist laenger als {{maximum}} Zeichen.", "emptyOffMessage": "Ein deaktivierter Spruch benoetigt Inhalt nach @off.", "emptyMessage": "Ein Spruch darf nicht leer sein.", "unknownDirective": "Unbekannte //-Direktive. Erlaubt sind nur @group und @off.", "unknownToken": "Unbekannter Template-Token: {{token}}.", "rewardTokenRequiresRewardSet": "Reward-Tokens koennen nur im Rewards-Set verwendet werden.", "seasonTokenRequiresSeasonScope": "Season-Tokens koennen nur im Season-Scope verwendet werden." },
+    "warnings": { "duplicateMessage": "Doppelte Sprueche erhoehen die effektive Wahrscheinlichkeit dieses Textes.", "noGroups": "Es wurden keine Gruppen erkannt." }
   },
   "nav": {
     "leaderboard": "Rangliste",
@@ -1166,7 +1233,8 @@
     "operationsOverview": "Betriebsüberblick",
     "incidents": "Vorfälle",
     "guildHealth": "Serverzustand",
-    "globalUsage": "Globale Nutzung"
+    "globalUsage": "Globale Nutzung",
+    "maintainerAccess": "Maintainer-Zugriff"
   },
   "reports": {
     "eyebrow": "REPORTING",
@@ -1681,6 +1749,7 @@
     "seasons": "Seasons verwalten"
   },
   "seasons": {
+    "draftHint": "Du bearbeitest einen Entwurf. Die Statusanzeige oben zeigt weiterhin den gespeicherten Stand. Prüfe die Vorschau und wähle unten „Speichern und Seasons anlegen“, um die Einrichtung abzuschließen.",
     "eyebrow": "SEASON-STEUERUNG",
     "title": "Seasons",
     "subtitle": "Teile deine Rangliste in überschaubare Wettbewerbszeiträume auf.",
@@ -1691,6 +1760,9 @@
     "enableHint": "Ergänze die dauerhafte Lifetime-Rangliste um zeitlich begrenzte XP-Wettbewerbe.",
     "configuratorLegend": "Season-Konfiguration",
     "schedule": "Zeitplan",
+    "planningMode": "Automatische Vorausplanung",
+    "autoPrepare": "Zukünftige Seasons automatisch vorbereiten",
+    "autoPrepareHint": "Nur bei Aktivierung: Rankoon füllt die gewählte Gesamtzahl aus laufender und zukünftigen Seasons automatisch auf (maximal 24). Abbrechen einer Season stoppt diese Automatik.",
     "timeZone": "Zeitzone",
     "anchor": "Startpunkt des Zeitplans",
     "durationDays": "Dauer in Tagen",
@@ -1701,6 +1773,7 @@
     "optional": "Optional",
     "gapDays": "Pause in Tagen",
     "preparedCount": "Insgesamt vorbereitete Seasons",
+    "setupCount": "Jetzt anzulegende Seasons",
     "historyCount": "Öffentlicher Season-Verlauf",
     "defaultScope": "Standard-Rangliste",
     "initialMode": "Season-XP zum Start",
@@ -1720,8 +1793,12 @@
     "plan": "Seasons planen",
     "planningNow": "Wird geplant...",
     "planSucceeded": "{{count}} Seasons geplant.",
+    "setupSucceeded": "{{count}} Seasons angelegt.",
+    "saveAndCreate": "Speichern und {{count}} Seasons anlegen",
+    "create": "{{count}} Seasons anlegen",
+    "createMore": "Weitere Seasons anlegen",
     "planTitle": "Kommende Seasons vorbereiten",
-    "planHint": "Erstelle geplante Seasons, bis insgesamt {{count}} Seasons vorbereitet sind, einschließlich der aktuell aktiven oder abschließenden Season.",
+    "planHint": "Es werden genau {{count}} zusätzliche Seasons angelegt. Prüfe vorher die Vorschau. Bestehende Seasons und deren XP-Regeln bleiben erhalten.",
     "saveBeforePlan": "Speichere deine Änderungen, bevor du Seasons planst.",
     "operationsKicker": "SEASON-AKTIONEN",
     "operations": "Geplante und aktive Seasons verwalten",
@@ -1730,7 +1807,7 @@
     "start": "Starten",
     "close": "Abschließen",
     "cancel": "Abbrechen",
-    "resume": "Fortsetzen",
+    "resume": "Wiederherstellen",
     "delete": "Löschen",
     "confirmAction": "Aktion bestätigen",
     "saved": "Season-Einstellungen gespeichert.",
@@ -1802,10 +1879,10 @@
     "confirmImpact": {
       "start": "Season-XP werden sofort aktiviert und die Season beginnt.",
       "close": "Die Abschlussrangliste wird gespeichert und der XP-Übertrag wird angewendet.",
-      "cancel": "Die Vergabe von Season-XP endet. Die Season kann nur innerhalb ihres ursprünglichen Zeitraums fortgesetzt werden.",
-      "resume": "Season-XP werden bis zum ursprünglich vorgesehenen Ende weiter vergeben.",
+      "cancel": "Die Vergabe von Season-XP endet. Die Season kann nur innerhalb ihres ursprünglichen Zeitraums fortgesetzt werden. Die automatische Vorausplanung wird gestoppt.",
+      "resume": "Zukünftige Seasons werden wieder eingeplant; im laufenden Zeitraum werden sie mit ihren bisherigen XP fortgesetzt. Die automatische Vorausplanung bleibt ausgeschaltet.",
       "delete": "Die Season und ihre Rangliste werden dauerhaft gelöscht.",
-      "cancelScheduled": "Alle geplanten Seasons werden abgebrochen und können anschließend gelöscht werden.",
+      "cancelScheduled": "Alle geplanten Seasons werden abgebrochen und können anschließend gelöscht werden. Die automatische Vorausplanung wird gestoppt.",
       "deleteCancelled": "Alle abgebrochenen Seasons werden dauerhaft gelöscht.",
       "resetCounter": "Die laufende Season bleibt unverändert. Geplante und folgende Seasons beginnen wieder bei Season 1."
     },
@@ -1935,6 +2012,7 @@
       "cancelled": "Abgebrochen"
     },
     "statusSummary": {
+      "closing": "Wird abgeschlossen",
       "disabled": "Deaktiviert",
       "active": "Aktiv",
       "ready": "Bereit",
@@ -1956,8 +2034,8 @@
     },
     "validation": {
       "closeBeforeDisable": "Schließe die aktive Season ab, bevor du Seasons deaktivierst.",
-      "timeZone": "Gib eine gültige IANA-Zeitzone ein.",
-      "anchor": "Wähle einen Startpunkt für automatisch geplante Seasons.",
+      "timeZone": "Wähle eine gültige Zeitzone, z. B. Europe/Berlin, oder verwende deine Zeitzone.",
+      "anchor": "Wähle einen gültigen Startzeitpunkt. Eine Uhrzeit, die durch die Zeitumstellung ausfällt, ist nicht möglich.",
       "duration": "Gib eine Dauer zwischen 1 und 3.660 Tagen ein.",
       "gap": "Gib eine gültige Pause ein, die ausreichend Zeit für den gewählten Season-Rhythmus lässt.",
       "prepared": "Die Anzahl vorbereiteter Seasons muss zwischen 0 und 24 liegen.",
@@ -1970,7 +2048,18 @@
       "rotationDuplicate": "Jeder Name in der Rotation muss eindeutig sein.",
       "nameTemplate": "Gib eine gültige Namensvorlage mit höchstens 120 Zeichen ein.",
       "generic": "Prüfe diesen Wert und versuche es erneut."
-    }
+    },
+    "workflowHint": "So geht’s: Seasons aktivieren, Zeitraum wählen, Vorschau prüfen und genau die gewünschte Anzahl anlegen. Geplante Seasons starten und enden zum angezeigten Zeitpunkt automatisch. Speichern allein legt im manuellen Planungsmodus keine Seasons an.",
+    "useLocalTimeZone": "Meine Zeitzone verwenden",
+    "instanceActionHint": "Starten ist nur im angegebenen Zeitraum möglich, wenn keine andere Season läuft. Abbrechen stoppt auch die automatische Vorausplanung. Bereits geplante andere Seasons bleiben erhalten.",
+    "manualCreate": "Einzelne Season anlegen",
+    "editDetails": "Name und Zeitraum bearbeiten",
+    "editorHint": "Alle Eingaben gelten in der Zeitzone {{zone}}. Zeiträume dürfen sich nicht überschneiden. Nur geplante Seasons lassen sich bearbeiten.",
+    "editorName": "Name der Season",
+    "editorStart": "Start",
+    "editorEnd": "Ende",
+    "editorInvalid": "Gib einen Namen und gültige Zeiten ein. Das Ende muss nach dem Start und in der Zukunft liegen. Zeiten während der Zeitumstellung können ungültig sein.",
+    "detailsSaved": "Season gespeichert."
   },
   "xpAudit": {
     "title": "XP-Verlauf & Korrekturen",

@@ -1,0 +1,295 @@
+:host {
+  display: block;
+}
+
+.maintainer-page {
+  display: grid;
+  gap: var(--rk-space-5);
+  color: var(--rk-text);
+}
+
+.page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--rk-space-4);
+}
+
+.page-heading h2,
+.guild-copy h3,
+.empty-state h3 {
+  margin: 0;
+  color: var(--rk-text-strong);
+}
+
+.eyebrow {
+  margin: 0 0 var(--rk-space-2);
+  color: var(--rk-info);
+  font-size: var(--rk-font-caption);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.description,
+.empty-state p {
+  margin: var(--rk-space-2) 0 0;
+  color: var(--rk-text-muted);
+  line-height: 1.5;
+}
+
+.access-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rk-space-3);
+  padding: var(--rk-space-4);
+  background: var(--rk-info-subtle);
+  border: 1px solid var(--rk-border-strong);
+  border-radius: var(--rk-radius-lg);
+}
+
+.access-note p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.note-icon {
+  display: grid;
+  flex: 0 0 var(--rk-control-height-compact);
+  width: var(--rk-control-height-compact);
+  height: var(--rk-control-height-compact);
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: var(--rk-info);
+  font-weight: 700;
+}
+
+.guild-list {
+  display: grid;
+  gap: var(--rk-space-3);
+}
+
+.guild-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rk-space-5);
+  padding: var(--rk-space-4);
+  background: var(--rk-surface-1);
+  border: 1px solid var(--rk-border-subtle);
+  border-radius: var(--rk-radius-lg);
+  box-shadow: var(--rk-shadow-panel);
+}
+
+.guild-identity,
+.guild-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-space-4);
+}
+
+.guild-identity {
+  min-width: 0;
+}
+
+.guild-icon,
+.guild-placeholder {
+  flex: 0 0 var(--rk-space-10);
+  width: var(--rk-space-10);
+  height: var(--rk-space-10);
+  border-radius: var(--rk-radius-md);
+}
+
+.guild-icon {
+  object-fit: cover;
+}
+
+.guild-placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--rk-surface-3);
+  color: var(--rk-text-strong);
+  font-weight: 700;
+}
+
+.guild-copy {
+  min-width: 0;
+}
+
+.guild-copy h3 {
+  overflow-wrap: anywhere;
+  font-size: var(--rk-font-card-title);
+}
+
+.guild-copy p,
+.runtime-state {
+  display: block;
+  margin: var(--rk-space-1) 0 0;
+  color: var(--rk-text-muted);
+  font-size: var(--rk-font-small);
+  overflow-wrap: anywhere;
+}
+
+.runtime-state.available {
+  color: var(--rk-success);
+}
+
+.guild-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.access-control {
+  display: grid;
+  gap: var(--rk-space-1);
+}
+
+.access-label {
+  color: var(--rk-text-muted);
+  font-size: var(--rk-font-caption);
+}
+
+.access-switch,
+.open-button,
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rk-space-2);
+  min-height: var(--rk-control-height);
+  padding: 0 var(--rk-space-3);
+  border: 1px solid var(--rk-border-strong);
+  border-radius: var(--rk-radius-md);
+  background: var(--rk-surface-2);
+  color: var(--rk-text-strong);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--rk-motion-base), border-color var(--rk-motion-base), color var(--rk-motion-base);
+}
+
+.access-switch.enabled {
+  border-color: var(--rk-success);
+  color: var(--rk-success);
+}
+
+.access-switch:hover:not(:disabled),
+.open-button:hover:not(:disabled),
+.secondary-button:hover:not(:disabled) {
+  background: var(--rk-surface-3);
+}
+
+.access-switch:active:not(:disabled),
+.open-button:active:not(:disabled),
+.secondary-button:active:not(:disabled) {
+  border-color: var(--rk-info);
+}
+
+.access-switch:focus-visible,
+.open-button:focus-visible,
+.secondary-button:focus-visible {
+  outline: none;
+  box-shadow: var(--rk-focus-ring);
+}
+
+.access-switch:disabled,
+.open-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.switch-track {
+  display: inline-flex;
+  align-items: center;
+  width: var(--rk-space-8);
+  height: var(--rk-space-5);
+  padding: var(--rk-space-1);
+  border-radius: var(--rk-radius-xl);
+  background: var(--rk-surface-3);
+}
+
+.switch-thumb {
+  width: var(--rk-space-3);
+  height: var(--rk-space-3);
+  border-radius: 50%;
+  background: var(--rk-text-muted);
+  transition: transform var(--rk-motion-base), background-color var(--rk-motion-base);
+}
+
+.access-switch.enabled .switch-thumb {
+  transform: translateX(var(--rk-space-3));
+  background: var(--rk-success);
+}
+
+.error-message {
+  margin: 0;
+  padding: var(--rk-space-3) var(--rk-space-4);
+  background: var(--rk-danger-subtle);
+  border: 1px solid var(--rk-danger);
+  border-radius: var(--rk-radius-md);
+  color: var(--rk-text-strong);
+}
+
+.loading-state,
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: var(--rk-space-3);
+  padding: var(--rk-space-8) var(--rk-space-4);
+  text-align: center;
+  color: var(--rk-text-muted);
+}
+
+.mascot-slot {
+  display: grid;
+  width: var(--rk-space-10);
+  height: var(--rk-space-10);
+  place-items: center;
+  color: var(--rk-info);
+}
+
+.mascot-slot svg {
+  width: 100%;
+  height: 100%;
+}
+
+.spinner {
+  width: var(--rk-spinner-size);
+  height: var(--rk-spinner-size);
+  border: var(--rk-spinner-stroke) solid var(--rk-border-subtle);
+  border-top-color: var(--rk-info);
+  border-radius: var(--rk-spinner-radius);
+  animation: rk-spin var(--rk-motion-spinner) infinite;
+}
+
+@keyframes rk-spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (max-width: 768px) {
+  .page-heading,
+  .guild-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-heading {
+    align-items: flex-start;
+  }
+
+  .guild-controls {
+    justify-content: space-between;
+  }
+
+  .open-button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

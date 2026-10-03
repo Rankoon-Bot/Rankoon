@@ -74,9 +74,13 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 builder.Services.Configure<RouteOptions>(options =>
     options.ConstraintMap["nonApi"] = typeof(NonApiPathRouteConstraint));
-builder.Services.AddAuthorization(options => options.AddPolicy(AuthorizationPolicies.BotOperator, policy =>
-    policy.RequireAuthenticatedUser().AddRequirements(new BotOperatorRequirement())));
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.BotOperator, policy => policy.RequireAuthenticatedUser().AddRequirements(new BotOperatorRequirement()));
+    options.AddPolicy(AuthorizationPolicies.BotMaintainer, policy => policy.RequireAuthenticatedUser().AddRequirements(new BotMaintainerRequirement()));
+});
 builder.Services.AddSingleton<IAuthorizationHandler, BotOperatorAuthorizationHandler>();
+builder.Services.AddSingleton<IAuthorizationHandler, BotMaintainerAuthorizationHandler>();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, BotOperatorAuthorizationResultHandler>();
 builder.Services.AddSignalR(options => options.MaximumParallelInvocationsPerClient = 1).AddJsonProtocol(options =>
     options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
@@ -175,6 +179,7 @@ builder.Services.AddHttpClient<IDiscordService, DiscordService>();
 // Register our services
 builder.Services.AddSingleton<IBotInfoCache, BotInfoCache>();
 builder.Services.AddSingleton<IBotOperatorAccessService, BotOperatorAccessService>();
+builder.Services.AddSingleton<IGuildMaintainerAccessService, GuildMaintainerAccessService>();
 builder.Services.AddSingleton<ICustomBotTokenProtector, CustomBotTokenProtector>();
 builder.Services.AddSingleton<IDiscordOAuthTokenProtector, DiscordOAuthTokenProtector>();
 builder.Services.AddSingleton<DiscordOAuthTokenMigrationService>();
@@ -222,10 +227,13 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.ServerBoosterXpMultiplierResolver>
     builder.Services.AddSingleton<Rankoon.Data.Xp.VoiceActivityProjectionRepairService>();
     builder.Services.AddSingleton<Rankoon.Data.Xp.VoiceLedgerMigrationService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonService, Rankoon.Data.Xp.SeasonService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonPlanningService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.ISeasonLifecycleService, Rankoon.Data.Xp.SeasonLifecycleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LedgerProjectionRepairService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonCoordinator>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonLevelRoleService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleRepairService>();
 builder.Services.AddSingleton<IDiscordAnnouncementSender, DiscordAnnouncementSender>();
 builder.Services.AddSingleton<LevelProgressionWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
@@ -261,6 +269,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.VoiceLedgerMigrationService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<LevelProgressionWorker>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LevelRoleRepairService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.GuildUserAvatarObservationWorker>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.GuildUserAvatarHydrationWorker>());

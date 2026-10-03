@@ -8,7 +8,7 @@ namespace Rankoon.Data.Xp;
 
 public sealed record SeasonCoordinatorStatus(DateTimeOffset? LastRunAt, string? LastError, int EnabledGuildCount = 0, int LeasesHeld = 0);
 
-public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycleService lifecycle, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<SeasonCoordinator> logger) : BackgroundService
+public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycleService lifecycle, SeasonPlanningService planning, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, ILogger<SeasonCoordinator> logger) : BackgroundService
 {
     private readonly string instanceId = Guid.NewGuid().ToString("N");
     private volatile SeasonCoordinatorStatus status = new(null, null);
@@ -21,8 +21,8 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
             try
             {
                 var run = await RunOnceAsync(stoppingToken);
-                status = new(timeProvider.GetUtcNow(), null, run.EnabledGuildCount, run.LeasesHeld);
-                health.Report("season-coordinator", WorkerHealthState.Healthy);
+                status = run;
+                health.Report("season-coordinator", run.LastError == null ? WorkerHealthState.Healthy : WorkerHealthState.Degraded, run.LastError);
                 await Task.Delay(TimeSpan.FromMinutes(1), timeProvider, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
@@ -40,23 +40,46 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
     public async Task<SeasonCoordinatorStatus> RunOnceAsync(CancellationToken cancellationToken = default)
     {
         var enabledGuilds = await database.GuildSeasonSettings.Find(x => x.Enabled).Project(x => x.GuildId).ToListAsync(cancellationToken);
+        var pendingGuilds = await database.SeasonSetupOperations.Find(x => !x.Completed && x.Settings != null).Project(x => x.GuildId).ToListAsync(cancellationToken);
+        enabledGuilds = enabledGuilds.Concat(pendingGuilds).Distinct().ToList();
         var leasesHeld = 0;
-        foreach (var guildId in enabledGuilds) if (await RunGuildAsync(guildId, cancellationToken)) leasesHeld++;
-        return new(timeProvider.GetUtcNow(), null, enabledGuilds.Count, leasesHeld);
+        string? lastError = null;
+        foreach (var guildId in enabledGuilds)
+        {
+            try { if (await RunGuildAsync(guildId, cancellationToken)) leasesHeld++; }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception exception)
+            {
+                lastError = exception.GetBaseException().GetType().Name;
+                logger.LogError(exception, "Season coordinator failed for guild {GuildId}", guildId);
+                await errors.RecordAsync(new(exception, "worker", "season.coordinator", Worker: "season-coordinator"), cancellationToken);
+            }
+        }
+        return new(timeProvider.GetUtcNow(), lastError, enabledGuilds.Count, leasesHeld);
     }
 
     private async Task<bool> RunGuildAsync(ulong guildId, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
         if (!await TryAcquireLeaseAsync(guildId, now, cancellationToken)) return false;
+        await using var lease = await planning.AcquireLeaseAsync(guildId, cancellationToken);
+        cancellationToken = lease.CancellationToken;
+        var settings = await database.GuildSeasonSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
+        if (settings?.Enabled != true) return false;
         var all = await database.GuildSeasons.Find(x => x.GuildId == guildId).SortBy(x => x.Sequence).ToListAsync(cancellationToken);
-        foreach (var expired in all.Where(x => x.Status is SeasonStatus.Active or SeasonStatus.Closing && x.EndsAtUtc <= now)) await lifecycle.CloseAsync(guildId, expired.Id!, cancellationToken);
+        foreach (var season in all.Where(x => x.Status == SeasonStatus.Closing || x.Status == SeasonStatus.Active && x.EndsAtUtc <= now || x.Status == SeasonStatus.Closed && (!x.CloseReported || !x.CloseRealtimePublished)))
+            await lifecycle.CloseAsync(guildId, season.Id!, cancellationToken);
+        // A restart must finish baseline/carry-over initialization before attempting a successor.
+        foreach (var active in all.Where(x => x.Status == SeasonStatus.Active && x.EndsAtUtc > now && (!x.BaselineInitialized || x.PreviousSeasonId != null && x.SettingsSnapshot.CarryOverMode != SeasonCarryOverMode.None && !x.CarryOverApplied || !x.StartReported || !x.StartRealtimePublished)))
+            await lifecycle.ActivateAsync(guildId, active.Id!, cancellationToken);
+        // Downtime can leave scheduled periods entirely in the past. They never ran.
+        await database.GuildSeasons.UpdateManyAsync(x => x.GuildId == guildId && x.Status == SeasonStatus.Scheduled && x.EndsAtUtc <= now,
+            Builders<GuildSeason>.Update.Set(x => x.Status, SeasonStatus.Cancelled).Set(x => x.ClosedAtUtc, now), cancellationToken: cancellationToken);
+        all = await database.GuildSeasons.Find(x => x.GuildId == guildId).SortBy(x => x.Sequence).ToListAsync(cancellationToken);
+        await PrepareAsync(settings, all, now, cancellationToken);
         all = await database.GuildSeasons.Find(x => x.GuildId == guildId).SortBy(x => x.Sequence).ToListAsync(cancellationToken);
         var candidate = all.FirstOrDefault(x => x.Status == SeasonStatus.Scheduled && x.StartsAtUtc <= now && now < x.EndsAtUtc);
         if (candidate != null) await lifecycle.ActivateAsync(guildId, candidate.Id!, cancellationToken);
-        all = await database.GuildSeasons.Find(x => x.GuildId == guildId).SortBy(x => x.Sequence).ToListAsync(cancellationToken);
-        var settings = await database.GuildSeasonSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
-        if (settings != null) await PrepareAsync(settings, all, now, cancellationToken);
         return true;
     }
 
@@ -87,16 +110,10 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
 
     private async Task PrepareAsync(GuildSeasonSettings settings, IReadOnlyList<GuildSeason> existing, DateTime now, CancellationToken cancellationToken)
     {
-        if (settings.ScheduleKind == SeasonScheduleKind.Manual) return;
+        if (settings.PlanningMode != SeasonPlanningMode.MaintainPreparedBuffer || settings.ScheduleKind == SeasonScheduleKind.Manual) return;
         var missing = settings.PreparedSeasonCount - CountPrepared(existing, now);
         if (missing <= 0) return;
-        var generated = SeasonSchedulePlanner.GenerateMissing(settings, existing, settings.PreparedSeasonCount, now);
-        foreach (var item in generated)
-        {
-            var season = new GuildSeason { GuildId = settings.GuildId, Sequence = item.Sequence, Number = item.Number, NumberingEpoch = settings.NumberingEpoch, Name = item.Name, StartsAtUtc = item.StartsAtUtc, EndsAtUtc = item.EndsAtUtc, CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime, Status = SeasonStatus.Scheduled, ScheduleRevision = settings.Revision, ScheduleOccurrence = item.ScheduleOccurrence, AutomaticallyNamed = true, SettingsSnapshot = settings };
-            try { await database.GuildSeasons.InsertOneAsync(season, cancellationToken: cancellationToken); existing = existing.Append(season).ToList(); }
-            catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
-        }
+        await planning.PlanUnderLeaseAsync(settings, missing, cancellationToken);
     }
 
     public static int CountPrepared(IEnumerable<GuildSeason> seasons, DateTime? notEndedAfterUtc = null) => seasons.Count(x =>

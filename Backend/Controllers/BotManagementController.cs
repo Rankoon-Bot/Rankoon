@@ -15,7 +15,7 @@ public sealed class BotManagementController(IBotOperatorAccessService access, IO
     public async Task<IActionResult> GetAccess()
     {
         if (!Actor(out var userId)) return this.ApiError("auth.tokenInvalid"); var result = await access.GetAccessAsync(userId, HttpContext.RequestAborted);
-        return !result.IsAvailable ? this.ApiError("botManagement.unavailable") : Ok(new { isBotOperator = result.IsAuthorized, role = result.Role });
+        return !result.IsAvailable ? this.ApiError("botManagement.unavailable") : Ok(new { isBotOperator = result.IsAuthorized, canManageGuilds = BotOperatorAccessRules.CanManageGuildSettings(result), role = result.Role });
     }
 
     [HttpGet("operations/overview"), HttpGet("overview"), Authorize(Policy = AuthorizationPolicies.BotOperator)] public async Task<IActionResult> Overview([FromQuery] string? range) => TryRange(range, operations.OverviewAsync, out var task) ? Ok(await task) : this.ApiError("botManagement.invalidRange");

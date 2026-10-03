@@ -96,6 +96,7 @@ public sealed class CustomBotIdentityController(IGuildAuthorizationService autho
         if (!ulong.TryParse(guildId, out var id)) return (0, 0, this.ApiError("guild.invalidId"));
         var userId = authorization.GetDiscordUserId(User);
         if (userId == null) return (0, 0, this.ApiError("customBotIdentity.ownerRequired"));
+        if (await authorization.IsMaintainerAsync(User, id, HttpContext.RequestAborted)) return (id, userId.Value, null);
         var context = await guildResolver.ResolveAsync(id, HttpContext.RequestAborted);
         if (context?.Guild.OwnerId == userId.Value) return (id, userId.Value, null);
         var oauthOwner = await userGuilds.IsGuildOwnerAsync(userId.Value, id, HttpContext.RequestAborted);

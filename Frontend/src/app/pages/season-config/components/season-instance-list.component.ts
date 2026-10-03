@@ -16,6 +16,9 @@ export class SeasonInstanceListComponent {
   @Input() limit = 24;
   @Input() busy = false;
   @Input() dirty = false;
+  @Input() enabled = true;
+  @Input() timeZone: string | undefined;
+  @Output() readonly edit = new EventEmitter<Season>();
   @Output() readonly action = new EventEmitter<{ action: 'start' | 'close' | 'cancel' | 'resume' | 'delete'; season: Season }>();
   visible(): Season[] {
     const live = this.seasons.filter(item => item.status === 'Active' || item.status === 'Closing');
@@ -24,7 +27,7 @@ export class SeasonInstanceListComponent {
     return [...live, ...scheduled, ...past];
   }
   actions(season: Season): Array<'start' | 'close' | 'cancel' | 'resume' | 'delete'> {
-    if (season.status === 'Scheduled') return ['start', 'cancel'];
+    if (season.status === 'Scheduled') return [...(this.canStart(season) ? ['start' as const] : []), 'cancel'];
     if (season.status === 'Active') return ['close', 'cancel'];
     if (season.status === 'Cancelled') return [...(this.isResumable(season) ? ['resume' as const] : []), ...(!this.isReferenced(season) ? ['delete' as const] : [])];
     return [];
@@ -33,7 +36,14 @@ export class SeasonInstanceListComponent {
   private isReferenced(season: Season): boolean { return !!season.id && this.seasons.some(item => item.previousSeasonId === season.id); }
   private isResumable(season: Season): boolean {
     const now = Date.now();
-    return !season.carryOverApplied && !season.finalized && new Date(season.startsAtUtc).getTime() <= now && now < new Date(season.endsAtUtc).getTime();
+    return this.enabled && !season.finalized && now < new Date(season.endsAtUtc).getTime()
+      && !this.seasons.some(item => item.id !== season.id && item.status !== 'Cancelled'
+        && new Date(item.startsAtUtc) < new Date(season.endsAtUtc) && new Date(season.startsAtUtc) < new Date(item.endsAtUtc))
+      && (new Date(season.startsAtUtc).getTime() > now || !this.seasons.some(item => item.status === 'Active' || item.status === 'Closing'));
   }
-  format(value: string): string { return this.locale.date(value, { dateStyle: 'medium' }); }
+  private canStart(season: Season): boolean {
+    return this.enabled && !this.seasons.some(item => item.status === 'Active' || item.status === 'Closing')
+      && new Date(season.startsAtUtc).getTime() <= Date.now() && Date.now() < new Date(season.endsAtUtc).getTime();
+  }
+  format(value: string): string { return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'short', timeZone: this.timeZone }); }
 }

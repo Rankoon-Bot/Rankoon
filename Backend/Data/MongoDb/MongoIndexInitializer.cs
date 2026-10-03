@@ -42,6 +42,8 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                 ], stoppingToken);
                 await RepairInBatchesAsync(database.SeasonFinalStandings, new BsonDocument("public_leaderboard_visible", new BsonDocument("$exists", false)), Builders<SeasonFinalStanding>.Update.Set(x => x.PublicLeaderboardVisible, true), x => x.Id, stoppingToken);
                 await database.SeasonCoordinatorLeases.Indexes.CreateOneAsync(new CreateIndexModel<SeasonCoordinatorLease>(Builders<SeasonCoordinatorLease>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }), cancellationToken: stoppingToken);
+                await database.SeasonPlanningLeases.Indexes.CreateOneAsync(new CreateIndexModel<SeasonPlanningLease>(Builders<SeasonPlanningLease>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }), cancellationToken: stoppingToken);
+                await database.SeasonSetupOperations.Indexes.CreateOneAsync(new CreateIndexModel<SeasonSetupOperation>(Builders<SeasonSetupOperation>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.OperationId), new CreateIndexOptions { Unique = true, Name = "guild_operation_unique" }), cancellationToken: stoppingToken);
                 await database.SeasonAnnouncementDeliveries.Indexes.CreateOneAsync(new CreateIndexModel<SeasonAnnouncementDelivery>(Builders<SeasonAnnouncementDelivery>.IndexKeys.Ascending(x => x.DeliveryKey), new CreateIndexOptions { Unique = true, Name = "delivery_key_unique" }), cancellationToken: stoppingToken);
                 await database.MemberXp.Indexes.CreateOneAsync(new CreateIndexModel<MemberXp>(Builders<MemberXp>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new CreateIndexOptions { Unique = true }), cancellationToken: stoppingToken);
                 await database.GuildUserAvatarCache.Indexes.CreateManyAsync([
@@ -74,10 +76,14 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                 ], stoppingToken);
                 await database.GuildLevelUpAnnouncementSettings.Indexes.CreateOneAsync(new CreateIndexModel<GuildLevelUpAnnouncementSettings>(Builders<GuildLevelUpAnnouncementSettings>.IndexKeys.Ascending(x => x.GuildId), new CreateIndexOptions { Unique = true, Name = "guild_unique" }), cancellationToken: stoppingToken);
                 await database.LevelTransitionEvents.Indexes.CreateManyAsync([
-                    new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.EventKey), new CreateIndexOptions { Unique = true, Name = "event_key_unique" }),
-                    new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.NextAttemptAtUtc), new CreateIndexOptions { Name = "open_delivery" }),
-                    new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId).Descending(x => x.CreatedAtUtc), new CreateIndexOptions { Name = "guild_user_recent" })
+                     new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.EventKey), new CreateIndexOptions { Unique = true, Name = "event_key_unique" }),
+                     new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.NextAttemptAtUtc), new CreateIndexOptions { Name = "open_delivery" }),
+                     new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.LeaseExpiresAtUtc), new CreateIndexOptions { Name = "expired_delivery_leases" }),
+                     new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId).Ascending(x => x.Scope).Descending(x => x.CreatedAtUtc), new CreateIndexOptions { Name = "guild_user_scope_recent" }),
+                     new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Scope).Descending(x => x.CompletedAtUtc), new CreateIndexOptions { Name = "guild_scope_completed_recent" }),
+                     new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.SeasonId).Ascending(x => x.Status), new CreateIndexOptions { Name = "season_delivery" })
                 ], stoppingToken);
+                await database.SeasonRoleAssignments.Indexes.CreateOneAsync(new CreateIndexModel<SeasonRoleAssignment>(Builders<SeasonRoleAssignment>.IndexKeys.Ascending(x => x.SeasonId).Ascending(x => x.UserId).Ascending(x => x.RoleId), new CreateIndexOptions { Unique = true, Name = "season_user_role_unique" }), cancellationToken: stoppingToken);
                 await database.VoiceSessions.Indexes.CreateManyAsync([
                     // Existing installations created this unique key with MongoDB's default name.
                     // Keep that name so index initialization remains an in-place, non-destructive upgrade.

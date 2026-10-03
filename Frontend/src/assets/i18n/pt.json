@@ -117,7 +117,8 @@
     "seasonSave": "Não foi possível guardar as definições da temporada.",
     "seasonPreview": "Não foi possível criar uma antevisão da temporada.",
     "seasonAction": "Não foi possível realizar a ação da temporada.",
-    "seasonPlan": "Não foi possível planear as temporadas solicitadas."
+    "seasonPlan": "Não foi possível planear as temporadas solicitadas.",
+    "seasonSetup": "Não foi possível configurar o sistema de temporadas."
   },
   "apiErrors": {
     "request": {
@@ -167,6 +168,7 @@
     },
     "botManagement": {
       "invalidRange": "O intervalo de gestão de bots é inválido.",
+      "maintainerRevisionConflict": "O acesso de manutenção foi alterado desde que foi carregado. Atualize a lista e tente novamente.",
       "unavailable": "A gestão de bots está temporariamente indisponível."
     },
     "permissions": {
@@ -247,7 +249,7 @@
       "channelUnavailable": "O canal configurado não está disponível.",
       "revisionConflict": "As mensagens de subida de nível mudaram desde que foram carregadas.",
       "settingsInvalid": "As definições de anúncio de subida de nível são inválidas.",
-      "templateInvalid": "O modelo não pode ser renderizado."
+      "templateInvalid": "O modelo não pode ser renderizado.", "required": "A required announcement value is missing.", "invalid": "An announcement value is invalid.", "activeMessageRequired": "An enabled announcement group needs an active message.", "duplicateId": "Announcement group and message IDs must be unique.", "length": "The announcement message length is invalid.", "unknownToken": "The announcement contains an unknown template token.", "missingContext": "The announcement token context is unavailable.", "invalidToken": "The announcement contains an invalid template token.", "rewardTokenRequiresRewardSet": "Reward tokens can only be used in the Rewards set.", "seasonTokenRequiresSeasonScope": "Season tokens can only be used in the Season scope.", "channelInvalid": "The selected channel is invalid."
     },
     "customBotIdentity": {
       "disabled": "Custom Bot Identity está desativado nesta instância Rankoon.",
@@ -271,7 +273,7 @@
       "handoverIncomplete": "A transferência do bot personalizado ainda não foi concluída.",
       "returnToPlatformRequired": "Regresse ao bot oficial Rankoon antes de concluir esta operação."
     },
-    "selfRoles": {
+    "selfroles": {
       "invalidPanel": "O painel de cargos autoatribuíveis é inválido.",
       "tooManyMappings": "Um painel de cargos autoatribuíveis suporta no máximo 20 associações.",
       "duplicateEmoji": "Cada associação de cargo autoatribuível deve utilizar um emoji único.",
@@ -361,7 +363,10 @@
     "audit": {
       "title": "Eventos de auditoria",
       "description": "Atividade cronológica com atores e IDs de correlação.",
-      "empty": "Não houve eventos de auditoria neste período."
+      "empty": "Não houve eventos de auditoria neste período.",
+      "subject": "Assunto",
+      "hub": "Hub de voz",
+      "metadata": "Mostrar metadados"
     },
     "domain": {
       "kpis": {
@@ -380,7 +385,7 @@
         "reactions": "Reações",
         "threads": "Tópicos",
         "commands": "Comandos",
-        "selfRoles": "Cargos autoatribuíveis",
+        "selfroles": "Cargos autoatribuíveis",
         "voiceHubs": "Hubs de voz",
         "xp": "XP"
       },
@@ -430,11 +435,35 @@
     "noComparison": "Sem comparação",
     "insights": "Informações operacionais",
     "usageBreakdown": "Divisão de utilização",
+    "maintainer": {
+      "eyebrow": "ACESSO POR SERVIDOR",
+      "title": "Acesso de manutenção",
+      "description": "Escolha os servidores Rankoon que pretende gerir na interface Web.",
+      "notice": "Esta definição é partilhada no servidor. Quando está ativa, os responsáveis autorizados da aplicação podem consultar e alterar as definições. Desative-a para usar aí as suas permissões normais do Discord.",
+      "refresh": "Atualizar lista",
+      "loading": "A carregar servidores geridos...",
+      "emptyTitle": "Sem servidores geridos",
+      "emptyDescription": "Não foram encontrados servidores Discord geridos pelo Rankoon.",
+      "guildId": "ID do servidor",
+      "runtimeAvailable": "Bot online",
+      "runtimeUnavailable": "Bot indisponível",
+      "access": "Acesso de manutenção",
+      "enabled": "Ativo",
+      "disabled": "Desativado",
+      "enableAccess": "Ativar acesso de manutenção para {{name}}",
+      "disableAccess": "Desativar acesso de manutenção para {{name}}",
+      "openMaintainer": "Abrir definições",
+      "openRegular": "Abrir como utilizador normal",
+      "loadFailed": "Não foi possível carregar os servidores geridos.",
+      "saveFailed": "Não foi possível alterar o acesso de manutenção.",
+      "openFailed": "Não foi possível abrir as definições deste servidor."
+    },
     "pages": {
       "overview": "Visão geral das operações",
       "incidents": "Incidentes",
       "guilds": "Estado dos servidores",
-      "usage": "Uso global"
+      "usage": "Uso global",
+      "maintainer": "Acesso de manutenção"
     },
     "sections": {
       "overview": {
@@ -475,12 +504,13 @@
       "status": "Estado"
     },
     "status": {
-      "veryActive": "Muito ativo",
-      "active": "Ativo",
-      "lowActivity": "Baixa atividade",
+      "healthy": "Saudável",
+      "operationalErrors": "Erros operacionais",
+      "permissionAttention": "Permissões por verificar",
+      "configurationAttention": "Configuração em falta",
+      "lowActivity": "Atividade baixa",
       "inactive": "Inativo",
-      "new": "Novo",
-      "attentionRequired": "Atenção necessária"
+      "new": "Novo"
     },
     "incidents": {
       "search": "Pesquisar incidente, fonte ou código",
@@ -497,8 +527,9 @@
       "detailPanel": "Detalhes do incidente",
       "empty": "Nenhum incidente corresponde a estes filtros.",
       "acknowledge": "Reconhecer",
-      "resolve": "Resolver",
+      "resolve": "Marcar como resolvido",
       "reopen": "Reabrir",
+      "ignore": "Ignorar",
       "global": "Global",
       "stackTrace": "Rastreamento de pilha",
       "copyStack": "Copiar rastreio de pilha",
@@ -507,7 +538,8 @@
       "statuses": {
         "open": "Aberto",
         "acknowledged": "Reconhecido",
-        "resolved": "Resolvido"
+        "resolved": "Resolvido",
+        "ignored": "Ignorado"
       }
     },
     "domain": {
@@ -519,13 +551,39 @@
         "connectedGuilds": "Servidores ligados",
         "activeGuilds": "Servidores ativos",
         "commands": "Comandos",
-        "uniqueUsers": "Utilizadores únicos"
+        "uniqueUsers": "Utilizadores únicos",
+        "adoptingGuilds": "Servidores ativos no período",
+        "memberSum": "Total de membros",
+        "errorGuilds": "Servidores com erros",
+        "openCriticalIncidents": "Incidentes críticos abertos",
+        "errorFreeRate": "Servidores sem erros (%)",
+        "globalActivity": "Eventos de atividade",
+        "telemetryDrops": "Eventos de telemetria descartados",
+        "databaseWriterFailures": "Falhas na gravação da base de dados",
+        "unhealthyWorkers": "Workers com problemas",
+        "guilds": "Servidores",
+        "errors": "Erros"
       },
       "insights": {
         "incident_spike": "Pico de incidentes",
         "guild_health_down": "O estado dos servidores piorou",
         "usage_up": "Uso aumentado",
-        "all_systems_healthy": "Todos os sistemas saudáveis"
+        "all_systems_healthy": "Todos os sistemas saudáveis",
+        "workerHealth": "Worker requer atenção",
+        "actionGuilds": "Servidores com erros recentes",
+        "criticalIncidents": "Incidentes críticos abertos"
+      },
+      "breakdown": {
+        "unspecified": "Outros",
+        "commands": "Comandos",
+        "experience": "Experiência",
+        "leaderboard": "Classificação",
+        "seasons": "Épocas",
+        "voice": "Voz",
+        "selfroles": "Cargos próprios",
+        "authorization": "Permissões",
+        "discord": "Discord",
+        "operations": "Operações"
       }
     }
   },
@@ -929,7 +987,7 @@
       "voiceXp": "Voz XP",
       "levelUpAnnouncements": "Mensagens de subida de nível",
       "levelRoles": "Cargos de nível",
-      "selfRoles": "Cargos autoatribuíveis",
+      "selfroles": "Cargos autoatribuíveis",
       "voiceHubs": "Hubs de voz"
     },
     "permission": {
@@ -1072,7 +1130,11 @@
     "channel": "Canal alvo",
     "channelRequired": "Escolha um canal de texto antes de guardar.",
     "notify": "Notificar o utilizador que subiu de nível",
-    "repetition": "Proteção contra repetições",
+    "notifyHint": "Allows {user.mention} to ping the user who leveled up. The message is still sent when this is disabled, but without a notification ping.",
+    "repetition": "Repeat protection per user",
+    "repetitionHint": "Number of recent messages per user to avoid. 0 disables it; 1 avoids the last message; 3 avoids the last three when alternatives exist. Repeats remain possible if no suitable alternative exists.",
+    "repetitionGuild": "Global repeat protection",
+    "repetitionGuildHint": "Number of recent messages from the entire server to avoid. 0 disables global protection; 10 avoids repeats across the last 10 level-up messages.",
     "save": "Guardar",
     "reset": "Redefinir alterações",
     "test": "Enviar mensagem de teste",
@@ -1091,7 +1153,9 @@
     "roleCondition": "Requisito de função",
     "templateActions": "Ações para {{name}}",
     "duplicate": "Duplicado",
-    "delete": "Eliminar"
+    "delete": "Eliminar",
+    "serverLevel": "Server level", "seasonLevel": "Season level", "levelUp": "Level up", "rewards": "Rewards", "oneLineHint": "One line is one Discord message.", "syntaxHelp": "Syntax help", "syntaxHelpText": "Use a relative positive weight.", "editorPlaceholder": "// @group Standard | weight=60\nCongratulations {user.mention}! You reached level {level}.", "lines": "lines", "insertToken": "Insert token:", "diagnosticLine": "Line {{line}}:", "normalize": "Normalize formatting", "recognizedGroups": "Recognized groups", "probabilityHint": "Percentages are normalized across enabled groups.", "noGroups": "No groups or messages recognized yet.", "activeMessages": "active messages", "disabledMessages": "disabled messages", "optionalRules": "Optional selection rules for {{name}}", "rulesHint": "These conditions remain structured settings.", "minimumLevel": "Minimum level", "maximumLevel": "Maximum level", "everyNthLevel": "Every nth level", "conditionInvalid": "O valor deve estar vazio ou ser pelo menos 1.", "fixErrors": "Corrija os erros destacados antes de guardar.",
+    "errors": { "invalidGroupDirective": "Invalid group directive.", "emptyGroupName": "The group name cannot be empty.", "invalidWeight": "The weight is invalid.", "duplicateGroupName": "Group names must be unique.", "emptyGroup": "This group has no messages.", "activeMessageRequired": "An enabled group needs an active message.", "messageTooLong": "This message is too long.", "emptyOffMessage": "A disabled message needs content.", "emptyMessage": "A message cannot be empty.", "unknownDirective": "Unknown directive.", "unknownToken": "Unknown template token: {{token}}.", "rewardTokenRequiresRewardSet": "Reward tokens require the Rewards set.", "seasonTokenRequiresSeasonScope": "Season tokens require the Season scope." }, "warnings": { "duplicateMessage": "Duplicate message text increases its probability.", "noGroups": "No groups were recognized." }
   },
   "nav": {
     "leaderboard": "Tabela de classificação",
@@ -1102,7 +1166,7 @@
     "levelUpAnnouncements": "Mensagens de subida de nível",
     "xpAudit": "Histórico e ajustes de XP",
     "voiceHubs": "Hubs de voz",
-    "selfRoles": "Cargos autoatribuíveis",
+    "selfroles": "Cargos autoatribuíveis",
     "leaderboardSettings": "Definições da tabela de classificação",
     "roles": "Funções e permissões",
     "botIdentity": "Identidade do bot",
@@ -1124,7 +1188,8 @@
     "operationsOverview": "Visão geral das operações",
     "incidents": "Incidentes",
     "guildHealth": "Estado dos servidores",
-    "globalUsage": "Uso global"
+    "globalUsage": "Uso global",
+    "maintainerAccess": "Acesso de manutenção"
   },
   "reports": {
     "eyebrow": "RELATÓRIOS",
@@ -1274,7 +1339,7 @@
     "xp-announcements": { "name": "Anúncios de nível", "description": "Gerir mensagens e canais de subida de nível" },
     "diagnostics": { "name": "Diagnóstico", "description": "Ver diagnósticos de permissões e configuração" }
   },
-  "selfRoles": {
+  "selfroles": {
     "eyebrow": "AUTOMAÇÃO DE FUNÇÕES",
     "title": "Cargos autoatribuíveis",
     "subtitle": "Permita que os membros atribuam a si próprios cargos aprovados através de uma mensagem num canal de texto.",
@@ -1580,6 +1645,7 @@
     "seasons": "Gerir temporadas"
   },
   "seasons": {
+    "draftHint": "Você está editando um rascunho. O estado acima mostra os dados salvos. Confira a prévia e escolha «Salvar e criar temporadas» abaixo.",
     "eyebrow": "CONTROLO DE TEMPORADAS",
     "title": "Temporadas XP",
     "subtitle": "Realize competições de XP opcionais e arquivadas sem alterar a progressão global.",
@@ -1590,6 +1656,9 @@
     "enableHint": "O XP acumulado mantém-se inalterado. O XP da temporada só começa durante uma temporada ativa.",
     "configuratorLegend": "Configuração das temporadas",
     "schedule": "Calendário",
+    "planningMode": "Planeamento automático",
+    "autoPrepare": "Preparar automaticamente temporadas futuras",
+    "autoPrepareHint": "Desativado: o Rankoon só cria temporadas após confirmação explícita. Ativado: o Rankoon mantém preparadas as temporadas futuras configuradas.",
     "timeZone": "Fuso horário",
     "anchor": "Data de referência do calendário",
     "durationDays": "Duração em dias",
@@ -1600,6 +1669,7 @@
     "optional": "Opcional",
     "gapDays": "Intervalo em dias",
     "preparedCount": "Total de temporadas preparadas",
+    "setupCount": "Temporadas a criar agora",
     "historyCount": "Temporadas arquivadas publicamente",
     "defaultScope": "Tabela de classificação predefinida",
     "initialMode": "A primeira temporada começa com",
@@ -1619,6 +1689,10 @@
     "plan": "Planear temporadas",
     "planningNow": "Planeamento...",
     "planSucceeded": "{{count}} temporadas planeadas.",
+    "setupSucceeded": "{{count}} temporadas criadas.",
+    "saveAndCreate": "Guardar e criar {{count}} temporadas",
+    "create": "Criar {{count}} temporadas",
+    "createMore": "Criar mais temporadas",
     "planTitle": "Preparar as próximas temporadas",
     "planHint": "Crie temporadas agendadas até manter {{count}} preparadas no total, incluindo a temporada ativa ou em encerramento.",
     "saveBeforePlan": "Guarde as alterações antes de planear temporadas.",
@@ -1702,7 +1776,7 @@
       "start": "O XP da temporada começa imediatamente e a temporada fica ativa.",
       "close": "A classificação final será registada e a transferência de XP será aplicada.",
       "cancel": "O XP da temporada para. A temporada só poderá ser retomada durante o período original.",
-      "resume": "O XP da temporada continua até à hora de fim original.",
+      "resume": "As temporadas futuras são reagendadas; as atuais mantêm seus XP. A preparação automática permanece desativada.",
       "delete": "A temporada e a respetiva classificação serão eliminadas permanentemente.",
       "cancelScheduled": "Todas as temporadas agendadas serão canceladas e poderão ser eliminadas depois.",
       "deleteCancelled": "Todas as temporadas canceladas serão eliminadas permanentemente.",
@@ -1834,6 +1908,7 @@
       "cancelled": "Cancelado"
     },
     "statusSummary": {
+      "closing": "Finalizando",
       "disabled": "Desativadas",
       "active": "Ativa",
       "ready": "Pronta",
@@ -1869,7 +1944,18 @@
       "rotationDuplicate": "Cada nome da rotação tem de ser único.",
       "nameTemplate": "Introduza um modelo de nome válido com um máximo de 120 carateres.",
       "generic": "Verifique este valor e tente novamente."
-    }
+    },
+    "workflowHint": "Ative as temporadas, escolha o período, confira a prévia e crie a quantidade desejada. Começam e terminam automaticamente nos horários indicados. Salvar não cria temporadas no modo de planejamento explícito.",
+    "useLocalTimeZone": "Usar meu fuso horário",
+    "instanceActionHint": "Só é possível iniciar no período indicado se nenhuma outra temporada estiver em andamento. Cancelar também interrompe a preparação automática. As outras temporadas agendadas permanecem.",
+    "manualCreate": "Criar uma temporada individual",
+    "editDetails": "Editar nome e datas",
+    "editorHint": "As datas usam o fuso {{zone}}. Os períodos não podem se sobrepor. Apenas temporadas agendadas podem ser editadas.",
+    "editorName": "Nome da temporada",
+    "editorStart": "Início",
+    "editorEnd": "Fim",
+    "editorInvalid": "Insira um nome e datas válidas. O fim deve ser após o início e no futuro. Alguns horários na mudança de horário não existem.",
+    "detailsSaved": "Temporada salva."
   },
   "xpAudit": {
     "title": "Histórico e ajustes de XP",
