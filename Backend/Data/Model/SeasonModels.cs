@@ -41,6 +41,7 @@ public sealed class GuildSeasonSettings
     [BsonElement("rotation_offset")] public int RotationOffset { get; set; }
     [BsonElement("season_level_roles")] public List<SeasonLevelRole> SeasonLevelRoles { get; set; } = [];
     [BsonElement("next_sequence_after_deletion"), BsonIgnoreIfDefault] public long NextSequenceAfterDeletion { get; set; }
+    [BsonElement("next_season_start_utc"), BsonIgnoreIfNull] public DateTime? NextSeasonStartUtc { get; set; }
     [BsonElement("next_schedule_occurrence_after_deletion"), BsonIgnoreIfDefault] public int NextScheduleOccurrenceAfterDeletion { get; set; }
     [BsonElement("numbering_epoch"), BsonIgnoreIfDefault] public long NumberingEpoch { get; set; }
     [BsonElement("numbering_epoch_updated_at_utc"), BsonIgnoreIfNull] public DateTime? NumberingEpochUpdatedAtUtc { get; set; }
@@ -170,6 +171,9 @@ public sealed class SeasonSetupOperation
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("operation_id")] public string OperationId { get; set; } = string.Empty;
+    [BsonElement("settings"), BsonIgnoreIfNull] public GuildSeasonSettings? Settings { get; set; }
+    [BsonElement("request_json"), BsonIgnoreIfNull] public string? RequestJson { get; set; }
+    [BsonElement("completed")] public bool Completed { get; set; }
     [BsonElement("candidates")] public List<SeasonSetupCandidate> Candidates { get; set; } = [];
     [BsonElement("season_ids"), BsonRepresentation(BsonType.ObjectId)] public List<string> SeasonIds { get; set; } = [];
 }

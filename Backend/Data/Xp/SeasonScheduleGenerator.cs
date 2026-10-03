@@ -59,6 +59,7 @@ public sealed class SeasonScheduleGenerator
         if (!Enum.IsDefined(settings.InitialXpMode)) Invalid("initialXpMode");
         if (!Enum.IsDefined(settings.CarryOverMode)) Invalid("carryOverMode");
         if (settings.GapDays < 0) Invalid("gapDays");
+        if (settings.GapDays > 3660) Invalid("gapDays");
         if (settings.PreparedSeasonCount is < 0 or > 24) Invalid("preparedSeasonCount");
         if (settings.PublicHistoryCount is < 0 or > 24) Invalid("publicHistoryCount");
         if (settings.WinnerCount is < 1 or > 100) Invalid("winnerCount");
@@ -131,7 +132,7 @@ public sealed class SeasonScheduleGenerator
         _ => 0
     };
 
-    private static DateTime ToUtc(DateTime local, TimeZoneInfo zone)
+    internal static DateTime ToUtc(DateTime local, TimeZoneInfo zone)
     {
         local = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
         while (zone.IsInvalidTime(local)) local = local.AddMinutes(1);
@@ -146,7 +147,6 @@ public sealed class SeasonScheduleGenerator
 
 public static class SeasonSchedulePlanner
 {
-    private const int BatchSize = 120;
     private const int MaximumOccurrences = 36_600;
 
     public static IReadOnlyList<SeasonScheduleCandidate> GenerateAdditional(GuildSeasonSettings settings, IReadOnlyCollection<GuildSeason> existing, int count, DateTime notEndedAfterUtc)
@@ -154,19 +154,32 @@ public static class SeasonSchedulePlanner
         if (count <= 0 || settings.ScheduleKind == SeasonScheduleKind.Manual) return [];
 
         var firstSequence = Math.Max(existing.Select(x => x.Sequence + 1).DefaultIfEmpty(1).Max(), settings.NextSequenceAfterDeletion);
-        var prepared = existing.Where(x => x.Status is SeasonStatus.Scheduled or SeasonStatus.Active or SeasonStatus.Closing && x.EndsAtUtc > notEndedAfterUtc).ToList();
-        var latestPrepared = prepared.OrderByDescending(x => x.EndsAtUtc).ThenByDescending(x => x.Sequence).FirstOrDefault();
-        DateTime? continuationAnchor = latestPrepared == null ? null : latestPrepared.EndsAtUtc.AddDays(settings.GapDays);
+        var prepared = existing.Where(x => x.Status != SeasonStatus.Cancelled).ToList();
+        // Cancelled periods remain intentional decisions; never generate the same period again.
+        var latest = existing.OrderByDescending(x => x.EndsAtUtc).ThenByDescending(x => x.Sequence).FirstOrDefault();
+        var end = latest?.EndsAtUtc;
+        if (settings.NextSeasonStartUtc.HasValue && (!end.HasValue || settings.NextSeasonStartUtc > end)) end = settings.NextSeasonStartUtc;
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(settings.TimeZoneId);
+        var minimumStart = end.HasValue ? SeasonScheduleGenerator.ToUtc(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(end.Value, DateTimeKind.Utc), zone).AddDays(settings.GapDays), zone) : (DateTime?)null;
+        // Keep calendar anchoring (Jan 31 -> Feb 28 -> Mar 31) when extending the same schedule.
+        var snapshot = latest?.SettingsSnapshot;
+        var sameSchedule = snapshot != null && snapshot.ScheduleKind == settings.ScheduleKind && snapshot.ScheduleAnchorUtc == settings.ScheduleAnchorUtc
+            && snapshot.TimeZoneId == settings.TimeZoneId && snapshot.GapDays == settings.GapDays && snapshot.FixedDurationDays == settings.FixedDurationDays;
+        DateTime? continuationAnchor = sameSchedule ? null : minimumStart;
+        if (settings.ScheduleAnchorUtc > continuationAnchor) continuationAnchor = settings.ScheduleAnchorUtc;
         var firstNumber = NextNumber(settings, existing);
         var selected = new List<SeasonScheduleCandidate>(count);
         var generator = new SeasonScheduleGenerator();
 
-        for (var offset = 0; offset < MaximumOccurrences && selected.Count < count; offset += BatchSize)
+        for (var offset = 0; offset < MaximumOccurrences && selected.Count < count; offset++)
         {
-            var batch = generator.Generate(settings, "Guild", 1, Math.Min(BatchSize, MaximumOccurrences - offset), occurrenceOffset: offset, anchorOverrideUtc: continuationAnchor);
+            IReadOnlyList<SeasonScheduleCandidate> batch;
+            try { batch = generator.Generate(settings, "Guild", 1, 1, occurrenceOffset: offset, anchorOverrideUtc: continuationAnchor); }
+            catch (ArgumentOutOfRangeException) { break; }
             foreach (var candidate in batch)
             {
                 if (candidate.EndsAtUtc <= notEndedAfterUtc) continue;
+                if (minimumStart.HasValue && candidate.StartsAtUtc < minimumStart.Value) continue;
                 if (prepared.Any(season => season.StartsAtUtc < candidate.EndsAtUtc && candidate.StartsAtUtc < season.EndsAtUtc)) continue;
                 var sequence = firstSequence + selected.Count;
                 var number = firstNumber + selected.Count;

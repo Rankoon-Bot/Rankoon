@@ -19,8 +19,9 @@ export class SeasonStatusSummaryComponent {
   @Input() complete = false;
   @Output() readonly setup = new EventEmitter<void>();
 
-  status(): 'disabled' | 'active' | 'ready' | 'attention' {
+  status(): 'disabled' | 'active' | 'closing' | 'ready' | 'attention' {
     if (!this.settings.enabled) return 'disabled';
+    if (this.current?.status === 'Closing') return 'closing';
     if (this.current) return 'active';
     if (!this.complete) return 'attention';
     return 'ready';
@@ -36,5 +37,5 @@ export class SeasonStatusSummaryComponent {
     const days = Math.max(0, Math.ceil((new Date(this.current.endsAtUtc).getTime() - Date.now()) / 86_400_000));
     return this.i18n.translate(days === 1 ? 'seasons.statusSummary.dayRemaining' : 'seasons.statusSummary.daysRemaining', { count: this.locale.number(days) });
   }
-  formatDate(value: string): string { return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'short' }); }
+  formatDate(value: string): string { return this.locale.date(value, { dateStyle: 'medium', timeStyle: 'short', timeZone: this.settings.timeZoneId }); }
 }

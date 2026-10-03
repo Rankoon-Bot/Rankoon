@@ -321,7 +321,7 @@ public sealed class SeasonScheduleGeneratorTests
     }
 
     [Fact]
-    public void Cancelled_seasons_do_not_reserve_the_settings_anchor_window()
+    public void Cancelled_seasons_are_not_silently_recreated()
     {
         var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         settings.FixedDurationDays = 30;
@@ -336,8 +336,51 @@ public sealed class SeasonScheduleGeneratorTests
 
         var planned = SeasonSchedulePlanner.GenerateMissing(settings, [cancelled], 1, new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc));
 
-        Assert.Equal(new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc), planned[0].StartsAtUtc);
+        Assert.Equal(cancelled.EndsAtUtc, planned[0].StartsAtUtc);
         Assert.Equal(1, planned[0].Number);
+    }
+
+    [Fact]
+    public void Extending_monthly_schedule_preserves_month_end_anchor()
+    {
+        var anchor = new DateTime(2027, 1, 31, 0, 0, 0, DateTimeKind.Utc);
+        var settings = Settings(SeasonScheduleKind.Monthly, "UTC", anchor);
+        var first = new SeasonScheduleGenerator().Generate(settings, "Guild", 1, 1)[0];
+        var existing = new GuildSeason { Sequence = 1, Status = SeasonStatus.Scheduled, StartsAtUtc = first.StartsAtUtc, EndsAtUtc = first.EndsAtUtc, SettingsSnapshot = settings };
+        var additional = SeasonSchedulePlanner.GenerateAdditional(settings, [existing], 2, anchor);
+        Assert.Equal(new DateTime(2027, 2, 28, 0, 0, 0, DateTimeKind.Utc), additional[0].StartsAtUtc);
+        Assert.Equal(new DateTime(2027, 3, 31, 0, 0, 0, DateTimeKind.Utc), additional[0].EndsAtUtc);
+        Assert.Equal(additional[0].EndsAtUtc, additional[1].StartsAtUtc);
+    }
+
+    [Fact]
+    public void Deleted_cancelled_periods_remain_skipped()
+    {
+        var anchor = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "UTC", anchor);
+        settings.NextSeasonStartUtc = anchor.AddDays(7);
+        var result = Assert.Single(SeasonSchedulePlanner.GenerateAdditional(settings, [], 1, anchor));
+        Assert.Equal(settings.NextSeasonStartUtc, result.StartsAtUtc);
+    }
+
+    [Fact]
+    public void Continuation_gap_uses_local_days_across_daylight_saving()
+    {
+        var anchor = new DateTime(2027, 3, 26, 23, 0, 0, DateTimeKind.Utc);
+        var settings = Settings(SeasonScheduleKind.FixedDuration, "Europe/Berlin", anchor);
+        settings.FixedDurationDays = 1;
+        settings.GapDays = 2;
+        var existing = new GuildSeason { Sequence = 1, Status = SeasonStatus.Scheduled, StartsAtUtc = anchor, EndsAtUtc = anchor.AddDays(1) };
+        var result = Assert.Single(SeasonSchedulePlanner.GenerateAdditional(settings, [existing], 1, anchor));
+        Assert.Equal(new DateTime(2027, 3, 29, 22, 0, 0, DateTimeKind.Utc), result.StartsAtUtc);
+    }
+
+    [Fact]
+    public void Planning_near_the_date_limit_does_not_generate_an_unneeded_large_batch()
+    {
+        var anchor = new DateTime(9999, 11, 1, 0, 0, 0, DateTimeKind.Utc);
+        var settings = Settings(SeasonScheduleKind.Monthly, "UTC", anchor);
+        Assert.Single(SeasonSchedulePlanner.GenerateAdditional(settings, [], 1, anchor));
     }
 
     [Fact]

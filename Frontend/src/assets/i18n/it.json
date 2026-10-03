@@ -1645,6 +1645,7 @@
     "seasons": "Gestisci le stagioni"
   },
   "seasons": {
+    "draftHint": "Stai modificando una bozza. Lo stato in alto mostra i dati salvati. Controlla l’anteprima e scegli «Salva e crea stagioni» in basso.",
     "eyebrow": "CONTROLLO DELLA STAGIONE",
     "title": "Stagioni XP",
     "subtitle": "Partecipa a gare XP archiviate e facoltative senza modificare i progressi totali.",
@@ -1775,7 +1776,7 @@
       "start": "Gli XP stagionali iniziano immediatamente e la stagione diventa attiva.",
       "close": "La classifica finale verrà registrata e verrà applicato il riporto degli XP.",
       "cancel": "Gli XP stagionali si interrompono. La stagione potrà essere ripresa solo durante il periodo originale.",
-      "resume": "Gli XP stagionali continuano fino all'ora di fine originale.",
+      "resume": "Le stagioni future vengono ripianificate; quelle nel periodo corrente mantengono i loro XP. La preparazione automatica resta disattivata.",
       "delete": "La stagione e la relativa classifica verranno eliminate definitivamente.",
       "cancelScheduled": "Tutte le stagioni programmate verranno annullate e potranno poi essere eliminate.",
       "deleteCancelled": "Tutte le stagioni annullate verranno eliminate definitivamente.",
@@ -1907,6 +1908,7 @@
       "cancelled": "Annullato"
     },
     "statusSummary": {
+      "closing": "Chiusura in corso",
       "disabled": "Disattivate",
       "active": "Attiva",
       "ready": "Pronta",
@@ -1942,7 +1944,18 @@
       "rotationDuplicate": "Ogni nome della rotazione deve essere univoco.",
       "nameTemplate": "Inserisci un modello di nome valido di massimo 120 caratteri.",
       "generic": "Controlla questo valore e riprova."
-    }
+    },
+    "workflowHint": "Attiva le stagioni, scegli il periodo, controlla l’anteprima e crea il numero desiderato. Iniziano e finiscono automaticamente agli orari indicati. Salvare non crea stagioni nella modalità di pianificazione esplicita.",
+    "useLocalTimeZone": "Usa il mio fuso orario",
+    "instanceActionHint": "Puoi avviare solo durante il periodo indicato se non ci sono altre stagioni in corso. Annullare ferma anche la preparazione automatica. Le altre stagioni pianificate restano.",
+    "manualCreate": "Crea una stagione singola",
+    "editDetails": "Modifica nome e date",
+    "editorHint": "Le date usano il fuso {{zone}}. I periodi non possono sovrapporsi. Puoi modificare solo le stagioni pianificate.",
+    "editorName": "Nome della stagione",
+    "editorStart": "Inizio",
+    "editorEnd": "Fine",
+    "editorInvalid": "Inserisci un nome e date valide. La fine deve seguire l’inizio ed essere nel futuro. Alcuni orari durante il cambio dell’ora non esistono.",
+    "detailsSaved": "Stagione salvata."
   },
   "xpAudit": {
     "title": "Cronologia e regolazioni XP",

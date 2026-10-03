@@ -1764,6 +1764,7 @@
     "seasons": "Manage seasons"
   },
   "seasons": {
+    "draftHint": "You are editing a draft. The status above still shows the saved state. Check the preview and choose “Save and create seasons” below to complete setup.",
     "eyebrow": "SEASON CONTROL",
     "title": "Seasons",
     "subtitle": "Split your leaderboard into manageable competitive periods.",
@@ -1776,7 +1777,7 @@
     "schedule": "Schedule",
     "planningMode": "Automatic planning",
     "autoPrepare": "Automatically prepare future seasons",
-    "autoPrepareHint": "Disabled: Rankoon creates seasons only after explicit confirmation. Enabled: Rankoon keeps the configured number of future seasons ready.",
+    "autoPrepareHint": "Only when enabled: Rankoon maintains the chosen total of running and upcoming seasons (maximum 24). Cancelling a season stops this automation.",
     "timeZone": "Time zone",
     "anchor": "Schedule anchor",
     "durationDays": "Duration in days",
@@ -1812,7 +1813,7 @@
     "create": "Create {{count}} seasons",
     "createMore": "Create more seasons",
     "planTitle": "Prepare upcoming seasons",
-    "planHint": "Create scheduled seasons until {{count}} seasons are prepared in total, including the current active or closing season.",
+    "planHint": "Exactly {{count}} additional seasons will be created. Check the preview first. Existing seasons and their XP rules are retained.",
     "saveBeforePlan": "Save your changes before planning seasons.",
     "operationsKicker": "SEASON OPERATIONS",
     "operations": "Manage scheduled and active seasons",
@@ -1893,10 +1894,10 @@
     "confirmImpact": {
       "start": "Season XP begins immediately and the season becomes active.",
       "close": "Final standings will be recorded and XP carry-over will be applied.",
-      "cancel": "Season XP stops. The season may be resumable only during its original time window.",
-      "resume": "Season XP continues until the season's original end time.",
+      "cancel": "Season XP stops. The season may be resumable only during its original time window. Automatic preparation is stopped.",
+      "resume": "Future seasons are scheduled again; seasons in their current period resume with their existing XP. Automatic preparation stays off.",
       "delete": "The season instance and its standings will be permanently removed.",
-      "cancelScheduled": "All scheduled seasons will be cancelled and can be deleted afterward.",
+      "cancelScheduled": "All scheduled seasons will be cancelled and can be deleted afterward. Automatic preparation is stopped.",
       "deleteCancelled": "All cancelled season instances will be permanently removed.",
       "resetCounter": "The running season remains unchanged. Scheduled and following seasons start again at Season 1."
     },
@@ -2026,6 +2027,7 @@
       "cancelled": "Cancelled"
     },
     "statusSummary": {
+      "closing": "Closing",
       "disabled": "Disabled",
       "active": "Active",
       "ready": "Ready",
@@ -2048,7 +2050,7 @@
     "validation": {
       "closeBeforeDisable": "Close the active season before disabling seasons.",
       "timeZone": "Enter a valid IANA time zone.",
-      "anchor": "Choose a schedule anchor for automatic seasons.",
+      "anchor": "Choose a valid start time. A time skipped by daylight saving changes cannot be used.",
       "duration": "Enter a duration from 1 to 3,660 days.",
       "gap": "Enter a valid gap that leaves time for the selected season cadence.",
       "prepared": "Prepared season count must be between 0 and 24.",
@@ -2061,7 +2063,18 @@
       "rotationDuplicate": "Each rotation name must be unique.",
       "nameTemplate": "Enter a valid name template of no more than 120 characters.",
       "generic": "Check this value and try again."
-    }
+    },
+    "workflowHint": "Enable seasons, choose a period, check the preview and create exactly the number you want. Scheduled seasons start and end automatically at the displayed times. Saving alone creates no seasons in explicit planning mode.",
+    "useLocalTimeZone": "Use my time zone",
+    "instanceActionHint": "Starting is available only during the displayed period when no other season is running. Cancelling also stops automatic preparation. Other scheduled seasons are retained.",
+    "manualCreate": "Create an individual season",
+    "editDetails": "Edit name and dates",
+    "editorHint": "All inputs use the {{zone}} time zone. Periods cannot overlap. Only scheduled seasons can be edited.",
+    "editorName": "Season name",
+    "editorStart": "Start",
+    "editorEnd": "End",
+    "editorInvalid": "Enter a name and valid dates. The end must be after the start and in the future. Times during daylight saving changes may be invalid.",
+    "detailsSaved": "Season saved."
   },
   "xpAudit": {
     "title": "XP History & Adjustments",

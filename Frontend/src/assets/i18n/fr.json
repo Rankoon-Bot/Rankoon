@@ -1645,6 +1645,7 @@
     "seasons": "Gérer les saisons"
   },
   "seasons": {
+    "draftHint": "Vous modifiez un brouillon. Le statut en haut indique l’état enregistré. Vérifiez l’aperçu puis choisissez « Enregistrer et créer des saisons » en bas.",
     "eyebrow": "CONTRÔLE DE LA SAISON",
     "title": "Saisons XP",
     "subtitle": "Organisez des compétitions XP facultatives et archivées sans modifier la progression à vie.",
@@ -1775,7 +1776,7 @@
       "start": "L'XP de saison commence immédiatement et la saison devient active.",
       "close": "Le classement final sera enregistré et le report d'XP sera appliqué.",
       "cancel": "L'XP de saison s'arrête. La saison ne pourra être reprise que pendant sa période initiale.",
-      "resume": "L'XP de saison continue jusqu'à l'heure de fin initiale.",
+      "resume": "Les saisons futures sont replanifiées ; celles en cours conservent leurs XP. La préparation automatique reste désactivée.",
       "delete": "La saison et son classement seront définitivement supprimés.",
       "cancelScheduled": "Toutes les saisons planifiées seront annulées et pourront ensuite être supprimées.",
       "deleteCancelled": "Toutes les saisons annulées seront définitivement supprimées.",
@@ -1907,6 +1908,7 @@
       "cancelled": "Annulé"
     },
     "statusSummary": {
+      "closing": "Clôture en cours",
       "disabled": "Désactivées",
       "active": "Active",
       "ready": "Prête",
@@ -1942,7 +1944,18 @@
       "rotationDuplicate": "Chaque nom de la rotation doit être unique.",
       "nameTemplate": "Saisissez un modèle de nom valide de 120 caractères maximum.",
       "generic": "Vérifiez cette valeur et réessayez."
-    }
+    },
+    "workflowHint": "Activez les saisons, choisissez la période, vérifiez l’aperçu et créez le nombre souhaité. Elles commencent et se terminent automatiquement aux heures indiquées. Enregistrer ne crée aucune saison en mode de planification explicite.",
+    "useLocalTimeZone": "Utiliser mon fuseau horaire",
+    "instanceActionHint": "Le démarrage est possible pendant la période indiquée si aucune autre saison ne tourne. Annuler arrête aussi la préparation automatique. Les autres saisons planifiées sont conservées.",
+    "manualCreate": "Créer une saison individuelle",
+    "editDetails": "Modifier le nom et les dates",
+    "editorHint": "Les dates utilisent le fuseau {{zone}}. Les périodes ne peuvent pas se chevaucher. Seules les saisons planifiées sont modifiables.",
+    "editorName": "Nom de la saison",
+    "editorStart": "Début",
+    "editorEnd": "Fin",
+    "editorInvalid": "Saisissez un nom et des dates valides. La fin doit suivre le début et être dans le futur. Certaines heures du changement d’heure sont invalides.",
+    "detailsSaved": "Saison enregistrée."
   },
   "xpAudit": {
     "title": "Historique et ajustements XP",

@@ -1645,6 +1645,7 @@
     "seasons": "Gerir temporadas"
   },
   "seasons": {
+    "draftHint": "Você está editando um rascunho. O estado acima mostra os dados salvos. Confira a prévia e escolha «Salvar e criar temporadas» abaixo.",
     "eyebrow": "CONTROLO DE TEMPORADAS",
     "title": "Temporadas XP",
     "subtitle": "Realize competições de XP opcionais e arquivadas sem alterar a progressão global.",
@@ -1775,7 +1776,7 @@
       "start": "O XP da temporada começa imediatamente e a temporada fica ativa.",
       "close": "A classificação final será registada e a transferência de XP será aplicada.",
       "cancel": "O XP da temporada para. A temporada só poderá ser retomada durante o período original.",
-      "resume": "O XP da temporada continua até à hora de fim original.",
+      "resume": "As temporadas futuras são reagendadas; as atuais mantêm seus XP. A preparação automática permanece desativada.",
       "delete": "A temporada e a respetiva classificação serão eliminadas permanentemente.",
       "cancelScheduled": "Todas as temporadas agendadas serão canceladas e poderão ser eliminadas depois.",
       "deleteCancelled": "Todas as temporadas canceladas serão eliminadas permanentemente.",
@@ -1907,6 +1908,7 @@
       "cancelled": "Cancelado"
     },
     "statusSummary": {
+      "closing": "Finalizando",
       "disabled": "Desativadas",
       "active": "Ativa",
       "ready": "Pronta",
@@ -1942,7 +1944,18 @@
       "rotationDuplicate": "Cada nome da rotação tem de ser único.",
       "nameTemplate": "Introduza um modelo de nome válido com um máximo de 120 carateres.",
       "generic": "Verifique este valor e tente novamente."
-    }
+    },
+    "workflowHint": "Ative as temporadas, escolha o período, confira a prévia e crie a quantidade desejada. Começam e terminam automaticamente nos horários indicados. Salvar não cria temporadas no modo de planejamento explícito.",
+    "useLocalTimeZone": "Usar meu fuso horário",
+    "instanceActionHint": "Só é possível iniciar no período indicado se nenhuma outra temporada estiver em andamento. Cancelar também interrompe a preparação automática. As outras temporadas agendadas permanecem.",
+    "manualCreate": "Criar uma temporada individual",
+    "editDetails": "Editar nome e datas",
+    "editorHint": "As datas usam o fuso {{zone}}. Os períodos não podem se sobrepor. Apenas temporadas agendadas podem ser editadas.",
+    "editorName": "Nome da temporada",
+    "editorStart": "Início",
+    "editorEnd": "Fim",
+    "editorInvalid": "Insira um nome e datas válidas. O fim deve ser após o início e no futuro. Alguns horários na mudança de horário não existem.",
+    "detailsSaved": "Temporada salva."
   },
   "xpAudit": {
     "title": "Histórico e ajustes de XP",

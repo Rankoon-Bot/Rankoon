@@ -239,11 +239,11 @@
     "season": {
       "invalidTimeZone": "Die Zeitzone der Season ist ungültig.",
       "invalidSchedule": "Der Season-Zeitplan oder das Namens-Template ist ungültig.",
-      "invalidTransition": "Der angeforderte Season-Statusübergang ist nicht zulässig.",
+      "invalidTransition": "Diese Aktion passt nicht zum aktuellen Season-Status. Prüfe den Zeitraum und ob bereits eine Season läuft. Aktualisiere die Seite und versuche es erneut.",
       "activeConflict": "Für diesen Server ist bereits eine andere Season aktiv.",
       "manualSchedule": "Manuelle Zeitpläne benötigen explizite Zeitpunkte.",
-      "planConflict": "Die angeforderten Seasons überschneiden sich mit dem bestehenden Plan.",
-      "notResumable": "Diese Season kann nur innerhalb ihres ursprünglichen Zeitraums fortgesetzt werden."
+      "planConflict": "Der Season-Plan wurde inzwischen geändert oder die Zeiträume überschneiden sich. Lade die Seite neu, prüfe den aktuellen Plan und versuche es erneut.",
+      "notResumable": "Diese Season kann nicht wiederhergestellt werden. Prüfe, ob sie bereits abgelaufen ist oder sich mit einer anderen Season überschneidet."
     },
     "levelAnnouncements": {
       "channelUnavailable": "Der konfigurierte Kanal ist nicht verfügbar.",
@@ -1749,6 +1749,7 @@
     "seasons": "Seasons verwalten"
   },
   "seasons": {
+    "draftHint": "Du bearbeitest einen Entwurf. Die Statusanzeige oben zeigt weiterhin den gespeicherten Stand. Prüfe die Vorschau und wähle unten „Speichern und Seasons anlegen“, um die Einrichtung abzuschließen.",
     "eyebrow": "SEASON-STEUERUNG",
     "title": "Seasons",
     "subtitle": "Teile deine Rangliste in überschaubare Wettbewerbszeiträume auf.",
@@ -1761,7 +1762,7 @@
     "schedule": "Zeitplan",
     "planningMode": "Automatische Vorausplanung",
     "autoPrepare": "Zukünftige Seasons automatisch vorbereiten",
-    "autoPrepareHint": "Deaktiviert: Rankoon legt neue Seasons nur nach ausdrücklicher Bestätigung an. Aktiviert: Rankoon hält die konfigurierte Anzahl zukünftiger Seasons bereit.",
+    "autoPrepareHint": "Nur bei Aktivierung: Rankoon füllt die gewählte Gesamtzahl aus laufender und zukünftigen Seasons automatisch auf (maximal 24). Abbrechen einer Season stoppt diese Automatik.",
     "timeZone": "Zeitzone",
     "anchor": "Startpunkt des Zeitplans",
     "durationDays": "Dauer in Tagen",
@@ -1797,7 +1798,7 @@
     "create": "{{count}} Seasons anlegen",
     "createMore": "Weitere Seasons anlegen",
     "planTitle": "Kommende Seasons vorbereiten",
-    "planHint": "Erstelle geplante Seasons, bis insgesamt {{count}} Seasons vorbereitet sind, einschließlich der aktuell aktiven oder abschließenden Season.",
+    "planHint": "Es werden genau {{count}} zusätzliche Seasons angelegt. Prüfe vorher die Vorschau. Bestehende Seasons und deren XP-Regeln bleiben erhalten.",
     "saveBeforePlan": "Speichere deine Änderungen, bevor du Seasons planst.",
     "operationsKicker": "SEASON-AKTIONEN",
     "operations": "Geplante und aktive Seasons verwalten",
@@ -1806,7 +1807,7 @@
     "start": "Starten",
     "close": "Abschließen",
     "cancel": "Abbrechen",
-    "resume": "Fortsetzen",
+    "resume": "Wiederherstellen",
     "delete": "Löschen",
     "confirmAction": "Aktion bestätigen",
     "saved": "Season-Einstellungen gespeichert.",
@@ -1878,10 +1879,10 @@
     "confirmImpact": {
       "start": "Season-XP werden sofort aktiviert und die Season beginnt.",
       "close": "Die Abschlussrangliste wird gespeichert und der XP-Übertrag wird angewendet.",
-      "cancel": "Die Vergabe von Season-XP endet. Die Season kann nur innerhalb ihres ursprünglichen Zeitraums fortgesetzt werden.",
-      "resume": "Season-XP werden bis zum ursprünglich vorgesehenen Ende weiter vergeben.",
+      "cancel": "Die Vergabe von Season-XP endet. Die Season kann nur innerhalb ihres ursprünglichen Zeitraums fortgesetzt werden. Die automatische Vorausplanung wird gestoppt.",
+      "resume": "Zukünftige Seasons werden wieder eingeplant; im laufenden Zeitraum werden sie mit ihren bisherigen XP fortgesetzt. Die automatische Vorausplanung bleibt ausgeschaltet.",
       "delete": "Die Season und ihre Rangliste werden dauerhaft gelöscht.",
-      "cancelScheduled": "Alle geplanten Seasons werden abgebrochen und können anschließend gelöscht werden.",
+      "cancelScheduled": "Alle geplanten Seasons werden abgebrochen und können anschließend gelöscht werden. Die automatische Vorausplanung wird gestoppt.",
       "deleteCancelled": "Alle abgebrochenen Seasons werden dauerhaft gelöscht.",
       "resetCounter": "Die laufende Season bleibt unverändert. Geplante und folgende Seasons beginnen wieder bei Season 1."
     },
@@ -2011,6 +2012,7 @@
       "cancelled": "Abgebrochen"
     },
     "statusSummary": {
+      "closing": "Wird abgeschlossen",
       "disabled": "Deaktiviert",
       "active": "Aktiv",
       "ready": "Bereit",
@@ -2032,8 +2034,8 @@
     },
     "validation": {
       "closeBeforeDisable": "Schließe die aktive Season ab, bevor du Seasons deaktivierst.",
-      "timeZone": "Gib eine gültige IANA-Zeitzone ein.",
-      "anchor": "Wähle einen Startpunkt für automatisch geplante Seasons.",
+      "timeZone": "Wähle eine gültige Zeitzone, z. B. Europe/Berlin, oder verwende deine Zeitzone.",
+      "anchor": "Wähle einen gültigen Startzeitpunkt. Eine Uhrzeit, die durch die Zeitumstellung ausfällt, ist nicht möglich.",
       "duration": "Gib eine Dauer zwischen 1 und 3.660 Tagen ein.",
       "gap": "Gib eine gültige Pause ein, die ausreichend Zeit für den gewählten Season-Rhythmus lässt.",
       "prepared": "Die Anzahl vorbereiteter Seasons muss zwischen 0 und 24 liegen.",
@@ -2046,7 +2048,18 @@
       "rotationDuplicate": "Jeder Name in der Rotation muss eindeutig sein.",
       "nameTemplate": "Gib eine gültige Namensvorlage mit höchstens 120 Zeichen ein.",
       "generic": "Prüfe diesen Wert und versuche es erneut."
-    }
+    },
+    "workflowHint": "So geht’s: Seasons aktivieren, Zeitraum wählen, Vorschau prüfen und genau die gewünschte Anzahl anlegen. Geplante Seasons starten und enden zum angezeigten Zeitpunkt automatisch. Speichern allein legt im manuellen Planungsmodus keine Seasons an.",
+    "useLocalTimeZone": "Meine Zeitzone verwenden",
+    "instanceActionHint": "Starten ist nur im angegebenen Zeitraum möglich, wenn keine andere Season läuft. Abbrechen stoppt auch die automatische Vorausplanung. Bereits geplante andere Seasons bleiben erhalten.",
+    "manualCreate": "Einzelne Season anlegen",
+    "editDetails": "Name und Zeitraum bearbeiten",
+    "editorHint": "Alle Eingaben gelten in der Zeitzone {{zone}}. Zeiträume dürfen sich nicht überschneiden. Nur geplante Seasons lassen sich bearbeiten.",
+    "editorName": "Name der Season",
+    "editorStart": "Start",
+    "editorEnd": "Ende",
+    "editorInvalid": "Gib einen Namen und gültige Zeiten ein. Das Ende muss nach dem Start und in der Zukunft liegen. Zeiten während der Zeitumstellung können ungültig sein.",
+    "detailsSaved": "Season gespeichert."
   },
   "xpAudit": {
     "title": "XP-Verlauf & Korrekturen",
