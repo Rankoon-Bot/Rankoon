@@ -19,6 +19,7 @@ public interface IGuildXpSettingsRuntimeCache
     void Remove(ulong guildId);
     IReadOnlyCollection<ulong> GetVoiceEnabledGuildIds();
     Task LoadAsync(CancellationToken cancellationToken = default);
+    Task<bool> LoadGuildAsync(ulong guildId, CancellationToken cancellationToken = default);
 }
 public interface IGuildXpSettingsChangePublisher { ValueTask PublishAsync(GuildXpSettingsChanged change, CancellationToken cancellationToken = default); }
 public interface IGuildXpSettingsChangeConsumer { ValueTask HandleAsync(GuildXpSettingsChanged change, CancellationToken cancellationToken = default); }
@@ -32,6 +33,16 @@ public sealed class GuildXpSettingsRuntimeCache(RankoonDbContext database) : IGu
     public GuildXpSettingsSnapshot? GetOrDefault(ulong guildId) => entries.TryGetValue(guildId, out var settings) ? settings : null;
     public void Apply(GuildXpSettingsSnapshot settings) => entries.AddOrUpdate(settings.GuildId, settings, (_, current) => settings.Revision > current.Revision ? settings : current);
     public void Remove(ulong guildId) => entries.TryRemove(guildId, out _);
+    public async Task<bool> LoadGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        await LoadAsync(cancellationToken);
+        if (TryGet(guildId, out _)) return true;
+        // Initialization only loads existing documents. A guild can save its first
+        // settings later, or another API instance can have persisted them meanwhile.
+        var settings = await database.GuildXpSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(cancellationToken);
+        if (settings != null) Apply(CreateSnapshot(settings));
+        return TryGet(guildId, out _);
+    }
     public IReadOnlyCollection<ulong> GetVoiceEnabledGuildIds() => entries.Values.Where(x => x.Enabled && x.Voice.Enabled).Select(x => x.GuildId).ToArray();
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {

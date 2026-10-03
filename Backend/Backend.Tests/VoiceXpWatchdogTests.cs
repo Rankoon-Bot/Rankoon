@@ -1,6 +1,9 @@
 using System.Reflection;
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using MongoDB.Driver;
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
@@ -11,6 +14,83 @@ namespace Backend.Tests;
 
 public sealed class VoiceXpWatchdogTests
 {
+    [Fact]
+    public async Task First_settings_save_has_no_previous_revision_to_reconcile()
+    {
+        var watchdog = Watchdog(new EmptySettingsCache());
+
+        // The Discord resolver and accrual dependencies are deliberately absent:
+        // no work should start until a persisted settings document exists.
+        await watchdog.ReconcileNowAsync(1, CancellationToken.None);
+
+        Assert.Equal(VoiceWatchdogState.Stopped, watchdog.GetStatus(1).State);
+    }
+
+    [Fact]
+    public async Task Persisted_revision_activation_is_queued_without_request_time_reconciliation()
+    {
+        var watchdog = Watchdog(new EmptySettingsCache(hasSettings: true));
+
+        await watchdog.ActivateSettingsRevisionAsync(1, 3, CancellationToken.None);
+        await watchdog.ActivateSettingsRevisionAsync(1, 2, CancellationToken.None);
+
+        Assert.Equal(3L, PendingActivations(watchdog)[1]);
+        Assert.Equal(VoiceWatchdogState.Stopped, watchdog.GetStatus(1).State);
+    }
+
+    [Fact]
+    public async Task Pending_activation_survives_until_its_revision_is_successfully_reconciled()
+    {
+        var watchdog = Watchdog(new EmptySettingsCache());
+        await watchdog.ActivateSettingsRevisionAsync(1, 3, CancellationToken.None);
+        var complete = typeof(VoiceXpWatchdog).GetMethod("CompleteSettingsActivation", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        complete.Invoke(watchdog, [1UL, 2L]);
+        Assert.Equal(3L, PendingActivations(watchdog)[1]);
+        complete.Invoke(watchdog, [1UL, 3L]);
+        Assert.Empty(PendingActivations(watchdog));
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task Cache_distinguishes_absent_settings_from_settings_saved_after_initialization()
+    {
+        var connection = Environment.GetEnvironmentVariable("RANKOON_SEASON_TEST_MONGO")!;
+        var name = $"rankoon_voice_settings_test_{Guid.NewGuid():N}";
+        var client = new MongoClient(connection);
+        var database = new RankoonDbContext(Options.Create(new MongoDbSettings { ConnectionString = connection, DatabaseName = name }));
+        var cache = new GuildXpSettingsRuntimeCache(database);
+        try
+        {
+            Assert.False(await cache.LoadGuildAsync(1));
+            Assert.Null(cache.GetOrDefault(1));
+            Assert.Equal(0L, await database.GuildXpSettings.CountDocumentsAsync(Builders<GuildXpSettings>.Filter.Empty));
+
+            await database.GuildXpSettings.InsertOneAsync(new GuildXpSettings { GuildId = 1, Revision = 1 });
+
+            Assert.True(await cache.LoadGuildAsync(1));
+            Assert.Equal(1L, cache.GetOrDefault(1)!.Revision);
+        }
+        finally { await client.DropDatabaseAsync(name); }
+    }
+
+    private static VoiceXpWatchdog Watchdog(IGuildXpSettingsRuntimeCache cache) => new(
+        null!, null!, cache, null!, null!, null!, null!, null!, null!, null!, TimeProvider.System,
+        Options.Create(new VoiceWatchdogOptions()), Options.Create(new VoiceActivityOptions()), NullLogger<VoiceXpWatchdog>.Instance);
+
+    private static ConcurrentDictionary<ulong, long> PendingActivations(VoiceXpWatchdog watchdog) =>
+        (ConcurrentDictionary<ulong, long>)typeof(VoiceXpWatchdog).GetField("activatedSettingsRevisions", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(watchdog)!;
+
+    private sealed class EmptySettingsCache(bool hasSettings = false) : IGuildXpSettingsRuntimeCache
+    {
+        public bool TryGet(ulong guildId, out GuildXpSettingsSnapshot settings) { settings = hasSettings ? Snapshot(3, 10m) : null!; return hasSettings; }
+        public GuildXpSettingsSnapshot? GetOrDefault(ulong guildId) => hasSettings ? Snapshot(3, 10m) : null;
+        public void Apply(GuildXpSettingsSnapshot settings) => throw new NotSupportedException();
+        public void Remove(ulong guildId) => throw new NotSupportedException();
+        public IReadOnlyCollection<ulong> GetVoiceEnabledGuildIds() => [];
+        public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> LoadGuildAsync(ulong guildId, CancellationToken cancellationToken = default) => Task.FromResult(hasSettings);
+    }
+
     [Fact]
     public void Voice_lifecycle_handles_every_relevant_state_transition()
     {

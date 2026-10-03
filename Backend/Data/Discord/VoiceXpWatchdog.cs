@@ -26,21 +26,24 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
 
     public async Task ReconcileNowAsync(ulong guildId, CancellationToken cancellationToken)
     {
-        await settingsCache.LoadAsync(cancellationToken);
+        // No persisted settings means there is no previous revision to settle.
+        // Do not create a default snapshot: that would start implicit voice accrual.
+        if (!await settingsCache.LoadGuildAsync(guildId, cancellationToken)) return;
         var guild = (await discord.ResolveAsync(guildId, cancellationToken))?.Guild ?? throw new InvalidOperationException("The guild is not available to the authoritative Discord runtime.");
-        if (!await ReconcileGuildAsync(guild, cancellationToken))
-            throw new InvalidOperationException("Voice XP reconciliation did not complete successfully.");
+        await ReconcileGuildAsync(guild, cancellationToken, propagateFailure: true);
     }
 
     public Task OnGuildReadyAsync(SocketGuild guild, CancellationToken cancellationToken = default) => ReconcileGuildAsync(guild, cancellationToken);
 
-    public async Task ActivateSettingsRevisionAsync(ulong guildId, long revision, CancellationToken cancellationToken)
+    public Task ActivateSettingsRevisionAsync(ulong guildId, long revision, CancellationToken cancellationToken)
     {
         if (revision < 1) throw new ArgumentOutOfRangeException(nameof(revision));
         activatedSettingsRevisions.AddOrUpdate(guildId, revision, (_, current) => Math.Max(current, revision));
         try { activationSignal.Release(); }
         catch (SemaphoreFullException) { }
-        if (settingsCache.TryGet(guildId, out var cached) && cached.Revision >= revision) await ReconcileNowAsync(guildId, cancellationToken);
+        // Persistence has already succeeded. The worker applies the revision and
+        // retries failures without turning a successful save into an HTTP error.
+        return Task.CompletedTask;
     }
 
     // Consumers only reconcile runtime state; they never write settings or publish another settings event.
@@ -181,15 +184,15 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         finally { gate.Release(); }
     }
 
-    private async Task<bool> ReconcileGuildAsync(SocketGuild guild, CancellationToken cancellationToken)
+    private async Task<bool> ReconcileGuildAsync(SocketGuild guild, CancellationToken cancellationToken, bool propagateFailure = false)
     {
         var gate = guildGates.GetOrAdd(guild.Id, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken);
-        try { return await ReconcileGuildCoreAsync(guild, cancellationToken); }
+        try { return await ReconcileGuildCoreAsync(guild, cancellationToken, propagateFailure); }
         finally { gate.Release(); }
     }
 
-    private async Task<bool> ReconcileGuildCoreAsync(SocketGuild guild, CancellationToken cancellationToken)
+    private async Task<bool> ReconcileGuildCoreAsync(SocketGuild guild, CancellationToken cancellationToken, bool propagateFailure)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
         try
@@ -197,11 +200,10 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
             if (!settingsCache.TryGet(guild.Id, out var cached))
             {
                 statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Degraded, timeProvider.GetUtcNow(), null, 0, 0, 0, "settings cache unavailable", (int)interval.TotalSeconds);
+                if (propagateFailure) throw new InvalidOperationException("Voice XP settings cache is unavailable.");
                 return false;
             }
             var settings = ToSettings(cached);
-            if (activatedSettingsRevisions.TryGetValue(guild.Id, out var activatedRevision) && settings.Revision >= activatedRevision)
-                activatedSettingsRevisions.TryRemove(guild.Id, out _);
             if (!IsVoiceXpEnabled(settings))
             {
                 var disabledSessions = await database.VoiceSessions.Find(x => x.GuildId == guild.Id).ToListAsync(cancellationToken);
@@ -209,6 +211,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
                     await projection.ProjectPendingAsync(guild.Id, session.UserId, guild.GetUser(session.UserId)?.DisplayName, cancellationToken, immediate: true);
                 await database.VoiceSessions.DeleteManyAsync(x => x.GuildId == guild.Id, cancellationToken);
                 statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Stopped, timeProvider.GetUtcNow(), null, 0, 0, 0, null, (int)interval.TotalSeconds);
+                CompleteSettingsActivation(guild.Id, settings.Revision);
                 return true;
             }
 
@@ -238,6 +241,7 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
             await database.VoiceSessions.DeleteManyAsync(x => x.GuildId == guild.Id && !liveIds.Contains(x.UserId), cancellationToken);
             statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Healthy, timeProvider.GetUtcNow(), timeProvider.GetUtcNow(), connected.Length, eligibleCount, excludedCount, null, (int)interval.TotalSeconds);
             health.Report("voice-xp-watchdog", WorkerHealthState.Healthy);
+            CompleteSettingsActivation(guild.Id, settings.Revision);
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
@@ -245,10 +249,21 @@ public sealed class VoiceXpWatchdog(IGuildDiscordContextResolver discord, Rankoo
         {
             logger.LogError(exception, "Voice watchdog failed for guild {GuildId}", guild.Id);
             health.Report("voice-xp-watchdog", WorkerHealthState.Degraded, exception.GetType().Name);
-            await errors.RecordAsync(new(exception, "worker", "voice.watchdog", GuildId: guild.Id, Worker: "voice-xp-watchdog", Context: new Dictionary<string, object?> { ["state"] = VoiceWatchdogState.Degraded }));
             statuses[guild.Id] = new(guild.Id, VoiceWatchdogState.Degraded, timeProvider.GetUtcNow(), null, 0, 0, 0, exception.GetBaseException().GetType().Name, (int)interval.TotalSeconds);
+            try { await errors.RecordAsync(new(exception, "worker", "voice.watchdog", GuildId: guild.Id, Worker: "voice-xp-watchdog", Context: new Dictionary<string, object?> { ["state"] = VoiceWatchdogState.Degraded }), cancellationToken); }
+            catch (Exception recordingException) when (recordingException is not OperationCanceledException)
+            {
+                logger.LogWarning(recordingException, "Could not record voice watchdog failure for guild {GuildId}", guild.Id);
+            }
+            if (propagateFailure) throw;
             return false;
         }
+    }
+
+    private void CompleteSettingsActivation(ulong guildId, long revision)
+    {
+        if (activatedSettingsRevisions.TryGetValue(guildId, out var activatedRevision) && revision >= activatedRevision)
+            ((ICollection<KeyValuePair<ulong, long>>)activatedSettingsRevisions).Remove(new(guildId, activatedRevision));
     }
 
     private async Task<bool> SettleUserAsync(SocketGuild guild, SocketGuildUser member, VoiceChannelEvaluationSnapshot channel, VoiceXpParticipantState participant, GuildXpSettings settings, VoiceSession session, IReadOnlyList<GuildSeason> seasons, DateTime now, CancellationToken cancellationToken, bool immediateProjection = false)
