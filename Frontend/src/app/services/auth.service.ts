@@ -73,13 +73,13 @@ export class AuthService {
                     this.clearLocalAuth();
                     return of(false);
                 }
-                return this.refreshToken();
+                return this.refreshToken(false);
             }),
             finalize(() => this.authStore.setLoading(false))
         );
     }
 
-    refreshToken(): Observable<boolean> {
+    refreshToken(redirectOnFailure = true): Observable<boolean> {
         if (this.refreshInFlight$) return this.refreshInFlight$;
 
         const generation = this.sessionGeneration;
@@ -92,7 +92,7 @@ export class AuthService {
             catchError(() => {
                 if (generation === this.sessionGeneration) {
                     this.clearLocalAuth();
-                    void this.router.navigate(['/login']);
+                    if (redirectOnFailure) void this.router.navigate(['/login']);
                 }
                 return of(false);
             }),
