@@ -168,6 +168,7 @@
     },
     "botManagement": {
       "invalidRange": "La plage de gestion du bot n'est pas valide.",
+      "maintainerRevisionConflict": "L’accès mainteneur a changé depuis le chargement. Actualisez la liste et réessayez.",
       "unavailable": "La gestion du bot est temporairement indisponible."
     },
     "permissions": {
@@ -434,11 +435,35 @@
     "noComparison": "Aucune comparaison",
     "insights": "Informations opérationnelles",
     "usageBreakdown": "Répartition de l'utilisation",
+    "maintainer": {
+      "eyebrow": "ACCÈS PAR SERVEUR",
+      "title": "Accès mainteneur",
+      "description": "Choisissez les serveurs Rankoon que vous souhaitez gérer dans l’interface Web.",
+      "notice": "Ce réglage est partagé pour le serveur. Lorsqu’il est activé, les responsables autorisés de l’application peuvent consulter et modifier ses paramètres. Désactivez-le pour utiliser vos permissions Discord habituelles.",
+      "refresh": "Actualiser la liste",
+      "loading": "Chargement des serveurs gérés…",
+      "emptyTitle": "Aucun serveur géré",
+      "emptyDescription": "Aucun serveur Discord géré par Rankoon n’a été trouvé.",
+      "guildId": "ID du serveur",
+      "runtimeAvailable": "Bot connecté",
+      "runtimeUnavailable": "Bot indisponible",
+      "access": "Accès mainteneur",
+      "enabled": "Activé",
+      "disabled": "Désactivé",
+      "enableAccess": "Activer l’accès mainteneur pour {{name}}",
+      "disableAccess": "Désactiver l’accès mainteneur pour {{name}}",
+      "openMaintainer": "Ouvrir les paramètres",
+      "openRegular": "Ouvrir comme utilisateur standard",
+      "loadFailed": "Impossible de charger les serveurs gérés.",
+      "saveFailed": "Impossible de modifier l’accès mainteneur.",
+      "openFailed": "Impossible d’ouvrir les paramètres de ce serveur."
+    },
     "pages": {
       "overview": "Aperçu des opérations",
       "incidents": "Incidents",
-      "guilds": "Santé de guilde",
-      "usage": "Utilisation globale"
+      "guilds": "État des serveurs",
+      "usage": "Utilisation globale",
+      "maintainer": "Accès mainteneur"
     },
     "sections": {
       "overview": {
@@ -450,7 +475,7 @@
         "description": "Triez les échecs globaux sans exposer les erreurs techniques aux utilisateurs de la guilde."
       },
       "guilds": {
-        "title": "Santé de guilde",
+        "title": "État des serveurs",
         "description": "Connectivité, activité et fiabilité par serveur Discord."
       },
       "usage": {
@@ -479,12 +504,13 @@
       "status": "Statut"
     },
     "status": {
-      "veryActive": "Très actif",
-      "active": "Actif",
+      "healthy": "En bon état",
+      "operationalErrors": "Erreurs opérationnelles",
+      "permissionAttention": "Autorisations à vérifier",
+      "configurationAttention": "Configuration manquante",
       "lowActivity": "Faible activité",
       "inactive": "Inactif",
-      "new": "Nouveau",
-      "attentionRequired": "Attention requise"
+      "new": "Nouveau"
     },
     "incidents": {
       "search": "Rechercher un incident, une source ou un code",
@@ -501,8 +527,9 @@
       "detailPanel": "Détails de l'incident",
       "empty": "Aucun incident ne correspond à ces filtres.",
       "acknowledge": "Reconnaître",
-      "resolve": "Résoudre",
+      "resolve": "Marquer comme résolu",
       "reopen": "Réouvrir",
+      "ignore": "Ignorer",
       "global": "Global",
       "stackTrace": "Trace de pile",
       "copyStack": "Copier la trace de la pile",
@@ -511,7 +538,8 @@
       "statuses": {
         "open": "Ouvert",
         "acknowledged": "Reconnu",
-        "resolved": "Résolu"
+        "resolved": "Résolu",
+        "ignored": "Ignoré"
       }
     },
     "domain": {
@@ -520,16 +548,42 @@
         "openIncidents": "Incidents ouverts",
         "events": "Événements",
         "failureRate": "Taux d'échec",
-        "connectedGuilds": "Guildes connectées",
-        "activeGuilds": "Guildes actives",
+        "connectedGuilds": "Serveurs connectés",
+        "activeGuilds": "Serveurs actifs",
         "commands": "Commandes",
-        "uniqueUsers": "Utilisateurs uniques"
+        "uniqueUsers": "Utilisateurs uniques",
+        "adoptingGuilds": "Serveurs actifs sur la période",
+        "memberSum": "Membres au total",
+        "errorGuilds": "Serveurs avec erreurs",
+        "openCriticalIncidents": "Incidents critiques ouverts",
+        "errorFreeRate": "Serveurs sans erreur (%)",
+        "globalActivity": "Événements enregistrés",
+        "telemetryDrops": "Événements de télémétrie perdus",
+        "databaseWriterFailures": "Échecs écriture base de données",
+        "unhealthyWorkers": "Workers en état dégradé",
+        "guilds": "Serveurs",
+        "errors": "Erreurs"
       },
       "insights": {
         "incident_spike": "Pic d'incidents",
         "guild_health_down": "L'état des serveurs s'est dégradé",
         "usage_up": "Utilisation augmentée",
-        "all_systems_healthy": "Tous les systèmes fonctionnent correctement"
+        "all_systems_healthy": "Tous les systèmes fonctionnent correctement",
+        "workerHealth": "Worker à surveiller",
+        "actionGuilds": "Serveurs avec erreurs récentes",
+        "criticalIncidents": "Incidents critiques ouverts"
+      },
+      "breakdown": {
+        "unspecified": "Autre",
+        "commands": "Commandes",
+        "experience": "Expérience",
+        "leaderboard": "Classement",
+        "seasons": "Saisons",
+        "voice": "Vocal",
+        "selfroles": "Rôles autonomes",
+        "authorization": "Autorisations",
+        "discord": "Discord",
+        "operations": "Opérations"
       }
     }
   },
@@ -1134,7 +1188,8 @@
     "operationsOverview": "Aperçu des opérations",
     "incidents": "Incidents",
     "guildHealth": "Santé de guilde",
-    "globalUsage": "Utilisation globale"
+    "globalUsage": "Utilisation globale",
+    "maintainerAccess": "Accès mainteneur"
   },
   "reports": {
     "eyebrow": "RAPPORTS",

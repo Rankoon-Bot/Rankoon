@@ -28,14 +28,15 @@ public sealed class GuildPermissionsController(
     public async Task<IActionResult> Capabilities(string guildId)
     {
         if (!ulong.TryParse(guildId, out var id)) return this.ApiError("guild.invalidId");
-        if (!await authorization.IsMemberAsync(User, id, HttpContext.RequestAborted)) return Forbid();
+        var isMaintainer = await authorization.IsMaintainerAsync(User, id, HttpContext.RequestAborted);
+        if (!isMaintainer && !await authorization.IsMemberAsync(User, id, HttpContext.RequestAborted)) return Forbid();
         var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild;
         if (guild == null) return NotFound();
 
         var moduleIds = await authorization.GetAccessibleModuleIdsAsync(User, id, HttpContext.RequestAborted);
         var settings = await leaderboard.GetOrCreateSettingsAsync(id, guild.Name, HttpContext.RequestAborted);
         var isOwner = guild.OwnerId == authorization.GetDiscordUserId(User);
-        return Ok(new { guildId = id, isOwner, canAccessSettings = moduleIds.Count > 0, moduleIds, leaderboardAlias = settings.Alias });
+        return Ok(new { guildId = id, isOwner, isMaintainer, canAccessSettings = moduleIds.Count > 0, moduleIds, leaderboardAlias = settings.Alias });
     }
 
     [HttpGet("role-permissions")]
@@ -44,7 +45,9 @@ public sealed class GuildPermissionsController(
         var (guild, error) = await AuthorizeOwnerAsync(guildId);
         if (error != null) return error;
         var policy = await permissions.GetOrInitializeAsync(guild!, HttpContext.RequestAborted);
-        return Ok(CreateRolePermissionsResponse(guild!, policy));
+        return Ok(CreateRolePermissionsResponse(guild!, policy,
+            guild!.OwnerId == authorization.GetDiscordUserId(User),
+            await authorization.IsMaintainerAsync(User, guild.Id, HttpContext.RequestAborted)));
     }
 
     [HttpPut("role-permissions")]
@@ -97,10 +100,12 @@ public sealed class GuildPermissionsController(
                 ["addedModules"] = AddedModuleAssignments(previous.RoleGrants, saved.RoleGrants).Count(),
                 ["removedModules"] = AddedModuleAssignments(saved.RoleGrants, previous.RoleGrants).Count()
             }), HttpContext.RequestAborted);
-        return Ok(CreateRolePermissionsResponse(guild, saved));
+        return Ok(CreateRolePermissionsResponse(guild, saved,
+            guild.OwnerId == authorization.GetDiscordUserId(User),
+            await authorization.IsMaintainerAsync(User, guild.Id, HttpContext.RequestAborted)));
     }
 
-    private object CreateRolePermissionsResponse(SocketGuild guild, GuildRolePermissionPolicy policy)
+    private object CreateRolePermissionsResponse(SocketGuild guild, GuildRolePermissionPolicy policy, bool isOwner, bool isMaintainer)
     {
         var grants = policy.RoleGrants.ToDictionary(grant => grant.RoleId, grant => grant.ModuleIds);
         var allModuleIds = modules.Modules.Select(module => module.Id).ToArray();
@@ -125,7 +130,7 @@ public sealed class GuildPermissionsController(
                 };
             })
             .ToArray();
-        return new { guildId = guild.Id, isOwner = true, modules = modules.Modules, roles, policy.Revision, policy.UpdatedAt };
+        return new { guildId = guild.Id, isOwner, isMaintainer, modules = modules.Modules, roles, policy.Revision, policy.UpdatedAt };
     }
 
     private static bool IsManuallyCreatedRole(SocketRole role) => !role.IsManaged && !role.IsEveryone;
@@ -148,7 +153,7 @@ public sealed class GuildPermissionsController(
     private async Task<(SocketGuild? Guild, IActionResult? Error)> AuthorizeOwnerAsync(string guildId)
     {
         if (!ulong.TryParse(guildId, out var id)) return (null, this.ApiError("guild.invalidId"));
-        if (!await authorization.IsOwnerAsync(User, id, HttpContext.RequestAborted)) return (null, Forbid());
+        if (!await authorization.CanManageGuildAsync(User, id, HttpContext.RequestAborted)) return (null, Forbid());
         var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild;
         return guild == null ? (null, NotFound()) : (guild, null);
     }

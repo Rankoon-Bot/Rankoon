@@ -74,9 +74,13 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 builder.Services.Configure<RouteOptions>(options =>
     options.ConstraintMap["nonApi"] = typeof(NonApiPathRouteConstraint));
-builder.Services.AddAuthorization(options => options.AddPolicy(AuthorizationPolicies.BotOperator, policy =>
-    policy.RequireAuthenticatedUser().AddRequirements(new BotOperatorRequirement())));
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.BotOperator, policy => policy.RequireAuthenticatedUser().AddRequirements(new BotOperatorRequirement()));
+    options.AddPolicy(AuthorizationPolicies.BotMaintainer, policy => policy.RequireAuthenticatedUser().AddRequirements(new BotMaintainerRequirement()));
+});
 builder.Services.AddSingleton<IAuthorizationHandler, BotOperatorAuthorizationHandler>();
+builder.Services.AddSingleton<IAuthorizationHandler, BotMaintainerAuthorizationHandler>();
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, BotOperatorAuthorizationResultHandler>();
 builder.Services.AddSignalR(options => options.MaximumParallelInvocationsPerClient = 1).AddJsonProtocol(options =>
     options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
@@ -175,6 +179,7 @@ builder.Services.AddHttpClient<IDiscordService, DiscordService>();
 // Register our services
 builder.Services.AddSingleton<IBotInfoCache, BotInfoCache>();
 builder.Services.AddSingleton<IBotOperatorAccessService, BotOperatorAccessService>();
+builder.Services.AddSingleton<IGuildMaintainerAccessService, GuildMaintainerAccessService>();
 builder.Services.AddSingleton<ICustomBotTokenProtector, CustomBotTokenProtector>();
 builder.Services.AddSingleton<IDiscordOAuthTokenProtector, DiscordOAuthTokenProtector>();
 builder.Services.AddSingleton<DiscordOAuthTokenMigrationService>();

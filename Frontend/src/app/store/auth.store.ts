@@ -9,6 +9,8 @@ export interface User {
     avatar: string;
     verified?: boolean;
     isBotOperator?: boolean;
+    canManageGuilds?: boolean;
+    botOperatorRole?: string | null;
 }
 
 export interface AuthState {
@@ -35,6 +37,7 @@ export class AuthStore {
   readonly isAuthenticated = computed(() => this._user() !== null);
   readonly hasError = computed(() => this._error() !== null);
   readonly isBotOperator = computed(() => this._user()?.isBotOperator === true);
+  readonly canManageGuilds = computed(() => this._user()?.canManageGuilds === true);
 
   // Actions
   setUser(user: User | null): void {

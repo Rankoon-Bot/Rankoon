@@ -67,7 +67,7 @@ export class SidebarComponent {
   private readonly authStore = inject(AuthStore);
   readonly buildInfo = inject(BuildInfoService);
 
-  constructor() { effect(() => { const guild = this.appStore.selectedGuild(); const capabilities = this.appStore.guildCapabilities(); if (guild && capabilities?.isOwner) this.botIdentityAccess.load(guild.id); else this.botIdentityAccess.clear(); }); }
+  constructor() { effect(() => { const guild = this.appStore.selectedGuild(); const capabilities = this.appStore.guildCapabilities(); if (guild && (capabilities?.isOwner || capabilities?.isMaintainer === true)) this.botIdentityAccess.load(guild.id); else this.botIdentityAccess.clear(); }); }
 
   readonly menuItems = computed<MenuItem[]>(() => {
     this.locale.locale();
@@ -78,6 +78,7 @@ export class SidebarComponent {
       { label: this.i18n.translate('nav.incidents'), route: '/bot-management/incidents', icon: '' },
       { label: this.i18n.translate('nav.guildHealth'), route: '/bot-management/guilds', icon: '' },
       { label: this.i18n.translate('nav.globalUsage'), route: '/bot-management/usage', icon: '' },
+      ...(this.authStore.canManageGuilds() ? [{ label: this.i18n.translate('nav.maintainerAccess'), route: '/bot-management/maintainer', icon: '' }] : []),
     ] }] : [];
     if (!capabilities || capabilities.guildId !== this.appStore.selectedGuild()?.id) return operatorItem;
 
@@ -87,7 +88,8 @@ export class SidebarComponent {
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>`
     }];
 
-    if (capabilities.isOwner || capabilities.canAccessSettings) items.push({
+    const isGuildManager = capabilities.isOwner || capabilities.isMaintainer === true;
+    if (isGuildManager || capabilities.canAccessSettings) items.push({
        label: this.i18n.translate('nav.dashboard'),
       route: '/dashboard',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -97,7 +99,7 @@ export class SidebarComponent {
         <rect x="3" y="16" width="7" height="5"/>
       </svg>`
     });
-    const hasModule = (moduleId: GuildModuleId) => capabilities.isOwner || capabilities.moduleIds.includes(moduleId);
+    const hasModule = (moduleId: GuildModuleId) => isGuildManager || capabilities.moduleIds.includes(moduleId);
     const hasAnalytics = hasModule('analytics');
     if (hasModule('xp')) items.push({
        label: this.i18n.translate('nav.xp'),
@@ -127,7 +129,7 @@ export class SidebarComponent {
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/><path d="m9 12 2 2 4-4"/></svg>`
     });
 
-    if (capabilities.isOwner) items.push({
+    if (isGuildManager) items.push({
        label: this.i18n.translate('nav.roles'),
       route: '/server-config/roles',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 11 2 2 4-4"/></svg>`
@@ -150,13 +152,13 @@ export class SidebarComponent {
           { label: this.i18n.translate('nav.analyticsAudit'), route: '/analytics/audit', icon: '' }
        ]
     });
-    if (capabilities.isOwner && this.botIdentityAccess.visible()) items.push({ label: this.i18n.translate('nav.botIdentity'), route: '/server-config/bot-identity', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 10h.01M15 10h.01M8 15h8"/></svg>` });
+    if (isGuildManager && this.botIdentityAccess.visible()) items.push({ label: this.i18n.translate('nav.botIdentity'), route: '/server-config/bot-identity', icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 10h.01M15 10h.01M8 15h8"/></svg>` });
     if (hasModule('diagnostics')) items.push({
       label: this.i18n.translate('nav.diagnostics'), route: '/diagnostics/permissions',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="m12 8-3 5 5-3"/></svg>`
     });
     else if (hasModule('xp-announcements')) items.push({ label: this.i18n.translate('nav.levelUpAnnouncements'), route: '/xp/level-up-announcements', icon: '' });
-    if (!environment.production && capabilities.isOwner) items.push({
+    if (!environment.production && isGuildManager) items.push({
       label: this.i18n.translate('nav.dev'),
       route: '/dev',
       icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3"/><path d="m16 9 4 3-4 3"/><path d="m14 5-4 14"/></svg>`,

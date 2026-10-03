@@ -23,7 +23,7 @@ public sealed class DashboardOverviewService(RankoonDbContext database, IGuildDi
 
     public async Task<DashboardOverviewResponse> GetAsync(ClaimsPrincipal user, ulong guildId, DashboardPeriod period, CancellationToken cancellationToken)
     {
-        var owner = await authorization.IsOwnerAsync(user, guildId, cancellationToken);
+        var owner = await authorization.CanManageGuildAsync(user, guildId, cancellationToken);
         var granted = owner ? ProductModules : (await authorization.GetAccessibleModuleIdsAsync(user, guildId, cancellationToken)).ToArray();
         var visible = owner ? ProductModules.ToList() : ProductModules.Where(granted.Contains).ToList();
         if (owner)

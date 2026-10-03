@@ -34,6 +34,7 @@ public static class ReportNames
     public const string LeaderboardSettingsChanged = "leaderboard.settings.changed";
     public const string LeaderboardPrivacyChanged = "leaderboard.privacy.changed";
     public const string RolePermissionsChanged = "permissions.roles.changed";
+    public const string MaintainerAccessChanged = "maintainer.guild-access.changed";
     public const string VoiceHubCreated = "voice.hub.created";
     public const string VoiceHubUpdated = "voice.hub.updated";
     public const string VoiceHubDeleted = "voice.hub.deleted";

@@ -206,6 +206,7 @@ public class AuthController : ControllerBase
                 return this.ApiError("user.notFound");
             }
 
+            var operatorAccess = await GetBotOperatorAccessAsync(user.DiscordId, HttpContext.RequestAborted);
             var userDto = new DiscordUserDto
             {
                 Id = user.Id!,
@@ -215,7 +216,9 @@ public class AuthController : ControllerBase
                 Email = user.Email,
                 Avatar = user.Avatar,
                 Verified = user.Verified,
-                IsBotOperator = await IsBotOperatorAsync(user.DiscordId, HttpContext.RequestAborted)
+                IsBotOperator = operatorAccess.IsAuthorized,
+                CanManageGuilds = BotOperatorAccessRules.CanManageGuildSettings(operatorAccess),
+                BotOperatorRole = operatorAccess.Role
             };
 
             return Ok(userDto);
@@ -258,6 +261,7 @@ public class AuthController : ControllerBase
             var expiresAt = DateTimeOffset.FromUnixTimeSeconds(exp);
             if (expiresAt <= _timeProvider.GetUtcNow()) return this.ApiError("auth.tokenInvalid");
 
+            var operatorAccess = await GetBotOperatorAccessAsync(user.DiscordId, HttpContext.RequestAborted);
             var userDto = new DiscordUserDto
             {
                 Id = user.Id!,
@@ -267,7 +271,9 @@ public class AuthController : ControllerBase
                 Email = user.Email,
                 Avatar = user.Avatar,
                 Verified = user.Verified,
-                IsBotOperator = await IsBotOperatorAsync(user.DiscordId, HttpContext.RequestAborted)
+                IsBotOperator = operatorAccess.IsAuthorized,
+                CanManageGuilds = BotOperatorAccessRules.CanManageGuildSettings(operatorAccess),
+                BotOperatorRole = operatorAccess.Role
             };
 
             return Ok(CreateSessionResponse(userDto, expiresAt));
@@ -320,8 +326,10 @@ public class AuthController : ControllerBase
         return Redirect(errorUrl);
     }
 
-    private async Task<bool> IsBotOperatorAsync(string discordId, CancellationToken cancellationToken) =>
-        ulong.TryParse(discordId, out var userId) && (await _botOperatorAccess.GetAccessAsync(userId, cancellationToken)).IsAuthorized;
+    private async Task<BotOperatorAccessResult> GetBotOperatorAccessAsync(string discordId, CancellationToken cancellationToken) =>
+        ulong.TryParse(discordId, out var userId)
+            ? await _botOperatorAccess.GetAccessAsync(userId, cancellationToken)
+            : new BotOperatorAccessResult(false, null);
 
     private static SessionResponse CreateSessionResponse(DiscordUserDto user, DateTime expiresAt) =>
         CreateSessionResponse(user, new DateTimeOffset(DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc)));

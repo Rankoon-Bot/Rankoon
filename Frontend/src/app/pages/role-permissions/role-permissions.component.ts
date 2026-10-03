@@ -160,7 +160,7 @@ export class RolePermissionsComponent {
     })).subscribe({
       next: data => {
         if (request !== this.loadRequest || this.store.selectedGuild()?.id !== guildId) return;
-        if (!data.isOwner) return this.handleForbidden();
+        if (!data.isOwner && data.isMaintainer !== true) return this.handleForbidden();
         this.applyResponse(data);
         this.loadedGuild = this.store.selectedGuild();
         this.approvedGuildChangeId = null;

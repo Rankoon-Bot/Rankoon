@@ -168,6 +168,7 @@
     },
     "botManagement": {
       "invalidRange": "L'intervallo di gestione del bot non è valido.",
+      "maintainerRevisionConflict": "L’accesso maintainer è cambiato dopo il caricamento. Aggiorna l’elenco e riprova.",
       "unavailable": "La gestione dei bot è temporaneamente non disponibile."
     },
     "permissions": {
@@ -434,11 +435,35 @@
     "noComparison": "Nessun confronto",
     "insights": "Approfondimenti operativi",
     "usageBreakdown": "Ripartizione dell'utilizzo",
+    "maintainer": {
+      "eyebrow": "ACCESSO PER SERVER",
+      "title": "Accesso maintainer",
+      "description": "Scegli quali server Rankoon gestire tramite l’interfaccia web.",
+      "notice": "Questa impostazione è condivisa per il server. Quando è attiva, i maintainer autorizzati dell’applicazione possono visualizzare e modificare le impostazioni. Disattivala per usare lì i normali permessi Discord.",
+      "refresh": "Aggiorna elenco",
+      "loading": "Caricamento dei server gestiti...",
+      "emptyTitle": "Nessun server gestito",
+      "emptyDescription": "Non sono stati trovati server Discord gestiti da Rankoon.",
+      "guildId": "ID server",
+      "runtimeAvailable": "Bot online",
+      "runtimeUnavailable": "Bot non disponibile",
+      "access": "Accesso maintainer",
+      "enabled": "Attivo",
+      "disabled": "Disattivato",
+      "enableAccess": "Attiva l’accesso maintainer per {{name}}",
+      "disableAccess": "Disattiva l’accesso maintainer per {{name}}",
+      "openMaintainer": "Apri impostazioni",
+      "openRegular": "Apri come utente normale",
+      "loadFailed": "Impossibile caricare i server gestiti.",
+      "saveFailed": "Impossibile modificare l’accesso maintainer.",
+      "openFailed": "Impossibile aprire le impostazioni del server."
+    },
     "pages": {
       "overview": "Panoramica delle operazioni",
       "incidents": "Incidenti",
       "guilds": "Stato dei server",
-      "usage": "Utilizzo globale"
+      "usage": "Utilizzo globale",
+      "maintainer": "Accesso maintainer"
     },
     "sections": {
       "overview": {
@@ -479,12 +504,13 @@
       "status": "Stato"
     },
     "status": {
-      "veryActive": "Molto attivo",
-      "active": "Attivo",
-      "lowActivity": "Bassa attività",
+      "healthy": "Operativo",
+      "operationalErrors": "Errori operativi",
+      "permissionAttention": "Permessi da verificare",
+      "configurationAttention": "Configurazione mancante",
+      "lowActivity": "Attività ridotta",
       "inactive": "Inattivo",
-      "new": "Nuovo",
-      "attentionRequired": "Attenzione richiesta"
+      "new": "Nuovo"
     },
     "incidents": {
       "search": "Cerca incidente, fonte o codice",
@@ -501,8 +527,9 @@
       "detailPanel": "Dettagli dell'incidente",
       "empty": "Nessun incidente corrisponde a questi filtri.",
       "acknowledge": "Prendi in carico",
-      "resolve": "Risolvi",
+      "resolve": "Segna come risolto",
       "reopen": "Riapri",
+      "ignore": "Ignora",
       "global": "Globale",
       "stackTrace": "Traccia dello stack",
       "copyStack": "Copia l'analisi dello stack",
@@ -511,7 +538,8 @@
       "statuses": {
         "open": "Aprire",
         "acknowledged": "Riconosciuto",
-        "resolved": "Risolto"
+        "resolved": "Risolto",
+        "ignored": "Ignorato"
       }
     },
     "domain": {
@@ -523,13 +551,39 @@
         "connectedGuilds": "Server connessi",
         "activeGuilds": "Server attivi",
         "commands": "Comandi",
-        "uniqueUsers": "Utenti unici"
+        "uniqueUsers": "Utenti unici",
+        "adoptingGuilds": "Server attivi nel periodo",
+        "memberSum": "Membri totali",
+        "errorGuilds": "Server con errori",
+        "openCriticalIncidents": "Incidenti critici aperti",
+        "errorFreeRate": "Server senza errori (%)",
+        "globalActivity": "Eventi di attività",
+        "telemetryDrops": "Eventi di telemetria scartati",
+        "databaseWriterFailures": "Errori di scrittura del database",
+        "unhealthyWorkers": "Worker non integri",
+        "guilds": "Server",
+        "errors": "Errori"
       },
       "insights": {
         "incident_spike": "Picco di incidenti",
-        "guild_health_down": "La salute della gilda è diminuita",
-        "usage_up": "L'utilizzo è aumentato",
-        "all_systems_healthy": "Tutti i sistemi sani"
+        "guild_health_down": "aa salute della gilda è diminuita",
+        "usage_up": "a'utilizzo è aumentato",
+        "all_systems_healthy": "Tutti i sistemi sani",
+        "workerHealth": "Worker da verificare",
+        "actionGuilds": "Server con errori recenti",
+        "criticalIncidents": "Incidenti critici aperti"
+      },
+      "breakdown": {
+        "unspecified": "Altro",
+        "commands": "Comandi",
+        "experience": "Esperienza",
+        "leaderboard": "Classifica",
+        "seasons": "Stagioni",
+        "voice": "Voce",
+        "selfroles": "Ruoli autonomi",
+        "authorization": "Permessi",
+        "discord": "Discord",
+        "operations": "Operazioni"
       }
     }
   },
@@ -1134,7 +1188,8 @@
     "operationsOverview": "Panoramica delle operazioni",
     "incidents": "Incidenti",
     "guildHealth": "Stato dei server",
-    "globalUsage": "Utilizzo globale"
+    "globalUsage": "Utilizzo globale",
+    "maintainerAccess": "Accesso maintainer"
   },
   "reports": {
     "eyebrow": "RAPPORTO",

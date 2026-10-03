@@ -151,7 +151,7 @@ export class AuthService {
         const user = this.authStore.user();
         if (!user || this.operatorAccessRequestUserId === user.id) return;
         this.operatorAccessRequestUserId = user.id;
-        this.http.get<{ isBotOperator: boolean }>(`${this.API_BASE_URL}/bot-management/access`).pipe(
+        this.http.get<{ isBotOperator: boolean; canManageGuilds: boolean; role: string | null }>(`${this.API_BASE_URL}/bot-management/access`).pipe(
             retry({ count: 3, delay: error => error?.status === 503 ? timer(2_000) : throwError(() => error) }),
             catchError(() => {
                 this.operatorAccessRequestUserId = null;
@@ -159,7 +159,7 @@ export class AuthService {
             })
         ).subscribe(access => {
             if (access && this.authStore.user()?.id === user.id) {
-                this.authStore.setUser({ ...user, isBotOperator: access.isBotOperator });
+                this.authStore.setUser({ ...user, isBotOperator: access.isBotOperator, canManageGuilds: access.canManageGuilds, botOperatorRole: access.role });
             }
         });
     }

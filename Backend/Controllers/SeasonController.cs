@@ -210,7 +210,7 @@ public sealed class SeasonController(IGuildAuthorizationService authorization, R
     }
 
     private async Task<bool> OverlapsAsync(ulong guildId, DateTime startsAtUtc, DateTime endsAtUtc, string? exceptSeasonId) => await database.GuildSeasons.Find(x => x.GuildId == guildId && x.Id != exceptSeasonId && x.StartsAtUtc < endsAtUtc && startsAtUtc < x.EndsAtUtc).AnyAsync(HttpContext.RequestAborted);
-    private async Task<bool> IsAdministratorAsync(ulong guildId) => await authorization.IsOwnerAsync(User, guildId, HttpContext.RequestAborted) || (await authorization.ResolveMemberAsync(User, guildId, HttpContext.RequestAborted))?.GuildPermissions.Administrator == true;
+    private async Task<bool> IsAdministratorAsync(ulong guildId) => await authorization.CanManageGuildAsync(User, guildId, HttpContext.RequestAborted) || (await authorization.ResolveMemberAsync(User, guildId, HttpContext.RequestAborted))?.GuildPermissions.Administrator == true;
     private static bool ValidSeasonInput(GuildSeason season) => !string.IsNullOrWhiteSpace(season.Name) && season.Name.Length <= 120
         && (season.Description == null || season.Description.Length <= 1000)
         && season.StartsAtUtc.Kind == DateTimeKind.Utc && season.EndsAtUtc.Kind == DateTimeKind.Utc

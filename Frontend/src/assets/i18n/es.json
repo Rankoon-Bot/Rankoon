@@ -168,6 +168,7 @@
     },
     "botManagement": {
       "invalidRange": "El rango de administración del bot no es válido.",
+      "maintainerRevisionConflict": "El acceso de mantenimiento cambió desde que se cargó. Actualice la lista e inténtelo de nuevo.",
       "unavailable": "La gestión de bots no está disponible temporalmente."
     },
     "permissions": {
@@ -272,7 +273,7 @@
       "handoverIncomplete": "La transferencia al bot personalizado aún no se ha completado.",
       "returnToPlatformRequired": "Regrese al bot oficial de Rankoon antes de completar esta operación."
     },
-    "selfRoles": {
+    "selfroles": {
       "invalidPanel": "El panel de autorroles no es válido.",
       "tooManyMappings": "Un panel de autorroles admite como máximo 20 asignaciones.",
       "duplicateEmoji": "Cada asignación de autorrol debe utilizar un emoji único.",
@@ -390,7 +391,7 @@
         "reactions": "Reacciones",
         "threads": "Hilos",
         "commands": "Comandos",
-        "selfRoles": "Autorroles",
+        "selfroles": "Autorroles",
         "voiceHubs": "Centros de voz",
         "xp": "XP"
       },
@@ -440,11 +441,35 @@
     "noComparison": "Sin comparación",
     "insights": "Información operativa",
     "usageBreakdown": "Desglose de uso",
+    "maintainer": {
+      "eyebrow": "ACCESO POR SERVIDOR",
+      "title": "Acceso de mantenimiento",
+      "description": "Elija qué servidores de Rankoon quiere administrar desde la interfaz web.",
+      "notice": "Esta opción se comparte en el servidor. Al activarla, los mantenedores autorizados de la aplicación pueden consultar y cambiar sus ajustes. Desactívela para usar allí sus permisos normales de Discord.",
+      "refresh": "Actualizar lista",
+      "loading": "Cargando servidores administrados...",
+      "emptyTitle": "No hay servidores administrados",
+      "emptyDescription": "No se encontraron servidores de Discord administrados por Rankoon.",
+      "guildId": "ID del servidor",
+      "runtimeAvailable": "Bot conectado",
+      "runtimeUnavailable": "Bot no disponible",
+      "access": "Acceso de mantenimiento",
+      "enabled": "Activado",
+      "disabled": "Desactivado",
+      "enableAccess": "Activar acceso de mantenimiento para {{name}}",
+      "disableAccess": "Desactivar acceso de mantenimiento para {{name}}",
+      "openMaintainer": "Abrir ajustes",
+      "openRegular": "Abrir como usuario normal",
+      "loadFailed": "No se pudieron cargar los servidores administrados.",
+      "saveFailed": "No se pudo cambiar el acceso de mantenimiento.",
+      "openFailed": "No se pudieron abrir los ajustes de este servidor."
+    },
     "pages": {
       "overview": "Resumen de operaciones",
       "incidents": "Incidentes",
       "guilds": "Estado de los servidores",
-      "usage": "Uso global"
+      "usage": "Uso global",
+      "maintainer": "Acceso de mantenimiento"
     },
     "sections": {
       "overview": {
@@ -485,12 +510,13 @@
       "status": "Estado"
     },
     "status": {
-      "veryActive": "muy activo",
-      "active": "Activo",
+      "healthy": "Saludable",
+      "operationalErrors": "Errores operativos",
+      "permissionAttention": "Revisar permisos",
+      "configurationAttention": "Falta configuración",
       "lowActivity": "Baja actividad",
       "inactive": "Inactivo",
-      "new": "Nuevo",
-      "attentionRequired": "Atención requerida"
+      "new": "Nuevo"
     },
     "incidents": {
       "search": "Buscar incidente, fuente o código",
@@ -507,8 +533,9 @@
       "detailPanel": "Detalles del incidente",
       "empty": "Ningún incidente coincide con estos filtros.",
       "acknowledge": "Reconocer",
-      "resolve": "Resolver",
+      "resolve": "Marcar como resuelto",
       "reopen": "Reabrir",
+      "ignore": "Ignorar",
       "global": "Global",
       "stackTrace": "Traza de pila",
       "copyStack": "Copiar traza de pila",
@@ -517,7 +544,8 @@
       "statuses": {
         "open": "Abierto",
         "acknowledged": "Admitido",
-        "resolved": "Resuelto"
+        "resolved": "Resuelto",
+        "ignored": "Ignorado"
       }
     },
     "domain": {
@@ -529,13 +557,39 @@
         "connectedGuilds": "Servidores conectados",
         "activeGuilds": "Servidores activos",
         "commands": "Comandos",
-        "uniqueUsers": "Usuarios únicos"
+        "uniqueUsers": "Usuarios únicos",
+        "adoptingGuilds": "Servidores activos en el período",
+        "memberSum": "Miembros en total",
+        "errorGuilds": "Servidores con errores",
+        "openCriticalIncidents": "Incidentes críticos abiertos",
+        "errorFreeRate": "Servidores sin errores (%)",
+        "globalActivity": "Eventos de actividad",
+        "telemetryDrops": "Eventos de telemetría descartados",
+        "databaseWriterFailures": "Fallos de escritura en la base de datos",
+        "unhealthyWorkers": "Workers con problemas",
+        "guilds": "Servidores",
+        "errors": "Errores"
       },
       "insights": {
         "incident_spike": "Pico de incidentes",
         "guild_health_down": "La salud del servidor ha disminuido",
         "usage_up": "Uso aumentado",
-        "all_systems_healthy": "Todos los sistemas sanos"
+        "all_systems_healthy": "Todos los sistemas sanos",
+        "workerHealth": "Worker necesita atención",
+        "actionGuilds": "Servidores con errores recientes",
+        "criticalIncidents": "Incidentes críticos abiertos"
+      },
+      "breakdown": {
+        "unspecified": "Otros",
+        "commands": "Comandos",
+        "experience": "Experiencia",
+        "leaderboard": "Clasificación",
+        "seasons": "Temporadas",
+        "voice": "Voz",
+        "selfroles": "Roles propios",
+        "authorization": "Permisos",
+        "discord": "Discord",
+        "operations": "Operaciones"
       }
     }
   },
@@ -939,7 +993,7 @@
       "voiceXp": "XP de voz",
       "levelUpAnnouncements": "Mensajes de subida de nivel",
       "levelRoles": "Roles de nivel",
-      "selfRoles": "Autorroles",
+      "selfroles": "Autorroles",
       "voiceHubs": "Centros de voz"
     },
     "permission": {
@@ -1118,7 +1172,7 @@
     "levelUpAnnouncements": "Mensajes de subida de nivel",
     "xpAudit": "Historial de XP y ajustes",
     "voiceHubs": "Centros de voz",
-    "selfRoles": "Autorroles",
+    "selfroles": "Autorroles",
     "leaderboardSettings": "Configuración de la tabla de clasificación",
     "roles": "Roles y permisos",
     "botIdentity": "Identidad del bot",
@@ -1140,7 +1194,8 @@
     "operationsOverview": "Resumen de operaciones",
     "incidents": "Incidentes",
     "guildHealth": "Estado de los servidores",
-    "globalUsage": "Uso global"
+    "globalUsage": "Uso global",
+    "maintainerAccess": "Acceso de mantenimiento"
   },
   "reports": {
     "eyebrow": "INFORMES",
@@ -1290,7 +1345,7 @@
     "xp-announcements": { "name": "Anuncios de nivel", "description": "Gestionar mensajes y canales de subida de nivel" },
     "diagnostics": { "name": "Diagnóstico", "description": "Ver diagnósticos de permisos y configuración" }
   },
-  "selfRoles": {
+  "selfroles": {
     "eyebrow": "AUTOMATIZACIÓN DE ROLES",
     "title": "Autorroles",
     "subtitle": "Permita que los miembros asignen roles aprobados desde un mensaje en un canal de texto.",

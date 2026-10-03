@@ -168,6 +168,7 @@
     },
     "botManagement": {
       "invalidRange": "Der Zeitraum für die Bot-Verwaltung ist ungültig.",
+      "maintainerRevisionConflict": "Der Maintainer-Zugriff wurde inzwischen geändert. Bitte lade die Liste neu.",
       "unavailable": "Die Bot-Verwaltung ist vorübergehend nicht verfügbar."
     },
     "permissions": {
@@ -454,11 +455,35 @@
     "noComparison": "Kein Vergleich",
     "insights": "Betriebliche Erkenntnisse",
     "usageBreakdown": "Nutzungsaufschlüsselung",
+    "maintainer": {
+      "eyebrow": "ZUGRIFF JE SERVER",
+      "title": "Maintainer-Zugriff",
+      "description": "Wähle, welche Rankoon-Server du über die Weboberfläche verwalten möchtest.",
+      "notice": "Diese Einstellung gilt gemeinsam für den Server. Wenn sie aktiv ist, können berechtigte App-Maintainer dessen Einstellungen ansehen und ändern. Deaktiviere sie, um dort deine normalen Discord-Berechtigungen zu verwenden.",
+      "refresh": "Liste aktualisieren",
+      "loading": "Verwaltbare Server werden geladen …",
+      "emptyTitle": "Keine verwaltbaren Server",
+      "emptyDescription": "Es wurden keine von Rankoon verwalteten Discord-Server gefunden.",
+      "guildId": "Server-ID",
+      "runtimeAvailable": "Bot-Laufzeit online",
+      "runtimeUnavailable": "Bot-Laufzeit nicht verfügbar",
+      "access": "Maintainer-Zugriff",
+      "enabled": "Aktiv",
+      "disabled": "Inaktiv",
+      "enableAccess": "Maintainer-Zugriff für {{name}} aktivieren",
+      "disableAccess": "Maintainer-Zugriff für {{name}} deaktivieren",
+      "openMaintainer": "Einstellungen öffnen",
+      "openRegular": "Als normaler Nutzer öffnen",
+      "loadFailed": "Die verwaltbaren Server konnten nicht geladen werden.",
+      "saveFailed": "Der Maintainer-Zugriff konnte nicht geändert werden.",
+      "openFailed": "Die Einstellungen dieses Servers konnten nicht geöffnet werden."
+    },
     "pages": {
       "overview": "Betriebsüberblick",
       "incidents": "Vorfälle",
       "guilds": "Serverzustand",
-      "usage": "Globale Nutzung"
+      "usage": "Globale Nutzung",
+      "maintainer": "Maintainer-Zugriff"
     },
     "sections": {
       "overview": {
@@ -499,12 +524,13 @@
       "status": "Status"
     },
     "status": {
-      "veryActive": "Sehr aktiv",
-      "active": "Aktiv",
-      "lowActivity": "Gering aktiv",
+      "healthy": "Gesund",
+      "operationalErrors": "Betriebsfehler",
+      "permissionAttention": "Berechtigungen prüfen",
+      "configurationAttention": "Konfiguration fehlt",
+      "lowActivity": "Geringe Aktivität",
       "inactive": "Inaktiv",
-      "new": "Neu",
-      "attentionRequired": "Auffällig"
+      "new": "Neu"
     },
     "incidents": {
       "search": "Vorfall, Quelle oder Code suchen",
@@ -521,8 +547,9 @@
       "detailPanel": "Vorfallsdetails",
       "empty": "Keine Vorfälle entsprechen diesen Filtern.",
       "acknowledge": "Bestätigen",
-      "resolve": "Beheben",
+      "resolve": "Als behoben markieren",
       "reopen": "Wieder öffnen",
+      "ignore": "Ignorieren",
       "global": "Global",
       "stackTrace": "Stacktrace",
       "copyStack": "Stacktrace kopieren",
@@ -531,7 +558,8 @@
       "statuses": {
         "open": "Offen",
         "acknowledged": "Bestätigt",
-        "resolved": "Behoben"
+        "resolved": "Behoben",
+        "ignored": "Ignoriert"
       }
     },
     "domain": {
@@ -542,14 +570,40 @@
         "failureRate": "Fehlerquote",
         "connectedGuilds": "Verbundene Server",
         "activeGuilds": "Aktive Server",
-        "commands": "Commands",
-        "uniqueUsers": "Eindeutige Nutzer"
+        "commands": "Befehle",
+        "uniqueUsers": "Eindeutige Nutzer",
+        "adoptingGuilds": "Server mit Aktivität im Zeitraum",
+        "memberSum": "Mitglieder insgesamt",
+        "errorGuilds": "Server mit Fehlern",
+        "openCriticalIncidents": "Offene kritische Vorfälle",
+        "errorFreeRate": "Fehlerfreie Server (%)",
+        "globalActivity": "Aktivitätsereignisse",
+        "telemetryDrops": "Verworfene Telemetrieereignisse",
+        "databaseWriterFailures": "Fehler beim Datenbankschreiben",
+        "unhealthyWorkers": "Worker mit Problemen",
+        "guilds": "Server",
+        "errors": "Fehler"
       },
       "insights": {
         "incident_spike": "Vorfallsanstieg",
         "guild_health_down": "Serverzustand gesunken",
         "usage_up": "Nutzung gestiegen",
-        "all_systems_healthy": "Alle Systeme gesund"
+        "all_systems_healthy": "Alle Systeme gesund",
+        "workerHealth": "Worker benötigt Aufmerksamkeit",
+        "actionGuilds": "Server mit kürzlichen Fehlern",
+        "criticalIncidents": "Kritische Vorfälle offen"
+      },
+      "breakdown": {
+        "unspecified": "Sonstige",
+        "commands": "Befehle",
+        "experience": "Erfahrung",
+        "leaderboard": "Rangliste",
+        "seasons": "Saisons",
+        "voice": "Voice",
+        "selfroles": "Selbstzuweisbare Rollen",
+        "authorization": "Berechtigungen",
+        "discord": "Discord",
+        "operations": "Betrieb"
       }
     }
   },
@@ -1179,7 +1233,8 @@
     "operationsOverview": "Betriebsüberblick",
     "incidents": "Vorfälle",
     "guildHealth": "Serverzustand",
-    "globalUsage": "Globale Nutzung"
+    "globalUsage": "Globale Nutzung",
+    "maintainerAccess": "Maintainer-Zugriff"
   },
   "reports": {
     "eyebrow": "REPORTING",

@@ -1,6 +1,6 @@
 export type BotManagementRange = '24h' | '7d' | '30d' | '90d';
-export type BotManagementStatus = 'veryActive' | 'active' | 'lowActivity' | 'inactive' | 'new' | 'attentionRequired';
-export type IncidentStatus = 'open' | 'acknowledged' | 'resolved';
+export type BotManagementStatus = 'healthy' | 'operationalErrors' | 'permissionAttention' | 'configurationAttention' | 'lowActivity' | 'inactive' | 'new';
+export type IncidentStatus = 'open' | 'acknowledged' | 'resolved' | 'ignored';
 export type IncidentSeverity = 'warning' | 'error' | 'critical';
 
 export interface BotManagementGuild {

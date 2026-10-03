@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import {
   guildGuard,
+  botMaintainerGuard,
   botOperatorGuard,
   guestGuard,
   moduleGuard,
@@ -67,6 +68,7 @@ export const routes: Routes = [
           { path: 'incidents', loadComponent: () => import('./pages/bot-management/incidents.component').then(c => c.IncidentsComponent), canActivate: [botOperatorGuard] },
           { path: 'guilds', loadComponent: () => import('./pages/bot-management/guild-health.component').then(c => c.GuildHealthComponent), canActivate: [botOperatorGuard] },
           { path: 'usage', loadComponent: () => import('./pages/bot-management/global-usage.component').then(c => c.GlobalUsageComponent), canActivate: [botOperatorGuard] },
+          { path: 'maintainer', loadComponent: () => import('./pages/bot-management/maintainer-access.component').then(c => c.MaintainerAccessComponent), canActivate: [botMaintainerGuard] },
         ],
       },
       {
