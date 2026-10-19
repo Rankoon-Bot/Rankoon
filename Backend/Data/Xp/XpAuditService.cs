@@ -135,15 +135,16 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
     {
         if (RequiresVoiceTimeline(input.Source)) throw new XpAuditValidationException("xpAudit.voiceRequiresTimeline");
         var take = Math.Clamp(input.Take, 1, 100); var fp = JsonSerializer.Serialize(input with { Take = 0, Cursor = null }); var after = ReadCursor(input.Cursor, guildId, userId, fp);
-        var authority = HistoryAuthority(await GetVoiceMigrationStateAsync(ct));
+        var migration = await GetVoiceMigrationStateAsync(ct);
+        var replacedIds = await ReadReplacedLedgerIdsAsync(guildId, userId, migration, ct);
         var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, guildId) & Builders<XpLedgerEntry>.Filter.Eq(x => x.UserId, userId) & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true) & Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true);
-        if (!authority.IncludeLegacyLedger) filter &= Builders<XpLedgerEntry>.Filter.Ne(x => x.Source, "voice");
+        if (replacedIds.Count > 0) filter &= !VoiceLedgerMigrationService.ReplacedLedgerFilter(replacedIds);
         if (!string.IsNullOrWhiteSpace(input.Source)) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Source, input.Source);
         if (input.Kind != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Kind, input.Kind);
         if (input.Scope != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Scope, input.Scope);
         if (input.SeasonId != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.SeasonId, input.SeasonId);
         if (input.ActorUserId != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.ActorUserId, input.ActorUserId);
-        if (input.ProjectionStatus != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, input.ProjectionStatus);
+        if (input.ProjectionStatus != null) filter &= input.ProjectionStatus == SeasonProjectionStatus.Applied ? XpLedgerFilters.Applied : Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, input.ProjectionStatus);
         if (input.ChannelId != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.ChannelId, input.ChannelId);
         if (input.From != null) filter &= Builders<XpLedgerEntry>.Filter.Gte(x => x.OccurredAtUtc, input.From.Value);
         if (input.To != null) filter &= Builders<XpLedgerEntry>.Filter.Lte(x => x.OccurredAtUtc, input.To.Value);
@@ -161,15 +162,15 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
         var take = Math.Clamp(input.Take, 1, 100); var fp = JsonSerializer.Serialize(input with { Take = 0, Cursor = null }); var after = ReadCursor(input.Cursor, guildId, userId, fp);
         var seasonNames = (await database.GuildSeasons.Find(x => x.GuildId == guildId).ToListAsync(ct)).ToDictionary(x => x.Id!, x => x.Name);
         var candidates = new List<XpAuditTimelineItem>();
-        var authority = HistoryAuthority(await GetVoiceMigrationStateAsync(ct));
-
-        if (!string.Equals(input.Source, "voice", StringComparison.OrdinalIgnoreCase) || authority.IncludeLegacyLedger)
-        {
-            var rows = await database.XpLedger.Find(BuildEntryFilter(guildId, userId, input, after, excludeVoice: !authority.IncludeLegacyLedger))
-                .SortByDescending(x => x.OccurredAtUtc).ThenByDescending(x => x.Id).Limit(take + 1).ToListAsync(ct);
-            var entries = await MapEntriesAsync(rows, seasonNames, ct);
-            candidates.AddRange(entries.Select(ToTimelineEntry));
-        }
+        var migration = await GetVoiceMigrationStateAsync(ct);
+        var authority = HistoryAuthority(migration);
+        var replacedIds = await ReadReplacedLedgerIdsAsync(guildId, userId, migration, ct);
+        var entryFilter = BuildEntryFilter(guildId, userId, input, after);
+        if (replacedIds.Count > 0) entryFilter &= !VoiceLedgerMigrationService.ReplacedLedgerFilter(replacedIds);
+        var rows = await database.XpLedger.Find(entryFilter)
+            .SortByDescending(x => x.OccurredAtUtc).ThenByDescending(x => x.Id).Limit(take + 1).ToListAsync(ct);
+        var entries = await MapEntriesAsync(rows, seasonNames, ct);
+        candidates.AddRange(entries.Select(ToTimelineEntry));
 
         if (VoiceMatchesFilter(input))
         {
@@ -202,14 +203,13 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
         return new(items);
     }
 
-    private FilterDefinition<XpLedgerEntry> BuildEntryFilter(ulong guildId, ulong userId, XpAuditEntryFilter input, Cursor? after, bool excludeVoice = false)
+    private FilterDefinition<XpLedgerEntry> BuildEntryFilter(ulong guildId, ulong userId, XpAuditEntryFilter input, Cursor? after)
     {
         var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, guildId) & Builders<XpLedgerEntry>.Filter.Eq(x => x.UserId, userId) & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true) & Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true);
-        if (excludeVoice) filter &= Builders<XpLedgerEntry>.Filter.Ne(x => x.Source, "voice");
         if (!string.IsNullOrWhiteSpace(input.Source)) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Source, input.Source);
         if (input.Kind != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Kind, input.Kind); if (input.Scope != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Scope, input.Scope);
         if (input.SeasonId != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.SeasonId, input.SeasonId); if (input.ActorUserId != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.ActorUserId, input.ActorUserId);
-        if (input.ProjectionStatus != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, input.ProjectionStatus); if (input.ChannelId != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.ChannelId, input.ChannelId);
+        if (input.ProjectionStatus != null) filter &= input.ProjectionStatus == SeasonProjectionStatus.Applied ? XpLedgerFilters.Applied : Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, input.ProjectionStatus); if (input.ChannelId != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.ChannelId, input.ChannelId);
         if (input.From != null) filter &= Builders<XpLedgerEntry>.Filter.Gte(x => x.OccurredAtUtc, input.From.Value); if (input.To != null) filter &= Builders<XpLedgerEntry>.Filter.Lte(x => x.OccurredAtUtc, input.To.Value);
         if (input.Direction == "Positive") filter &= Builders<XpLedgerEntry>.Filter.Gt(x => x.Amount, 0); if (input.Direction == "Negative") filter &= Builders<XpLedgerEntry>.Filter.Lt(x => x.Amount, 0);
         if (after?.OccurredAt != null)
@@ -335,6 +335,15 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
 
     private async Task<VoiceLedgerMigrationState?> GetVoiceMigrationStateAsync(CancellationToken ct) =>
         await database.VoiceLedgerMigrationStates.Find(x => x.Id == VoiceLedgerMigrationState.SingletonId).FirstOrDefaultAsync(ct);
+
+    private async Task<HashSet<string>> ReadReplacedLedgerIdsAsync(ulong guildId, ulong userId, VoiceLedgerMigrationState? migration, CancellationToken ct)
+    {
+        if (!VoiceLedgerMigrationService.IsCompressedVoiceAuthoritative(migration)) return [];
+        var days = await database.VoiceActivities.Find(x => x.GuildId == guildId && x.UserId == userId &&
+                x.Segments.Any(s => s.SettingsRevision == VoiceLedgerMigrationService.LegacySettingsRevision))
+            .Project(x => new VoiceActivityDay { Segments = x.Segments.Where(s => s.SettingsRevision == VoiceLedgerMigrationService.LegacySettingsRevision).ToList() }).ToListAsync(ct);
+        return VoiceLedgerMigrationService.ReplacedLedgerIds(migration, days);
+    }
 
     internal sealed record VoiceHistoryAuthority(bool IncludeLegacyLedger, bool IncludeMigratedCompressedSegments);
 

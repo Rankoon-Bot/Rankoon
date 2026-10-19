@@ -8,7 +8,7 @@ using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.MongoDb;
 
-public sealed class MongoIndexInitializer(RankoonDbContext database, XpService xp, AuthDataIntegrityInitializer authData, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, IOptions<MongoStartupMaintenanceOptions> configuredOptions, ILogger<MongoIndexInitializer> logger) : BackgroundService
+public sealed class MongoIndexInitializer(RankoonDbContext database, IXpProjectionCoordinator coordinator, AuthDataIntegrityInitializer authData, IOperationalErrorRecorder errors, IWorkerHealthRegistry health, TimeProvider timeProvider, IOptions<MongoStartupMaintenanceOptions> configuredOptions, ILogger<MongoIndexInitializer> logger) : BackgroundService
 {
     private readonly int repairBatchSize = configuredOptions.Value.RepairBatchSize;
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -204,7 +204,7 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     new BsonDocument("normalized_display_name", new BsonDocument("$type", "object"))
                 });
                 await RepairInBatchesAsync(database.MemberXp, invalidNormalizedName, normalizeNames, x => x.Id, stoppingToken);
-                await MigrateLegacyManualAdjustmentsAsync(stoppingToken);
+                await new LegacyManualAdjustmentMigration(database, coordinator, timeProvider).RunAsync(repairBatchSize, stoppingToken);
                 logger.LogInformation("MongoDB indexes initialized");
                 health.Report("mongo-index-initializer", WorkerHealthState.Healthy);
                 return;
@@ -273,44 +273,4 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
         }
     }
 
-    private async Task MigrateLegacyManualAdjustmentsAsync(CancellationToken cancellationToken)
-    {
-        // Deterministic grant keys make an interrupted migration safe to resume.
-        while (true)
-        {
-            var members = await database.MemberXp.Find(x => x.ManualAdjustment != 0).SortBy(x => x.Id).Limit(repairBatchSize).ToListAsync(cancellationToken);
-            if (members.Count == 0) break;
-            foreach (var member in members)
-            {
-                var key = $"migration:manual-adjustment:v1:{member.GuildId}:{member.UserId}";
-                if (await database.XpLedger.Find(x => x.GrantKey == key).AnyAsync(cancellationToken))
-                {
-                    await database.MemberXp.UpdateOneAsync(x => x.Id == member.Id, Builders<MemberXp>.Update.Set(x => x.ManualAdjustment, 0m).Set(x => x.TotalXp, member.ImportedMee6Xp + member.EarnedXp), cancellationToken: cancellationToken);
-                    continue;
-                }
-                var amount = member.ManualAdjustment;
-                await database.MemberXp.UpdateOneAsync(x => x.Id == member.Id, Builders<MemberXp>.Update.Set(x => x.ManualAdjustment, 0m).Set(x => x.TotalXp, member.ImportedMee6Xp + member.EarnedXp), cancellationToken: cancellationToken);
-                var entry = new XpLedgerEntry { GrantKey = key, GuildId = member.GuildId, UserId = member.UserId, DisplayName = member.DisplayName, Source = "legacy_manual_adjustment", Amount = amount, Kind = XpLedgerEntryKind.SystemMigration, Scope = XpLedgerScope.LifetimeOnly, Reason = "Migration of the legacy lifetime manual adjustment", CreatedAt = timeProvider.GetUtcNow().UtcDateTime, OccurredAtUtc = timeProvider.GetUtcNow().UtcDateTime };
-                try { await database.XpLedger.InsertOneAsync(entry, cancellationToken: cancellationToken); await xp.ProjectAsync(entry, cancellationToken); } catch (MongoWriteException e) when (e.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
-            }
-        }
-        while (true)
-        {
-            var seasonMembers = await database.SeasonMemberXp.Find(x => x.ManualAdjustment != 0).SortBy(x => x.Id).Limit(repairBatchSize).ToListAsync(cancellationToken);
-            if (seasonMembers.Count == 0) break;
-            foreach (var member in seasonMembers)
-            {
-                var key = $"migration:season-manual-adjustment:v1:{member.SeasonId}:{member.UserId}";
-                if (await database.XpLedger.Find(x => x.GrantKey == key).AnyAsync(cancellationToken))
-                {
-                    await database.SeasonMemberXp.UpdateOneAsync(x => x.Id == member.Id, Builders<SeasonMemberXp>.Update.Set(x => x.ManualAdjustment, 0m).Set(x => x.TotalXp, member.StartingXp + member.EarnedXp), cancellationToken: cancellationToken);
-                    continue;
-                }
-                var amount = member.ManualAdjustment;
-                await database.SeasonMemberXp.UpdateOneAsync(x => x.Id == member.Id, Builders<SeasonMemberXp>.Update.Set(x => x.ManualAdjustment, 0m).Set(x => x.TotalXp, member.StartingXp + member.EarnedXp), cancellationToken: cancellationToken);
-                var entry = new XpLedgerEntry { GrantKey = key, GuildId = member.GuildId, UserId = member.UserId, DisplayName = member.DisplayName, Source = "legacy_season_manual_adjustment", Amount = amount, Kind = XpLedgerEntryKind.SystemMigration, Scope = XpLedgerScope.SeasonOnly, SeasonId = member.SeasonId, Reason = "Migration of the legacy season manual adjustment", CreatedAt = timeProvider.GetUtcNow().UtcDateTime, OccurredAtUtc = timeProvider.GetUtcNow().UtcDateTime };
-                try { await database.XpLedger.InsertOneAsync(entry, cancellationToken: cancellationToken); await xp.ProjectAsync(entry, cancellationToken); } catch (MongoWriteException e) when (e.WriteError.Category == ServerErrorCategory.DuplicateKey) { }
-            }
-        }
-    }
 }

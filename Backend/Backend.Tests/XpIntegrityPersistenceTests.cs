@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Rankoon.Data.Discord;
 using Rankoon.Data.Model;
@@ -26,6 +27,7 @@ public sealed class XpIntegrityPersistenceTests : IAsyncLifetime
         client = new(connection);
         db = new(Options.Create(new MongoDbSettings { ConnectionString = connection, DatabaseName = databaseName }));
         await db.MemberXp.Indexes.CreateOneAsync(new CreateIndexModel<MemberXp>(Builders<MemberXp>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.UserId), new() { Unique = true }));
+        await db.XpLedger.Indexes.CreateOneAsync(new CreateIndexModel<XpLedgerEntry>(Builders<XpLedgerEntry>.IndexKeys.Ascending(x => x.GrantKey), new() { Unique = true }));
         await db.LevelTransitionEvents.Indexes.CreateOneAsync(new CreateIndexModel<LevelTransitionEvent>(Builders<LevelTransitionEvent>.IndexKeys.Ascending(x => x.EventKey), new() { Unique = true }));
         await db.SeasonMemberXp.Indexes.CreateOneAsync(new CreateIndexModel<SeasonMemberXp>(Builders<SeasonMemberXp>.IndexKeys.Ascending(x => x.SeasonId).Ascending(x => x.UserId), new() { Unique = true }));
         await db.GuildXpSettings.InsertOneAsync(new() { GuildId = 1 });
@@ -212,7 +214,13 @@ public sealed class XpIntegrityPersistenceTests : IAsyncLifetime
         await db.XpLedger.DeleteManyAsync(FilterDefinition<XpLedgerEntry>.Empty);
         Assert.True((await Service().CheckMemberAsync(1, 2, 20)).NeedsReview);
         Assert.Equal(100, (await Member(2)).TotalXp);
-        Assert.Single(errors.Records);
+        var error = Assert.Single(errors.Records);
+        var context = OperationalErrorSanitizer.RedactContext(error.Context);
+        Assert.Equal("2", context["userId"]);
+        Assert.Equal("lifetime", context["xpScope"]);
+        Assert.Equal("100", context["xpStoredEarned"]);
+        Assert.Equal("0", context["xpSourceEarned"]);
+        Assert.Equal("-100", context["xpEarnedDifference"]);
     }
 
     [Rankoon.Backend.Tests.SeasonMongoFact]
@@ -229,6 +237,89 @@ public sealed class XpIntegrityPersistenceTests : IAsyncLifetime
         await db.GuildLevelUpAnnouncementSettings.UpdateOneAsync(x => x.GuildId == 1,
             Builders<GuildLevelUpAnnouncementSettings>.Update.Set(x => x.Lifetime.Enabled, false));
         Assert.Equal(0, (await Service().CheckMemberAsync(1, 2, 20)).Queued);
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task Pre_projection_ledger_documents_are_historical_awards_and_never_new_pending_grants()
+    {
+        await db.MemberXp.InsertOneAsync(new() { GuildId = 1, UserId = 2, EarnedXp = 27, TotalXp = 27 });
+        var legacy = Ledger(2, 27).ToBsonDocument();
+        legacy.Remove("projection_status"); legacy.Remove("kind"); legacy.Remove("scope"); legacy.Remove("is_projection_control"); legacy.Remove("cooldown_denied");
+        await db.RawSettings("xp_ledger").InsertOneAsync(legacy);
+        var entry = await db.XpLedger.Find(x => x.UserId == 2).SingleAsync();
+        Assert.Equal(SeasonProjectionStatus.Applied, entry.ProjectionStatus);
+        Assert.Equal(SeasonProjectionStatus.Pending, new XpLedgerEntry().ProjectionStatus);
+        Assert.False((await Service().CheckMemberAsync(1, 2, 0)).NeedsReview);
+        Assert.Equal(27, (await Member(2)).TotalXp);
+        await db.MemberXp.UpdateOneAsync(x => x.UserId == 2, Builders<MemberXp>.Update.Set(x => x.EarnedXp, 0).Set(x => x.TotalXp, 0));
+        Assert.Equal(1, (await Service().CheckMemberAsync(1, 2, 0)).Corrected);
+        Assert.Equal(27, (await Member(2)).TotalXp);
+        var audit = new XpAuditService(db, null!, null!, null!, clock, new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(), null!);
+        var filter = new XpAuditEntryFilter(null, null, null, null, null, null, SeasonProjectionStatus.Applied, null, null);
+        Assert.Equal(SeasonProjectionStatus.Applied, Assert.Single((await audit.GetEntriesAsync(1, 2, filter)).Items).ProjectionStatus);
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task A_recorded_negative_manual_adjustment_is_restored_after_a_legacy_startup_reset()
+    {
+        await Seed(2, amount: 12);
+        var baseline = Ledger(2, 0); baseline.Kind = XpLedgerEntryKind.SystemMigration; baseline.Source = "legacy_manual_adjustment";
+        baseline.GrantKey = "migration:manual-adjustment:v1:1:2"; baseline.Scope = XpLedgerScope.LifetimeOnly;
+        var adjustment = Ledger(2, -12); adjustment.Kind = XpLedgerEntryKind.ManualAdjustment; adjustment.Source = "manual_adjustment";
+        await db.XpLedger.InsertManyAsync([baseline, adjustment]);
+        var result = await Service().CheckMemberAsync(1, 2, 0);
+        Assert.False(result.NeedsReview); Assert.Equal(1, result.Corrected);
+        Assert.Equal(-12, (await Member(2)).ManualAdjustment); Assert.Equal(0, (await Member(2)).TotalXp);
+        Assert.Equal(0, (await Service().CheckMemberAsync(1, 2, 0)).Corrected);
+        Assert.Empty(errors.Records);
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task Legacy_manual_migration_records_existing_balances_once_and_never_resets_modern_adjustments()
+    {
+        var migration = new LegacyManualAdjustmentMigration(db, new XpProjectionCoordinator(db, clock), clock);
+        var season = new GuildSeason { GuildId = 1, Status = SeasonStatus.Active };
+        await db.GuildSeasons.InsertOneAsync(season);
+        await db.MemberXp.InsertOneAsync(new() { GuildId = 1, UserId = 2, ManualAdjustment = 10, TotalXp = 10 });
+        await db.SeasonMemberXp.InsertOneAsync(new() { GuildId = 1, UserId = 2, SeasonId = season.Id!, StartingXp = 30, ManualAdjustment = -5, TotalXp = 25 });
+        await migration.RunAsync(1);
+        await migration.RunAsync(1);
+        Assert.Equal(10, (await Member(2)).TotalXp); Assert.Equal(10, (await Member(2)).ManualAdjustment);
+        var seasonMember = await db.SeasonMemberXp.Find(x => x.SeasonId == season.Id).SingleAsync();
+        Assert.Equal(-5, seasonMember.ManualAdjustment); Assert.Equal(25, seasonMember.TotalXp);
+        var baselines = await db.XpLedger.Find(x => x.Kind == XpLedgerEntryKind.SystemMigration).ToListAsync();
+        Assert.Equal(2, baselines.Count); Assert.All(baselines, x => Assert.Equal(SeasonProjectionStatus.Applied, x.ProjectionStatus));
+        Assert.Empty(await Events());
+
+        var modern = Ledger(2, 5); modern.Kind = XpLedgerEntryKind.ManualAdjustment;
+        await db.XpLedger.InsertOneAsync(modern);
+        await db.MemberXp.UpdateOneAsync(x => x.UserId == 2, Builders<MemberXp>.Update.Set(x => x.ManualAdjustment, 15).Set(x => x.TotalXp, 15));
+        await db.MemberXp.InsertOneAsync(new() { GuildId = 1, UserId = 3, ManualAdjustment = 20, TotalXp = 20 });
+        var newMemberAdjustment = Ledger(3, 20); newMemberAdjustment.Kind = XpLedgerEntryKind.ManualAdjustment;
+        await db.XpLedger.InsertOneAsync(newMemberAdjustment);
+        await migration.RunAsync(1);
+        Assert.Equal(15, (await Member(2)).ManualAdjustment); Assert.Equal(15, (await Member(2)).TotalXp);
+        Assert.Equal(20, (await Member(3)).ManualAdjustment); Assert.Equal(20, (await Member(3)).TotalXp);
+        Assert.Equal(2, await db.XpLedger.CountDocumentsAsync(x => x.Kind == XpLedgerEntryKind.SystemMigration));
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task A_busy_manual_migration_leaves_the_balance_intact_and_can_be_retried()
+    {
+        await db.MemberXp.InsertOneAsync(new() { GuildId = 1, UserId = 2, ManualAdjustment = 10, TotalXp = 10 });
+        var coordinator = new XpProjectionCoordinator(db, clock);
+        var migration = new LegacyManualAdjustmentMigration(db, coordinator, clock);
+        await using (var busy = await coordinator.AcquireAsync(1, 2, null))
+        {
+            Assert.NotNull(busy);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => migration.RunAsync(1));
+            Assert.Equal(10, (await Member(2)).TotalXp);
+            Assert.Empty(await db.XpLedger.Find(FilterDefinition<XpLedgerEntry>.Empty).ToListAsync());
+        }
+        await migration.RunAsync(1);
+        await migration.RunAsync(1);
+        Assert.Equal(10, Assert.Single(await db.XpLedger.Find(FilterDefinition<XpLedgerEntry>.Empty).ToListAsync()).Amount);
+        Assert.Equal(10, (await Member(2)).TotalXp);
     }
 
     [Rankoon.Backend.Tests.SeasonMongoFact]
@@ -255,6 +346,98 @@ public sealed class XpIntegrityPersistenceTests : IAsyncLifetime
         var member = await Member(2);
         Assert.Equal(100, member.TotalXp); Assert.Equal(100, member.VoiceXp);
         Assert.Equal(1, Assert.Single(await Events()).NewLevel);
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task Voice_cutover_keeps_skipped_and_late_ledger_awards_and_counts_copied_awards_once()
+    {
+        const decimal expected = 175.625m;
+        await db.MemberXp.InsertOneAsync(new() { GuildId = 1, UserId = 2, EarnedXp = expected, VoiceXp = expected, TotalXp = expected });
+        var copied = Ledger(2, 100); copied.Source = "voice";
+        var skipped = Ledger(2, 25.125m); skipped.Source = "voice"; // No duration/channel: migration cannot copy this entry.
+        await db.XpLedger.InsertManyAsync([copied, skipped]);
+        await db.VoiceActivities.InsertOneAsync(new()
+        {
+            GuildId = 1, UserId = 2, ProjectionStatus = VoiceActivityProjectionStatus.Applied,
+            TotalAwardedXp = 100, ProjectedXp = 100, TotalEligibleSeconds = 600, ProjectedEligibleSeconds = 600,
+            Segments = [new() { SessionId = VoiceLedgerMigrationService.LegacySessionId(copied.Id!), SettingsRevision = VoiceLedgerMigrationService.LegacySettingsRevision, AwardedXp = 100, EligibleSeconds = 600 }]
+        });
+        await db.VoiceLedgerMigrationStates.InsertOneAsync(new()
+        {
+            SourceHighWatermarkId = skipped.Id, Phase = VoiceLedgerMigrationPhase.AwaitingDeletionApproval,
+            Parity = new() { Matches = true, GroupedParityVerified = true, Fingerprint = "verified" }
+        });
+        var late = Ledger(2, 50.5m); late.Source = "voice"; late.ChannelId = 3;
+        late.PeriodStartsAtUtc = clock.GetUtcNow().UtcDateTime.AddMinutes(-1); late.PeriodEndsAtUtc = clock.GetUtcNow().UtcDateTime;
+        late.ProjectedAtUtc = clock.GetUtcNow().UtcDateTime;
+        await db.XpLedger.InsertOneAsync(late);
+
+        var check = await Service().CheckMemberAsync(1, 2, 0);
+        Assert.False(check.NeedsReview);
+        Assert.Equal(expected, (await Member(2)).TotalXp);
+        Assert.Empty(errors.Records);
+
+        // Also restore a previously reduced projection from the same durable evidence.
+        await db.MemberXp.UpdateOneAsync(x => x.UserId == 2, Builders<MemberXp>.Update
+            .Set(x => x.EarnedXp, 100).Set(x => x.VoiceXp, 100).Set(x => x.TotalXp, 100));
+        Assert.Equal(1, (await Service().CheckMemberAsync(1, 2, 0)).Corrected);
+        Assert.Equal(expected, (await Member(2)).EarnedXp);
+        Assert.Equal(expected, (await Member(2)).VoiceXp);
+        Assert.Equal(expected, (await Member(2)).TotalXp);
+        Assert.Equal(0, (await Service().CheckMemberAsync(1, 2, 0)).Corrected);
+
+        var audit = new XpAuditService(db, null!, null!, null!, clock, new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(), null!);
+        var filter = new XpAuditEntryFilter(null, null, null, null, null, null, null, null, null);
+        var entries = await audit.GetEntriesAsync(1, 2, filter);
+        Assert.Equal(2, entries.Items.Count);
+        Assert.DoesNotContain(entries.Items, x => x.Id == copied.Id);
+        var timeline = await audit.GetTimelineAsync(1, 2, filter with { Source = "voice" });
+        Assert.Equal(expected, timeline.Items.Sum(x => x.TotalAmount));
+        Assert.Single(timeline.Items, x => x.ItemType == XpAuditTimelineItemType.VoiceDay);
+        Assert.Equal(2, timeline.Items.Count(x => x.ItemType == XpAuditTimelineItemType.Entry));
+
+        // Approved deletion of the copied originals must not change the result.
+        await db.XpLedger.DeleteOneAsync(x => x.Id == copied.Id);
+        await db.VoiceLedgerMigrationStates.UpdateOneAsync(x => x.Id == VoiceLedgerMigrationState.SingletonId,
+            Builders<VoiceLedgerMigrationState>.Update.Set(x => x.Phase, VoiceLedgerMigrationPhase.Completed).Set(x => x.DeletionApprovalFingerprint, "verified"));
+        Assert.False((await Service().CheckMemberAsync(1, 2, 0)).NeedsReview);
+        Assert.Equal(expected, (await Member(2)).TotalXp);
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task Active_season_recovers_uncopied_voice_awards_without_changing_the_starting_balance_or_closed_seasons()
+    {
+        var active = new GuildSeason { GuildId = 1, Name = "Current", Status = SeasonStatus.Active };
+        var closed = new GuildSeason { GuildId = 1, Name = "Past", Status = SeasonStatus.Closed };
+        await db.GuildSeasons.InsertManyAsync([active, closed]);
+        await db.MemberXp.InsertOneAsync(new() { GuildId = 1, UserId = 2, ImportedMee6Xp = 30, EarnedXp = 125.125m, VoiceXp = 125.125m, TotalXp = 155.125m });
+        await db.SeasonMemberXp.InsertManyAsync([
+            new() { GuildId = 1, UserId = 2, SeasonId = active.Id!, StartingXp = 20, EarnedXp = 100, VoiceXp = 100, TotalXp = 120 },
+            new() { GuildId = 1, UserId = 2, SeasonId = closed.Id!, StartingXp = 9, EarnedXp = 10, TotalXp = 19 }
+        ]);
+        var copied = Ledger(2, 100); copied.Source = "voice"; copied.SeasonId = active.Id;
+        var skipped = Ledger(2, 25.125m); skipped.Source = "voice"; skipped.SeasonId = active.Id;
+        await db.XpLedger.InsertManyAsync([copied, skipped]);
+        await db.VoiceActivities.InsertOneAsync(new()
+        {
+            GuildId = 1, UserId = 2, ProjectionStatus = VoiceActivityProjectionStatus.Applied,
+            TotalAwardedXp = 100, ProjectedXp = 100, TotalEligibleSeconds = 600, ProjectedEligibleSeconds = 600,
+            SeasonTotals = [new() { SeasonId = active.Id, AwardedXp = 100, EligibleSeconds = 600 }],
+            ProjectedSeasonTotals = [new() { SeasonId = active.Id, AwardedXp = 100, EligibleSeconds = 600 }],
+            Segments = [new() { SessionId = VoiceLedgerMigrationService.LegacySessionId(copied.Id!), SettingsRevision = VoiceLedgerMigrationService.LegacySettingsRevision, AwardedXp = 100, EligibleSeconds = 600, SeasonId = active.Id }]
+        });
+        await db.VoiceLedgerMigrationStates.InsertOneAsync(new()
+        {
+            Phase = VoiceLedgerMigrationPhase.AwaitingDeletionApproval,
+            Parity = new() { Matches = true, GroupedParityVerified = true, Fingerprint = "verified" }
+        });
+        Assert.Equal(1, (await Service().CheckMemberAsync(1, 2, 0)).Corrected);
+        var current = await db.SeasonMemberXp.Find(x => x.SeasonId == active.Id).SingleAsync();
+        Assert.Equal(20, current.StartingXp); Assert.Equal(125.125m, current.EarnedXp); Assert.Equal(125.125m, current.VoiceXp); Assert.Equal(145.125m, current.TotalXp);
+        Assert.Equal(19, (await db.SeasonMemberXp.Find(x => x.SeasonId == closed.Id).SingleAsync()).TotalXp);
+        Assert.Equal(155.125m, (await Member(2)).TotalXp);
+        Assert.Equal(0, (await Service().CheckMemberAsync(1, 2, 0)).Corrected);
+        Assert.Empty(errors.Records);
     }
 
     [Rankoon.Backend.Tests.SeasonMongoFact]

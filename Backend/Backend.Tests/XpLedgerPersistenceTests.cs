@@ -244,6 +244,64 @@ public sealed class XpLedgerPersistenceTests : IAsyncLifetime
     }
 
     [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task Ledger_recovery_after_voice_cutover_preserves_uncopied_awards_and_server_totals()
+    {
+        await SeedVoiceCutoverAsync();
+        transitions.FailNext = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => xp.GrantAsync(Grant("recover-cutover")));
+        clock.Advance(TimeSpan.FromMinutes(3));
+        await xp.ProjectAsync(await Ledger("recover-cutover"), default);
+        await xp.ProjectAsync(await Ledger("recover-cutover"), default);
+        var member = (await xp.GetMemberAsync(1, 2))!;
+        Assert.Equal(50, member.ImportedMee6Xp);
+        Assert.Equal(135.125m, member.EarnedXp);
+        Assert.Equal(125.125m, member.VoiceXp);
+        Assert.Equal(185.125m, member.TotalXp);
+        Assert.Equal(135.125m, (await Stats()).XpAwarded);
+        Assert.Equal(125.125m, (await Stats()).VoiceXpAwarded);
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task Voice_recovery_after_cutover_preserves_uncopied_awards_without_readding_copied_grants()
+    {
+        await SeedVoiceCutoverAsync();
+        await accumulator.AccrueAsync(Slice(600, 660) with { SessionId = "live" });
+        transitions.FailNext = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await voice.ProjectAsync(await Day(), "Member"));
+        clock.Advance(TimeSpan.FromMinutes(3));
+        await voice.ProjectAsync(await Day(), "Member");
+        await voice.ProjectAsync(await Day(), "Member");
+        var member = (await xp.GetMemberAsync(1, 2))!;
+        Assert.Equal(135.125m, member.EarnedXp);
+        Assert.Equal(135.125m, member.VoiceXp);
+        Assert.Equal(185.125m, member.TotalXp);
+        Assert.Equal(135.125m, (await Stats()).XpAwarded);
+        Assert.Equal(135.125m, (await Stats()).VoiceXpAwarded);
+    }
+
+    private async Task SeedVoiceCutoverAsync()
+    {
+        var copied = Entry("copied"); copied.Source = "voice"; copied.Amount = 100; copied.ProjectionStatus = SeasonProjectionStatus.Applied;
+        var skipped = Entry("skipped"); skipped.Source = "voice"; skipped.Amount = 25.125m; skipped.ProjectionStatus = SeasonProjectionStatus.Applied;
+        await db.XpLedger.InsertManyAsync([copied, skipped]);
+        // The production legacy shape has no projection_status at all.
+        await db.XpLedger.UpdateOneAsync(x => x.Id == skipped.Id, Builders<XpLedgerEntry>.Update
+            .Unset(x => x.ProjectionStatus).Unset(x => x.IsProjectionControl).Unset(x => x.CooldownDenied));
+        await db.MemberXp.InsertOneAsync(new() { GuildId = 1, UserId = 2, ImportedMee6Xp = 50, EarnedXp = 125.125m, VoiceXp = 125.125m, TotalXp = 175.125m, VoiceSeconds = 600 });
+        await db.GuildStats.InsertOneAsync(new() { GuildId = 1, XpAwarded = 125.125m, VoiceXpAwarded = 125.125m, VoiceSeconds = 600 });
+        await accumulator.AccrueAsync(Slice(0, 600) with
+        {
+            SessionId = VoiceLedgerMigrationService.LegacySessionId(copied.Id!),
+            SettingsRevision = VoiceLedgerMigrationService.LegacySettingsRevision, AlreadyProjected = true
+        });
+        await db.VoiceLedgerMigrationStates.InsertOneAsync(new()
+        {
+            SourceHighWatermarkId = skipped.Id, Phase = VoiceLedgerMigrationPhase.AwaitingDeletionApproval,
+            Parity = new() { Matches = true, GroupedParityVerified = true, Fingerprint = "verified" }
+        });
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
     public async Task New_cooldown_reservation_preserves_proof_of_an_interrupted_earlier_grant()
     {
         var first = Entry("first"); first.CooldownSource = "message"; first.CooldownSeconds = 60;

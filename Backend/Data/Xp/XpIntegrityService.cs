@@ -8,7 +8,7 @@ using Rankoon.Data.Operations;
 
 namespace Rankoon.Data.Xp;
 
-internal sealed record XpIntegrityTotals(decimal EarnedXp, decimal ManualXp, decimal VoiceXp, decimal SilentMigrationXp = 0);
+internal sealed record XpIntegrityTotals(decimal EarnedXp, decimal ManualXp, decimal VoiceXp, decimal SilentMigrationXp = 0, bool HasManualBaseline = false);
 internal sealed record XpIntegrityMemberResult(int Corrected, int Queued, bool Deferred = false, bool NeedsReview = false);
 internal sealed record XpIntegrityRunResult(int Checked, int Corrected, int Queued, int Deferred, int Failed);
 internal sealed record XpIntegrityGuild(ulong GuildId);
@@ -41,7 +41,7 @@ public sealed class XpIntegrityService(RankoonDbContext database, IXpProjectionC
                     if (result.Failed == 0)
                         logger.LogInformation("XP integrity check: {Detail}", detail);
                     else
-                        logger.LogWarning("XP integrity check needs attention: {Detail}; no XP source reductions were applied. Review the related operational incidents",
+                        logger.LogWarning("XP integrity check needs attention: {Detail}; unexplained XP source reductions were not applied. Review the related operational incidents",
                             detail);
                 }
             }
@@ -161,13 +161,15 @@ public sealed class XpIntegrityService(RankoonDbContext database, IXpProjectionC
             return new(marked, 0, Deferred: true);
         }
         var voice = VoiceActivityProjectionService.Snapshot(days, new VoiceActivityDay(), compressed);
-        var totals = await LedgerTotalsAsync(guildId, userId, null, compressed, ct);
+        var replacedIds = VoiceLedgerMigrationService.ReplacedLedgerIds(migration, days);
+        var totals = await LedgerTotalsAsync(guildId, userId, null, replacedIds, ct);
         totals = totals with { EarnedXp = totals.EarnedXp + voice.AwardedXp, VoiceXp = totals.VoiceXp + voice.AwardedXp };
         var needsReview = WouldReduceSources(member.EarnedXp, member.ManualAdjustment, totals);
         var corrected = 0; var queued = 0;
         if (needsReview)
         {
-            await RecordFailureAsync(new InvalidOperationException("XP source history is below the stored balance. Inspect ledger completeness before reducing XP."), guildId, userId, ct);
+            await RecordFailureAsync(new InvalidOperationException("XP source history is below the stored balance. Inspect ledger completeness before reducing XP."), guildId, userId, ct,
+                SourceMismatchContext(userId, "lifetime", member.EarnedXp, member.ManualAdjustment, member.VoiceXp, totals, migration));
             logger.LogDebug("XP history for {GuildId}/{UserId} needs review; no XP or announcement changed", guildId, userId);
             return new(0, 0, NeedsReview: true);
         }
@@ -192,14 +194,15 @@ public sealed class XpIntegrityService(RankoonDbContext database, IXpProjectionC
         foreach (var season in seasons)
         {
             var seasonMember = await database.SeasonMemberXp.Find(x => x.SeasonId == season.Id && x.UserId == userId).FirstOrDefaultAsync(ct);
-            var seasonTotals = await LedgerTotalsAsync(guildId, userId, season.Id, compressed, ct);
+            var seasonTotals = await LedgerTotalsAsync(guildId, userId, season.Id, replacedIds, ct);
             voice.Seasons.TryGetValue(season.Id!, out var seasonVoice);
             seasonTotals = seasonTotals with { EarnedXp = seasonTotals.EarnedXp + (seasonVoice?.AwardedXp ?? 0), VoiceXp = seasonTotals.VoiceXp + (seasonVoice?.AwardedXp ?? 0) };
-            if (seasonMember == null && seasonTotals == new XpIntegrityTotals(0, 0, 0)) continue;
+            if (seasonMember == null && seasonTotals.EarnedXp == 0 && seasonTotals.ManualXp == 0 && seasonTotals.VoiceXp == 0) continue;
             if (WouldReduceSources(seasonMember?.EarnedXp ?? 0, seasonMember?.ManualAdjustment ?? 0, seasonTotals))
             {
                 needsReview = true;
-                await RecordFailureAsync(new InvalidOperationException($"Season XP history is incomplete for {season.Id}; inspect before reducing XP."), guildId, userId, ct);
+                await RecordFailureAsync(new InvalidOperationException($"Season XP history is incomplete for {season.Id}; inspect before reducing XP."), guildId, userId, ct,
+                    SourceMismatchContext(userId, season.Id!, seasonMember?.EarnedXp ?? 0, seasonMember?.ManualAdjustment ?? 0, seasonMember?.VoiceXp ?? 0, seasonTotals, migration));
                 continue;
             }
             var starting = seasonMember?.StartingXp ?? 0;
@@ -273,31 +276,47 @@ public sealed class XpIntegrityService(RankoonDbContext database, IXpProjectionC
 
     internal static string CatchUpKey(ulong guildId, ulong userId, LevelProgressScope scope, string? seasonId, int level) =>
         $"xp-integrity:{guildId}:{userId}:{scope}:{seasonId ?? "lifetime"}:{level}";
-    internal static bool WouldReduceSources(decimal earned, decimal manual, XpIntegrityTotals expected) => expected.EarnedXp < earned || expected.ManualXp < manual;
+    internal static bool WouldReduceSources(decimal earned, decimal manual, XpIntegrityTotals expected) =>
+        expected.EarnedXp < earned || expected.ManualXp < manual && !expected.HasManualBaseline;
 
-    private async Task<XpIntegrityTotals> LedgerTotalsAsync(ulong guildId, ulong userId, string? seasonId, bool compressed, CancellationToken ct)
+    private async Task<XpIntegrityTotals> LedgerTotalsAsync(ulong guildId, ulong userId, string? seasonId, IReadOnlyCollection<string> replacedIds, CancellationToken ct)
     {
         var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, guildId) & Builders<XpLedgerEntry>.Filter.Eq(x => x.UserId, userId) &
-            Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, SeasonProjectionStatus.Applied) & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true) & Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true);
+            XpLedgerFilters.Applied & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true) & Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true);
         filter &= seasonId == null ? Builders<XpLedgerEntry>.Filter.Ne(x => x.Scope, XpLedgerScope.SeasonOnly) :
             Builders<XpLedgerEntry>.Filter.Eq(x => x.SeasonId, seasonId) & Builders<XpLedgerEntry>.Filter.Ne(x => x.Scope, XpLedgerScope.LifetimeOnly);
-        if (compressed) filter &= Builders<XpLedgerEntry>.Filter.Ne(x => x.Source, "voice");
+        if (replacedIds.Count > 0) filter &= !VoiceLedgerMigrationService.ReplacedLedgerFilter(replacedIds);
         var automatic = new BsonDocument("$in", new BsonArray { new BsonDocument("$ifNull", new BsonArray { "$kind", "AutomaticGrant" }), new BsonArray { "AutomaticGrant", "AutomaticReversal" } });
         var voice = new BsonDocument("$and", new BsonArray { automatic, new BsonDocument("$in", new BsonArray { "$source", new BsonArray { "voice", "voice_reversal" } }) });
+        var baselineKey = seasonId == null ? $"migration:manual-adjustment:v1:{guildId}:{userId}" : $"migration:season-manual-adjustment:v1:{seasonId}:{userId}";
+        var manualBaseline = new BsonDocument("$and", new BsonArray {
+            new BsonDocument("$eq", new BsonArray { "$grant_key", baselineKey }),
+            new BsonDocument("$eq", new BsonArray { "$kind", "SystemMigration" }),
+            new BsonDocument("$eq", new BsonArray { "$source", seasonId == null ? "legacy_manual_adjustment" : "legacy_season_manual_adjustment" })
+        });
         var grouped = await database.XpLedger.Aggregate().Match(filter).Group<BsonDocument>(new BsonDocument
         {
             { "_id", BsonNull.Value },
             { "earned", new BsonDocument("$sum", new BsonDocument("$cond", new BsonArray { automatic, "$amount", 0 })) },
             { "manual", new BsonDocument("$sum", new BsonDocument("$cond", new BsonArray { automatic, 0, "$amount" })) },
             { "silent", new BsonDocument("$sum", new BsonDocument("$cond", new BsonArray { new BsonDocument("$eq", new BsonArray { "$kind", "SystemMigration" }), "$amount", 0 })) },
-            { "voice", new BsonDocument("$sum", new BsonDocument("$cond", new BsonArray { voice, "$amount", 0 })) }
+            { "voice", new BsonDocument("$sum", new BsonDocument("$cond", new BsonArray { voice, "$amount", 0 })) },
+            { "manualBaseline", new BsonDocument("$max", new BsonDocument("$cond", new BsonArray { manualBaseline, 1, 0 })) }
         }).FirstOrDefaultAsync(ct);
-        return grouped == null ? new(0, 0, 0) : new(grouped["earned"].ToDecimal(), grouped["manual"].ToDecimal(), grouped["voice"].ToDecimal(), grouped["silent"].ToDecimal());
+        return grouped == null ? new(0, 0, 0) : new(grouped["earned"].ToDecimal(), grouped["manual"].ToDecimal(), grouped["voice"].ToDecimal(), grouped["silent"].ToDecimal(), grouped["manualBaseline"].ToInt32() == 1);
     }
 
-    private async Task RecordFailureAsync(Exception exception, ulong? guildId, ulong? userId, CancellationToken ct)
+    private static IReadOnlyDictionary<string, object?> SourceMismatchContext(ulong userId, string scope, decimal earned, decimal manual, decimal voice,
+        XpIntegrityTotals expected, VoiceLedgerMigrationState? migration) => new Dictionary<string, object?>
     {
-        try { await errors.RecordAsync(new(exception, "worker", "xp.integrity", GuildId: guildId, ActorUserId: userId, Worker: WorkerName), ct); }
+        ["userId"] = userId, ["xpScope"] = scope, ["xpStoredEarned"] = earned, ["xpSourceEarned"] = expected.EarnedXp,
+        ["xpEarnedDifference"] = expected.EarnedXp - earned, ["xpStoredManual"] = manual, ["xpSourceManual"] = expected.ManualXp,
+        ["xpStoredVoice"] = voice, ["xpSourceVoice"] = expected.VoiceXp, ["xpMigrationPhase"] = migration?.Phase.ToString() ?? "notStarted"
+    };
+
+    private async Task RecordFailureAsync(Exception exception, ulong? guildId, ulong? userId, CancellationToken ct, IReadOnlyDictionary<string, object?>? context = null)
+    {
+        try { await errors.RecordAsync(new(exception, "worker", "xp.integrity", GuildId: guildId, ActorUserId: userId, Worker: WorkerName, Context: context), ct); }
         catch (Exception recordingException) when (recordingException is not OperationCanceledException) { logger.LogWarning(recordingException, "Could not record XP integrity failure"); }
     }
 }

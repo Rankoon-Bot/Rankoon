@@ -153,8 +153,11 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         var migration = await database.VoiceLedgerMigrationStates.Find(x => x.Id == VoiceLedgerMigrationState.SingletonId).FirstOrDefaultAsync(cancellationToken);
         var compressedAuthoritative = VoiceLedgerMigrationService.IsCompressedVoiceAuthoritative(migration);
         var voice = Snapshot(days, claimed, compressedAuthoritative);
-        var ledger = await database.XpLedger.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId && !x.IsProjectionControl && !x.CooldownDenied && x.ProjectionStatus == SeasonProjectionStatus.Applied).ToListAsync(cancellationToken);
-        if (compressedAuthoritative) ledger.RemoveAll(x => x.Source == "voice");
+        var ledger = await database.XpLedger.Find(Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, claimed.GuildId) &
+            Builders<XpLedgerEntry>.Filter.Eq(x => x.UserId, claimed.UserId) & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true) &
+            Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true) & XpLedgerFilters.Applied).ToListAsync(cancellationToken);
+        var replacedIds = VoiceLedgerMigrationService.ReplacedLedgerIds(migration, days);
+        ledger.RemoveAll(x => x.Source == "voice" && x.Id != null && replacedIds.Contains(x.Id));
         var member = await database.MemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? new MemberXp();
         var lifetime = ledger.Where(XpLedgerSemantics.AffectsLifetime).ToArray();
         var nonVoiceEarned = lifetime.Where(XpLedgerSemantics.IsAutomatic).Sum(x => x.Amount);
@@ -191,8 +194,10 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
 
         var guildDays = await database.VoiceActivities.Find(x => x.GuildId == claimed.GuildId).ToListAsync(cancellationToken);
         var guildVoice = Snapshot(guildDays, claimed, compressedAuthoritative);
-        var guildLedger = await database.XpLedger.Find(x => x.GuildId == claimed.GuildId && !x.IsProjectionControl && !x.CooldownDenied && x.ProjectionStatus == SeasonProjectionStatus.Applied).ToListAsync(cancellationToken);
-        if (compressedAuthoritative) guildLedger.RemoveAll(x => x.Source == "voice");
+        var guildLedger = await database.XpLedger.Find(Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, claimed.GuildId) &
+            Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true) & Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true) & XpLedgerFilters.Applied).ToListAsync(cancellationToken);
+        var guildReplacedIds = VoiceLedgerMigrationService.ReplacedLedgerIds(migration, guildDays);
+        guildLedger.RemoveAll(x => x.Source == "voice" && x.Id != null && guildReplacedIds.Contains(x.Id));
         var automaticXp = guildLedger.Where(XpLedgerSemantics.IsAutomatic).Sum(x => x.Amount);
         var guildLegacyVoice = guildLedger.Where(XpLedgerSemantics.IsVoice).ToArray();
         var guildTotalVoiceXp = guildLegacyVoice.Sum(x => x.Amount) + guildVoice.AwardedXp;

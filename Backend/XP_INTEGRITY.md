@@ -26,8 +26,11 @@ davon weiter. Eine Ankündigung muss nicht bis zum nächsten Kontrolllauf warten
    erhalten. Geschlossene Seasons bleiben eingefroren.
 5. Fälschlich als Applied markierte Voice-Tage mit noch nicht projizierten Beträgen
    per CAS an die normale Voice-Projektion zurückgeben.
-6. Bei unvollständiger oder widersprüchlicher Historie keine vorhandenen XP
+6. Bei unvollständiger oder widersprüchlicher Earned-Historie keine vorhandenen XP
    automatisch abziehen: als Betriebsfehler melden und den Fall zur Prüfung lassen.
+   Eine negative manuelle Korrektur darf aus der Historie wiederhergestellt werden,
+   wenn die eindeutige, angewandte Migrationsbasis für diesen Nutzer und Scope
+   vorhanden ist. Dadurch wird eine bereits beauftragte Korrektur nachgeholt.
 7. Bereits vorhandene Level-Ereignisse prüfen. Fehlt ein berechtigter Aufstieg,
    genau ein zusammengefasstes Nachholereignis bis zum aktuellen Level anlegen.
    Stabile Ereignisschlüssel und der vorhandene Unique-Index verhindern erneute
@@ -91,6 +94,65 @@ aktiviert:
 
 ## Betrieb und verbleibende Grenzen
 
+### Reparatur alter XP-Historie vom 19. Oktober 2026
+
+Der lesende Produktivabgleich hat zwei Ursachen der Meldung
+`XP source history is below the stored balance` belegt:
+
+- Die erste Ledger-Version besaß noch kein `projection_status`. Der neue Filter
+  auf ausschließlich `Applied` ignorierte diese vorhandenen Buchungen. Die
+  Kompatibilitätsregel behandelt fehlenden Status jetzt als historische Gutschrift.
+  Neu erzeugte Buchungen erhalten weiterhin ausdrücklich `Pending`; alte
+  Gutschriften werden bei Wiederholung nicht inkrementell erneut gebucht.
+- Die bisherige manuelle Startmigration setzte `ManualAdjustment` selbst bei
+  bereits vorhandenem Migrationsschlüssel auf null. Dadurch konnten gespeicherte
+  positive und negative Korrekturen beim Neustart aus dem Kontostand verschwinden.
+  Die Migration zeichnet jetzt nur eine bisher unbelegte Altbasis als bereits
+  angewandt auf. Sie verändert keine Kontostände, nutzt die Projektions-Lease,
+  läuft mit Cursor weiter und erzeugt aus modernen manuellen Buchungen keine
+  zweite Gutschrift. Vorhandene Buchungen bleiben die Wiederherstellungsquelle.
+
+Zusätzlich ersetzt der Voice-Cutover nur die über ihre `lv_`-Segmentidentität
+nachweislich kopierten Originalbuchungen. Übersprungene oder später fertiggestellte
+Originale bleiben im Ledger maßgeblich. Diese Auswahl gilt für Integritätsprüfung,
+Ledger-/Voice-Wiederanlauf, Serverstatistiken und die XP-Historie gleichermaßen.
+Der Fehler war reproduzierbar; im untersuchten Live-Datensatz war der fehlende
+Legacy-Status die konkrete Ursache der übergangenen historischen Voice-Buchungen.
+
+Fehlermeldungen enthalten jetzt Nutzer-ID, Scope, gespeicherte und belegte
+Earned-/Manual-/Voice-Beträge, Earned-Differenz und Migrationsphase als zugelassene
+Diagnosemetadaten. Die eigentliche Fehlermeldung bleibt stabil, damit gleiche
+Fehler weiterhin als ein Vorfall gruppiert werden.
+
+`scripts/audit-xp-integrity.mongosh.js` prüft ausschließlich lesend alle gespeicherten
+echten Lifetime-Konten und vorhandenen aktiven Season-Projektionen. XP-Beträge
+werden mit exakter Ganzzahlarithmetik mit 34 Nachkommastellen verarbeitet, ohne
+Umwandlung in JavaScript-Gleitkommazahlen. `RANKOON_AUDIT_GUILD_ID` begrenzt den
+Bericht optional auf einen Server; `RANKOON_XP_OUTPUT` speichert den Bericht lokal.
+Ausführen gegen die ausdrücklich gewählte Datenbank, beispielsweise mit einer
+bereits authentifizierten MongoDB-Shell:
+
+```javascript
+load('Backend/scripts/audit-xp-integrity.mongosh.js')
+```
+
+Der Abgleich am 19. Oktober um 11:30 Uhr (Berlin) umfasste 166 Konten,
+24.912 Ledger-Einträge, 689 Voice-Tage und eine aktive Season-Projektion. Nach
+korrekter Berücksichtigung der 71 alten Ledger-Einträge waren 163 von 167
+geprüften Ständen konsistent. Drei aktuelle Lifetime-Gesamtstände und ein
+Voice-Anteil eines ehemaligen Mitglieds ließen sich aus erhaltenen Quellen
+vollständig bestimmen. Die sieben weiteren gemeldeten Nutzerstände waren
+bereits korrekt; ihre Warnungen entstanden durch das Auslassen alter Buchungen.
+Es wurden dabei keine Produktivdaten geändert oder Discord-Nachrichten gesendet.
+
+Vor dem Anwenden: Fix deployen, lesenden Bericht erneut erzeugen und die aktuellen
+Ergebnisse prüfen. Der normale Kontrolllauf kann danach belegte aktuelle
+Nutzerstände korrigieren; ehemalige Mitglieder und geschlossene Seasons bleiben
+gemäß der bisherigen Kontrollrichtlinie ausgenommen. Keine Differenz pauschal
+als neue manuelle Gutschrift buchen: Die Originale sind vorhanden und würden dann
+doppelt zählen. Ereignisse, die nie dauerhaft gespeichert wurden, sind durch
+diesen Abgleich nicht rekonstruierbar.
+
 Der bestehende Worker-Health-Mechanismus führt `xp-integrity` mit geprüften,
 korrigierten, eingeplanten, zurückgestellten und fehlerhaften Fällen. Ein
 minütlicher Heartbeat verhindert falsche Stale-Meldungen während der stündlichen
@@ -123,14 +185,18 @@ Wiederaufnahme, Import-/Migrationsbasis, manuelle Ankündigungen und aktive Seas
 Auch ein ausgefallener Fehler-Recorder darf eine Zustellung nicht ohne Retry
 zurücklassen.
 
-Der letzte vollständig ausgeführte Release-Gesamtlauf bestand mit **567 Tests,
-0 Fehlern, 0 übersprungenen Tests**, inklusive 29 Tests zur neuen Kontrolle und
-der zuvor noch blockierten Tests aller teilweisen Projektionszustände.
+Der vollständige Release-Gesamtlauf nach der Reparatur bestand mit **598 Tests,
+0 Fehlern und 0 übersprungenen Tests**, gegen eine isolierte MongoDB 8.0.12 mit
+.NET SDK 9.0.318. Der Nachweis liegt lokal unter
+`artifacts/xp-integrity-tests/full-xp-recovery-final.trx`.
 
-Zwei anschließend ergänzte Tests und die zugehörigen letzten Erweiterungen
-(Erfassung von Guilds ohne gespeicherte XP-Konfiguration und Rückgabe inkonsistenter
-Applied-Voice-Tage an die Projektion) sind kompiliert, aber noch nicht abschließend
-ausgeführt: Windows Code Integrity blockiert aktuell die neue Testassembly mit
-`0x800711C7`. Ein erfolgreicher Build oder VSTest-Exitcode 0 ohne Testentdeckung ist
-kein erfolgreicher Testlauf. Dieser Stand muss deshalb zusätzlich in der bereits
-konfigurierten CI mit MongoDB ausgeführt werden. Es wurde nichts deployt.
+Erfasst sind auch die zuvor offenen Fälle für Guilds ohne eigene Einstellungen
+und inkonsistente Applied-Voice-Tage sowie die neuen Regressionen für fehlende
+historische Statusfelder, Voice-Cutover, negative manuelle Korrekturen, wiederholte
+Startmigrationen, Konkurrenz und Wiederanlauf. Der neue Voice-Cutover-Test wurde
+zuerst gegen den alten Code ausgeführt und reproduzierte die Schutzmeldung.
+
+Ein erster Gesamtaufruf wurde noch von Windows Code Integrity mit `0x800711C7`
+blockiert und entdeckte keine Tests. Dieser Aufruf zählt nicht als erfolgreicher
+Testnachweis; der anschließende vollständige Lauf entdeckte und bestand alle
+598 Tests. Es wurde nichts deployt.

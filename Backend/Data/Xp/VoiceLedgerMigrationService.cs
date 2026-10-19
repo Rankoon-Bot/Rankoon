@@ -345,6 +345,25 @@ public sealed class VoiceLedgerMigrationService(
                state.DeletionApprovalFingerprint == parity.Fingerprint;
     }
 
+    // Cutover only replaces grants actually copied into the compressed history.
+    // Skipped entries and grants completed after the copy cursor passed remain
+    // authoritative in the ledger, even when the migration itself is complete.
+    internal static HashSet<string> ReplacedLedgerIds(VoiceLedgerMigrationState? state, IEnumerable<VoiceActivityDay> days)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        if (!IsCompressedVoiceAuthoritative(state)) return ids;
+        foreach (var segment in days.SelectMany(x => x.Segments).Where(x => x.SettingsRevision == LegacySettingsRevision))
+        {
+            if (segment.SessionId is not { Length: 19 } session || !session.StartsWith("lv_", StringComparison.Ordinal)) continue;
+            try { ids.Add(new ObjectId(Convert.FromBase64String(session[3..].Replace('-', '+').Replace('_', '/'))).ToString()); }
+            catch (FormatException) { /* Unknown markers never justify excluding a ledger grant. */ }
+        }
+        return ids;
+    }
+
+    internal static FilterDefinition<XpLedgerEntry> ReplacedLedgerFilter(IReadOnlyCollection<string> ids) =>
+        Builders<XpLedgerEntry>.Filter.Eq(x => x.Source, "voice") & Builders<XpLedgerEntry>.Filter.In(x => x.Id, ids);
+
     internal static string LegacySessionId(string ledgerId)
     {
         var bytes = ObjectId.Parse(ledgerId).ToByteArray();
