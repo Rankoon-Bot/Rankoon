@@ -42,8 +42,8 @@ public sealed class LevelRoleRepairService(RankoonDbContext database, LevelRoleS
         while (!ct.IsCancellationRequested)
         {
             var users = seasonId == null
-                ? await database.MemberXp.Find(x => x.GuildId == guildId && !x.IsDevelopmentMock && x.UserId > after).SortBy(x => x.UserId).Limit(100).Project(x => x.UserId).ToListAsync(ct)
-                : await database.SeasonMemberXp.Find(x => x.SeasonId == seasonId && x.UserId > after).SortBy(x => x.UserId).Limit(100).Project(x => x.UserId).ToListAsync(ct);
+                ? await database.MemberXp.Find(x => x.GuildId == guildId && x.IsCurrentMember && !x.IsDevelopmentMock && x.UserId > after).SortBy(x => x.UserId).Limit(100).Project(x => x.UserId).ToListAsync(ct)
+                : await database.SeasonMemberXp.Find(x => x.SeasonId == seasonId && x.IsCurrentMember && !x.IsDevelopmentMock && x.UserId > after).SortBy(x => x.UserId).Limit(100).Project(x => x.UserId).ToListAsync(ct);
             if (users.Count == 0) return failures;
             foreach (var userId in users)
             {

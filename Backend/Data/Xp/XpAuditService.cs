@@ -112,7 +112,7 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
     public async Task<XpAuditMemberDetails?> GetMemberDetailsAsync(ulong guildId, ulong userId, bool canAdjust, bool isSelf, bool isOwner, CancellationToken ct = default)
     {
         var member = await database.MemberXp.Find(x => x.GuildId == guildId && x.UserId == userId).FirstOrDefaultAsync(ct); if (member == null) return null;
-        var latestTask = database.XpLedger.Find(x => x.GuildId == guildId && x.UserId == userId && !x.IsProjectionControl && x.Source != "voice").SortByDescending(x => x.OccurredAtUtc).FirstOrDefaultAsync(ct);
+        var latestTask = database.XpLedger.Find(x => x.GuildId == guildId && x.UserId == userId && !x.IsProjectionControl && !x.CooldownDenied && x.Source != "voice").SortByDescending(x => x.OccurredAtUtc).FirstOrDefaultAsync(ct);
         var latestVoiceTask = GetLatestVoiceActivityAsync(guildId, userId, ct);
         await Task.WhenAll(latestTask, latestVoiceTask);
         var latest = await latestTask; var latestVoice = await latestVoiceTask;
@@ -136,7 +136,7 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
         if (RequiresVoiceTimeline(input.Source)) throw new XpAuditValidationException("xpAudit.voiceRequiresTimeline");
         var take = Math.Clamp(input.Take, 1, 100); var fp = JsonSerializer.Serialize(input with { Take = 0, Cursor = null }); var after = ReadCursor(input.Cursor, guildId, userId, fp);
         var authority = HistoryAuthority(await GetVoiceMigrationStateAsync(ct));
-        var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, guildId) & Builders<XpLedgerEntry>.Filter.Eq(x => x.UserId, userId) & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true);
+        var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, guildId) & Builders<XpLedgerEntry>.Filter.Eq(x => x.UserId, userId) & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true) & Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true);
         if (!authority.IncludeLegacyLedger) filter &= Builders<XpLedgerEntry>.Filter.Ne(x => x.Source, "voice");
         if (!string.IsNullOrWhiteSpace(input.Source)) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Source, input.Source);
         if (input.Kind != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Kind, input.Kind);
@@ -204,7 +204,7 @@ public sealed class XpAuditService(RankoonDbContext database, XpService xp, ISea
 
     private FilterDefinition<XpLedgerEntry> BuildEntryFilter(ulong guildId, ulong userId, XpAuditEntryFilter input, Cursor? after, bool excludeVoice = false)
     {
-        var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, guildId) & Builders<XpLedgerEntry>.Filter.Eq(x => x.UserId, userId) & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true);
+        var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.GuildId, guildId) & Builders<XpLedgerEntry>.Filter.Eq(x => x.UserId, userId) & Builders<XpLedgerEntry>.Filter.Ne(x => x.IsProjectionControl, true) & Builders<XpLedgerEntry>.Filter.Ne(x => x.CooldownDenied, true);
         if (excludeVoice) filter &= Builders<XpLedgerEntry>.Filter.Ne(x => x.Source, "voice");
         if (!string.IsNullOrWhiteSpace(input.Source)) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Source, input.Source);
         if (input.Kind != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Kind, input.Kind); if (input.Scope != null) filter &= Builders<XpLedgerEntry>.Filter.Eq(x => x.Scope, input.Scope);

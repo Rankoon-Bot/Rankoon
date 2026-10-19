@@ -19,13 +19,21 @@ public sealed class LedgerProjectionRepairService(RankoonDbContext database, XpS
                 var filter = Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionStatus, SeasonProjectionStatus.Pending) &
                     (Builders<XpLedgerEntry>.Filter.Eq(x => x.ProjectionLeaseOwner, null) | Builders<XpLedgerEntry>.Filter.Lte(x => x.ProjectionLeaseExpiresAtUtc, now));
                 var pending = await database.XpLedger.Find(filter).SortBy(x => x.CreatedAt).Limit(100).ToListAsync(stoppingToken);
-                foreach (var ledger in pending)
+                var failures = await XpBatchProcessor.RunAsync(pending, async ledger =>
                 {
                     await xp.ProjectAsync(ledger, stoppingToken);
-                    await reports.WriteAsync(new(ledger.GuildId, ReportCategories.Activity, ReportNames.XpProjectionRepaired, ReportOutcomes.Succeeded, SubjectId: ledger.UserId,
+                    var persisted = await database.XpLedger.Find(x => x.Id == ledger.Id).FirstOrDefaultAsync(stoppingToken);
+                    if (persisted?.ProjectionStatus == SeasonProjectionStatus.Applied && !persisted.CooldownDenied)
+                        await reports.WriteAsync(new(ledger.GuildId, ReportCategories.Activity, ReportNames.XpProjectionRepaired, ReportOutcomes.Succeeded, SubjectId: ledger.UserId,
                         Metadata: new Dictionary<string, object?> { ["grantKey"] = ledger.GrantKey, ["seasonId"] = ledger.SeasonId }), stoppingToken);
+                }, stoppingToken);
+                foreach (var failure in failures)
+                {
+                    logger.LogError(failure.Error, "XP ledger repair failed for {GrantKey}; other entries continue", failure.Item.GrantKey);
+                    try { await errors.RecordAsync(new(failure.Error, "worker", "xp.projection-repair.entry", GuildId: failure.Item.GuildId, ActorUserId: failure.Item.UserId, Worker: "xp-projection-repair"), stoppingToken); }
+                    catch (Exception recordingException) when (recordingException is not OperationCanceledException) { logger.LogWarning(recordingException, "Could not record ledger repair failure"); }
                 }
-                health.Report("xp-projection-repair", WorkerHealthState.Healthy);
+                health.Report("xp-projection-repair", failures.Count == 0 ? WorkerHealthState.Healthy : WorkerHealthState.Degraded);
                 await Task.Delay(pending.Count == 0 ? TimeSpan.FromMinutes(1) : TimeSpan.FromSeconds(1), timeProvider, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
@@ -33,7 +41,8 @@ public sealed class LedgerProjectionRepairService(RankoonDbContext database, XpS
             {
                 logger.LogError(exception, "XP ledger projection repair failed");
                 health.Report("xp-projection-repair", WorkerHealthState.Degraded, exception.GetType().Name);
-                await errors.RecordAsync(new(exception, "worker", "xp.projection-repair", Worker: "xp-projection-repair"), stoppingToken);
+                try { await errors.RecordAsync(new(exception, "worker", "xp.projection-repair", Worker: "xp-projection-repair"), stoppingToken); }
+                catch (Exception recordingException) when (recordingException is not OperationCanceledException) { logger.LogWarning(recordingException, "Could not record ledger repair failure"); }
                 await Task.Delay(TimeSpan.FromSeconds(30), timeProvider, stoppingToken);
             }
         }

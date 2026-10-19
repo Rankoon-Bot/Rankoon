@@ -75,8 +75,9 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
 
     public async Task<bool> GrantAsync(XpGrantRequest request, CancellationToken cancellationToken = default)
     {
+        ValidateGrant(request);
         if (request.Amount == 0) return false;
-        var occurredAtUtc = DateTime.SpecifyKind(request.OccurredAtUtc, DateTimeKind.Utc);
+        var occurredAtUtc = request.OccurredAtUtc.Kind == DateTimeKind.Local ? request.OccurredAtUtc.ToUniversalTime() : DateTime.SpecifyKind(request.OccurredAtUtc, DateTimeKind.Utc);
         var season = await seasons.ResolveAsync(request.GuildId, occurredAtUtc, cancellationToken);
         XpLedgerEntry ledger;
         var inserted = false;
@@ -97,20 +98,14 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey)
         {
             ledger = await database.XpLedger.Find(x => x.GrantKey == request.GrantKey).FirstOrDefaultAsync(cancellationToken) ?? throw new InvalidOperationException("Duplicate ledger entry could not be read.");
+            if (ledger.GuildId != request.GuildId || ledger.UserId != request.UserId || ledger.Source != request.Source)
+                throw new InvalidOperationException("An XP grant key cannot be reused for another member, guild or source.");
             if (ledger.ProjectionStatus == SeasonProjectionStatus.Applied || ledger.CooldownDenied) return false;
         }
-        if (ledger.CooldownSeconds is > 0 && !ledger.CooldownAcquired)
-        {
-            if (!await AcquireCooldownAsync(ledger, cancellationToken))
-            {
-                await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && !x.CooldownAcquired,
-                    Builders<XpLedgerEntry>.Update.Set(x => x.CooldownDenied, true).Set(x => x.ProjectionStatus, SeasonProjectionStatus.Applied).Set(x => x.ProjectedAtUtc, timeProvider.GetUtcNow().UtcDateTime), cancellationToken: cancellationToken);
-                return false;
-            }
-            ledger.CooldownAcquired = true;
-            await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id, Builders<XpLedgerEntry>.Update.Set(x => x.CooldownAcquired, true), cancellationToken: cancellationToken);
-        }
         await ProjectAsync(ledger, cancellationToken);
+        // Projection may be deferred while another worker owns the guild. The durable
+        // entry remains pending; only a persisted cooldown denial rejects the grant.
+        if ((await database.XpLedger.Find(x => x.Id == ledger.Id).FirstOrDefaultAsync(cancellationToken))?.CooldownDenied == true) return false;
         if (inserted && !request.SuppressReport)
         {
             var duration = request.Source == "voice" && request.PeriodStartsAtUtc is { } starts && request.PeriodEndsAtUtc is { } ends ? Math.Max(0, (ends - starts).TotalSeconds) : 0;
@@ -125,8 +120,10 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
 
     public async Task<bool> ReverseGrantAsync(string originalGrantKey, string reversalGrantKey, string? expectedSource, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(originalGrantKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reversalGrantKey);
         var original = await database.XpLedger.Find(x => x.GrantKey == originalGrantKey).FirstOrDefaultAsync(cancellationToken);
-        if (original == null) return false;
+        if (original == null || XpLedgerSemantics.GetEffectiveKind(original) != XpLedgerEntryKind.AutomaticGrant) return false;
         if (expectedSource != null && !MatchesAutomaticGrant(original, expectedSource)) return false;
         // Cooldown-denied entries are retained for idempotency and auditability, but never awarded XP.
         if (original.CooldownDenied) return false;
@@ -134,7 +131,12 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             timeProvider.GetUtcNow().UtcDateTime, original.ChannelId, ReversesGrantKey: originalGrantKey);
         // Preserve the original immutable season attribution even if a different season is currently active.
         var existing = await database.XpLedger.Find(x => x.GrantKey == reversalGrantKey).FirstOrDefaultAsync(cancellationToken);
-        if (existing != null) { if (existing.ProjectionStatus == SeasonProjectionStatus.Pending) await ProjectAsync(existing, cancellationToken); return false; }
+        if (existing != null)
+        {
+            if (existing.ReversesGrantKey != originalGrantKey) throw new InvalidOperationException("An XP reversal key cannot be reused for a different grant.");
+            if (existing.ProjectionStatus == SeasonProjectionStatus.Pending) await ProjectAsync(existing, cancellationToken);
+            return false;
+        }
         var entry = CreateAutomaticReversal(original, reversalGrantKey, reversal.OccurredAtUtc);
         try { await database.XpLedger.InsertOneAsync(entry, cancellationToken: cancellationToken); }
         catch (MongoWriteException exception) when (exception.WriteError.Category == ServerErrorCategory.DuplicateKey) { return false; }
@@ -149,6 +151,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
     {
         GrantKey = reversalGrantKey, GuildId = original.GuildId, UserId = original.UserId, DisplayName = original.DisplayName,
         Source = $"{original.Source}_reversal", Amount = -original.Amount, ChannelId = original.ChannelId,
+        PeriodStartsAtUtc = original.PeriodStartsAtUtc, PeriodEndsAtUtc = original.PeriodEndsAtUtc,
         OccurredAtUtc = occurredAtUtc, CreatedAt = occurredAtUtc, SeasonId = original.SeasonId,
         ReversesGrantKey = original.GrantKey, ReversesLedgerEntryId = original.Id,
         Kind = XpLedgerEntryKind.AutomaticReversal, Scope = XpLedgerSemantics.GetEffectiveScope(original)
@@ -163,7 +166,27 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             "thread_message" => ("last_thread_xp_at", "last_thread_xp_grant_key"),
             _ => throw new InvalidOperationException($"Unsupported XP cooldown source '{ledger.CooldownSource}'.")
         };
-        var now = timeProvider.GetUtcNow().UtcDateTime;
+        var now = ledger.OccurredAtUtc == default ? ledger.CreatedAt : ledger.OccurredAtUtc;
+        // Recognize an interrupted acquisition before attempting another CAS. A retry
+        // must neither consume another cooldown nor move its timestamp forward.
+        var current = await GetMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken);
+        var currentKey = ledger.CooldownSource switch
+        {
+            "message" => current?.LastMessageXpGrantKey,
+            "reaction" => current?.LastReactionXpGrantKey,
+            "thread_message" => current?.LastThreadXpGrantKey,
+            _ => null
+        };
+        if (currentKey == ledger.GrantKey) return true;
+        if (!string.IsNullOrEmpty(currentKey))
+        {
+            // Before replacing the only member-side proof of an earlier reservation,
+            // make that decision durable on its ledger. Otherwise a crashed grant
+            // could be denied later after a newer event overwrote its key.
+            await database.XpLedger.UpdateOneAsync(x => x.GrantKey == currentKey && x.GuildId == ledger.GuildId && x.UserId == ledger.UserId &&
+                x.ProjectionStatus == SeasonProjectionStatus.Pending && !x.CooldownDenied && !x.CooldownAcquired,
+                Builders<XpLedgerEntry>.Update.Set(x => x.CooldownAcquired, true), cancellationToken: cancellationToken);
+        }
         var filter = Builders<MemberXp>.Filter.And(
             Builders<MemberXp>.Filter.Eq(x => x.GuildId, ledger.GuildId),
             Builders<MemberXp>.Filter.Eq(x => x.UserId, ledger.UserId),
@@ -200,19 +223,69 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         if (claimed == null) return;
 
         var recovering = claimed.ProjectionLeaseOwner != null;
+        ledger = claimed;
         var projectionLease = await projectionCoordinator.AcquireAsync(ledger.GuildId, ledger.UserId, ledger.SeasonId, cancellationToken);
         if (projectionLease == null)
         {
-            await ReleaseLedgerLeaseAsync(ledger.GrantKey, owner, cancellationToken);
+            await ReleaseLedgerLeaseAsync(ledger.GrantKey, owner, cancellationToken, recovering);
             return;
         }
         await using (projectionLease)
         try
         {
+            if (XpLedgerSemantics.GetEffectiveKind(ledger) == XpLedgerEntryKind.AutomaticReversal && ledger.ReversesGrantKey != null)
+            {
+                var original = await database.XpLedger.Find(x => x.GrantKey == ledger.ReversesGrantKey).FirstOrDefaultAsync(cancellationToken)
+                    ?? throw new InvalidOperationException("The original XP grant is missing; the reversal cannot be projected.");
+                if (original.ProjectionStatus == SeasonProjectionStatus.Pending)
+                {
+                    await ReleaseLedgerLeaseAsync(ledger.GrantKey, owner, cancellationToken);
+                    return;
+                }
+                if (original.CooldownDenied)
+                {
+                    await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionLeaseOwner == owner,
+                        Builders<XpLedgerEntry>.Update.Set(x => x.CooldownDenied, true).Set(x => x.ProjectionStatus, SeasonProjectionStatus.Applied)
+                            .Set(x => x.ProjectedAtUtc, now).Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc), cancellationToken: cancellationToken);
+                    return;
+                }
+            }
+            // Gateway delivery and background repair share the same claimed path.
+            // Never project a pending grant before its cooldown decision is durable.
+            if (ledger.CooldownSeconds is > 0 && !ledger.CooldownAcquired)
+            {
+                if (!await AcquireCooldownAsync(ledger, cancellationToken))
+                {
+                    await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionLeaseOwner == owner,
+                        Builders<XpLedgerEntry>.Update.Set(x => x.CooldownDenied, true).Set(x => x.ProjectionStatus, SeasonProjectionStatus.Applied)
+                            .Set(x => x.ProjectedAtUtc, now).Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc), cancellationToken: cancellationToken);
+                    return;
+                }
+                ledger.CooldownAcquired = true;
+                await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionLeaseOwner == owner,
+                    Builders<XpLedgerEntry>.Update.Set(x => x.CooldownAcquired, true), cancellationToken: cancellationToken);
+            }
             var before = await GetMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken) ?? new MemberXp();
             var beforeSeason = !string.IsNullOrWhiteSpace(ledger.SeasonId) && XpLedgerSemantics.AffectsSeason(ledger)
                 ? await database.SeasonMemberXp.Find(x => x.SeasonId == ledger.SeasonId && x.UserId == ledger.UserId).FirstOrDefaultAsync(cancellationToken)
                 : null;
+            if (!await RenewProjectionOwnershipAsync(ledger.Id!, owner, projectionLease, cancellationToken)) return;
+            // Persist before any projection write so a crash after an increment
+            // cannot erase the level transition on retry.
+            if (!recovering)
+            {
+                ledger.LevelTransitionSnapshot = TransitionSnapshot(before.TotalXp, before.TotalXp + (XpLedgerSemantics.AffectsLifetime(ledger) ? ledger.Amount : 0));
+                ledger.SeasonLevelTransitionSnapshots = new();
+                if (XpLedgerSemantics.AffectsSeason(ledger))
+                {
+                    var targetSeason = await database.GuildSeasons.Find(x => x.Id == ledger.SeasonId).FirstOrDefaultAsync(cancellationToken);
+                    if (targetSeason != null && VoiceActivityProjectionService.CanMutateSeason(targetSeason.Status) && (XpLedgerSemantics.IsAutomatic(ledger) || targetSeason.Status == SeasonStatus.Active))
+                        ledger.SeasonLevelTransitionSnapshots[ledger.SeasonId!] = TransitionSnapshot(beforeSeason?.TotalXp ?? 0, (beforeSeason?.TotalXp ?? 0) + ledger.Amount);
+                }
+                await database.XpLedger.UpdateOneAsync(x => x.Id == ledger.Id && x.ProjectionLeaseOwner == owner,
+                    Builders<XpLedgerEntry>.Update.Set(x => x.LevelTransitionSnapshot, ledger.LevelTransitionSnapshot)
+                        .Set(x => x.SeasonLevelTransitionSnapshots, ledger.SeasonLevelTransitionSnapshots), cancellationToken: cancellationToken);
+            }
             if (recovering && !await RebuildProjectionAsync(ledger, now, owner, projectionLease, cancellationToken))
             {
                 await ReleaseLedgerLeaseAsync(ledger.GrantKey, owner, cancellationToken);
@@ -236,7 +309,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
                 var season = await database.GuildSeasons.Find(x => x.Id == ledger.SeasonId).FirstOrDefaultAsync(cancellationToken);
                 if (afterSeason != null && season != null)
                 {
-                    var seasonSnapshot = new LevelTransitionSnapshot { PreviousTotalXp = beforeSeason?.TotalXp ?? 0, NewTotalXp = afterSeason.TotalXp, PreviousLevel = Mee6LevelCurve.GetLevel(beforeSeason?.TotalXp ?? 0), NewLevel = Mee6LevelCurve.GetLevel(afterSeason.TotalXp) };
+                    var seasonSnapshot = ledger.SeasonLevelTransitionSnapshots?.GetValueOrDefault(ledger.SeasonId!) ?? TransitionSnapshot(beforeSeason?.TotalXp ?? 0, afterSeason.TotalXp);
                     await transitions.EnsureAsync(ledger.GuildId, ledger.UserId, new(ledger.Source, ledger.GrantKey, ledger.Amount, ledger.ChannelId, ledger.GrantKey, XpLedgerSemantics.GetEffectiveKind(ledger) == XpLedgerEntryKind.SystemMigration), seasonSnapshot, LevelProgressScope.Season, season.Id, season.Name, cancellationToken);
                 }
             }
@@ -259,13 +332,14 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
             : memberUpdate.Inc(x => x.ManualAdjustment, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount);
         if (XpLedgerSemantics.IsAutomatic(ledger) && ledger.Source == "message") memberUpdate = memberUpdate.Inc(x => x.MessageCount, 1);
         var voiceSeconds = VoiceSeconds(ledger);
+        if (XpLedgerSemantics.IsVoice(ledger)) memberUpdate = memberUpdate.Inc(x => x.VoiceXp, ledger.Amount);
         if (XpLedgerSemantics.IsAutomatic(ledger) && voiceSeconds != 0) memberUpdate = memberUpdate.Inc(x => x.VoiceSeconds, voiceSeconds);
         await UpsertAsync(database.MemberXp, Builders<MemberXp>.Filter.And(Builders<MemberXp>.Filter.Eq(x => x.GuildId, ledger.GuildId), Builders<MemberXp>.Filter.Eq(x => x.UserId, ledger.UserId)), memberUpdate, cancellationToken);
 
         if (XpLedgerSemantics.AffectsSeason(ledger))
         {
             var season = await database.GuildSeasons.Find(x => x.Id == ledger.SeasonId).FirstOrDefaultAsync(cancellationToken);
-            if (season != null && season.Status != SeasonStatus.Closed && (!XpLedgerSemantics.IsAutomatic(ledger) ? season.Status == SeasonStatus.Active : true))
+            if (season != null && VoiceActivityProjectionService.CanMutateSeason(season.Status) && (!XpLedgerSemantics.IsAutomatic(ledger) ? season.Status == SeasonStatus.Active : true))
             {
                 var seasonUpdate = Builders<SeasonMemberXp>.Update
                     .SetOnInsert(x => x.GuildId, ledger.GuildId).SetOnInsert(x => x.SeasonId, ledger.SeasonId).SetOnInsert(x => x.UserId, ledger.UserId)
@@ -274,11 +348,13 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
                 seasonUpdate = XpLedgerSemantics.IsAutomatic(ledger) ? seasonUpdate.Inc(x => x.EarnedXp, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount) : seasonUpdate.Inc(x => x.ManualAdjustment, ledger.Amount).Inc(x => x.TotalXp, ledger.Amount);
                 if (XpLedgerSemantics.IsAutomatic(ledger) && ledger.Source == "message") seasonUpdate = seasonUpdate.Inc(x => x.MessageCount, 1);
                 if (XpLedgerSemantics.IsAutomatic(ledger) && voiceSeconds != 0) seasonUpdate = seasonUpdate.Inc(x => x.VoiceSeconds, voiceSeconds);
+                if (XpLedgerSemantics.IsVoice(ledger)) seasonUpdate = seasonUpdate.Inc(x => x.VoiceXp, ledger.Amount);
                 await UpsertAsync(database.SeasonMemberXp, Builders<SeasonMemberXp>.Filter.And(Builders<SeasonMemberXp>.Filter.Eq(x => x.SeasonId, ledger.SeasonId), Builders<SeasonMemberXp>.Filter.Eq(x => x.UserId, ledger.UserId)), seasonUpdate, cancellationToken);
             }
         }
         var statsUpdate = Builders<GuildStats>.Update.SetOnInsert(x => x.GuildId, ledger.GuildId);
         if (XpLedgerSemantics.IsAutomatic(ledger)) statsUpdate = statsUpdate.Inc(x => x.XpAwarded, ledger.Amount);
+        if (XpLedgerSemantics.IsVoice(ledger)) statsUpdate = statsUpdate.Inc(x => x.VoiceXpAwarded, ledger.Amount).Inc(x => x.VoiceSeconds, voiceSeconds);
         if (ledger.Source == "message") statsUpdate = statsUpdate.Inc(x => x.Messages, 1);
         if (ledger.Source == "reaction") statsUpdate = statsUpdate.Inc(x => x.Reactions, 1);
         if (ledger.Source.StartsWith("thread", StringComparison.Ordinal)) statsUpdate = statsUpdate.Inc(x => x.Threads, 1);
@@ -286,8 +362,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         await UpsertAsync(database.GuildStats, Builders<GuildStats>.Filter.Eq(x => x.GuildId, ledger.GuildId), statsUpdate, cancellationToken);
     }
 
-    private static long VoiceSeconds(XpLedgerEntry ledger) => ledger.Source == "voice" && ledger.PeriodStartsAtUtc != null && ledger.PeriodEndsAtUtc != null
-        ? (long)(ledger.PeriodEndsAtUtc.Value - ledger.PeriodStartsAtUtc.Value).TotalSeconds : 0;
+    private static long VoiceSeconds(XpLedgerEntry ledger) => XpLedgerSemantics.VoiceSeconds(ledger);
 
     private async Task<bool> RebuildProjectionAsync(XpLedgerEntry ledger, DateTime now, string owner, IXpProjectionLease projectionLease, CancellationToken cancellationToken)
     {
@@ -305,7 +380,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         var voiceSeconds = voice.EligibleSeconds;
         var member = await GetMemberAsync(ledger.GuildId, ledger.UserId, cancellationToken) ?? new MemberXp { GuildId = ledger.GuildId, UserId = ledger.UserId };
         var lifetimeEntries = memberEntries.Where(XpLedgerSemantics.AffectsLifetime).ToList();
-        var legacyVoiceEntries = lifetimeEntries.Where(x => XpLedgerSemantics.IsAutomatic(x) && x.Source == "voice").ToList();
+        var legacyVoiceEntries = lifetimeEntries.Where(XpLedgerSemantics.IsVoice).ToList();
         var totalVoiceXp = legacyVoiceEntries.Sum(x => x.Amount) + voiceXp;
         var totalVoiceSeconds = legacyVoiceEntries.Sum(VoiceSeconds) + voiceSeconds;
         var earned = lifetimeEntries.Where(XpLedgerSemantics.IsAutomatic).Sum(x => x.Amount) + voiceXp;
@@ -319,14 +394,14 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         if (ledger.SeasonId != null)
         {
             var season = await database.GuildSeasons.Find(x => x.Id == ledger.SeasonId).FirstOrDefaultAsync(cancellationToken);
-            if (season != null && season.Status != SeasonStatus.Closed)
+            if (season != null && VoiceActivityProjectionService.CanMutateSeason(season.Status))
             {
                 var seasonEntries = memberEntries.Where(x => x.SeasonId == ledger.SeasonId && XpLedgerSemantics.AffectsSeason(x)).ToList();
                 var seasonMember = await database.SeasonMemberXp.Find(x => x.SeasonId == ledger.SeasonId && x.UserId == ledger.UserId).FirstOrDefaultAsync(cancellationToken) ?? new SeasonMemberXp();
                 voice.Seasons.TryGetValue(ledger.SeasonId, out var voiceSeason);
                 var voiceSeasonXp = voiceSeason?.AwardedXp ?? 0;
                 var voiceSeasonSeconds = voiceSeason?.EligibleSeconds ?? 0;
-                var legacySeasonVoice = seasonEntries.Where(x => XpLedgerSemantics.IsAutomatic(x) && x.Source == "voice").ToList();
+                var legacySeasonVoice = seasonEntries.Where(XpLedgerSemantics.IsVoice).ToList();
                 var totalSeasonVoiceXp = legacySeasonVoice.Sum(x => x.Amount) + voiceSeasonXp;
                 var totalSeasonVoiceSeconds = legacySeasonVoice.Sum(VoiceSeconds) + voiceSeasonSeconds;
                 var seasonEarned = seasonEntries.Where(XpLedgerSemantics.IsAutomatic).Sum(x => x.Amount) + voiceSeasonXp;
@@ -345,7 +420,7 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         var guildVoice = VoiceActivityProjectionService.Snapshot(guildVoiceDays, new VoiceActivityDay(), compressedVoiceAuthoritative);
         var guildVoiceXp = guildVoice.AwardedXp;
         var guildVoiceSeconds = guildVoice.EligibleSeconds;
-        var guildLegacyVoice = guildEntries.Where(x => XpLedgerSemantics.IsAutomatic(x) && x.Source == "voice").ToList();
+        var guildLegacyVoice = guildEntries.Where(XpLedgerSemantics.IsVoice).ToList();
         var guildTotalVoiceXp = guildLegacyVoice.Sum(x => x.Amount) + guildVoiceXp;
         var guildTotalVoiceSeconds = guildLegacyVoice.Sum(VoiceSeconds) + guildVoiceSeconds;
         if (!await RenewProjectionOwnershipAsync(ledger.Id!, owner, projectionLease, cancellationToken)) return false;
@@ -365,9 +440,12 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         return renewed.MatchedCount == 1;
     }
 
-    private Task ReleaseLedgerLeaseAsync(string key, string owner, CancellationToken cancellationToken) => database.XpLedger.UpdateOneAsync(
+    private Task ReleaseLedgerLeaseAsync(string key, string owner, CancellationToken cancellationToken, bool recovering = true) => database.XpLedger.UpdateOneAsync(
         x => x.GrantKey == key && x.ProjectionLeaseOwner == owner,
-        Builders<XpLedgerEntry>.Update.Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc), cancellationToken: cancellationToken);
+        // Retain the recovery marker: a previous owner may already have incremented
+        // one of the projections. Clearing it would allow a second increment.
+        recovering ? Builders<XpLedgerEntry>.Update.Set(x => x.ProjectionLeaseExpiresAtUtc, DateTime.UnixEpoch) :
+            Builders<XpLedgerEntry>.Update.Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc), cancellationToken: cancellationToken);
 
     private static async Task UpsertAsync<T>(IMongoCollection<T> collection, FilterDefinition<T> filter, UpdateDefinition<T> update, CancellationToken cancellationToken)
     {
@@ -376,6 +454,25 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
     }
 
     internal static string NormalizeName(string displayName) => displayName.Trim().ToLowerInvariant();
+
+    internal static void ValidateGrant(XpGrantRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.GrantKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Source);
+        if (request.GuildId == 0 || request.UserId == 0) throw new ArgumentException("XP grants require a guild and a member.", nameof(request));
+        if (request.Amount < 0 || request.ReversesGrantKey != null) throw new ArgumentException("Use the reversal pipeline to reverse an automatic grant.", nameof(request));
+        if (request.CooldownSeconds < 0 || request.CooldownSeconds is > 0 && request.Source is not ("message" or "reaction" or "thread_message"))
+            throw new ArgumentException("XP cooldown must be nonnegative and supported by the source.", nameof(request));
+        if (request.PeriodStartsAtUtc.HasValue != request.PeriodEndsAtUtc.HasValue || request.PeriodEndsAtUtc <= request.PeriodStartsAtUtc)
+            throw new ArgumentException("XP intervals require both boundaries and a positive duration.", nameof(request));
+    }
+
+    internal static LevelTransitionSnapshot TransitionSnapshot(decimal before, decimal after) => new()
+    {
+        PreviousTotalXp = before, NewTotalXp = after,
+        PreviousLevel = Mee6LevelCurve.GetLevel(before), NewLevel = Mee6LevelCurve.GetLevel(after)
+    };
 
 
     public async Task<IReadOnlyList<MemberXp>> GetLeaderboardAsync(ulong guildId, int take, CancellationToken cancellationToken = default) =>

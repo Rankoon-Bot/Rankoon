@@ -15,6 +15,18 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:8.0.12
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      RANKOON_SEASON_TEST_MONGO: mongodb://127.0.0.1:27017
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -41,8 +53,17 @@ jobs:
         working-directory: Backend
 
       - name: Test backend
-        run: dotnet test Rankoon.sln --configuration Release --no-build --no-restore
+        run: dotnet test Rankoon.sln --configuration Release --no-build --no-restore --logger "trx;LogFileName=backend.trx" --results-directory ../artifacts/test-results
         working-directory: Backend
+
+      - name: Upload backend test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: artifacts/test-results
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Publish backend artifact
         run: dotnet publish Rankoon.csproj --configuration Release --no-build --no-restore --output ../artifacts/backend -p:Version=${{ inputs.app-version }} -p:InformationalVersion=${{ inputs.app-version }}

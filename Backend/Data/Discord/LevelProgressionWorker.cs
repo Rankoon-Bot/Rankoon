@@ -45,7 +45,14 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
                 await Task.Delay(work.Count == 0 ? TimeSpan.FromSeconds(5) : TimeSpan.FromMilliseconds(50), timeProvider, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
-            catch (Exception exception) { logger.LogError(exception, "Level progression worker failed"); health.Report("level-progression", WorkerHealthState.Degraded, exception.GetType().Name); await errors.RecordAsync(new(exception, "worker", "level.progression", Worker: "level-progression"), stoppingToken); await Task.Delay(TimeSpan.FromSeconds(10), timeProvider, stoppingToken); }
+            catch (Exception exception)
+            {
+                logger.LogError(exception, "Level progression worker failed");
+                health.Report("level-progression", WorkerHealthState.Degraded, exception.GetType().Name);
+                try { await errors.RecordAsync(new(exception, "worker", "level.progression", Worker: "level-progression"), stoppingToken); }
+                catch (Exception recordingException) when (recordingException is not OperationCanceledException) { logger.LogWarning(recordingException, "Could not record level progression failure"); }
+                await Task.Delay(TimeSpan.FromSeconds(10), timeProvider, stoppingToken);
+            }
         }
     }
 
@@ -113,7 +120,15 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) when (attempt.IsCancellationRequested) { await FailAsync(claimed, "processingTimedOut", true, stoppingToken); }
-        catch (Exception exception) { logger.LogWarning(exception, "Level announcement delivery failed for {EventKey}", claimed.EventKey); await errors.RecordAsync(new(exception, "discord", "level.announcement", GuildId: claimed.GuildId, Worker: "level-progression", Context: new Dictionary<string, object?> { ["eventId"] = claimed.EventKey }), cancellationToken); await FailAsync(claimed, "discordTemporaryFailure", true, cancellationToken); }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Level announcement delivery failed for {EventKey}", claimed.EventKey);
+            // Persist the retry before best-effort error recording. Logging outages
+            // must not strand earned rewards or terminate the delivery worker.
+            await FailAsync(claimed, "discordTemporaryFailure", true, cancellationToken);
+            try { await errors.RecordAsync(new(exception, "discord", "level.announcement", GuildId: claimed.GuildId, Worker: "level-progression", Context: new Dictionary<string, object?> { ["eventId"] = claimed.EventKey }), cancellationToken); }
+            catch (Exception recordingException) when (recordingException is not OperationCanceledException) { logger.LogWarning(recordingException, "Could not record level announcement failure"); }
+        }
     }
     private Task CompleteAsync(LevelTransitionEvent e, LevelTransitionStatus status, string? error, CancellationToken ct) => database.LevelTransitionEvents.UpdateOneAsync(x => x.Id == e.Id && x.LeaseOwner == e.LeaseOwner, Builders<LevelTransitionEvent>.Update.Set(x => x.Status, status).Set(x => x.LastErrorCode, error).Set(x => x.CompletedAtUtc, timeProvider.GetUtcNow().UtcDateTime).Unset(x => x.LeaseOwner).Unset(x => x.LeaseExpiresAtUtc), cancellationToken: ct);
     private Task FailAsync(LevelTransitionEvent e, string code, bool temporary, CancellationToken ct)

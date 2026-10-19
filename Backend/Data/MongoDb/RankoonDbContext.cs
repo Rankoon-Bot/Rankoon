@@ -51,6 +51,7 @@ public class RankoonDbContext
     public IMongoCollection<GuildLeaderboardSettings> GuildLeaderboardSettings => _database.GetCollection<GuildLeaderboardSettings>("guild_leaderboard_settings");
     public IMongoCollection<MemberLeaderboardPreference> MemberLeaderboardPreferences => _database.GetCollection<MemberLeaderboardPreference>("member_leaderboard_preferences");
     public IMongoCollection<XpLedgerEntry> XpLedger => _database.GetCollection<XpLedgerEntry>("xp_ledger");
+    public IMongoCollection<XpIntegritySweepCursor> XpIntegritySweepCursors => _database.GetCollection<XpIntegritySweepCursor>("xp_integrity_sweep_cursors");
     public IMongoCollection<GuildLevelUpAnnouncementSettings> GuildLevelUpAnnouncementSettings => _database.GetCollection<GuildLevelUpAnnouncementSettings>("guild_level_up_announcement_settings");
     public IMongoCollection<LevelTransitionEvent> LevelTransitionEvents => _database.GetCollection<LevelTransitionEvent>("level_transition_events");
     public IMongoCollection<VoiceSession> VoiceSessions => _database.GetCollection<VoiceSession>("voice_sessions");

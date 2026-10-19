@@ -14,6 +14,7 @@ public interface IXpImportService
 public sealed class XpImportService(
     XpImportParser parser,
     RankoonDbContext database,
+    IXpProjectionCoordinator projectionCoordinator,
     GuildMembershipService memberships,
     LevelRoleService levelRoles,
     ILeaderboardRealtimePublisher realtime,
@@ -34,11 +35,7 @@ public sealed class XpImportService(
         var visibility = preferences.ToDictionary(preference => preference.UserId, preference => preference.PublicVisible);
         var updatedAt = timeProvider.GetUtcNow().UtcDateTime;
 
-        foreach (var chunk in parsed.Members.Chunk(ChunkSize))
-        {
-            var writes = chunk.Select(member => CreateUpdate(guildId, member, visibility.GetValueOrDefault(member.UserId, true), updatedAt)).ToArray();
-            await database.MemberXp.BulkWriteAsync(writes, new BulkWriteOptions { IsOrdered = false }, cancellationToken);
-        }
+        await WriteMembersAsync(guildId, parsed.Members, visibility, updatedAt, cancellationToken);
 
         await Parallel.ForEachAsync(parsed.Members, new ParallelOptions
         {
@@ -61,6 +58,26 @@ public sealed class XpImportService(
         catch (Exception exception) when (exception is not OperationCanceledException) { logger.LogWarning(exception, "Unable to queue avatar hydration after XP import for guild {GuildId}", guildId); }
         await realtime.PublishGuildAsync(guildId, cancellationToken);
         return new(parsed.Format, parsed.Members.Count, parsed.SkippedInvalid, parsed.SkippedForeignGuild, parsed.DuplicateUsers);
+    }
+
+    internal async Task WriteMembersAsync(ulong guildId, IReadOnlyList<XpImportMember> members, IReadOnlyDictionary<ulong, bool> visibility, DateTime updatedAt, CancellationToken cancellationToken)
+    {
+        if (members.Count == 0) return;
+        IXpProjectionLease? acquired = null;
+        for (var attempt = 0; attempt < 50 && acquired == null; attempt++)
+        {
+            acquired = await projectionCoordinator.AcquireAsync(guildId, members[0].UserId, null, cancellationToken);
+            if (acquired == null) await Task.Delay(TimeSpan.FromMilliseconds(100), timeProvider, cancellationToken);
+        }
+        await using var lease = acquired ?? throw new InvalidOperationException("XP import is busy. Retry the import after current XP processing finishes.");
+        // Absolute recovery reads the imported basis before writing totals. Share its
+        // guild lease so an import cannot change that basis in between those writes.
+        foreach (var chunk in members.Chunk(ChunkSize))
+        {
+            if (!await lease.RenewAsync(cancellationToken)) throw new InvalidOperationException("XP import lost its processing lease. Retry the import safely.");
+            var writes = chunk.Select(member => CreateUpdate(guildId, member, visibility.GetValueOrDefault(member.UserId, true), updatedAt)).ToArray();
+            await database.MemberXp.BulkWriteAsync(writes, new BulkWriteOptions { IsOrdered = false }, cancellationToken);
+        }
     }
 
     internal static UpdateOneModel<MemberXp> CreateUpdate(ulong guildId, XpImportMember member, bool publicVisible, DateTime updatedAt)

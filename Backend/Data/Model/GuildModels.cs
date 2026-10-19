@@ -124,6 +124,9 @@ public static class XpLedgerSemantics
     public static XpLedgerScope GetEffectiveScope(XpLedgerEntry entry) => entry.Scope ??
         (entry.SeasonId == null ? XpLedgerScope.LifetimeOnly : XpLedgerScope.LifetimeAndSeason);
     public static bool IsAutomatic(XpLedgerEntry entry) => GetEffectiveKind(entry) is XpLedgerEntryKind.AutomaticGrant or XpLedgerEntryKind.AutomaticReversal;
+    public static bool IsVoice(XpLedgerEntry entry) => IsAutomatic(entry) && entry.Source is "voice" or "voice_reversal";
+    public static long VoiceSeconds(XpLedgerEntry entry) => IsVoice(entry) && entry.PeriodStartsAtUtc is { } start && entry.PeriodEndsAtUtc is { } end
+        ? Math.Max(0, (long)(end - start).TotalSeconds) * (GetEffectiveKind(entry) == XpLedgerEntryKind.AutomaticReversal ? -1 : 1) : 0;
     public static bool AffectsLifetime(XpLedgerEntry entry) => GetEffectiveScope(entry) != XpLedgerScope.SeasonOnly;
     public static bool AffectsSeason(XpLedgerEntry entry) => entry.SeasonId != null && GetEffectiveScope(entry) != XpLedgerScope.LifetimeOnly;
 }
@@ -163,6 +166,7 @@ public sealed class XpLedgerEntry
     [BsonElement("projection_lease_owner")] public string? ProjectionLeaseOwner { get; set; }
     [BsonElement("projection_lease_expires_at_utc")] public DateTime? ProjectionLeaseExpiresAtUtc { get; set; }
     [BsonElement("level_transition_snapshot"), BsonIgnoreIfNull] public LevelTransitionSnapshot? LevelTransitionSnapshot { get; set; }
+    [BsonElement("season_level_transition_snapshots"), BsonIgnoreIfNull] public Dictionary<string, LevelTransitionSnapshot>? SeasonLevelTransitionSnapshots { get; set; }
 }
 
 [BsonIgnoreExtraElements]

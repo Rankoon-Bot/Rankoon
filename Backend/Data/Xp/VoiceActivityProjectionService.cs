@@ -46,7 +46,8 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
             : Builders<VoiceActivityDay>.Filter.Eq(x => x.ProjectionStatus, VoiceActivityProjectionStatus.Pending) & Builders<VoiceActivityDay>.Filter.Eq(x => x.Revision, day.Revision));
         var claimUpdate = Builders<VoiceActivityDay>.Update.Set(x => x.ProjectionStatus, VoiceActivityProjectionStatus.Projecting).Set(x => x.ProjectionLeaseOwner, owner).Set(x => x.ProjectionLeaseExpiresAtUtc, now.Add(LeaseDuration)).Inc(x => x.Revision, 1);
         if (!recovering) claimUpdate = claimUpdate.Set(x => x.ProjectionTargetRevision, day.ProjectionRevision).Set(x => x.ProjectionTargetEligibleSeconds, day.TotalEligibleSeconds)
-            .Set(x => x.ProjectionTargetAwardedXp, day.TotalAwardedXp).Set(x => x.ProjectionTargetSeasonTotals, CopyTotals(day.SeasonTotals));
+            .Set(x => x.ProjectionTargetAwardedXp, day.TotalAwardedXp).Set(x => x.ProjectionTargetSeasonTotals, CopyTotals(day.SeasonTotals))
+            .Unset(x => x.LevelTransitionSnapshot).Unset(x => x.SeasonLevelTransitionSnapshots);
         var claimed = await database.VoiceActivities.FindOneAndUpdateAsync(claimFilter, claimUpdate,
             new FindOneAndUpdateOptions<VoiceActivityDay> { ReturnDocument = ReturnDocument.Before }, cancellationToken);
         if (claimed == null) return;
@@ -55,13 +56,30 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         await using var projectionLease = await coordinator.AcquireAsync(claimed.GuildId, claimed.UserId, null, cancellationToken);
         if (projectionLease == null)
         {
-            await ReleaseDayLeaseAsync(claimed.Id!, owner, cancellationToken);
+            await ReleaseDayLeaseAsync(claimed.Id!, owner, cancellationToken, recovering);
             return;
         }
 
         var before = await database.MemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? new MemberXp();
         var seasonIds = target.SeasonTotals.Where(x => !string.IsNullOrWhiteSpace(x.SeasonId)).Select(x => x.SeasonId!).Distinct(StringComparer.Ordinal).ToArray();
         var beforeSeasons = seasonIds.Length == 0 ? [] : await database.SeasonMemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId && seasonIds.Contains(x.SeasonId)).ToListAsync(cancellationToken);
+        if (!await RenewProjectionOwnershipAsync(claimed.Id!, owner, projectionLease, cancellationToken)) return;
+        if (!recovering)
+        {
+            claimed.LevelTransitionSnapshot = XpService.TransitionSnapshot(before.TotalXp, before.TotalXp + target.TotalAwardedXp - target.ProjectedXp);
+            claimed.SeasonLevelTransitionSnapshots = new();
+            foreach (var total in target.SeasonTotals.Where(x => x.SeasonId != null))
+            {
+                var season = await database.GuildSeasons.Find(x => x.Id == total.SeasonId).FirstOrDefaultAsync(cancellationToken);
+                if (!CanMutateSeason(season?.Status)) continue;
+                var previous = beforeSeasons.FirstOrDefault(x => x.SeasonId == total.SeasonId)?.TotalXp ?? 0;
+                var delta = total.AwardedXp - (target.ProjectedSeasonTotals.FirstOrDefault(x => x.SeasonId == total.SeasonId)?.AwardedXp ?? 0);
+                claimed.SeasonLevelTransitionSnapshots[total.SeasonId!] = XpService.TransitionSnapshot(previous, previous + delta);
+            }
+            await database.VoiceActivities.UpdateOneAsync(x => x.Id == claimed.Id && x.ProjectionLeaseOwner == owner,
+                Builders<VoiceActivityDay>.Update.Set(x => x.LevelTransitionSnapshot, claimed.LevelTransitionSnapshot)
+                    .Set(x => x.SeasonLevelTransitionSnapshots, claimed.SeasonLevelTransitionSnapshots).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);
+        }
         if (recovering && !await RebuildAbsoluteAsync(target, displayName, now, owner, projectionLease, cancellationToken))
         {
             await ReleaseDayLeaseAsync(claimed.Id!, owner, cancellationToken);
@@ -70,28 +88,25 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         if (!recovering) await ApplyDeltaAsync(target, displayName, now, cancellationToken);
         if (!await RenewProjectionOwnershipAsync(claimed.Id!, owner, projectionLease, cancellationToken)) return;
         var after = await database.MemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? before;
-        var snapshot = new LevelTransitionSnapshot
-        {
-            PreviousTotalXp = before.TotalXp, NewTotalXp = after.TotalXp,
-            PreviousLevel = Mee6LevelCurve.GetLevel(before.TotalXp), NewLevel = Mee6LevelCurve.GetLevel(after.TotalXp)
-        };
+        var snapshot = claimed.LevelTransitionSnapshot ?? XpService.TransitionSnapshot(before.TotalXp, after.TotalXp);
         var channels = claimed.Segments.Select(x => x.ChannelId).Distinct().Take(2).ToArray();
         var channelId = channels.Length == 1 ? channels[0] : (ulong?)null;
         await transitions.EnsureAsync(claimed.GuildId, claimed.UserId,
-            new("voice", $"voice:{claimed.Id}:{target.ProjectionRevision}", after.TotalXp - before.TotalXp, channelId, SuppressAnnouncement: recovering), snapshot, cancellationToken);
+            new("voice", $"voice:{claimed.Id}:{target.ProjectionRevision}", snapshot.NewTotalXp - snapshot.PreviousTotalXp, channelId, SuppressAnnouncement: recovering && claimed.LevelTransitionSnapshot == null), snapshot, cancellationToken);
         foreach (var seasonId in seasonIds)
         {
             var season = await database.GuildSeasons.Find(x => x.Id == seasonId).FirstOrDefaultAsync(cancellationToken);
             var afterSeason = await database.SeasonMemberXp.Find(x => x.SeasonId == seasonId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken);
             if (season == null || afterSeason == null) continue;
             var beforeSeason = beforeSeasons.FirstOrDefault(x => x.SeasonId == seasonId);
-            var seasonSnapshot = new LevelTransitionSnapshot { PreviousTotalXp = beforeSeason?.TotalXp ?? 0, NewTotalXp = afterSeason.TotalXp, PreviousLevel = Mee6LevelCurve.GetLevel(beforeSeason?.TotalXp ?? 0), NewLevel = Mee6LevelCurve.GetLevel(afterSeason.TotalXp) };
-            await transitions.EnsureAsync(claimed.GuildId, claimed.UserId, new("voice", $"voice:{claimed.Id}:{target.ProjectionRevision}", afterSeason.TotalXp - (beforeSeason?.TotalXp ?? 0), channelId, SuppressAnnouncement: recovering), seasonSnapshot, LevelProgressScope.Season, seasonId, season.Name, cancellationToken);
+            var seasonSnapshot = claimed.SeasonLevelTransitionSnapshots?.GetValueOrDefault(seasonId) ?? XpService.TransitionSnapshot(beforeSeason?.TotalXp ?? 0, afterSeason.TotalXp);
+            await transitions.EnsureAsync(claimed.GuildId, claimed.UserId, new("voice", $"voice:{claimed.Id}:{target.ProjectionRevision}", seasonSnapshot.NewTotalXp - seasonSnapshot.PreviousTotalXp, channelId, SuppressAnnouncement: recovering && claimed.SeasonLevelTransitionSnapshots == null), seasonSnapshot, LevelProgressScope.Season, seasonId, season.Name, cancellationToken);
         }
 
         if (!await RenewProjectionOwnershipAsync(claimed.Id!, owner, projectionLease, cancellationToken)) return;
         var projectedTotals = ProjectedTotals(target.SeasonTotals);
         var projected = Builders<VoiceActivityDay>.Update.Set(x => x.ProjectedRevision, target.ProjectionRevision)
+            .Inc(x => x.Revision, 1)
             .Set(x => x.ProjectedEligibleSeconds, target.TotalEligibleSeconds).Set(x => x.ProjectedXp, target.TotalAwardedXp)
             .Set(x => x.ProjectedSeasonTotals, projectedTotals).Set(x => x.ProjectedAtUtc, now)
             .Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc);
@@ -143,7 +158,7 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         var member = await database.MemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? new MemberXp();
         var lifetime = ledger.Where(XpLedgerSemantics.AffectsLifetime).ToArray();
         var nonVoiceEarned = lifetime.Where(XpLedgerSemantics.IsAutomatic).Sum(x => x.Amount);
-        var legacyVoice = lifetime.Where(x => XpLedgerSemantics.IsAutomatic(x) && x.Source == "voice").ToArray();
+        var legacyVoice = lifetime.Where(XpLedgerSemantics.IsVoice).ToArray();
         var totalVoiceXp = legacyVoice.Sum(x => x.Amount) + voice.AwardedXp;
         var totalVoiceSeconds = legacyVoice.Sum(VoiceSeconds) + voice.EligibleSeconds;
         var manual = lifetime.Where(x => !XpLedgerSemantics.IsAutomatic(x)).Sum(x => x.Amount);
@@ -163,7 +178,7 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
             var seasonLedger = ledger.Where(x => x.SeasonId == seasonId && XpLedgerSemantics.AffectsSeason(x)).ToArray();
             var seasonMember = await database.SeasonMemberXp.Find(x => x.SeasonId == seasonId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? new SeasonMemberXp();
             var earned = seasonLedger.Where(XpLedgerSemantics.IsAutomatic).Sum(x => x.Amount) + seasonTotal.AwardedXp;
-            var legacySeasonVoice = seasonLedger.Where(x => XpLedgerSemantics.IsAutomatic(x) && x.Source == "voice").ToArray();
+            var legacySeasonVoice = seasonLedger.Where(XpLedgerSemantics.IsVoice).ToArray();
             var totalSeasonVoiceXp = legacySeasonVoice.Sum(x => x.Amount) + seasonTotal.AwardedXp;
             var totalSeasonVoiceSeconds = legacySeasonVoice.Sum(VoiceSeconds) + seasonTotal.EligibleSeconds;
             var seasonManual = seasonLedger.Where(x => !XpLedgerSemantics.IsAutomatic(x)).Sum(x => x.Amount);
@@ -179,7 +194,7 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         var guildLedger = await database.XpLedger.Find(x => x.GuildId == claimed.GuildId && !x.IsProjectionControl && !x.CooldownDenied && x.ProjectionStatus == SeasonProjectionStatus.Applied).ToListAsync(cancellationToken);
         if (compressedAuthoritative) guildLedger.RemoveAll(x => x.Source == "voice");
         var automaticXp = guildLedger.Where(XpLedgerSemantics.IsAutomatic).Sum(x => x.Amount);
-        var guildLegacyVoice = guildLedger.Where(x => XpLedgerSemantics.IsAutomatic(x) && x.Source == "voice").ToArray();
+        var guildLegacyVoice = guildLedger.Where(XpLedgerSemantics.IsVoice).ToArray();
         var guildTotalVoiceXp = guildLegacyVoice.Sum(x => x.Amount) + guildVoice.AwardedXp;
         var guildTotalVoiceSeconds = guildLegacyVoice.Sum(VoiceSeconds) + guildVoice.EligibleSeconds;
         if (!await RenewProjectionOwnershipAsync(claimed.Id!, owner, projectionLease, cancellationToken)) return false;
@@ -217,9 +232,8 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         return (Math.Max(0, seconds), Math.Max(0, xp), seasons);
     }
 
-    internal static bool CanMutateSeason(SeasonStatus? status) => status != null && status != SeasonStatus.Closed;
-    private static long VoiceSeconds(XpLedgerEntry entry) => entry.PeriodStartsAtUtc != null && entry.PeriodEndsAtUtc != null
-        ? (long)(entry.PeriodEndsAtUtc.Value - entry.PeriodStartsAtUtc.Value).TotalSeconds : 0;
+    internal static bool CanMutateSeason(SeasonStatus? status) => status is SeasonStatus.Active or SeasonStatus.Closing;
+    private static long VoiceSeconds(XpLedgerEntry entry) => XpLedgerSemantics.VoiceSeconds(entry);
 
     internal static VoiceActivityDay ProjectionTarget(VoiceActivityDay day) => new()
     {
@@ -230,15 +244,19 @@ public sealed class VoiceActivityProjectionService(RankoonDbContext database, IX
         ProjectedXp = day.ProjectedXp, ProjectedSeasonTotals = CopyTotals(day.ProjectedSeasonTotals)
     };
 
-    private Task ReleaseDayLeaseAsync(string id, string owner, CancellationToken cancellationToken) => database.VoiceActivities.UpdateOneAsync(x => x.Id == id && x.ProjectionLeaseOwner == owner,
-        Builders<VoiceActivityDay>.Update.Set(x => x.ProjectionStatus, VoiceActivityProjectionStatus.Pending).Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc), cancellationToken: cancellationToken);
+    private Task ReleaseDayLeaseAsync(string id, string owner, CancellationToken cancellationToken, bool recovering = true) => database.VoiceActivities.UpdateOneAsync(x => x.Id == id && x.ProjectionLeaseOwner == owner,
+        // Preserve Projecting and the immutable target across contention. An expired
+        // owner may have applied only part of the delta; recovery must rebuild it.
+        recovering ? Builders<VoiceActivityDay>.Update.Set(x => x.ProjectionLeaseExpiresAtUtc, DateTime.UnixEpoch).Inc(x => x.Revision, 1) :
+            Builders<VoiceActivityDay>.Update.Set(x => x.ProjectionStatus, VoiceActivityProjectionStatus.Pending)
+                .Unset(x => x.ProjectionLeaseOwner).Unset(x => x.ProjectionLeaseExpiresAtUtc).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);
 
     private async Task<bool> RenewProjectionOwnershipAsync(string dayId, string owner, IXpProjectionLease projectionLease, CancellationToken cancellationToken)
     {
         if (!await projectionLease.RenewAsync(cancellationToken)) return false;
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var renewed = await database.VoiceActivities.UpdateOneAsync(x => x.Id == dayId && x.ProjectionLeaseOwner == owner && x.ProjectionLeaseExpiresAtUtc > now,
-            Builders<VoiceActivityDay>.Update.Set(x => x.ProjectionLeaseExpiresAtUtc, now.Add(LeaseDuration)), cancellationToken: cancellationToken);
+            Builders<VoiceActivityDay>.Update.Set(x => x.ProjectionLeaseExpiresAtUtc, now.Add(LeaseDuration)).Inc(x => x.Revision, 1), cancellationToken: cancellationToken);
         return renewed.MatchedCount == 1;
     }
 

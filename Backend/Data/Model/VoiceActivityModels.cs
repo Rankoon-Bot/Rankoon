@@ -13,6 +13,8 @@ public enum VoiceActivityProjectionStatus
 
 public sealed class VoiceActivityDay
 {
+    [BsonElement("level_transition_snapshot"), BsonIgnoreIfNull] public LevelTransitionSnapshot? LevelTransitionSnapshot { get; set; }
+    [BsonElement("season_level_transition_snapshots"), BsonIgnoreIfNull] public Dictionary<string, LevelTransitionSnapshot>? SeasonLevelTransitionSnapshots { get; set; }
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
     [BsonElement("user_id")] public ulong UserId { get; set; }

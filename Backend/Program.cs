@@ -236,6 +236,7 @@ builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonCoordinator>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.SeasonLevelRoleService>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LevelRoleRepairService>();
+builder.Services.AddSingleton<Rankoon.Data.Xp.XpIntegrityService>();
 builder.Services.AddSingleton<IDiscordAnnouncementSender, DiscordAnnouncementSender>();
 builder.Services.AddSingleton<LevelProgressionWorker>();
 builder.Services.AddSingleton<Rankoon.Data.Xp.LeaderboardService>();
@@ -272,6 +273,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.SeasonCoordinator>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<LevelProgressionWorker>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LevelRoleRepairService>());
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.XpIntegrityService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<VoiceXpWatchdog>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.GuildUserAvatarObservationWorker>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.GuildUserAvatarHydrationWorker>());
@@ -411,6 +413,10 @@ static void ConfigureAppSettings(WebApplicationBuilder builder)
     builder.Services.AddOptions<VoiceActivityOptions>()
         .Bind(builder.Configuration.GetSection(VoiceActivityOptions.SectionName))
         .Validate(VoiceActivityOptions.IsValid, "VoiceActivity contains invalid checkpoint, watermark, projection, or batch values.")
+        .ValidateOnStart();
+    builder.Services.AddOptions<Rankoon.Data.Xp.XpIntegrityOptions>()
+        .Bind(builder.Configuration.GetSection(Rankoon.Data.Xp.XpIntegrityOptions.SectionName))
+        .Validate(Rankoon.Data.Xp.XpIntegrityOptions.IsValid, "XpIntegrity interval, batch, timeout or announcement limit is invalid.")
         .ValidateOnStart();
     builder.Services.AddOptions<Rankoon.Data.Model.VoiceLedgerMigrationOptions>()
         .Bind(builder.Configuration.GetSection(Rankoon.Data.Model.VoiceLedgerMigrationOptions.SectionName))

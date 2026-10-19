@@ -15,6 +15,24 @@ namespace Backend.Tests;
 public sealed class VoiceXpWatchdogTests
 {
     [Fact]
+    public void Reconnect_starts_a_new_observed_session_without_awarding_the_unobserved_downtime()
+    {
+        var watchdog = Watchdog(new EmptySettingsCache());
+        var start = DateTime.UnixEpoch;
+        var previous = watchdog.NewSession(1, 2, 3, 1, start);
+        Assert.True(VoiceXpWatchdog.CanResumeSession(previous, 3, previous.RuntimeBootId!));
+        watchdog.MarkDisconnected(1);
+        var resumed = watchdog.NewSession(1, 2, 3, 1, start.AddDays(3));
+        Assert.NotEqual(previous.RuntimeBootId, resumed.RuntimeBootId);
+        Assert.False(VoiceXpWatchdog.CanResumeSession(previous, 3, resumed.RuntimeBootId!));
+        Assert.Equal(start.AddDays(3), resumed.JoinedAt);
+        Assert.Equal(resumed.JoinedAt, resumed.LastAccruedAt);
+        Assert.Equal(0, resumed.EligibleSeconds);
+        Assert.Empty(resumed.PendingEligibilityIntervals);
+        Assert.Equal(VoiceWatchdogState.Stale, watchdog.GetStatus(1).State);
+    }
+
+    [Fact]
     public async Task First_settings_save_has_no_previous_revision_to_reconcile()
     {
         var watchdog = Watchdog(new EmptySettingsCache());
@@ -199,7 +217,7 @@ public sealed class VoiceXpWatchdogTests
         var eligibleAt = joinedAt.AddMinutes(3);
         var session = new VoiceSession { JoinedAt = joinedAt, EligibilityStartedAt = eligibleAt, LastAccruedAt = eligibleAt.AddMinutes(1), EligibleSeconds = 0 };
 
-        Assert.Equal(60L, (long)Invoke("EffectiveQualifyingSeconds", session)!);
+        Assert.Equal(60L, VoiceSessionQualification.Prepare(session, 1).QualifyingSeconds);
         Assert.Equal(joinedAt, session.JoinedAt);
     }
 
@@ -207,10 +225,12 @@ public sealed class VoiceXpWatchdogTests
     public void Pending_eligibility_windows_merge_only_when_contiguous()
     {
         var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var intervals = new List<VoiceEligibilityInterval>();
-        Invoke("AppendPendingInterval", intervals, start, start.AddSeconds(30));
-        Invoke("AppendPendingInterval", intervals, start.AddSeconds(30), start.AddSeconds(60));
-        Invoke("AppendPendingInterval", intervals, start.AddSeconds(90), start.AddSeconds(120));
+        var state = VoiceSessionQualification.Prepare(new VoiceSession { JoinedAt = start, LastAccruedAt = start }, 1);
+        var qualifiesBelowMinimum = new VoiceXpEligibilityResult(true, false, 2, 2, [VoiceXpIneligibilityReason.MinimumSessionDuration]);
+        state.Advance(qualifiesBelowMinimum, new(), start, start.AddSeconds(30));
+        state.Advance(qualifiesBelowMinimum, new(), start.AddSeconds(30), start.AddSeconds(60));
+        state.Advance(qualifiesBelowMinimum, new(), start.AddSeconds(90), start.AddSeconds(120));
+        var intervals = state.PendingIntervals;
 
         Assert.Equal(2, intervals.Count);
         Assert.Equal(start.AddSeconds(60), intervals[0].EndsAtUtc);

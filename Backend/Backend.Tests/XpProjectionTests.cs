@@ -108,6 +108,9 @@ public sealed class XpProjectionTests
     [InlineData(SeasonStatus.Active, true)]
     [InlineData(SeasonStatus.Closing, true)]
     [InlineData(SeasonStatus.Closed, false)]
+    [InlineData(SeasonStatus.Scheduled, false)]
+    [InlineData(SeasonStatus.Cancelled, false)]
+    [InlineData(SeasonStatus.Paused, false)]
     [InlineData(null, false)]
     public void Live_voice_projection_never_mutates_closed_or_missing_seasons(SeasonStatus? status, bool expected)
     {

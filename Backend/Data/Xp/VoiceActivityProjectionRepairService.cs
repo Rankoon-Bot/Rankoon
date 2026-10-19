@@ -22,8 +22,14 @@ public sealed class VoiceActivityProjectionRepairService(RankoonDbContext databa
                 var filter = (Builders<VoiceActivityDay>.Filter.Eq(x => x.ProjectionStatus, VoiceActivityProjectionStatus.Pending) & Builders<VoiceActivityDay>.Filter.Lte(x => x.UpdatedAtUtc, due)) |
                     (Builders<VoiceActivityDay>.Filter.Eq(x => x.ProjectionStatus, VoiceActivityProjectionStatus.Projecting) & Builders<VoiceActivityDay>.Filter.Lte(x => x.ProjectionLeaseExpiresAtUtc, now));
                 var days = await database.VoiceActivities.Find(filter).SortBy(x => x.UpdatedAtUtc).Limit(options.ProjectionBatchSize).ToListAsync(stoppingToken);
-                foreach (var day in days) await projection.ProjectAsync(day, null, stoppingToken);
-                health.Report("voice-activity-projection", WorkerHealthState.Healthy);
+                var failures = await XpBatchProcessor.RunAsync(days, day => projection.ProjectAsync(day, null, stoppingToken), stoppingToken);
+                foreach (var failure in failures)
+                {
+                    logger.LogError(failure.Error, "Voice projection failed for day {DayId}; other members continue", failure.Item.Id);
+                    try { await errors.RecordAsync(new(failure.Error, "worker", "xp.voice-activity-projection.day", GuildId: failure.Item.GuildId, ActorUserId: failure.Item.UserId, Worker: "voice-activity-projection"), stoppingToken); }
+                    catch (Exception recordingException) when (recordingException is not OperationCanceledException) { logger.LogWarning(recordingException, "Could not record voice day projection failure"); }
+                }
+                health.Report("voice-activity-projection", failures.Count == 0 ? WorkerHealthState.Healthy : WorkerHealthState.Degraded);
                 await Task.Delay(NextDelay(days.Count, options.ProjectionBatchSize, options.ProjectionIntervalSeconds), timeProvider, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }

@@ -84,6 +84,7 @@ public sealed class DiscordRuntimeEventDispatcher(
             client.UserJoined += UserJoinedAsync;
             client.UserLeft += UserLeftAsync;
             client.ShardReady += ReadyAsync;
+            client.ShardDisconnected += DisconnectedAsync;
             client.JoinedGuild += JoinedGuildAsync;
             client.LeftGuild += LeftGuildAsync;
             client.GuildAvailable += GuildAvailableAsync;
@@ -103,6 +104,7 @@ public sealed class DiscordRuntimeEventDispatcher(
             client.UserJoined -= UserJoinedAsync;
             client.UserLeft -= UserLeftAsync;
             client.ShardReady -= ReadyAsync;
+            client.ShardDisconnected -= DisconnectedAsync;
             client.JoinedGuild -= JoinedGuildAsync;
             client.LeftGuild -= LeftGuildAsync;
             client.GuildAvailable -= GuildAvailableAsync;
@@ -139,6 +141,12 @@ public sealed class DiscordRuntimeEventDispatcher(
         {
             await owner.history.SafelyAsync(() => owner.history.ReconcileAsync(shard, client.Shards.Count, mode.ToString(), assignedGuildId));
             await InitializeAvailableGuildsAsync();
+        }
+
+        private Task DisconnectedAsync(Exception exception, DiscordSocketClient shard)
+        {
+            foreach (var guild in shard.Guilds.Where(x => Allowed(x.Id))) owner.voice.MarkDisconnected(guild.Id);
+            return Task.CompletedTask;
         }
 
         private bool Tracks(SocketGuild guild) => !assignedGuildId.HasValue || assignedGuildId.Value == guild.Id;
@@ -178,8 +186,9 @@ public sealed class DiscordRuntimeEventDispatcher(
         }
 
         private bool Allowed(ulong guildId) => owner.Allows(runtimeId, assignedGuildId, guildId);
-        private static ulong? GuildId(Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) =>
+        private ulong? GuildId(Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction) =>
             reaction.User.IsSpecified && reaction.User.Value is SocketGuildUser member ? member.Guild.Id :
-            channel.HasValue && channel.Value is SocketGuildChannel guildChannel ? guildChannel.Guild.Id : null;
+            channel.HasValue && channel.Value is IGuildChannel guildChannel ? guildChannel.GuildId :
+            client.GetChannel(channel.Id) is SocketGuildChannel cachedChannel ? cachedChannel.Guild.Id : null;
     }
 }

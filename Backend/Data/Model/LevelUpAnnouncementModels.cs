@@ -125,6 +125,7 @@ public sealed class LevelTransitionEvent
     [BsonElement("last_error_code")] public string? LastErrorCode { get; set; }
     [BsonElement("created_at_utc")] public DateTime CreatedAtUtc { get; set; }
     [BsonElement("completed_at_utc")] public DateTime? CompletedAtUtc { get; set; }
+    [BsonElement("last_integrity_retry_at_utc"), BsonIgnoreIfNull] public DateTime? LastIntegrityRetryAtUtc { get; set; }
 }
 
 public sealed class LevelTransitionSnapshot

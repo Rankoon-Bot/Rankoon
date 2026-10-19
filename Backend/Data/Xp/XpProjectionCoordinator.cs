@@ -25,17 +25,27 @@ public sealed class XpProjectionCoordinator(RankoonDbContext database, TimeProvi
         var keys = new List<string> { $"guild:{guildId}", $"member:{guildId}:{userId}" };
         if (seasonId != null) keys.Add($"season:{seasonId}:{userId}");
         var acquired = new List<string>(keys.Count);
-        foreach (var key in keys)
+        try
         {
-            if (await TryAcquireAsync(key, guildId, userId, owner, cancellationToken))
+            foreach (var key in keys)
             {
-                acquired.Add(key);
-                continue;
+                if (await TryAcquireAsync(key, guildId, userId, owner, cancellationToken))
+                {
+                    acquired.Add(key);
+                    continue;
+                }
+                await ReleaseAsync(acquired, owner, cancellationToken);
+                return null;
             }
-            await ReleaseAsync(acquired, owner, cancellationToken);
-            return null;
+            return new Lease(database.XpProjectionLeases, acquired, owner, timeProvider, LeaseDuration);
         }
-        return new Lease(database.XpProjectionLeases, acquired, owner, timeProvider, LeaseDuration);
+        catch
+        {
+            // Cancellation between lock acquisitions must not block an entire guild
+            // until lease expiry. Cleanup uses its own uncancelled token.
+            await ReleaseAsync(acquired, owner, CancellationToken.None);
+            throw;
+        }
     }
 
     private async Task<bool> TryAcquireAsync(string key, ulong guildId, ulong userId, string owner, CancellationToken cancellationToken)

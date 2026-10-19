@@ -98,6 +98,9 @@ public sealed class VoiceActivityAccumulator(RankoonDbContext database, IOptions
 
     public static VoiceAccrualPlan Plan(VoiceActivityDay? current, VoiceAccrualSlice input, int maxSegmentsPerPart = MaximumSegmentsPerPart)
     {
+        input = Normalize(input);
+        Validate(input);
+        if (maxSegmentsPerPart < 1) throw new ArgumentOutOfRangeException(nameof(maxSegmentsPerPart));
         var cursor = current?.SessionCursors.SingleOrDefault(x => x.SessionId == input.SessionId);
         if (cursor != null && input.EndsAtUtc <= cursor.ProcessedThroughUtc) return new(true, false, false, false, null, null);
 
@@ -187,6 +190,7 @@ public sealed class VoiceActivityAccumulator(RankoonDbContext database, IOptions
     private static VoiceActivityDay Copy(VoiceActivityDay day) => new()
     {
         Id = day.Id, GuildId = day.GuildId, UserId = day.UserId, DayStartUtc = day.DayStartUtc, Part = day.Part, Revision = day.Revision,
+        LevelTransitionSnapshot = day.LevelTransitionSnapshot, SeasonLevelTransitionSnapshots = day.SeasonLevelTransitionSnapshots,
         Segments = day.Segments.Select(Copy).ToList(), SessionCursors = day.SessionCursors.Select(x => new VoiceSessionCursor { SessionId = x.SessionId, ProcessedThroughUtc = x.ProcessedThroughUtc }).ToList(),
         TotalEligibleSeconds = day.TotalEligibleSeconds, TotalAwardedXp = day.TotalAwardedXp, SeasonTotals = CopyTotals(day.SeasonTotals), ProjectionStatus = day.ProjectionStatus,
         ProjectionRevision = day.ProjectionRevision, ProjectedRevision = day.ProjectedRevision, ProjectedEligibleSeconds = day.ProjectedEligibleSeconds,
@@ -201,7 +205,9 @@ public sealed class VoiceActivityAccumulator(RankoonDbContext database, IOptions
         return new VoiceActivitySegment
         {
             SessionId = input.SessionId, StartsAtUtc = start, EndsAtUtc = input.EndsAtUtc, ChannelId = input.ChannelId, SeasonId = input.SeasonId,
-            EligibleSeconds = seconds, AwardedXp = VoiceXpWatchdog.RoundAccrual(seconds, input.EffectiveXpPerMinute), EffectiveXpPerMinute = input.EffectiveXpPerMinute,
+            // Preserve the immutable award (especially legacy migration rounding).
+            // Only a trimmed overlap needs a freshly calculated remainder.
+            EligibleSeconds = seconds, AwardedXp = start == input.StartsAtUtc ? input.AwardedXp : VoiceXpWatchdog.RoundAccrual(seconds, input.EffectiveXpPerMinute), EffectiveXpPerMinute = input.EffectiveXpPerMinute,
             ChannelMultiplier = input.ChannelMultiplier, AppliedServerBoosterMultiplier = input.ServerBoosterMultiplier, SettingsRevision = input.SettingsRevision
         };
     }
@@ -236,8 +242,10 @@ public sealed class VoiceActivityAccumulator(RankoonDbContext database, IOptions
     private static void Validate(VoiceAccrualSlice input)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(input.SessionId);
+        if (input.GuildId == 0 || input.UserId == 0 || input.ChannelId == 0) throw new ArgumentException("Voice accrual requires a guild, member and channel.", nameof(input));
         if (input.EndsAtUtc <= input.StartsAtUtc) throw new ArgumentOutOfRangeException(nameof(input), "Voice accrual must have positive duration.");
         if (input.StartsAtUtc.Date != input.EndsAtUtc.AddTicks(-1).Date) throw new ArgumentException("Voice accrual must not cross a UTC day boundary.", nameof(input));
-        if (input.EligibleSeconds < 0 || input.AwardedXp < 0) throw new ArgumentOutOfRangeException(nameof(input), "Voice accrual totals cannot be negative.");
+        if (input.EligibleSeconds < 0 || input.EligibleSeconds > (long)(input.EndsAtUtc - input.StartsAtUtc).TotalSeconds || input.AwardedXp < 0 || input.EffectiveXpPerMinute < 0 || input.ChannelMultiplier < 0)
+            throw new ArgumentOutOfRangeException(nameof(input), "Voice accrual totals must be nonnegative and fit inside the interval.");
     }
 }
