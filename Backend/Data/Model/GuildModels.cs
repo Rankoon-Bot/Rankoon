@@ -166,7 +166,9 @@ public sealed class XpLedgerEntry
     [BsonElement("reference"), BsonIgnoreIfNull] public string? Reference { get; set; }
     [BsonElement("request_id"), BsonIgnoreIfNull] public string? RequestId { get; set; }
     [BsonElement("reverses_ledger_entry_id"), BsonRepresentation(BsonType.ObjectId), BsonIgnoreIfNull] public string? ReversesLedgerEntryId { get; set; }
-    [BsonElement("projection_status"), BsonRepresentation(BsonType.String)] public SeasonProjectionStatus ProjectionStatus { get; set; } = SeasonProjectionStatus.Pending;
+    // Missing on pre-projection history: deserialize it as an existing award.
+    // Newly constructed grants still explicitly serialize Pending.
+    [BsonElement("projection_status"), BsonRepresentation(BsonType.String), BsonDefaultValue(SeasonProjectionStatus.Applied)] public SeasonProjectionStatus ProjectionStatus { get; set; } = SeasonProjectionStatus.Pending;
     [BsonElement("projected_at_utc")] public DateTime? ProjectedAtUtc { get; set; }
     [BsonElement("cooldown_source")] public string? CooldownSource { get; set; }
     [BsonElement("cooldown_seconds")] public int? CooldownSeconds { get; set; }

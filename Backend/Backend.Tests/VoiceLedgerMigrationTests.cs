@@ -102,6 +102,24 @@ public sealed class VoiceLedgerMigrationTests
         Assert.False(VoiceLedgerMigrationService.IsCompressedVoiceAuthoritative(state));
     }
 
+    [Fact]
+    public void Only_verified_legacy_segments_replace_their_original_ledger_ids()
+    {
+        const string copied = "64b000000000000000000001";
+        const string live = "64b000000000000000000002";
+        var days = new[] { new VoiceActivityDay { Segments = [
+            new() { SessionId = VoiceLedgerMigrationService.LegacySessionId(copied), SettingsRevision = VoiceLedgerMigrationService.LegacySettingsRevision },
+            new() { SessionId = VoiceLedgerMigrationService.LegacySessionId(copied), SettingsRevision = VoiceLedgerMigrationService.LegacySettingsRevision },
+            new() { SessionId = VoiceLedgerMigrationService.LegacySessionId(live), SettingsRevision = 1 },
+            new() { SessionId = "lv_!!!!!!!!!!!!!!!!", SettingsRevision = VoiceLedgerMigrationService.LegacySettingsRevision }
+        ] } };
+        var state = new VoiceLedgerMigrationState { Phase = VoiceLedgerMigrationPhase.Copying };
+        Assert.Empty(VoiceLedgerMigrationService.ReplacedLedgerIds(state, days));
+        state.Phase = VoiceLedgerMigrationPhase.AwaitingDeletionApproval;
+        state.Parity = new() { Matches = true, GroupedParityVerified = true, Fingerprint = "verified" };
+        Assert.Equal(copied, Assert.Single(VoiceLedgerMigrationService.ReplacedLedgerIds(state, days)));
+    }
+
     [Theory]
     [InlineData(VoiceLedgerMigrationPhase.Copying, true, false)]
     [InlineData(VoiceLedgerMigrationPhase.ParityFailed, true, false)]

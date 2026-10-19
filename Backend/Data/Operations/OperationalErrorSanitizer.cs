@@ -17,7 +17,9 @@ public static partial class OperationalErrorSanitizer
     ];
     private static readonly HashSet<string> AllowedContextKeys = new(StringComparer.Ordinal)
     {
-        "cause", "channelId", "eventId", "hubId", "identityId", "method", "shardId", "state", "userId", "worker"
+        "cause", "channelId", "eventId", "hubId", "identityId", "method", "shardId", "state", "userId", "worker",
+        "xpScope", "xpStoredEarned", "xpSourceEarned", "xpEarnedDifference", "xpStoredManual", "xpSourceManual",
+        "xpStoredVoice", "xpSourceVoice", "xpMigrationPhase"
     };
 
     public static string Redact(string? value, int maxLength)
