@@ -47,7 +47,7 @@ export class DevToolsComponent implements OnInit {
     this.busy.set(true);
     this.api.triggerEvents(this.guildId(), this.eventCount, this.minimumXp, this.maximumXp).pipe(finalize(() => this.busy.set(false))).subscribe({
       next: result => { this.status.set(result.status); this.toast.success(this.i18n.translate('devTools.messages.events', { count: result.granted })); },
-      error: error => this.toast.error(this.errors.resolve(error, 'devTools.errors.events').message),
+      error: error => this.errors.notify(error, 'devTools.errors.events'),
     });
   }
   remove(): void {
@@ -58,7 +58,7 @@ export class DevToolsComponent implements OnInit {
     this.busy.set(true);
     request.pipe(finalize(() => this.busy.set(false))).subscribe({
       next: status => { this.status.set(status); this.toast.success(this.i18n.translate(messageKey)); },
-      error: error => this.toast.error(this.errors.resolve(error, 'devTools.errors.operation').message),
+      error: error => this.errors.notify(error, 'devTools.errors.operation'),
     });
   }
   private guildId(): string { return this.app.selectedGuild()?.id ?? ''; }

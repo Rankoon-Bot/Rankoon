@@ -1,4 +1,5 @@
-import { provideHttpClient } from '@angular/common/http';
+import { apiErrorInterceptor } from '../../interceptors/api-error.interceptor';
+import { withInterceptors, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoService } from '@jsverse/transloco';
@@ -80,5 +81,32 @@ describe('VcHubsComponent', () => {
     expect(component.editor()?.nameTemplate).toBe('{username}');
     expect(component.hubs()[0].nameTemplate).toBe('{username}');
     expect(component.dirty()).toBeFalse();
+  });
+});
+
+describe('Voice hub delete error notification integration', () => {
+  it('shows one actionable localized toast and retains the hub and unsaved editor', () => {
+    TestBed.configureTestingModule({
+      imports: [VcHubsComponent, testI18n],
+      providers: [provideHttpClient(withInterceptors([apiErrorInterceptor])), provideHttpClientTesting()]
+    });
+    TestBed.inject(AppStore).setSelectedGuild({ id: 'guild-1', name: 'Guild', icon: null, owner: true, permissions: '8', features: [], botInstalled: true, inviteUrl: '' });
+    const i18n = TestBed.inject(TranslocoService);
+    i18n.setTranslation({ apiErrors: { discord: { missingAccess: 'Der Bot hat keinen Zugriff. Prüfe die Kanalberechtigungen.' } } }, 'de', { merge: true });
+    i18n.setActiveLang('de');
+    const component = TestBed.createComponent(VcHubsComponent).componentInstance;
+    const hub = { id: 'hub-1', joinChannelId: 1, hubChannelName: 'Hub', categoryId: null, nameTemplate: '{username}', userLimit: 0, bitrate: 64000, maxChannelsPerOwner: 1, enabled: true };
+    component.hubs.set([hub]);
+    component.edit(hub);
+    component.editor()!.nameTemplate = 'Unsaved draft';
+    component.remove(hub);
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(environment.apiBaseUrl + '/guilds/guild-1/vc-hubs/hub-1').flush({ errorKey: 'discord.missingAccess', message: 'English fallback', traceId: 'delete-hub-trace' }, { status: 422, statusText: 'Unprocessable Entity' });
+    expect(TestBed.inject(ToastService).toasts()).toEqual([jasmine.objectContaining({ message: 'Der Bot hat keinen Zugriff. Prüfe die Kanalberechtigungen.', type: 'error' })]);
+    expect(component.hubs()).toEqual([hub]);
+    expect(component.editor()!.nameTemplate).toBe('Unsaved draft');
+    expect(component.dirty()).toBeTrue();
+    http.verify();
+    i18n.setActiveLang('en');
   });
 });

@@ -227,10 +227,9 @@ export class SeasonConfigComponent {
         this.reloadSeasons(guildId);
       },
       error: error => {
-        const resolved = this.apiErrors.resolve(error, 'errors.seasonSave');
+        const resolved = this.apiErrors.notify(error, 'errors.seasonSave');
         this.serverErrors.set(this.mapServerErrors(resolved.validation));
         this.pageError.set(resolved.message);
-        this.toast.error(resolved.message);
       },
     });
   }
@@ -405,10 +404,9 @@ export class SeasonConfigComponent {
         this.refreshPreview();
       },
       error: error => {
-        const resolved = this.apiErrors.resolve(error, 'errors.seasonSetup');
+        const resolved = this.apiErrors.notify(error, 'errors.seasonSetup');
         this.serverErrors.set(this.mapServerErrors(resolved.validation));
         this.pageError.set(resolved.message);
-        this.toast.error(resolved.message);
       },
     });
   }
@@ -601,7 +599,7 @@ export class SeasonConfigComponent {
       error: error => {
         this.confirmDialog?.close();
         this.pending.set(null);
-        this.toast.error(this.apiErrors.resolve(error, 'errors.seasonAction').message);
+        this.apiErrors.notify(error, 'errors.seasonAction');
       },
     });
   }

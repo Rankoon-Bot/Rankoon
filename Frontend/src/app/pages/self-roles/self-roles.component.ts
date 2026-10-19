@@ -210,7 +210,7 @@ export class SelfRolesComponent implements OnInit {
           this.editor.set(this.copyPanel(saved));
           this.editorBaseline = this.serializeEditor();
         }
-        this.toast.error(this.apiErrors.resolve(error, 'errors.save').message);
+        this.apiErrors.notify(error, 'errors.save');
       },
     });
   }
@@ -240,7 +240,7 @@ export class SelfRolesComponent implements OnInit {
     if (!guildId || !panel.id) return;
     this.api.deleteSelfRolePanel(guildId, panel.id).subscribe({
       next: () => { this.panels.update(items => items.filter(item => item.id !== panel.id)); if (this.editor()?.id === panel.id) this.cancel(); },
-      error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.selfRoleDelete').message),
+      error: error => this.apiErrors.notify(error, 'errors.selfRoleDelete'),
     });
   }
 
@@ -259,7 +259,7 @@ export class SelfRolesComponent implements OnInit {
           }
           this.toast.success(this.i18n.translate('selfRoles.repaired'));
         },
-        error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message),
+        error: error => this.apiErrors.notify(error, 'errors.save'),
       });
   }
 

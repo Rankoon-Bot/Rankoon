@@ -197,9 +197,8 @@ export class RolePermissionsComponent {
           this.stale.set(true);
           return;
         }
-        const message = this.apiErrors.resolve(error, 'errors.save').message;
+        const message = this.apiErrors.notify(error, 'errors.save').message;
         this.error.set(message);
-        this.toast.error(message);
       },
     });
   }

@@ -117,9 +117,7 @@ export class XpConfigComponent {
           this.loadWatchdogStatus();
         },
         error: (error) =>
-          this.toast.error(
-            this.apiErrors.resolve(error, 'errors.save').message,
-          ),
+          this.apiErrors.notify(error, 'errors.save'),
       });
   }
 
@@ -515,9 +513,7 @@ export class XpConfigComponent {
           },
           error: (error) => {
             input.value = '';
-            this.toast.error(
-              this.apiErrors.resolve(error, 'errors.importFailed').message,
-            );
+            this.apiErrors.notify(error, 'errors.importFailed');
           },
         }),
       )

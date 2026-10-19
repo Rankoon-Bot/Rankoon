@@ -129,7 +129,10 @@
       "malformedJson": "Die Anfrage enthält ungültiges JSON.",
       "unsupportedMediaType": "Dieser Medientyp wird nicht unterstützt.",
       "methodNotAllowed": "Diese Aktion ist nicht erlaubt.",
-      "rejected": "Die Anfrage konnte nicht abgeschlossen werden."
+      "rejected": "Die Anfrage konnte nicht abgeschlossen werden.",
+      "timeout": "Die Aktion hat zu lange gedauert. Prüfe vor einem erneuten Versuch, ob sie bereits ausgeführt wurde.",
+      "tooLarge": "Die übermittelten Daten sind zu groß. Verkleinere die Datei oder Datenmenge und versuche es erneut.",
+      "conflict": "Die Daten wurden zwischenzeitlich geändert. Lade den aktuellen Stand und prüfe deine Änderungen vor dem erneuten Speichern."
     },
     "resource": {
       "notFound": "Die angeforderte Ressource wurde nicht gefunden."
@@ -149,7 +152,7 @@
       "exceeded": "Zu viele Anfragen. Bitte versuche es später erneut."
     },
     "server": {
-      "internal": "Ein unerwarteter Serverfehler ist aufgetreten."
+      "internal": "Ein unerwarteter Fehler ist aufgetreten. Prüfe den aktuellen Stand vor einem erneuten Versuch. Bleibt der Fehler bestehen, wende dich an einen Administrator."
     },
     "guild": {
       "invalidId": "Die Server-ID ist ungültig.",
@@ -307,7 +310,24 @@
     "alias": {
       "taken": "Dieser Alias ist bereits vergeben."
     },
-    "conflict": "Die Daten wurden geändert. Lade neu und versuche es erneut."
+    "conflict": "Die Daten wurden geändert. Lade neu und versuche es erneut.",
+    "discord": {
+      "missingAccess": "Der Bot hat keinen Zugriff auf diese Discord-Ressource. Prüfe seine Servermitgliedschaft, „Kanal ansehen“ und die Kanal-/Kategorie-Berechtigungen.",
+      "missingPermissions": "Dem Bot fehlen Berechtigungen für diese Aktion. Prüfe seine Discord-Berechtigungen und Rollenreihenfolge oder starte die Bot-Diagnose.",
+      "resourceUnavailable": "Diese Discord-Ressource ist nicht mehr verfügbar. Lade die Ansicht neu und wähle einen vorhandenen Kanal, eine Rolle, Nachricht oder ein Mitglied.",
+      "limitReached": "Ein Discord-Limit wurde erreicht. Entferne nicht mehr benötigte Kanäle oder Rollen und versuche es danach erneut.",
+      "invalidRequest": "Discord hat diese Einstellungen abgelehnt. Prüfe die ausgewählten Ressourcen, Namen und Werte.",
+      "authenticationFailed": "Der Bot kann sich nicht bei Discord anmelden. Bitte einen Administrator, Bot-Verbindung und Zugangsdaten zu prüfen.",
+      "rateLimited": "Discord begrenzt vorübergehend die Bot-Anfragen. Warte kurz und prüfe den aktuellen Stand vor einem erneuten Versuch.",
+      "unavailable": "Discord ist vorübergehend nicht erreichbar. Warte kurz und prüfe, ob die Aktion bereits ausgeführt wurde, bevor du sie erneut versuchst.",
+      "failed": "Die Discord-Aktion konnte nicht abgeschlossen werden. Prüfe den aktuellen Stand und die Bot-Diagnose vor einem erneuten Versuch."
+    },
+    "service": {
+      "unavailable": "Ein benötigter Dienst ist vorübergehend nicht erreichbar. Warte kurz und prüfe vor einem erneuten Versuch, ob die Aktion bereits ausgeführt wurde."
+    },
+    "network": {
+      "unavailable": "Keine Verbindung zu Rankoon. Prüfe deine Verbindung und vor einem erneuten Versuch, ob die Aktion bereits ausgeführt wurde."
+    }
   },
   "analytics": {
     "eyebrow": "Server-Analytics",

@@ -166,7 +166,7 @@ export class LevelUpAnnouncementsComponent implements OnInit {
         this.dirty.set(false);
         this.toast.success(this.i18n.translate('levelUpAnnouncements.saved'));
       },
-      error: error => this.toast.error(this.errors.resolve(error, 'errors.save').message),
+      error: error => this.errors.notify(error, 'errors.save'),
     });
   }
 
@@ -177,7 +177,7 @@ export class LevelUpAnnouncementsComponent implements OnInit {
     if (!guildId || !group || !message) return;
     this.api.testLevelUpAnnouncement(guildId, { scope: this.scope(), kind: this.kind(), group, message, level: 23, previousLevel: 22, totalXp: 12000, gainedXp: 50, source: 'message', rewardRoleAwarded: this.kind() === 'Reward', seasonName: 'Season' }).subscribe({
       next: () => this.toast.success(this.i18n.translate('levelUpAnnouncements.testSent')),
-      error: error => this.toast.error(this.errors.resolve(error, 'errors.save').message),
+      error: error => this.errors.notify(error, 'errors.save'),
     });
   }
 

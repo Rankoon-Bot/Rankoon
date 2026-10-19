@@ -1,5 +1,6 @@
+import { SUPPRESSED_API_ERROR_KEYS } from '../interceptors/api-error.context';
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { finalize, shareReplay, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
@@ -459,6 +460,7 @@ export class GuildService {
     return this.http.post<CustomBotOperation>(
       this.url(guildId, 'custom-bot-identity/deactivate'),
       {},
+      { context: new HttpContext().set(SUPPRESSED_API_ERROR_KEYS, ['customBotIdentity.platformBotNotInstalled']) },
     );
   }
   deleteCustomBot(guildId: string): Observable<void> {
@@ -771,6 +773,7 @@ export class GuildService {
   ): Observable<PermissionDiagnosticReport> {
     return this.http.get<PermissionDiagnosticReport>(
       this.url(guildId, 'diagnostics/permissions/latest'),
+      { context: new HttpContext().set(SUPPRESSED_API_ERROR_KEYS, ['resource.notFound']) },
     );
   }
   channelPermissionDiagnostics(

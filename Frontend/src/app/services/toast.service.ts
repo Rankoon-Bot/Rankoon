@@ -31,6 +31,7 @@ export class ToastService {
   }
 
   private show(message: string, type: ToastType): void {
+    if (type === 'error' && this._toasts().some(toast => toast.type === type && toast.message === message)) return;
     const toast = { id: ++this.nextId, message, type };
     const oldest = this._toasts()[0];
     if (oldest && this._toasts().length >= this.limit) this.dismiss(oldest.id);

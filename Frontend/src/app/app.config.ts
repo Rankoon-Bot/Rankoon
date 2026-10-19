@@ -4,6 +4,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideTransloco, TranslocoService } from '@jsverse/transloco';
 
 import { routes } from './app.routes';
+import { apiErrorInterceptor } from './interceptors/api-error.interceptor';
 import { authInterceptor } from './interceptors/auth.interceptor';
 import { TranslocoHttpLoader } from './i18n/transloco-http.loader';
 import { initializeTranslations } from './i18n/i18n.initializer';
@@ -15,7 +16,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([apiErrorInterceptor, authInterceptor])),
     provideTransloco({
       config: {
         availableLangs: [...SUPPORTED_LOCALES],

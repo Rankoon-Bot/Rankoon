@@ -129,7 +129,10 @@
       "malformedJson": "O pedido contém JSON malformado.",
       "unsupportedMediaType": "Este tipo de conteúdo não é suportado.",
       "methodNotAllowed": "Esta ação não é permitida.",
-      "rejected": "A solicitação não pôde ser concluída."
+      "rejected": "A solicitação não pôde ser concluída.",
+      "timeout": "A ação demorou demasiado. Verifique se foi concluída antes de tentar novamente.",
+      "tooLarge": "Os dados enviados são demasiado grandes. Reduza o tamanho do ficheiro ou a quantidade de dados e tente novamente.",
+      "conflict": "Os dados foram alterados entretanto. Recarregue o estado atual e reveja as alterações antes de guardar novamente."
     },
     "resource": {
       "notFound": "O recurso solicitado não foi encontrado."
@@ -149,7 +152,7 @@
       "exceeded": "Muitos pedidos. Por favor, tente mais tarde."
     },
     "server": {
-      "internal": "Ocorreu um erro inesperado no servidor."
+      "internal": "Ocorreu um erro inesperado. Verifique o estado atual antes de tentar novamente. Se persistir, contacte um administrador."
     },
     "guild": {
       "invalidId": "O ID do servidor é inválido.",
@@ -306,7 +309,24 @@
     "alias": {
       "taken": "Este alias já está em utilização."
     },
-    "conflict": "Os dados mudaram. Recarregue e tente novamente."
+    "conflict": "Os dados mudaram. Recarregue e tente novamente.",
+    "discord": {
+      "missingAccess": "O bot não tem acesso a este recurso do Discord. Verifique a presença no servidor, Ver canal e as permissões do canal ou da categoria.",
+      "missingPermissions": "Faltam permissões ao bot para esta ação. Verifique as permissões e a hierarquia de cargos ou execute o diagnóstico do bot.",
+      "resourceUnavailable": "Este recurso do Discord já não está disponível. Recarregue a vista e selecione um canal, cargo, mensagem ou membro disponível.",
+      "limitReached": "Foi atingido um limite do Discord. Remova canais ou cargos sem uso antes de tentar novamente.",
+      "invalidRequest": "O Discord rejeitou estas definições. Verifique os recursos selecionados, nomes e valores.",
+      "authenticationFailed": "O bot não conseguiu iniciar sessão no Discord. Peça a um administrador para verificar a ligação e as credenciais do bot.",
+      "rateLimited": "O Discord está a limitar temporariamente os pedidos do bot. Aguarde e verifique o estado atual antes de tentar novamente.",
+      "unavailable": "O Discord está temporariamente indisponível. Aguarde e verifique se a ação foi concluída antes de tentar novamente.",
+      "failed": "Não foi possível concluir a ação no Discord. Verifique o estado atual e o diagnóstico do bot antes de tentar novamente."
+    },
+    "service": {
+      "unavailable": "Um serviço necessário está temporariamente inacessível. Aguarde e verifique se a ação foi concluída antes de tentar novamente."
+    },
+    "network": {
+      "unavailable": "Não foi possível ligar ao Rankoon. Verifique a ligação e se a ação foi concluída antes de tentar novamente."
+    }
   },
   "analytics": {
     "eyebrow": "Análise do servidor",

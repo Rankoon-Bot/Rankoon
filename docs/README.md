@@ -24,6 +24,8 @@ their working directory unless a section explicitly says otherwise.
 
 ## Backend reference
 
+- [API errors and frontend notifications](backend/api-errors.md)
+
 - [Authentication contract](backend/authentication.md) and [request flow](backend/authentication-flow.md)
 - [Rate limits and trusted proxies](backend/rate-limiting.md)
 - [Performance instrumentation](backend/performance.md)

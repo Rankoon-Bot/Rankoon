@@ -124,7 +124,7 @@ export class UserXpModalComponent {
       error: error => {
         if (generation !== this.selectionGeneration) return;
         if (error instanceof HttpErrorResponse && error.status === 403) {
-          this.toast.error(this.translate('noAuditPermission'));
+          this.apiErrors.notify(error, 'xpAudit.noAuditPermission');
           this.close();
           return;
         }
@@ -259,7 +259,7 @@ export class UserXpModalComponent {
         if (generation !== this.selectionGeneration || guildId !== this.selectedGuildId) return;
         this.closeAdjustmentDialog(); this.resetAdjustmentForm(); this.emitChangeAndRefresh(); this.toast.success(this.translate('adjustmentSaved'));
       },
-      error: error => { if (generation === this.selectionGeneration) this.toast.error(this.apiErrors.resolve(error, 'errors.xpAdjustmentSave').message); }
+      error: error => { if (generation === this.selectionGeneration) this.apiErrors.notify(error, 'errors.xpAdjustmentSave'); }
     });
   }
 
@@ -281,7 +281,7 @@ export class UserXpModalComponent {
         if (generation !== this.selectionGeneration || guildId !== this.selectedGuildId) return;
         this.closeReversalDialog(); this.emitChangeAndRefresh(); this.toast.success(this.translate('reversalSaved'));
       },
-      error: error => { if (generation === this.selectionGeneration) this.toast.error(this.apiErrors.resolve(error, 'errors.xpAdjustmentReverse').message); }
+      error: error => { if (generation === this.selectionGeneration) this.apiErrors.notify(error, 'errors.xpAdjustmentReverse'); }
     });
   }
 

@@ -39,7 +39,7 @@ export class LeaderboardSettingsComponent implements OnInit {
     this.saving.set(true);
     this.api.saveLeaderboardSettings(guildId, { alias: this.alias.trim(), visibility: this.visibility }).pipe(finalize(() => this.saving.set(false))).subscribe({
       next: settings => { this.apply(settings); this.toast.success(this.i18n.translate('leaderboardSettings.saved')); },
-      error: response => this.toast.error(response.status === 409 ? this.i18n.translate('errors.aliasTaken') : this.apiErrors.resolve(response, 'errors.save').message),
+      error: response => this.apiErrors.notify(response, response.status === 409 ? 'errors.aliasTaken' : 'errors.save'),
     });
   }
   dirty(): boolean { return !!this.settings() && this.serialize() !== this.baseline; }

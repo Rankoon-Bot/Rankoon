@@ -70,11 +70,11 @@ export class VcHubsComponent implements OnInit {
     const index = hub === this.editor() ? this.editorIndex : this.hubs().indexOf(hub);
     this.saving.set(true);
     const request = hub.id ? this.api.updateHub(id, hub) : this.api.createHub(id, hub);
-    request.pipe(finalize(() => this.saving.set(false))).subscribe({ next: saved => { this.hubs.update(items => items.map((item, itemIndex) => itemIndex === index || (!!hub.id && item.id === hub.id) ? saved : item)); this.edit(saved); this.toast.success(this.i18n.translate('voiceHubs.saved')); }, error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.save').message) });
+    request.pipe(finalize(() => this.saving.set(false))).subscribe({ next: saved => { this.hubs.update(items => items.map((item, itemIndex) => itemIndex === index || (!!hub.id && item.id === hub.id) ? saved : item)); this.edit(saved); this.toast.success(this.i18n.translate('voiceHubs.saved')); }, error: error => this.apiErrors.notify(error, 'errors.save') });
   }
   remove(hub: VcHub): void {
     const id = this.appStore.selectedGuild()?.id;
     if (!id || !hub.id) return;
-    this.api.deleteHub(id, hub.id).subscribe({ next: () => { this.hubs.update(items => items.filter(x => x.id !== hub.id)); if (this.editor()?.id === hub.id) { this.editor.set(null); this.baseline = null; this.editorIndex = -1; } }, error: error => this.toast.error(this.apiErrors.resolve(error, 'errors.voiceHubDelete').message) });
+    this.api.deleteHub(id, hub.id).subscribe({ next: () => { this.hubs.update(items => items.filter(x => x.id !== hub.id)); if (this.editor()?.id === hub.id) { this.editor.set(null); this.baseline = null; this.editorIndex = -1; } }, error: error => this.apiErrors.notify(error, 'errors.voiceHubDelete') });
   }
 }

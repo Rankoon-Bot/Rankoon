@@ -10,6 +10,10 @@ public sealed class ApiErrorTranslationParityTests
     [Theory]
     [InlineData("en.json")]
     [InlineData("de.json")]
+    [InlineData("es.json")]
+    [InlineData("fr.json")]
+    [InlineData("it.json")]
+    [InlineData("pt.json")]
     public void Frontend_catalog_contains_every_backend_error_key(string localeFile)
     {
         var repositoryRoot = FindRepositoryRoot();

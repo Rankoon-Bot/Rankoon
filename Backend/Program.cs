@@ -342,6 +342,11 @@ var app = builder.Build();
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
     var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+    if (ApiExceptionMapper.IsClientCancellation(exception, context.RequestAborted))
+    {
+        context.Response.StatusCode = 499; // The client disconnected; no response body can be delivered.
+        return;
+    }
     context.RequestServices.GetRequiredService<ILoggerFactory>()
         .CreateLogger("ApiExceptionHandler")
         .LogError(exception, "Unhandled exception for {Method} {Path}; trace ID {TraceId}", context.Request.Method, context.Request.Path, context.TraceIdentifier);
@@ -364,7 +369,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     if (!context.Response.HasStarted)
     {
         context.Response.Clear();
-        await ApiErrorFactory.WriteAsync(context, "server.internal");
+        await ApiExceptionMapper.WriteAsync(context, exception);
     }
 }));
 app.UseStatusCodePages(async statusContext =>
