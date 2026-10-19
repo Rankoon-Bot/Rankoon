@@ -84,8 +84,7 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
                 await FailAsync(claimed, "roleSynchronizationFailed", true, cancellationToken);
                 return;
             }
-            var settings = await database.GuildLevelUpAnnouncementSettings.Find(x => x.GuildId == claimed.GuildId).FirstOrDefaultAsync(cancellationToken);
-            if (settings is { SchemaVersion: < 2 }) settings = LevelUpAnnouncementsController.Migrate(settings);
+            var settings = await new XpSettingsStore(database, timeProvider).LoadAnnouncementsAsync(claimed.GuildId, cancellationToken);
             var ledger = string.IsNullOrWhiteSpace(claimed.LedgerGrantKey) ? null : await database.XpLedger.Find(x => x.GrantKey == claimed.LedgerGrantKey).FirstOrDefaultAsync(cancellationToken);
             var cause = ResolveCause(claimed, ledger);
             var profile = claimed.Scope == LevelProgressScope.Season ? settings?.Season : settings?.Lifetime;

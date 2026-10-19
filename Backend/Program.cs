@@ -263,6 +263,8 @@ builder.Services.AddScoped<Rankoon.Data.Dashboard.IDashboardOverviewService, Ran
 
 if (!builder.Environment.IsEnvironment("Testing"))
 {
+    // IHostedService.StartAsync is awaited before any worker, Discord runtime or HTTP startup.
+    builder.Services.AddHostedService<Rankoon.Data.Xp.XpSettingsMigrationService>();
     builder.Services.AddHostedService(services => services.GetRequiredService<ReportWriter>());
     builder.Services.AddHostedService(services => services.GetRequiredService<GuildAnalyticsRecorder>());
     builder.Services.AddHostedService<MongoIndexInitializer>();

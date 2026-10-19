@@ -37,6 +37,25 @@ public sealed class XpIntegrityPersistenceTests : IAsyncLifetime
         new WorkerHealthRegistry(clock), clock, Options.Create(options), NullLogger<XpIntegrityService>.Instance);
 
     [Rankoon.Backend.Tests.SeasonMongoFact]
+    public async Task Legacy_announcements_are_restored_and_catch_up_is_queued_without_dashboard_or_new_activity()
+    {
+        await Seed(2, amount: 30355.4m);
+        await db.GuildLevelUpAnnouncementSettings.DeleteManyAsync(FilterDefinition<GuildLevelUpAnnouncementSettings>.Empty);
+        await db.RawSettings(XpSettingsStore.AnnouncementCollection).InsertOneAsync(XpSettingsMigrationTests.LegacyAnnouncements());
+
+        var result = await Service().CheckMemberAsync(1, 2, 20);
+
+        Assert.Equal(1, result.Queued);
+        var transition = Assert.Single(await Events());
+        Assert.Equal(22, transition.NewLevel); Assert.Equal(LevelTransitionStatus.Pending, transition.Status);
+        Assert.Equal("xp_reconciliation", transition.Source);
+        var migrated = await db.GuildLevelUpAnnouncementSettings.Find(x => x.GuildId == 1).SingleAsync();
+        Assert.Equal(2, migrated.SchemaVersion); Assert.True(migrated.Lifetime.Enabled);
+        Assert.Equal(123UL, migrated.Lifetime.ChannelId); Assert.Single(migrated.Lifetime.LevelUp.Groups);
+        Assert.Equal(0, (await Service().CheckMemberAsync(1, 2, 20)).Queued);
+    }
+
+    [Rankoon.Backend.Tests.SeasonMongoFact]
     public async Task Missing_projection_and_level_event_are_repaired_once_even_after_restarts_and_concurrent_sweeps()
     {
         await Seed(2, stored: 0);

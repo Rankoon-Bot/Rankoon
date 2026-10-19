@@ -88,6 +88,8 @@ public sealed class LevelUpTemplateSelector(ILevelUpTemplateRenderer renderer, I
         var set = kind == LevelAnnouncementKind.Reward ? profile.Rewards : profile.LevelUp;
         var candidates = set.Groups.Where(group => group.Enabled && Matches(group.Conditions, context)).Select(group => new { Group = group, Messages = group.Messages.Where(message => message.Enabled && renderer.Render(message.Content, context).Errors.Count == 0).ToArray() }).Where(x => x.Messages.Length > 0).ToList();
         if (candidates.Count == 0) return null;
+        var priority = candidates.Max(x => x.Group.LegacyPriority);
+        candidates = candidates.Where(x => x.Group.LegacyPriority == priority).ToList();
         var nonRecentGroups = candidates.Where(x => !recentGroups.Contains(x.Group.Id)).ToList();
         if (nonRecentGroups.Count > 0) candidates = nonRecentGroups;
         var total = candidates.Sum(x => x.Group.Weight); var value = random.Next(total); var chosen = candidates[^1];

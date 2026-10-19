@@ -179,8 +179,7 @@ public sealed class XpIntegrityService(RankoonDbContext database, IXpProjectionC
                 guildId, userId, member.TotalXp, expected, totals.EarnedXp, totals.ManualXp);
         }
 
-        var announcementSettings = await database.GuildLevelUpAnnouncementSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(ct);
-        if (announcementSettings is { SchemaVersion: < 2 }) announcementSettings = LevelUpAnnouncementsController.Migrate(announcementSettings);
+        var announcementSettings = await new XpSettingsStore(database, timeProvider).LoadAnnouncementsAsync(guildId, ct);
         var baseline = member.ImportedMee6Xp + (announcementSettings?.Lifetime.AnnounceManualAdjustments == true ? totals.SilentMigrationXp : totals.ManualXp);
         queued += await EnsureDeliveryAsync(guildId, userId, expected, baseline, LevelProgressScope.Lifetime, null, null,
             announcementSettings?.Lifetime, announcementBudget, lease, ct);

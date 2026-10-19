@@ -76,7 +76,9 @@ public sealed class GuildController(IGuildAuthorizationService authorization, IG
         ServerBoosterXpSettingsValidator.Normalize(settings.ServerBooster);
         // Settle open intervals with the persisted revision before changing their qualification or rate.
         await watchdog.ReconcileNowAsync(id, HttpContext.RequestAborted);
-        var saved = await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted);
+        GuildXpSettings saved;
+        try { saved = await xp.SaveSettingsAsync(settings, HttpContext.RequestAborted); }
+        catch (XpSettingsRevisionConflictException) { return this.ApiError("xp.revisionConflict"); }
         await watchdog.ActivateSettingsRevisionAsync(id, saved.Revision, HttpContext.RequestAborted);
         await WriteActivityAsync(id, ReportNames.XpSettingsChanged, metadata: new Dictionary<string, object?> { ["enabled"] = settings.Enabled });
         return Ok(saved);

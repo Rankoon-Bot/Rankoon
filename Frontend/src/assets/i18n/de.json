@@ -182,6 +182,7 @@
       "revisionConflict": "Die Rollenberechtigungen wurden seit dem Laden geändert. Lade neu und versuche es erneut."
     },
     "xp": {
+      "revisionConflict": "Die XP-Einstellungen wurden zwischenzeitlich geändert. Lade die Seite vor dem erneuten Speichern neu. Die gespeicherten Einstellungen wurden nicht überschrieben.",
       "settingsInvalid": "Die XP-Einstellungen sind ungültig.",
       "settings": {
         "groupsRequired": "Alle XP-Einstellungsgruppen sind erforderlich.",

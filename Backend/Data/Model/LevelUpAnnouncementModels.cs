@@ -14,10 +14,12 @@ public sealed class GuildLevelUpAnnouncementSettings
 {
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
-    [BsonElement("schema_version")] public int SchemaVersion { get; set; } = 2;
-    [BsonElement("lifetime")] public LevelAnnouncementProfile Lifetime { get; set; } = new();
-    [BsonElement("season")] public LevelAnnouncementProfile Season { get; set; } = new();
-    [BsonElement("revision")] public long Revision { get; set; }
+    // BSON documents predating versioning are v1; newly created API models are v2.
+    [BsonElement("schema_version"), BsonDefaultValue(1)] public int SchemaVersion { get; set; } = 2;
+    [BsonExtraElements, JsonIgnore] public BsonDocument? ExtraElements { get; set; }
+    [BsonElement("lifetime"), JsonRequired] public LevelAnnouncementProfile Lifetime { get; set; } = new();
+    [BsonElement("season"), JsonRequired] public LevelAnnouncementProfile Season { get; set; } = new();
+    [BsonElement("revision"), JsonRequired] public long Revision { get; set; }
     [BsonElement("updated_at_utc")] public DateTime UpdatedAtUtc { get; set; }
 
     // These fields only exist to read schema-version 1 documents. They are never written back.
@@ -25,29 +27,34 @@ public sealed class GuildLevelUpAnnouncementSettings
     [BsonElement("channel_id"), JsonIgnore] public ulong? LegacyChannelId { get; set; }
     [BsonElement("notify_mentioned_user"), JsonIgnore] public bool LegacyNotifyMentionedUser { get; set; } = true;
     [BsonElement("use_default_fallback"), JsonIgnore] public bool LegacyUseDefaultFallback { get; set; } = true;
-    [BsonElement("fallback_locale"), JsonIgnore] public string? LegacyFallbackLocale { get; set; }
+    [BsonElement("fallback_locale"), JsonIgnore] public string? LegacyFallbackLocale { get; set; } = "de";
     [BsonElement("announce_manual_adjustments"), JsonIgnore] public bool LegacyAnnounceManualAdjustments { get; set; }
     [BsonElement("avoid_recent_templates_per_user"), JsonIgnore] public int LegacyAvoidRecentTemplatesPerUser { get; set; } = 3;
     [BsonElement("templates"), JsonIgnore] public List<LevelUpMessageTemplate> LegacyTemplates { get; set; } = [];
 }
 
+[BsonIgnoreExtraElements]
 public sealed class LevelAnnouncementProfile
 {
-    [BsonElement("enabled")] public bool Enabled { get; set; }
-    [BsonElement("channel_id")] public ulong? ChannelId { get; set; }
+    [BsonElement("enabled"), JsonRequired] public bool Enabled { get; set; }
+    [BsonElement("channel_id"), JsonRequired] public ulong? ChannelId { get; set; }
     [BsonElement("notify_user")] public bool NotifyUser { get; set; } = true;
     [BsonElement("announce_manual_adjustments")] public bool AnnounceManualAdjustments { get; set; }
     [BsonElement("avoid_recent_messages_per_user")] public int AvoidRecentMessagesPerUser { get; set; } = 3;
     [BsonElement("avoid_recent_messages_per_guild")] public int AvoidRecentMessagesPerGuild { get; set; } = 10;
     [BsonElement("use_default_fallback")] public bool UseDefaultFallback { get; set; } = true;
     [BsonElement("fallback_locale")] public string FallbackLocale { get; set; } = "en";
-    [BsonElement("level_up")] public LevelAnnouncementSet LevelUp { get; set; } = new();
-    [BsonElement("rewards")] public LevelAnnouncementSet Rewards { get; set; } = new();
+    [BsonElement("level_up"), JsonRequired] public LevelAnnouncementSet LevelUp { get; set; } = new();
+    [BsonElement("rewards"), JsonRequired] public LevelAnnouncementSet Rewards { get; set; } = new();
 }
 
+[BsonIgnoreExtraElements]
 public sealed class LevelAnnouncementSet { [BsonElement("groups")] public List<LevelAnnouncementGroup> Groups { get; set; } = []; }
+[BsonIgnoreExtraElements]
 public sealed class LevelAnnouncementGroup
 {
+    // Old template priorities remain effective across migration and editor saves.
+    [BsonElement("legacy_priority"), BsonIgnoreIfDefault, JsonIgnore] public int LegacyPriority { get; set; }
     [BsonElement("id")] public string Id { get; set; } = Guid.NewGuid().ToString("N");
     [BsonElement("name")] public string Name { get; set; } = string.Empty;
     [BsonElement("enabled")] public bool Enabled { get; set; } = true;
@@ -55,12 +62,14 @@ public sealed class LevelAnnouncementGroup
     [BsonElement("conditions")] public LevelAnnouncementConditions Conditions { get; set; } = new();
     [BsonElement("messages")] public List<LevelAnnouncementMessage> Messages { get; set; } = [];
 }
+[BsonIgnoreExtraElements]
 public sealed class LevelAnnouncementMessage
 {
     [BsonElement("id")] public string Id { get; set; } = Guid.NewGuid().ToString("N");
     [BsonElement("enabled")] public bool Enabled { get; set; } = true;
     [BsonElement("content")] public string Content { get; set; } = string.Empty;
 }
+[BsonIgnoreExtraElements]
 public sealed class LevelAnnouncementConditions
 {
     [BsonElement("minimum_level")] public int? MinimumLevel { get; set; }
@@ -73,6 +82,7 @@ public sealed class LevelAnnouncementConditions
 public sealed record LevelAnnouncementRecentSelection(string? GroupId, string? MessageId);
 
 // Retained exclusively for schema-v1 MongoDB deserialization and migration.
+[BsonIgnoreExtraElements]
 public sealed class LevelUpMessageTemplate
 {
     [BsonElement("id")] public string Id { get; set; } = Guid.NewGuid().ToString("N");

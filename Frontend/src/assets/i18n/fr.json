@@ -182,6 +182,7 @@
       "revisionConflict": "Les autorisations des rôles ont changé depuis leur chargement. Rechargez et réessayez."
     },
     "xp": {
+      "revisionConflict": "Les paramètres XP ont changé. Rechargez la page avant de réessayer. Les paramètres enregistrés sont préservés.",
       "settingsInvalid": "Les paramètres XP ne sont pas valides.",
       "settings": {
         "groupsRequired": "Tous les groupes de paramètres XP sont requis.",

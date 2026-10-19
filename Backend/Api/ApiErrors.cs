@@ -142,6 +142,7 @@ public static class ApiErrorCatalog
         ["selfRoles.emojiRejected"] = new("selfRoles.emojiRejected", "Discord rejected a self-role emoji.", StatusCodes.Status400BadRequest),
         ["selfRoles.publishFailed"] = new("selfRoles.publishFailed", "The self-role panel was saved, but could not be published to Discord. Fix the bot permissions and repair the panel.", StatusCodes.Status502BadGateway),
         ["selfRoles.revisionConflict"] = new("selfRoles.revisionConflict", "The self-role panel changed since it was loaded. Reload and try again.", StatusCodes.Status409Conflict)
+        , ["xp.revisionConflict"] = new("xp.revisionConflict", "XP settings changed since they were loaded. Reload the page before saving again; your saved settings have not been overwritten.", StatusCodes.Status409Conflict)
         , ["levelAnnouncements.revisionConflict"] = new("levelAnnouncements.revisionConflict", "Level-up announcement settings changed since they were loaded.", StatusCodes.Status409Conflict)
         , ["levelAnnouncements.settingsInvalid"] = new("levelAnnouncements.settingsInvalid", "Level-up announcement settings are invalid.", StatusCodes.Status400BadRequest)
          , ["levelAnnouncements.channelUnavailable"] = new("levelAnnouncements.channelUnavailable", "The configured channel is unavailable.", StatusCodes.Status400BadRequest)

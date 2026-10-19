@@ -182,6 +182,7 @@
       "revisionConflict": "Los permisos de roles cambiaron desde que se cargaron. Vuelva a cargar y vuelva a intentarlo."
     },
     "xp": {
+      "revisionConflict": "La configuración de XP ha cambiado. Recarga la página antes de guardar de nuevo. No se ha sobrescrito la configuración guardada.",
       "settingsInvalid": "La configuración de XP no es válida.",
       "settings": {
         "groupsRequired": "Se requieren todos los grupos de configuración de XP.",

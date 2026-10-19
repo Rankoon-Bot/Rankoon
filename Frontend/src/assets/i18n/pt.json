@@ -182,6 +182,7 @@
       "revisionConflict": "As permissões das funções foram alteradas desde que foram carregadas. Recarregue e tente novamente."
     },
     "xp": {
+      "revisionConflict": "As configurações de XP foram alteradas. Recarregue a página antes de salvar novamente. As configurações salvas não foram substituídas.",
       "settingsInvalid": "As definições XP são inválidas.",
       "settings": {
         "groupsRequired": "Todos os grupos de definições XP são obrigatórios.",

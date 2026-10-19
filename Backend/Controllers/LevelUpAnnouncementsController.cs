@@ -1,3 +1,5 @@
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,13 +31,17 @@ public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService au
     [HttpPut] public async Task<IActionResult> Save(string guildId, [FromBody] GuildLevelUpAnnouncementSettings settings)
     {
         var (id, error) = await AuthorizeAsync(guildId); if (error != null) return error;
+        if (settings.Lifetime == null || settings.Season == null || settings.Lifetime.LevelUp == null || settings.Lifetime.Rewards == null || settings.Season.LevelUp == null || settings.Season.Rewards == null)
+            return this.ApiError("levelAnnouncements.settingsInvalid");
         var validation = Validate(settings); var guild = (await discord.ResolveAsync(id, HttpContext.RequestAborted))?.Guild;
         ValidateChannel(validation, "lifetime.channelId", settings.Lifetime, guild); ValidateChannel(validation, "season.channelId", settings.Season, guild);
         if (validation.Count > 0) return this.ApiError("levelAnnouncements.settingsInvalid", errors: validation.GroupBy(x => x.Field).ToDictionary(x => x.Key, x => (IReadOnlyList<ApiValidationError>)x.Select(e => ApiErrorFactory.Validation($"levelAnnouncements.{e.Code}")).ToArray()));
         settings.Id = null; settings.GuildId = id; settings.SchemaVersion = 2; settings.UpdatedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
-        var replacement = Builders<GuildLevelUpAnnouncementSettings>.Update.Set(x => x.SchemaVersion, 2).Set(x => x.Lifetime, settings.Lifetime).Set(x => x.Season, settings.Season).Set(x => x.UpdatedAtUtc, settings.UpdatedAtUtc).Unset("enabled").Unset("channel_id").Unset("notify_mentioned_user").Unset("use_default_fallback").Unset("fallback_locale").Unset("announce_manual_adjustments").Unset("avoid_recent_templates_per_user").Unset("templates").Inc(x => x.Revision, 1);
-        var saved = await database.GuildLevelUpAnnouncementSettings.FindOneAndUpdateAsync(x => x.GuildId == id && x.Revision == settings.Revision, replacement, new FindOneAndUpdateOptions<GuildLevelUpAnnouncementSettings> { ReturnDocument = ReturnDocument.After }, HttpContext.RequestAborted);
-        if (saved == null) { var exists = await database.GuildLevelUpAnnouncementSettings.Find(x => x.GuildId == id).AnyAsync(HttpContext.RequestAborted); if (exists || settings.Revision != 0) return this.ApiError("levelAnnouncements.revisionConflict"); settings.Revision = 1; await database.GuildLevelUpAnnouncementSettings.InsertOneAsync(settings, cancellationToken: HttpContext.RequestAborted); saved = settings; }
+        var submitted = settings.ToBsonDocument();
+        foreach (var field in new[] { "enabled", "channel_id", "notify_mentioned_user", "use_default_fallback", "fallback_locale", "announce_manual_adjustments", "avoid_recent_templates_per_user", "templates" }) submitted.Remove(field);
+        var document = await new XpSettingsStore(database, timeProvider).SaveAsync(XpSettingsStore.AnnouncementCollection, id, settings.Revision, submitted, HttpContext.RequestAborted);
+        if (document == null) return this.ApiError("levelAnnouncements.revisionConflict");
+        var saved = BsonSerializer.Deserialize<GuildLevelUpAnnouncementSettings>(document);
         await reports.WriteAsync(new(id, ReportCategories.Activity, ReportNames.LevelAnnouncementSettingsChanged, ReportOutcomes.Succeeded, ActorId: authorization.GetDiscordUserId(User)), HttpContext.RequestAborted);
         return Ok(saved);
     }
@@ -70,19 +76,17 @@ public sealed class LevelUpAnnouncementsController(IGuildAuthorizationService au
 
     private async Task<GuildLevelUpAnnouncementSettings> GetOrMigrateAsync(ulong guildId)
     {
-        var existing = await database.GuildLevelUpAnnouncementSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(HttpContext.RequestAborted);
-        if (existing != null) return existing.SchemaVersion >= 2 ? existing : Migrate(existing);
-        var legacy = await database.GuildXpSettings.Find(x => x.GuildId == guildId).FirstOrDefaultAsync(HttpContext.RequestAborted);
-        return new GuildLevelUpAnnouncementSettings { GuildId = guildId, Lifetime = new LevelAnnouncementProfile { ChannelId = legacy?.LevelUpChannelId, LevelUp = new LevelAnnouncementSet { Groups = [new() { Name = "Default", Messages = [new() { Content = "Congratulations {user.mention}! You reached level {level}." }] }] } } };
+        return await new XpSettingsStore(database, timeProvider).LoadAnnouncementsAsync(guildId, HttpContext.RequestAborted)
+            ?? new GuildLevelUpAnnouncementSettings { GuildId = guildId };
     }
     internal static GuildLevelUpAnnouncementSettings Migrate(GuildLevelUpAnnouncementSettings old)
     {
         var lifetime = new LevelAnnouncementProfile { Enabled = old.LegacyEnabled, ChannelId = old.LegacyChannelId, NotifyUser = old.LegacyNotifyMentionedUser, UseDefaultFallback = old.LegacyUseDefaultFallback, FallbackLocale = old.LegacyFallbackLocale ?? "en", AnnounceManualAdjustments = old.LegacyAnnounceManualAdjustments, AvoidRecentMessagesPerUser = old.LegacyAvoidRecentTemplatesPerUser };
         foreach (var template in old.LegacyTemplates)
         {
-            var group = new LevelAnnouncementGroup { Name = string.IsNullOrWhiteSpace(template.Name) ? "Migrated" : template.Name, Enabled = template.Enabled, Weight = Math.Max(1, template.Weight), Conditions = new() { MinimumLevel = template.MinimumLevel, MaximumLevel = template.MaximumLevel, EveryNthLevel = template.EveryNthLevel, ExactLevels = template.ExactLevels, Sources = template.Sources }, Messages = template.EffectiveContents.Select(content => new LevelAnnouncementMessage { Content = content }).ToList() };
+            var group = new LevelAnnouncementGroup { Name = string.IsNullOrWhiteSpace(template.Name) ? "Migrated" : template.Name, Enabled = template.Enabled, LegacyPriority = template.Priority, Weight = Math.Max(1, template.Weight), Conditions = new() { MinimumLevel = template.MinimumLevel, MaximumLevel = template.MaximumLevel, EveryNthLevel = template.EveryNthLevel, ExactLevels = template.ExactLevels, Sources = template.Sources }, Messages = template.EffectiveContents.Select(content => new LevelAnnouncementMessage { Content = content }).ToList() };
             if (template.RewardRoleRequirement is RewardRoleRequirement.Required or RewardRoleRequirement.Any) lifetime.Rewards.Groups.Add(group);
-            if (template.RewardRoleRequirement is RewardRoleRequirement.NotAwarded or RewardRoleRequirement.Any) lifetime.LevelUp.Groups.Add(template.RewardRoleRequirement == RewardRoleRequirement.Any ? new LevelAnnouncementGroup { Name = group.Name, Enabled = group.Enabled, Weight = group.Weight, Conditions = group.Conditions, Messages = group.Messages.Select(x => new LevelAnnouncementMessage { Content = x.Content }).ToList() } : group);
+            if (template.RewardRoleRequirement is RewardRoleRequirement.NotAwarded or RewardRoleRequirement.Any) lifetime.LevelUp.Groups.Add(template.RewardRoleRequirement == RewardRoleRequirement.Any ? new LevelAnnouncementGroup { Name = group.Name, Enabled = group.Enabled, LegacyPriority = group.LegacyPriority, Weight = group.Weight, Conditions = group.Conditions, Messages = group.Messages.Select(x => new LevelAnnouncementMessage { Content = x.Content }).ToList() } : group);
         }
         return new GuildLevelUpAnnouncementSettings { Id = old.Id, GuildId = old.GuildId, SchemaVersion = 2, Lifetime = lifetime, Season = new(), Revision = old.Revision, UpdatedAtUtc = old.UpdatedAtUtc };
     }

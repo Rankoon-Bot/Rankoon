@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using MongoDB.Bson;
 using Rankoon.Data.Model;
 
 namespace Rankoon.Data.MongoDb;
@@ -11,6 +12,8 @@ public class RankoonDbContext
 {
     private readonly IMongoDatabase _database;
     private readonly MongoDbSettings _settings;
+
+    internal IMongoCollection<BsonDocument> RawSettings(string collection) => _database.GetCollection<BsonDocument>(collection);
 
     public RankoonDbContext(IOptions<MongoDbSettings> settings)
     {

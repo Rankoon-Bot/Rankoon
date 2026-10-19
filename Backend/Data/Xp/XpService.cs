@@ -1,4 +1,5 @@
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
@@ -43,26 +44,10 @@ public sealed class XpService(RankoonDbContext database, ISeasonService seasons,
         VoiceXpSettingsNormalizer.NormalizeLegacy(settings.Voice);
         var updatedAt = timeProvider.GetUtcNow().UtcDateTime;
         settings.UpdatedAt = updatedAt;
-        var update = Builders<GuildXpSettings>.Update
-            .SetOnInsert(x => x.GuildId, settings.GuildId)
-            .Set(x => x.Enabled, settings.Enabled)
-            .Set(x => x.Message, settings.Message)
-            .Set(x => x.Voice, settings.Voice)
-            .Set(x => x.Reaction, settings.Reaction)
-            .Set(x => x.EventInterest, settings.EventInterest)
-            .Set(x => x.Thread, settings.Thread)
-            .Set(x => x.ExcludedChannelIds, settings.ExcludedChannelIds)
-            .Set(x => x.ExcludedCategoryIds, settings.ExcludedCategoryIds)
-            .Set(x => x.ExcludedRoleIds, settings.ExcludedRoleIds)
-            .Set(x => x.ChannelMultipliers, settings.ChannelMultipliers)
-            .Set(x => x.ServerBooster, settings.ServerBooster)
-            .Set(x => x.LevelRoles, settings.LevelRoles)
-            .Set(x => x.LevelUpChannelId, settings.LevelUpChannelId)
-            .Inc(x => x.Revision, 1)
-            .Set(x => x.UpdatedAt, updatedAt);
-        var saved = await database.GuildXpSettings.FindOneAndUpdateAsync(x => x.GuildId == settings.GuildId, update,
-            new FindOneAndUpdateOptions<GuildXpSettings> { IsUpsert = true, ReturnDocument = ReturnDocument.After }, cancellationToken);
-        if (saved == null) throw new InvalidOperationException("XP settings save did not return the persisted document.");
+        var document = await new XpSettingsStore(database, timeProvider).SaveAsync(XpSettingsStore.XpCollection,
+            settings.GuildId, settings.Revision, settings.ToBsonDocument(), cancellationToken);
+        if (document == null) throw new XpSettingsRevisionConflictException();
+        var saved = BsonSerializer.Deserialize<GuildXpSettings>(document);
         var change = new GuildXpSettingsChanged(saved.GuildId, saved.Revision, GuildXpSettingsRuntimeCache.CreateSnapshot(saved), updatedAt);
         settingsCache.Apply(change.Snapshot);
         try { await settingsChanges.PublishAsync(change, cancellationToken); }

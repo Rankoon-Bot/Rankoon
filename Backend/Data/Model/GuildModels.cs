@@ -7,25 +7,27 @@ namespace Rankoon.Data.Model;
 
 public sealed class GuildXpSettings
 {
+    [BsonExtraElements, JsonIgnore] public BsonDocument? ExtraElements { get; set; }
     [BsonId(IdGenerator = typeof(StringObjectIdGenerator)), BsonRepresentation(BsonType.ObjectId)] public string? Id { get; set; }
     [BsonElement("guild_id")] public ulong GuildId { get; set; }
-    [BsonElement("enabled")] public bool Enabled { get; set; } = true;
-    [BsonElement("message")] public MessageXpSettings Message { get; set; } = new();
-    [BsonElement("voice")] public VoiceXpSettings Voice { get; set; } = new();
-    [BsonElement("reaction")] public ReactionXpSettings Reaction { get; set; } = new();
-    [BsonElement("event_interest")] public EventInterestXpSettings EventInterest { get; set; } = new();
-    [BsonElement("thread")] public ThreadXpSettings Thread { get; set; } = new();
-    [BsonElement("excluded_channel_ids")] public List<ulong> ExcludedChannelIds { get; set; } = [];
-    [BsonElement("excluded_category_ids")] public List<ulong> ExcludedCategoryIds { get; set; } = [];
-    [BsonElement("excluded_role_ids")] public List<ulong> ExcludedRoleIds { get; set; } = [];
-    [BsonElement("channel_multipliers")] public List<ChannelMultiplier> ChannelMultipliers { get; set; } = [];
-    [BsonElement("server_booster")] public ServerBoosterXpSettings ServerBooster { get; set; } = new();
-    [BsonElement("level_roles")] public List<LevelRole> LevelRoles { get; set; } = [];
-    [BsonElement("level_up_channel_id")] public ulong? LevelUpChannelId { get; set; }
-    [BsonElement("revision")] public long Revision { get; set; }
+    [BsonElement("enabled"), JsonRequired] public bool Enabled { get; set; } = true;
+    [BsonElement("message"), JsonRequired] public MessageXpSettings Message { get; set; } = new();
+    [BsonElement("voice"), JsonRequired] public VoiceXpSettings Voice { get; set; } = new();
+    [BsonElement("reaction"), JsonRequired] public ReactionXpSettings Reaction { get; set; } = new();
+    [BsonElement("event_interest"), JsonRequired] public EventInterestXpSettings EventInterest { get; set; } = new();
+    [BsonElement("thread"), JsonRequired] public ThreadXpSettings Thread { get; set; } = new();
+    [BsonElement("excluded_channel_ids"), JsonRequired] public List<ulong> ExcludedChannelIds { get; set; } = [];
+    [BsonElement("excluded_category_ids"), JsonRequired] public List<ulong> ExcludedCategoryIds { get; set; } = [];
+    [BsonElement("excluded_role_ids"), JsonRequired] public List<ulong> ExcludedRoleIds { get; set; } = [];
+    [BsonElement("channel_multipliers"), JsonRequired] public List<ChannelMultiplier> ChannelMultipliers { get; set; } = [];
+    [BsonElement("server_booster"), JsonRequired] public ServerBoosterXpSettings ServerBooster { get; set; } = new();
+    [BsonElement("level_roles"), JsonRequired] public List<LevelRole> LevelRoles { get; set; } = [];
+    [BsonElement("level_up_channel_id"), JsonRequired] public ulong? LevelUpChannelId { get; set; }
+    [BsonElement("revision"), JsonRequired] public long Revision { get; set; }
     [BsonElement("updated_at")] public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
+[BsonIgnoreExtraElements]
 public sealed class MessageXpSettings { public bool Enabled { get; set; } = true; public int MinimumPoints { get; set; } = 5; public int MaximumPoints { get; set; } = 50; public int MinimumCharacters { get; set; } = 1; public int MaximumCharacters { get; set; } = 500; public int CooldownSeconds { get; set; } = 60; }
 [BsonIgnoreExtraElements]
 public sealed class VoiceXpSettings
@@ -42,6 +44,7 @@ public sealed class VoiceXpSettings
 
 public enum VoiceXpParticipantCountingMode { AllConnectedHumans, EligibleHumansOnly }
 
+[BsonIgnoreExtraElements]
 public sealed class VoiceXpEligibilitySettings
 {
     public bool AwardWhileSelfMuted { get; set; } = true;
@@ -54,12 +57,19 @@ public sealed class VoiceXpEligibilitySettings
     [BsonRepresentation(BsonType.String)] public VoiceXpParticipantCountingMode ParticipantCountingMode { get; set; } = VoiceXpParticipantCountingMode.AllConnectedHumans;
     public bool ResetMinimumSessionWhenIneligible { get; set; } = true;
 }
+[BsonIgnoreExtraElements]
 public sealed class ReactionXpSettings { public bool Enabled { get; set; } = true; public int Points { get; set; } = 2; public int CooldownSeconds { get; set; } = 30; public bool ReverseOnRemove { get; set; } = true; }
+[BsonIgnoreExtraElements]
 public sealed class EventInterestXpSettings { public bool Enabled { get; set; } = true; public int Points { get; set; } = 10; }
+[BsonIgnoreExtraElements]
 public sealed class ThreadXpSettings { public bool Enabled { get; set; } = true; public int CreatePoints { get; set; } = 15; public int MessagePoints { get; set; } = 5; public int CooldownSeconds { get; set; } = 60; }
+[BsonIgnoreExtraElements]
 public sealed class ChannelMultiplier { public ulong ChannelId { get; set; } public decimal Multiplier { get; set; } = 1; }
+[BsonIgnoreExtraElements]
 public sealed class ServerBoosterXpSettings { public bool Enabled { get; set; } public List<ServerBoosterXpTier> Tiers { get; set; } = []; }
+[BsonIgnoreExtraElements]
 public sealed class ServerBoosterXpTier { public int MinimumBoostMonths { get; set; } public decimal Multiplier { get; set; } = 1; }
+[BsonIgnoreExtraElements]
 public sealed class LevelRole { public int Level { get; set; } public ulong RoleId { get; set; } public string? Description { get; set; } }
 
 public sealed class MemberXp

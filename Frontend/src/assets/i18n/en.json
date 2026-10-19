@@ -182,6 +182,7 @@
       "revisionConflict": "Role permissions changed since they were loaded. Reload and try again."
     },
     "xp": {
+      "revisionConflict": "XP settings changed since they were loaded. Reload the page before saving again. The saved settings have not been overwritten.",
       "settingsInvalid": "The XP settings are invalid.",
       "settings": {
         "groupsRequired": "All XP setting groups are required.",

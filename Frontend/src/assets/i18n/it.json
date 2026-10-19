@@ -182,6 +182,7 @@
       "revisionConflict": "Le autorizzazioni del ruolo sono cambiate da quando sono state caricate. Ricarica e riprova."
     },
     "xp": {
+      "revisionConflict": "Le impostazioni XP sono cambiate. Ricarica la pagina prima di salvare di nuovo. Le impostazioni salvate non sono state sovrascritte.",
       "settingsInvalid": "Le impostazioni di XP non sono valide.",
       "settings": {
         "groupsRequired": "Tutti i gruppi di impostazioni XP sono obbligatori.",
