@@ -15,7 +15,7 @@ public sealed class SelfRoleValidationException(string errorKey, IReadOnlyDictio
     public IReadOnlyDictionary<string, object?>? Parameters { get; } = parameters;
 }
 
-public sealed class SelfRoleService(RankoonDbContext database, TimeProvider timeProvider, ILogger<SelfRoleService> logger)
+public sealed class SelfRoleService(RankoonDbContext database, TimeProvider timeProvider, ILogger<SelfRoleService> logger, SelfRoleHealthService health)
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> updateLocks = new();
     public async Task<List<SelfRolePanel>> ListAsync(ulong guildId, CancellationToken cancellationToken = default)
@@ -195,25 +195,7 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
     public async Task ReconcileAsync(IEnumerable<SocketGuild> guilds, CancellationToken cancellationToken = default)
     {
         foreach (var guild in guilds)
-        foreach (var panel in await database.SelfRolePanels.Find(x => x.GuildId == guild.Id && x.Enabled && x.State != SelfRolePanelState.Degraded).ToListAsync(cancellationToken))
-        {
-            try
-            {
-                Prepare(panel);
-                if (guild.GetChannel(panel.ChannelId) is not IMessageChannel channel || await channel.GetMessageAsync(panel.MessageId) is not IUserMessage message)
-                {
-                    await MarkFailureAsync(panel, new InvalidOperationException("The configured Discord message is unavailable."), cancellationToken);
-                    continue;
-                }
-                foreach (var mapping in panel.Mappings) await message.AddReactionAsync(SelfRoleMessageRenderer.ToEmote(mapping.Emoji));
-                await MarkHealthyAsync(panel, cancellationToken);
-            }
-            catch (Exception exception)
-            {
-                await MarkFailureAsync(panel, exception, cancellationToken);
-                logger.LogWarning(exception, "Could not reconcile self-role panel {PanelId}", panel.Id);
-            }
-        }
+            await health.RefreshAsync(guild.Id, cancellationToken, force: true, restoreMissingReactions: true);
     }
 
     public async Task MigrateIdentityAsync(SocketGuild sourceGuild, SocketGuild targetGuild, CancellationToken cancellationToken = default)
@@ -283,13 +265,6 @@ public sealed class SelfRoleService(RankoonDbContext database, TimeProvider time
         panel.LastHealthCheckAt = now;
         panel.LastError = null;
         panel.LastErrorAt = null;
-    }
-
-    private async Task MarkHealthyAsync(SelfRolePanel panel, CancellationToken cancellationToken)
-    {
-        var now = timeProvider.GetUtcNow().UtcDateTime;
-        await database.SelfRolePanels.UpdateOneAsync(x => x.Id == panel.Id && x.GuildId == panel.GuildId,
-            Builders<SelfRolePanel>.Update.Set(x => x.State, panel.Enabled ? SelfRolePanelState.Published : SelfRolePanelState.Disabled).Set(x => x.Status, panel.Enabled ? "Published" : "Disabled").Set(x => x.LastHealthCheckAt, now).Set(x => x.LastError, null).Set(x => x.LastErrorAt, null), cancellationToken: cancellationToken);
     }
 
     private async Task MarkFailureAsync(SelfRolePanel panel, Exception exception, CancellationToken cancellationToken)

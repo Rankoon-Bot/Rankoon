@@ -132,6 +132,25 @@ the member as its owner, and moves them into it. Empty temporary channels are
 removed automatically. Missing configured hub channels are reconciled while the
 bot is running.
 
+### Self-role panel health
+
+Self-role panels show **Active** after Rankoon verifies their Discord message,
+saved embeds, available role reactions, role hierarchy, and `ManageRoles` access.
+Permissions needed only to edit or republish a message do not make an otherwise
+working panel unhealthy. A confirmed missing message, reaction, or manageable role
+shows **Needs attention**, with an explanation and a recovery step.
+
+Discord outages, timeouts, rate limits, or missing access to inspect message
+history show **Status unknown**. This does not imply that role assignment has
+stopped. Checks use the authoritative bot identity's Discord REST client instead
+of potentially incomplete gateway message caches.
+
+Opening or reloading the panel list rechecks enabled panels at most once per
+minute, including panels with earlier errors. Reconnecting the bot forces a new
+check and restores missing reactions on existing messages. Health checks never
+recreate deleted messages; use **Repair** to do that. A successful check clears
+old errors without changing the panel settings or publication timestamp.
+
 ### Dashboard and reports
 
 The Angular dashboard uses Discord OAuth and supports English and German. Guild

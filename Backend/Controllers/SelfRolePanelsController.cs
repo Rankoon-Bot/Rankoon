@@ -13,13 +13,15 @@ namespace Rankoon.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/guilds/{guildId}/self-role-panels")]
-public sealed class SelfRolePanelsController(IGuildAuthorizationService authorization, IGuildDiscordContextResolver discord, SelfRoleService selfRoles, ILogger<SelfRolePanelsController> logger) : ControllerBase
+public sealed class SelfRolePanelsController(IGuildAuthorizationService authorization, IGuildDiscordContextResolver discord, SelfRoleService selfRoles, SelfRoleHealthService health, ILogger<SelfRolePanelsController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(string guildId)
     {
         var (id, error) = await AuthorizeAsync(guildId);
-        return error ?? Ok(await selfRoles.ListAsync(id, HttpContext.RequestAborted));
+        if (error != null) return error;
+        await health.RefreshAsync(id, HttpContext.RequestAborted);
+        return Ok(await selfRoles.ListAsync(id, HttpContext.RequestAborted));
     }
 
     [HttpPost]

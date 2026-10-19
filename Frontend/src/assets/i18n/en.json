@@ -1634,9 +1634,20 @@
     "panelError": "Panel error: {{error}}",
     "health": {
       "pending": "Pending",
-      "published": "Published",
+      "published": "Active",
       "disabled": "Disabled",
-      "degraded": "Degraded"
+      "degraded": "Needs attention",
+      "unknown": "Status unknown"
+    },
+    "healthDetails": {
+      "unavailable": "Discord could not be checked right now. Role assignment may still work. Reload this page to check again.",
+      "checkPermissions": "The bot cannot inspect this panel. Role assignment may still work. Check View Channel and Read Message History, then reload this page.",
+      "messageMissing": "The panel message is missing. Repair the panel to publish it again.",
+      "channelMissing": "The panel channel was deleted. Select another text channel and save the panel.",
+      "channelPermissions": "The bot cannot view the panel channel. Grant View Channel, then reload this page.",
+      "rolePermissions": "A configured role is missing or cannot be managed. Check Manage Roles and place the bot role above the panel roles, then reload this page.",
+      "outOfSync": "The Discord message does not match the saved panel. Repair the panel to publish the saved settings.",
+      "reactionsMissing": "A role reaction is missing from the Discord message. Repair the panel to restore it."
     },
     "deleteConfirm": "Delete this self-role panel?",
     "deleteTitle": "Delete self-role panel",

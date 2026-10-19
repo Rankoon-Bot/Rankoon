@@ -161,6 +161,11 @@ export interface SelfRolePanel {
   revision: number;
   updatedAt?: string;
   status?: string;
+  state?: 'Pending' | 'Published' | 'Disabled' | 'Degraded' | 'Unknown';
+  lastPublishedAt?: string | null;
+  lastHealthCheckAt?: string | null;
+  lastError?: string | null;
+  lastErrorAt?: string | null;
 }
 export interface SelfRoleResources extends GuildResources {
   emojis: {

@@ -1619,9 +1619,20 @@
     "panelError": "Panelfehler: {{error}}",
     "health": {
       "pending": "Ausstehend",
-      "published": "Veröffentlicht",
+      "published": "Aktiv",
       "disabled": "Deaktiviert",
-      "degraded": "Beeinträchtigt"
+      "degraded": "Handlungsbedarf",
+      "unknown": "Status unklar"
+    },
+    "healthDetails": {
+      "unavailable": "Discord konnte gerade nicht geprüft werden. Die Rollenvergabe kann weiterhin funktionieren. Lade diese Seite für eine erneute Prüfung neu.",
+      "checkPermissions": "Der Bot kann dieses Panel nicht prüfen. Die Rollenvergabe kann weiterhin funktionieren. Prüfe „Kanal ansehen“ und „Nachrichtenverlauf anzeigen“ und lade die Seite neu.",
+      "messageMissing": "Die Panel-Nachricht fehlt. Repariere das Panel, um sie erneut zu veröffentlichen.",
+      "channelMissing": "Der Panel-Kanal wurde gelöscht. Wähle einen anderen Textkanal und speichere das Panel.",
+      "channelPermissions": "Der Bot kann den Panel-Kanal nicht sehen. Erlaube „Kanal ansehen“ und lade die Seite neu.",
+      "rolePermissions": "Eine konfigurierte Rolle fehlt oder kann nicht verwaltet werden. Prüfe „Rollen verwalten“ und platziere die Bot-Rolle über den Panel-Rollen. Lade danach die Seite neu.",
+      "outOfSync": "Die Discord-Nachricht entspricht nicht dem gespeicherten Panel. Repariere das Panel, um die gespeicherten Einstellungen zu veröffentlichen.",
+      "reactionsMissing": "Eine Rollenreaktion fehlt an der Discord-Nachricht. Repariere das Panel, um sie wiederherzustellen."
     },
     "deleteConfirm": "Dieses Selbstrollen-Panel löschen?",
     "deleteTitle": "Selbstrollen-Panel löschen",

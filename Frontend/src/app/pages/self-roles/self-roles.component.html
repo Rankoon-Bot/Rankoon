@@ -30,10 +30,10 @@
           <span class="color-dot" [style.background-color]="panel.embeds[0].color || panel.color"></span>
           <span><strong>{{ panelTitle(panel) }}</strong><small>#{{ channelLabel(panel.channelId) }}</small></span>
         </button>
-        <span class="state" [class.inactive]="!panel.enabled" [class.degraded]="panel.state === 'Degraded'">{{ healthLabel(panel) }}</span>
-        <span class="health-error" *ngIf="panel.lastError" [attr.title]="panel.lastError" role="img" [attr.aria-label]="'selfRoles.panelError' | transloco: { error: panel.lastError }">!</span>
+        <span class="state" [class.inactive]="!panel.enabled" [class.degraded]="healthState(panel) === 'Degraded'" [class.unknown]="healthState(panel) === 'Unknown'">{{ healthLabel(panel) }}</span>
         <button type="button" class="rk-button rk-button--icon repair" (click)="repair(panel)" [disabled]="repairing() === panel.id" [attr.aria-label]="'selfRoles.repairAria' | transloco: { title: panelTitle(panel) }">@if (repairing() === panel.id) { <span class="rk-spinner" aria-hidden="true"></span> } @else { <rk-icon name="refresh" /> }</button>
         <button type="button" class="rk-button rk-button--icon rk-button--danger" (click)="remove(panel)" [attr.aria-label]="'common.delete' | transloco"><rk-icon name="close" /></button>
+        <p class="health-detail" *ngIf="panel.enabled && panel.lastError">{{ healthDescription(panel) }}</p>
       </article>
     </div>
 
