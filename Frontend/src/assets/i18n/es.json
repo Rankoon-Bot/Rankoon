@@ -1543,7 +1543,18 @@
       "pending": "Pendiente",
       "published": "Publicado",
       "disabled": "Desactivado",
-      "degraded": "Degradado"
+      "degraded": "Degradado",
+      "unknown": "Estado desconocido"
+    },
+    "healthDetails": {
+      "unavailable": "No se pudo comprobar Discord ahora mismo. Es posible que la asignación de roles siga funcionando. Vuelve a cargar esta página para comprobarlo de nuevo.",
+      "checkPermissions": "El bot no puede inspeccionar este panel. Es posible que la asignación de roles siga funcionando. Comprueba los permisos Ver canal y Leer el historial de mensajes y vuelve a cargar esta página.",
+      "messageMissing": "No se encuentra el mensaje del panel. Repara el panel para volver a publicarlo.",
+      "channelMissing": "Se ha eliminado el canal del panel. Selecciona otro canal de texto y guarda el panel.",
+      "channelPermissions": "El bot no puede ver el canal del panel. Concede el permiso Ver canal y vuelve a cargar esta página.",
+      "rolePermissions": "Falta un rol configurado o no se puede gestionar. Comprueba el permiso Gestionar roles y coloca el rol del bot por encima de los roles del panel; después, vuelve a cargar la página.",
+      "outOfSync": "El mensaje de Discord no coincide con el panel guardado. Repara el panel para publicar la configuración guardada.",
+      "reactionsMissing": "Falta una reacción de rol en el mensaje de Discord. Repara el panel para restaurarla."
     },
     "deleteConfirm": "¿Eliminar este panel de autorroles?",
     "deleteTitle": "Eliminar panel de autorroles",

@@ -1537,7 +1537,18 @@
       "pending": "In attesa di",
       "published": "Pubblicato",
       "disabled": "Disabilitato",
-      "degraded": "Degradato"
+      "degraded": "Degradato",
+      "unknown": "Stato sconosciuto"
+    },
+    "healthDetails": {
+      "unavailable": "Al momento non è stato possibile verificare Discord. L’assegnazione dei ruoli potrebbe comunque funzionare. Ricarica questa pagina per riprovare.",
+      "checkPermissions": "Il bot non può controllare questo pannello. L’assegnazione dei ruoli potrebbe comunque funzionare. Verifica i permessi Visualizza canale e Leggi la cronologia dei messaggi, quindi ricarica la pagina.",
+      "messageMissing": "Il messaggio del pannello non è presente. Ripara il pannello per pubblicarlo di nuovo.",
+      "channelMissing": "Il canale del pannello è stato eliminato. Seleziona un altro canale testuale e salva il pannello.",
+      "channelPermissions": "Il bot non può visualizzare il canale del pannello. Concedi il permesso Visualizza canale, quindi ricarica la pagina.",
+      "rolePermissions": "Un ruolo configurato non è presente o non può essere gestito. Verifica il permesso Gestisci ruoli e sposta il ruolo del bot sopra i ruoli del pannello, quindi ricarica la pagina.",
+      "outOfSync": "Il messaggio Discord non corrisponde al pannello salvato. Ripara il pannello per pubblicare le impostazioni salvate.",
+      "reactionsMissing": "Manca una reazione ruolo nel messaggio Discord. Ripara il pannello per ripristinarla."
     },
     "deleteConfirm": "Eliminare questo pannello dei ruoli autogestiti?",
     "deleteTitle": "Elimina il pannello dei ruoli autogestiti",

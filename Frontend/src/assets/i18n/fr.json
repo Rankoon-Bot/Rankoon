@@ -1537,7 +1537,18 @@
       "pending": "En attente",
       "published": "Publié",
       "disabled": "Désactivé",
-      "degraded": "Dégradé"
+      "degraded": "Dégradé",
+      "unknown": "Statut inconnu"
+    },
+    "healthDetails": {
+      "unavailable": "Discord n’a pas pu être vérifié pour le moment. L’attribution des rôles peut toujours fonctionner. Rechargez cette page pour réessayer.",
+      "checkPermissions": "Le bot ne peut pas vérifier ce panneau. L’attribution des rôles peut toujours fonctionner. Vérifiez les permissions Voir le salon et Lire l’historique des messages, puis rechargez cette page.",
+      "messageMissing": "Le message du panneau est introuvable. Réparez le panneau pour le publier à nouveau.",
+      "channelMissing": "Le salon du panneau a été supprimé. Sélectionnez un autre salon textuel et enregistrez le panneau.",
+      "channelPermissions": "Le bot ne peut pas voir le salon du panneau. Accordez la permission Voir le salon, puis rechargez cette page.",
+      "rolePermissions": "Un rôle configuré est introuvable ou ne peut pas être géré. Vérifiez la permission Gérer les rôles et placez le rôle du bot au-dessus des rôles du panneau, puis rechargez cette page.",
+      "outOfSync": "Le message Discord ne correspond pas au panneau enregistré. Réparez le panneau pour publier les paramètres enregistrés.",
+      "reactionsMissing": "Une réaction de rôle manque sur le message Discord. Réparez le panneau pour la rétablir."
     },
     "deleteConfirm": "Supprimer ce panneau d'auto-rôle ?",
     "deleteTitle": "Supprimer le panneau d'auto-rôle",

@@ -1537,7 +1537,18 @@
       "pending": "Pendente",
       "published": "Publicado",
       "disabled": "Desativado",
-      "degraded": "Degradado"
+      "degraded": "Degradado",
+      "unknown": "Estado desconhecido"
+    },
+    "healthDetails": {
+      "unavailable": "Não foi possível verificar o Discord agora. A atribuição de cargos ainda pode funcionar. Atualize esta página para verificar novamente.",
+      "checkPermissions": "O bot não consegue verificar este painel. A atribuição de cargos ainda pode funcionar. Confira as permissões Ver canal e Ler histórico de mensagens e atualize esta página.",
+      "messageMissing": "A mensagem do painel não foi encontrada. Repare o painel para publicá-lo novamente.",
+      "channelMissing": "O canal do painel foi excluído. Selecione outro canal de texto e salve o painel.",
+      "channelPermissions": "O bot não consegue ver o canal do painel. Conceda a permissão Ver canal e atualize esta página.",
+      "rolePermissions": "Um cargo configurado está ausente ou não pode ser gerenciado. Confira a permissão Gerenciar cargos e coloque o cargo do bot acima dos cargos do painel; depois, atualize a página.",
+      "outOfSync": "A mensagem do Discord não corresponde ao painel salvo. Repare o painel para publicar as configurações salvas.",
+      "reactionsMissing": "Falta uma reação de cargo na mensagem do Discord. Repare o painel para restaurá-la."
     },
     "deleteConfirm": "Eliminar este painel de cargos autoatribuíveis?",
     "deleteTitle": "Eliminar painel de cargos autoatribuíveis",
