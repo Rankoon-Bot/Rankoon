@@ -19,7 +19,7 @@ public sealed class SeasonLevelRoleService(RankoonDbContext database, IGuildDisc
         if (season == null || season.Status != SeasonStatus.Active) return new(added, removed, failed, present);
         var stats = await database.SeasonMemberXp.Find(x => x.SeasonId == seasonId && x.UserId == userId).FirstOrDefaultAsync(cancellationToken);
         var context = await discord.ResolveAsync(guildId, cancellationToken); var guild = context?.Guild;
-        if (guild == null) throw new InvalidOperationException("Discord guild is unavailable; retry season role synchronization when the bot reconnects.");
+        if (guild == null) throw new DiscordGuildUnavailableException(guildId);
         var member = await LevelRoleDiscordMember.FetchAsync(context!, userId, cancellationToken);
         if (season == null || stats == null || guild == null || member == null) return new(added, removed, failed, present);
         var level = Mee6LevelCurve.GetLevel(stats.TotalXp); var rules = season.SettingsSnapshot.SeasonLevelRoles.GroupBy(x => x.RoleId).Select(x => x.OrderByDescending(y => y.Level).First()).ToArray();
@@ -29,7 +29,7 @@ public sealed class SeasonLevelRoleService(RankoonDbContext database, IGuildDisc
             var role = guild.GetRole(assignment.RoleId); var change = new LevelRoleChange(assignment.RoleId, role?.Name ?? assignment.RoleId.ToString(), assignment.RequiredLevel);
             if (role == null) { failed.Add(new(change.RoleId, change.Name, change.RequiredLevel, "roleNotFound")); continue; }
             try { await member.RemoveRoleAsync(role.Id, new RequestOptions { CancelToken = cancellationToken }); await database.SeasonRoleAssignments.UpdateOneAsync(x => x.Id == assignment.Id && x.RemovedAtUtc == null, Builders<SeasonRoleAssignment>.Update.Set(x => x.RemovedAtUtc, timeProvider.GetUtcNow().UtcDateTime), cancellationToken: cancellationToken); removed.Add(change); }
-            catch (Exception exception) when (exception is not OperationCanceledException) { failed.Add(new(change.RoleId, change.Name, change.RequiredLevel, "removeFailed")); }
+            catch (Exception exception) when (exception is not OperationCanceledException) { failed.Add(new(change.RoleId, change.Name, change.RequiredLevel, LevelRoleService.DiscordFailureCode(exception, "removeFailed"))); }
         }
         foreach (var rule in rules.Where(x => x.Level <= level))
         {
@@ -44,7 +44,7 @@ public sealed class SeasonLevelRoleService(RankoonDbContext database, IGuildDisc
                 await member.AddRoleAsync(role.Id, new RequestOptions { CancelToken = cancellationToken });
                 added.Add(change);
             }
-            catch (Exception exception) when (exception is not OperationCanceledException) { failed.Add(new(change.RoleId, change.Name, change.RequiredLevel, "addFailed")); }
+            catch (Exception exception) when (exception is not OperationCanceledException) { failed.Add(new(change.RoleId, change.Name, change.RequiredLevel, LevelRoleService.DiscordFailureCode(exception, "addFailed"))); }
         }
         return new(added, removed, failed, present);
     }
@@ -59,7 +59,7 @@ public sealed class SeasonLevelRoleService(RankoonDbContext database, IGuildDisc
     {
         await using var guard = await LevelRoleSynchronizationLock.AcquireAsync(season.GuildId, userId, cancellationToken);
         var context = await discord.ResolveAsync(season.GuildId, cancellationToken); var guild = context?.Guild;
-        if (guild == null) throw new InvalidOperationException("Reconnect the bot to finish season role cleanup.");
+        if (guild == null) throw new DiscordGuildUnavailableException(season.GuildId);
         var member = await LevelRoleDiscordMember.FetchAsync(context!, userId, cancellationToken);
         foreach (var assignment in assignments)
         {

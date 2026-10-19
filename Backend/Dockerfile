@@ -5,6 +5,7 @@ USER $APP_UID
 WORKDIR /app
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_URLS=http://+:8080 \
+    ASPNETCORE_HTTP_PORTS= \
     DOTNET_EnableDiagnostics=0
 EXPOSE 8080
 VOLUME ["/var/lib/rankoon/data-protection-keys"]

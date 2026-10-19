@@ -1,5 +1,7 @@
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
+using System.Net;
 using MongoDB.Driver;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
@@ -65,6 +67,7 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
             Builders<LevelTransitionEvent>.Update.Set(x => x.Status, LevelTransitionStatus.Processing).Set(x => x.LeaseOwner, claimOwner).Set(x => x.LeaseExpiresAtUtc, now.AddMinutes(2)), new FindOneAndUpdateOptions<LevelTransitionEvent> { ReturnDocument = ReturnDocument.After }, cancellationToken);
         if (claimed == null) return;
         var stoppingToken = cancellationToken;
+        ulong? deliveryChannelId = null;
         using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         attempt.CancelAfter(TimeSpan.FromSeconds(90));
         cancellationToken = attempt.Token;
@@ -80,8 +83,18 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
             if (checkpoint.MatchedCount == 0) return;
             if (roleResult.Failed.Count > 0)
             {
+                var roleConfigurationFailed = roleResult.Failed.Any(x => x.ErrorCode is "roleNotFound" or "missingAccess" or "missingPermissions");
+                var recoveryAction = roleResult.Failed.Any(x => x.ErrorCode == "missingPermissions")
+                    ? "Grant Manage Roles and move the bot role above the configured reward roles."
+                    : roleResult.Failed.Any(x => x.ErrorCode is "roleNotFound" or "missingAccess")
+                        ? "Choose an existing reward role and make sure the bot can access the server."
+                        : "Check the Discord connection and retry after it recovers.";
+                logger.Log(roleConfigurationFailed ? LogLevel.Warning : LogLevel.Information,
+                    "Level transition {EventKey} could not synchronize configured roles: {Failures}. {Disposition}. Recovery: {RecoveryAction}",
+                    claimed.EventKey, string.Join(", ", roleResult.Failed.Select(x => $"{x.RoleId}:{x.ErrorCode}")),
+                    roleConfigurationFailed ? "delivery stopped" : "will retry", recoveryAction);
                 await ReportAsync(claimed, ReportNames.LevelRolesPartiallyFailed, ReportOutcomes.Failed, cancellationToken);
-                await FailAsync(claimed, "roleSynchronizationFailed", true, cancellationToken);
+                await FailAsync(claimed, roleConfigurationFailed ? "roleConfigurationFailed" : "roleSynchronizationFailed", !roleConfigurationFailed, cancellationToken);
                 return;
             }
             var settings = await new XpSettingsStore(database, timeProvider).LoadAnnouncementsAsync(claimed.GuildId, cancellationToken);
@@ -92,8 +105,29 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
             if (!canAnnounce) { await CompleteAsync(claimed, LevelTransitionStatus.CompletedWithoutAnnouncement, null, cancellationToken); return; }
             var announcementSettings = profile!;
             var discordContext = await discord.ResolveAsync(claimed.GuildId, cancellationToken);
-            var guild = discordContext?.Guild; var user = discordContext == null ? null : await LevelRoleDiscordMember.FetchAsync(discordContext, claimed.UserId, cancellationToken); var channel = guild?.GetTextChannel(announcementSettings.ChannelId!.Value);
-            if (guild == null || user == null || channel == null) { await FailAsync(claimed, "channelUnavailable", true, cancellationToken); return; }
+            var guild = discordContext?.Guild;
+            if (guild == null)
+            {
+                logger.LogInformation("Level announcement deferred for {EventKey}; guild {GuildId} is not connected", claimed.EventKey, claimed.GuildId);
+                await FailAsync(claimed, "discordGuildUnavailable", true, cancellationToken);
+                return;
+            }
+            var user = await LevelRoleDiscordMember.FetchAsync(discordContext!, claimed.UserId, cancellationToken);
+            if (user == null)
+            {
+                logger.LogInformation("Level announcement closed for {EventKey}; member {UserId} is no longer available in guild {GuildId}", claimed.EventKey, claimed.UserId, claimed.GuildId);
+                await FailAsync(claimed, "announcementMemberUnavailable", false, cancellationToken);
+                return;
+            }
+            var channel = guild.GetTextChannel(announcementSettings.ChannelId!.Value);
+            if (channel == null)
+            {
+                logger.LogWarning("Level announcement closed for {EventKey}; configured channel {ChannelId} is unavailable in guild {GuildId}. Choose an available text channel in the announcement settings",
+                    claimed.EventKey, announcementSettings.ChannelId.Value, claimed.GuildId);
+                await FailAsync(claimed, "announcementChannelUnavailable", false, cancellationToken);
+                return;
+            }
+            deliveryChannelId = channel.Id;
             var member = await database.MemberXp.Find(x => x.GuildId == claimed.GuildId && x.UserId == claimed.UserId).FirstOrDefaultAsync(cancellationToken) ?? new MemberXp();
             var context = new LevelUpRenderContext($"<@{claimed.UserId}>", user.Nickname ?? user.GlobalName ?? user.Username, user.Username, claimed.UserId, claimed.PreviousLevel, claimed.NewLevel, claimed.PreviousTotalXp, claimed.NewTotalXp, cause.GainedXp, claimed.Source, cause.ChannelId is { } sourceChannel ? $"<#{sourceChannel}>" : null, guild.Name, guild.MemberCount, member.MessageCount, member.VoiceSeconds, null, rewarded.OrderBy(x => x.RequiredLevel).ToArray()) { Scope = claimed.Scope, SeasonId = claimed.SeasonId, SeasonName = claimed.SeasonNameSnapshot };
             var kind = rewarded.Length > 0 ? LevelAnnouncementKind.Reward : LevelAnnouncementKind.LevelUp;
@@ -119,16 +153,56 @@ public sealed class LevelProgressionWorker(RankoonDbContext database, IGuildDisc
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) when (attempt.IsCancellationRequested) { await FailAsync(claimed, "processingTimedOut", true, stoppingToken); }
+        catch (DiscordGuildUnavailableException)
+        {
+            logger.LogInformation("Level transition {EventKey} deferred; guild {GuildId} is not connected", claimed.EventKey, claimed.GuildId);
+            await FailAsync(claimed, "discordGuildUnavailable", true, stoppingToken);
+        }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Level announcement delivery failed for {EventKey}", claimed.EventKey);
-            // Persist the retry before best-effort error recording. Logging outages
-            // must not strand earned rewards or terminate the delivery worker.
-            await FailAsync(claimed, "discordTemporaryFailure", true, cancellationToken);
-            try { await errors.RecordAsync(new(exception, "discord", "level.announcement", GuildId: claimed.GuildId, Worker: "level-progression", Context: new Dictionary<string, object?> { ["eventId"] = claimed.EventKey }), cancellationToken); }
-            catch (Exception recordingException) when (recordingException is not OperationCanceledException) { logger.LogWarning(recordingException, "Could not record level announcement failure"); }
+            var failure = ClassifyDeliveryFailure(exception);
+            var attemptNumber = claimed.DeliveryAttempts + 1;
+            var willRetry = failure.Retryable && attemptNumber <= 4;
+            logger.Log(willRetry ? LogLevel.Information : LogLevel.Warning,
+                "Level progression {Disposition} for event {EventKey} in guild {GuildId}, channel {ChannelId}; failure {FailureCode}, attempt {AttemptNumber}, Discord code {DiscordCode}, exception {ExceptionType}. Recovery: {RecoveryAction}",
+                willRetry ? "will retry" : "stopped", claimed.EventKey, claimed.GuildId, deliveryChannelId, failure.Code, attemptNumber, failure.DiscordCode, exception.GetType().Name, failure.RecoveryAction);
+            // Persist detailed diagnostics in the operational incident store. The application log
+            // stays concise because the full exception is available on the incident occurrence.
+            await FailAsync(claimed, failure.Code, failure.Retryable, stoppingToken);
+            try
+            {
+                await errors.RecordAsync(new(exception, failure.Source, failure.Operation,
+                    failure.IsConfigurationError ? OperationalSeverity.Warning : OperationalSeverity.Error,
+                    GuildId: claimed.GuildId, ChannelId: deliveryChannelId, Worker: "level-progression",
+                    Context: new Dictionary<string, object?> { ["eventId"] = claimed.EventKey, ["failureCode"] = failure.Code, ["discordCode"] = failure.DiscordCode, ["recoveryAction"] = failure.RecoveryAction }), stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { throw; }
+            catch (Exception recordingException)
+            {
+                logger.LogWarning("Could not persist announcement diagnostics for {EventKey}; exception type {ExceptionType}", claimed.EventKey, recordingException.GetType().Name);
+            }
         }
     }
+    private static DeliveryFailure ClassifyDeliveryFailure(Exception exception)
+    {
+        if (exception is not HttpException discordException)
+            return new("levelProgressionTemporaryFailure", true, null, false, "worker", "level.progression.process", null);
+
+        var code = (int)discordException.DiscordCode;
+        return code switch
+        {
+            50001 => new("discordMissingAccess", false, code, true, "discord", "level.announcement", "Grant the bot View Channel and Send Messages permissions in the configured channel."),
+            50013 => new("discordMissingPermissions", false, code, true, "discord", "level.announcement", "Grant the bot Send Messages permission and verify its role hierarchy."),
+            10003 => new("announcementChannelUnavailable", false, code, true, "discord", "level.announcement", "Select an available text channel in the announcement settings."),
+            10004 => new("discordGuildNotFound", false, code, true, "discord", "level.announcement", "Verify that the bot is still in the server and connected."),
+            _ when discordException.HttpCode == HttpStatusCode.Forbidden => new("discordMissingAccess", false, code, true, "discord", "level.announcement", "Grant the bot View Channel and Send Messages permissions in the configured channel."),
+            _ when discordException.HttpCode == HttpStatusCode.NotFound => new("announcementChannelUnavailable", false, code, true, "discord", "level.announcement", "Select an available text channel in the announcement settings."),
+            _ when discordException.HttpCode == HttpStatusCode.BadRequest => new("discordRequestRejected", false, code, true, "discord", "level.announcement", "Review the announcement template and preview it before saving."),
+            _ when discordException.HttpCode == HttpStatusCode.Unauthorized => new("discordAuthenticationFailed", false, code, true, "discord", "level.announcement", "Check the bot credentials and reconnect the bot."),
+            _ => new("discordTemporaryFailure", true, code, false, "discord", "level.announcement", null)
+        };
+    }
+    private sealed record DeliveryFailure(string Code, bool Retryable, int? DiscordCode, bool IsConfigurationError, string Source, string Operation, string? RecoveryAction);
     private Task CompleteAsync(LevelTransitionEvent e, LevelTransitionStatus status, string? error, CancellationToken ct) => database.LevelTransitionEvents.UpdateOneAsync(x => x.Id == e.Id && x.LeaseOwner == e.LeaseOwner, Builders<LevelTransitionEvent>.Update.Set(x => x.Status, status).Set(x => x.LastErrorCode, error).Set(x => x.CompletedAtUtc, timeProvider.GetUtcNow().UtcDateTime).Unset(x => x.LeaseOwner).Unset(x => x.LeaseExpiresAtUtc), cancellationToken: ct);
     private Task FailAsync(LevelTransitionEvent e, string code, bool temporary, CancellationToken ct)
     {

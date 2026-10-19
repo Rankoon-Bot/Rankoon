@@ -1,4 +1,5 @@
 using MongoDB.Driver;
+using Discord.Net;
 using Rankoon.Data.Model;
 using Rankoon.Data.MongoDb;
 using Rankoon.Data.Operations;
@@ -39,12 +40,27 @@ public sealed class LevelRoleRepairService(RankoonDbContext database, LevelRoleS
     {
         ulong after = 0;
         var failures = 0;
+        var roleFailureCounts = new Dictionary<(ulong RoleId, string ErrorCode), int>();
+        var affectedUsers = new List<ulong>();
+
+        void LogFailureSummary()
+        {
+            if (failures == 0) return;
+            var details = string.Join(", ", roleFailureCounts.Select(x => $"{x.Key.RoleId}:{x.Key.ErrorCode}={x.Value}"));
+            logger.LogWarning("Level role repair found {FailedMembers} affected members in guild {GuildId}: {RoleFailures}. Sample members: {UserIds}. Check role existence, Manage Roles permission and bot role hierarchy; the next sweep retries",
+                failures, guildId, details, string.Join(", ", affectedUsers));
+        }
+
         while (!ct.IsCancellationRequested)
         {
             var users = seasonId == null
                 ? await database.MemberXp.Find(x => x.GuildId == guildId && x.IsCurrentMember && !x.IsDevelopmentMock && x.UserId > after).SortBy(x => x.UserId).Limit(100).Project(x => x.UserId).ToListAsync(ct)
                 : await database.SeasonMemberXp.Find(x => x.SeasonId == seasonId && x.IsCurrentMember && !x.IsDevelopmentMock && x.UserId > after).SortBy(x => x.UserId).Limit(100).Project(x => x.UserId).ToListAsync(ct);
-            if (users.Count == 0) return failures;
+            if (users.Count == 0)
+            {
+                LogFailureSummary();
+                return failures;
+            }
             foreach (var userId in users)
             {
                 using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -57,13 +73,37 @@ public sealed class LevelRoleRepairService(RankoonDbContext database, LevelRoleS
                     if (result.Failed.Count > 0)
                     {
                         failures++;
-                        logger.LogWarning("Level role repair for {GuildId}/{UserId} failed: {Failures}. Check role existence, Manage Roles permission and bot role hierarchy; the next sweep retries",
-                            guildId, userId, string.Join(", ", result.Failed.Select(x => $"{x.RoleId}:{x.ErrorCode}")));
+                        if (affectedUsers.Count < 5 && !affectedUsers.Contains(userId)) affectedUsers.Add(userId);
+                        foreach (var failure in result.Failed)
+                        {
+                            var key = (failure.RoleId, failure.ErrorCode);
+                            roleFailureCounts[key] = roleFailureCounts.GetValueOrDefault(key) + 1;
+                        }
                     }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (DiscordGuildUnavailableException)
+                {
+                    LogFailureSummary();
+                    logger.LogInformation("Level role repair deferred for guild {GuildId}; the bot is disconnected and the next sweep will retry", guildId);
+                    return failures;
+                }
+                catch (OperationCanceledException) when (attempt.IsCancellationRequested)
+                {
+                    LogFailureSummary();
+                    logger.LogWarning("Level role repair timed out for guild {GuildId} at member {UserId}; the next sweep will retry", guildId, userId);
+                    return failures + 1;
+                }
+                catch (HttpException exception)
+                {
+                    LogFailureSummary();
+                    logger.LogWarning("Level role repair stopped for guild {GuildId} at member {UserId}; Discord returned HTTP {HttpStatus} and code {DiscordCode}. The next sweep will retry",
+                        guildId, userId, exception.HttpCode, exception.DiscordCode);
+                    return failures + 1;
+                }
                 catch (Exception exception)
                 {
+                    LogFailureSummary();
                     logger.LogWarning(exception, "Level role repair for {GuildId}/{UserId} interrupted; the next sweep retries", guildId, userId);
                     // Stop this guild on infrastructure failures instead of issuing one failed request per member.
                     return failures + 1;

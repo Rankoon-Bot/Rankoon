@@ -38,7 +38,11 @@ public sealed class XpIntegrityService(RankoonDbContext database, IXpProjectionC
                     state = result.Failed == 0 ? WorkerHealthState.Healthy : WorkerHealthState.Degraded;
                     detail = $"checked={result.Checked}; corrected={result.Corrected}; queued={result.Queued}; deferred={result.Deferred}; failed={result.Failed}";
                     nextRun = timeProvider.GetUtcNow().AddMinutes(options.IntervalMinutes);
-                    logger.LogInformation("XP integrity check: {Detail}", detail);
+                    if (result.Failed == 0)
+                        logger.LogInformation("XP integrity check: {Detail}", detail);
+                    else
+                        logger.LogWarning("XP integrity check needs attention: {Detail}; no XP source reductions were applied. Review the related operational incidents",
+                            detail);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
@@ -164,7 +168,7 @@ public sealed class XpIntegrityService(RankoonDbContext database, IXpProjectionC
         if (needsReview)
         {
             await RecordFailureAsync(new InvalidOperationException("XP source history is below the stored balance. Inspect ledger completeness before reducing XP."), guildId, userId, ct);
-            logger.LogWarning("XP history for {GuildId}/{UserId} needs review; no XP or announcement changed", guildId, userId);
+            logger.LogDebug("XP history for {GuildId}/{UserId} needs review; no XP or announcement changed", guildId, userId);
             return new(0, 0, NeedsReview: true);
         }
         var expected = member.ImportedMee6Xp + totals.EarnedXp + totals.ManualXp;
@@ -231,7 +235,10 @@ public sealed class XpIntegrityService(RankoonDbContext database, IXpProjectionC
         var filter = Builders<LevelTransitionEvent>.Filter.Eq(x => x.GuildId, guildId) & Builders<LevelTransitionEvent>.Filter.Eq(x => x.UserId, userId) &
             Builders<LevelTransitionEvent>.Filter.Eq(x => x.Scope, scope) & Builders<LevelTransitionEvent>.Filter.Eq(x => x.SeasonId, seasonId);
         var now = timeProvider.GetUtcNow().UtcDateTime;
-        var retry = await database.LevelTransitionEvents.Find(filter & Builders<LevelTransitionEvent>.Filter.Eq(x => x.Status, LevelTransitionStatus.DeadLetter) &
+        var retryableFailure = Builders<LevelTransitionEvent>.Filter.Eq(x => x.LastErrorCode, null) |
+            Builders<LevelTransitionEvent>.Filter.In(x => x.LastErrorCode,
+                ["discordTemporaryFailure", "levelProgressionTemporaryFailure", "discordGuildUnavailable", "processingTimedOut", "roleSynchronizationFailed"]);
+        var retry = await database.LevelTransitionEvents.Find(filter & Builders<LevelTransitionEvent>.Filter.Eq(x => x.Status, LevelTransitionStatus.DeadLetter) & retryableFailure &
             Builders<LevelTransitionEvent>.Filter.Eq(x => x.DiscordMessageId, null) & Builders<LevelTransitionEvent>.Filter.Lte(x => x.NewLevel, level) &
             (Builders<LevelTransitionEvent>.Filter.Eq(x => x.LastIntegrityRetryAtUtc, null) | Builders<LevelTransitionEvent>.Filter.Lte(x => x.LastIntegrityRetryAtUtc, now.AddMinutes(-options.IntervalMinutes))))
             .SortByDescending(x => x.NewLevel).ThenByDescending(x => x.CreatedAtUtc).FirstOrDefaultAsync(ct);

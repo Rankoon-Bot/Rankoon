@@ -49,6 +49,11 @@ public sealed class SeasonCoordinator(RankoonDbContext database, ISeasonLifecycl
         {
             try { if (await RunGuildAsync(guildId, cancellationToken)) leasesHeld++; }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (DiscordGuildUnavailableException)
+            {
+                lastError ??= "discordGuildUnavailable";
+                logger.LogDebug("Season lifecycle for guild {GuildId} remains pending until the bot reconnects", guildId);
+            }
             catch (Exception exception)
             {
                 lastError = exception.GetBaseException().GetType().Name;

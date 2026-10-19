@@ -350,7 +350,16 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         ulong? guildId = context.Request.RouteValues.TryGetValue("guildId", out var routeGuild) && ulong.TryParse(Convert.ToString(routeGuild), out var parsedGuild) ? parsedGuild : null;
         var route = context.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Routing.RouteNameMetadata>()?.RouteName ?? context.Request.Path.Value;
         var correlation = context.Request.Headers.TryGetValue("X-Correlation-ID", out var header) ? header.ToString() : context.TraceIdentifier;
-        await context.RequestServices.GetRequiredService<IOperationalErrorRecorder>().RecordAsync(new(exception, "aspnet", "unhandled_request", GuildId: guildId, Route: route, CorrelationId: correlation, TraceId: System.Diagnostics.Activity.Current?.TraceId.ToString(), Build: typeof(Program).Assembly.GetName().Version?.ToString(), Context: new Dictionary<string, object?> { ["method"] = context.Request.Method }), CancellationToken.None);
+        try
+        {
+            await context.RequestServices.GetRequiredService<IOperationalErrorRecorder>().RecordAsync(new(exception, "aspnet", "unhandled_request", GuildId: guildId, Route: route, CorrelationId: correlation, TraceId: System.Diagnostics.Activity.Current?.TraceId.ToString(), Build: typeof(Program).Assembly.GetName().Version?.ToString(), Context: new Dictionary<string, object?> { ["method"] = context.Request.Method }), CancellationToken.None);
+        }
+        catch (Exception recordingException)
+        {
+            context.RequestServices.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("ApiExceptionHandler")
+                .LogWarning("Could not persist operational details for trace {TraceId}; exception type {ExceptionType}", context.TraceIdentifier, recordingException.GetType().Name);
+        }
     }
     if (!context.Response.HasStarted)
     {
