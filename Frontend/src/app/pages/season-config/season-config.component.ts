@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, ElementRef, effect, HostListener, inject, signal, ViewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -67,7 +69,7 @@ export function defaultSeasonSettings(): SeasonSettings {
 @Component({
   selector: 'app-season-config',
   standalone: true,
-  imports: [
+  imports: [LoadingSkeletonComponent, IconComponent,
     CommonModule,
     FormsModule,
     TranslocoPipe,

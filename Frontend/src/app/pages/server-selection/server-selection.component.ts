@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
@@ -11,18 +13,18 @@ import { ApiErrorService } from '../../services/api-error.service';
 @Component({
   selector: 'app-server-selection',
   standalone: true,
-  imports: [CommonModule, TranslocoPipe],
+  imports: [LoadingSkeletonComponent, IconComponent, CommonModule, TranslocoPipe],
   template: `
     <div class="server-selection">
-       <div class="server-selection-header">
+       <div class="server-selection-header rk-page-header">
           <div class="header-content">
             <h1>{{ 'serverSelection.title' | transloco }}</h1>
-            <p>{{ 'serverSelection.subtitle' | transloco }}</p>
+            <p class="rk-page-header__description">{{ 'serverSelection.subtitle' | transloco }}</p>
           </div>
           <div class="server-selection-actions">
             <a
               *ngIf="botInviteUrl()"
-              class="invite-btn"
+              class="rk-button rk-button--primary"
               [href]="botInviteUrl()"
               target="_blank"
               rel="noopener noreferrer"
@@ -31,16 +33,12 @@ import { ApiErrorService } from '../../services/api-error.service';
               {{ 'serverSelection.inviteBot' | transloco }}
             </a>
             <button
-              class="refresh-btn"
+              class="rk-button"
               type="button"
               [disabled]="appStore.isLoading() || refreshCoolingDown()"
               [attr.aria-label]="'serverSelection.refreshAria' | transloco"
               (click)="refreshGuilds()"
-            >
-              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23,4 23,10 17,10"/>
-                <path d="M20.49,15A9,9,0,1,1,5.64,5.64L23,10"/>
-              </svg>
+            ><rk-icon name="refresh" />
               {{ 'serverSelection.refresh' | transloco }}
             </button>
           </div>
@@ -49,9 +47,9 @@ import { ApiErrorService } from '../../services/api-error.service';
       <p *ngIf="accessNotice()" class="access-notice" role="alert">{{ accessNotice() }}</p>
 
       <div class="server-grid" *ngIf="!appStore.isLoading() && appStore.hasGuilds(); else loadingOrEmpty">
-        <div 
-          class="server-card" 
-          *ngFor="let guild of appStore.guilds()" 
+        <div
+          class="server-card"
+          *ngFor="let guild of appStore.guilds()"
           (click)="selectServer(guild)"
           [class.owner]="guild.owner"
           [class.missing]="guild.botInstalled !== true"
@@ -62,9 +60,9 @@ import { ApiErrorService } from '../../services/api-error.service';
           (keydown.space)="selectServer(guild); $event.preventDefault()"
         >
           <div class="server-icon">
-            <img 
-              *ngIf="guild.icon" 
-              [src]="getGuildIconUrl(guild)" 
+            <img
+              *ngIf="guild.icon"
+              [src]="getGuildIconUrl(guild)"
               [alt]="guild.name"
               class="guild-icon"
             >
@@ -101,7 +99,7 @@ import { ApiErrorService } from '../../services/api-error.service';
           </div>
           <a
             *ngIf="guild.botInstalled !== true && guild.inviteUrl && canInviteBot(guild)"
-            class="invite-btn"
+            class="rk-button rk-button--primary"
             [href]="guild.inviteUrl"
             target="_blank"
             rel="noopener noreferrer"
@@ -120,12 +118,8 @@ import { ApiErrorService } from '../../services/api-error.service';
 
       <ng-template #loadingOrEmpty>
         <div class="center-content">
-          <div *ngIf="appStore.isLoading()" class="loading-state">
-            <div class="loading-spinner"></div>
-            <h3>{{ 'common.loadingServers' | transloco }}</h3>
-            <p>{{ 'serverSelection.loadingHint' | transloco }}</p>
-          </div>
-          
+          <rk-loading-skeleton *ngIf="appStore.isLoading()" layout="cards" />
+
           <div *ngIf="!appStore.isLoading() && !appStore.hasGuilds()" class="empty-state">
             <div class="empty-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -136,11 +130,8 @@ import { ApiErrorService } from '../../services/api-error.service';
             </div>
             <h3>{{ 'common.noServers' | transloco }}</h3>
             <p>{{ 'serverSelection.empty' | transloco }}</p>
-            <button class="retry-btn" (click)="loadGuilds()">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23,4 23,10 17,10"/>
-                <path d="M20.49,15A9,9,0,1,1,5.64,5.64L23,10"/>
-              </svg>
+            <button class="rk-button" (click)="loadGuilds()">
+              <rk-icon name="refresh" />
               {{ 'common.retry' | transloco }}
             </button>
           </div>
@@ -156,7 +147,7 @@ import { ApiErrorService } from '../../services/api-error.service';
           </svg>
         </div>
         <p class="error-message">{{ appStore.error() }}</p>
-        <button class="retry-btn" (click)="loadGuilds()">{{ 'common.retry' | transloco }}</button>
+        <button class="rk-button" (click)="loadGuilds()">{{ 'common.retry' | transloco }}</button>
       </div>
     </div>
   `,

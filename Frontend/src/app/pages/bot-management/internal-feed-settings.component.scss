@@ -8,7 +8,6 @@
   color: var(--rk-text);
 }
 
-.page-heading,
 .panel-heading,
 .form-actions {
   display: flex;
@@ -22,15 +21,6 @@
 .subsection h3 {
   margin: 0;
   color: var(--rk-text-strong);
-}
-
-.eyebrow {
-  margin: 0 0 var(--rk-space-2);
-  color: var(--rk-info);
-  font-size: var(--rk-font-caption);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .description,
@@ -206,38 +196,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--rk-control-height);
-  padding: 0 var(--rk-space-4);
-  border: 1px solid var(--rk-border-strong);
-  border-radius: var(--rk-radius-md);
-  font: inherit;
-  cursor: pointer;
-  transition: background-color var(--rk-motion-base), border-color var(--rk-motion-base), color var(--rk-motion-base);
-}
-
-.primary-button {
-  border-color: var(--rk-brand);
-  background: var(--rk-brand);
-  color: var(--rk-text-strong);
-  font-weight: 700;
-}
-
-.secondary-button {
-  background: var(--rk-surface-2);
-  color: var(--rk-text-strong);
-}
-
-.primary-button:hover:not(:disabled) {
-  background: var(--rk-brand-hover);
-}
-
-.secondary-button:hover:not(:disabled) {
-  background: var(--rk-surface-3);
-}
-
-.primary-button:active:not(:disabled),
-.secondary-button:active:not(:disabled) {
-  border-color: var(--rk-info);
 }
 
 .field select:hover:not(:disabled),
@@ -296,7 +254,6 @@
 }
 
 @media (max-width: 768px) {
-  .page-heading,
   .form-actions {
     align-items: stretch;
     flex-direction: column;

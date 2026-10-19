@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { OperationsReportComponent } from './operations-report.component';
 
 @Component({
   selector: 'app-server-history', standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe, OperationsReportComponent],
+  imports: [IconComponent, CommonModule, FormsModule, TranslocoPipe, OperationsReportComponent],
   template: `
     <app-operations-report page="history" [range]="range()" [metrics]="data()?.metrics ?? []"
       [loading]="loading()" [error]="error()" (rangeChange)="setRange($event)" (retry)="load()" />
@@ -22,7 +23,7 @@ import { OperationsReportComponent } from './operations-report.component';
           @for (status of statuses; track status) { <option [value]="status">{{ ('botManagement.history.' + status) | transloco }}</option> }
         </select></label>
         <button class="rk-button" type="submit" [disabled]="loading()">{{ 'botManagement.incidents.apply' | transloco }}</button>
-        <button class="rk-button" type="button" [disabled]="loading()" (click)="load()">{{ 'botManagement.history.refresh' | transloco }}</button>
+        <button class="rk-button" type="button" [disabled]="loading()" (click)="load()"><rk-icon name="refresh" />{{ 'botManagement.history.refresh' | transloco }}</button>
       </form>
       @if (data(); as report) {
         <p class="muted" role="status">{{ 'botManagement.history.tracking' | transloco }} {{ date(report.trackingSince) }} · {{ 'botManagement.history.updated' | transloco }} {{ date(report.generatedAt) }}</p>
@@ -49,8 +50,7 @@ import { OperationsReportComponent } from './operations-report.component';
         </nav>
       }
     </section>`,
-  styles: [`
-    .history { margin-top: var(--rk-space-5); display: grid; gap: var(--rk-space-4); }
+  styles: [`.history { margin-top: var(--rk-space-5); display: grid; gap: var(--rk-space-4); }
     p { margin: 0; } .muted, small, dt { color: var(--rk-text-muted); } small { display: block; overflow-wrap: anywhere; }
     .filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: var(--rk-space-3); }
     label { display: grid; gap: var(--rk-space-2); min-width: 0; }
@@ -63,8 +63,8 @@ import { OperationsReportComponent } from './operations-report.component';
     dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--rk-space-3); margin: var(--rk-space-4) 0; } dd { margin: var(--rk-space-1) 0 0; overflow-wrap: anywhere; }
     .pagination { display: flex; flex-wrap: wrap; justify-content: end; gap: var(--rk-space-3); }
     @media (max-width: 768px) { .filters, dl { grid-template-columns: 1fr; } }
-  `]
-})
+
+`] })
 export class ServerHistoryComponent extends OperationsPageBase<BotGuildHistoryResponse> {
   private readonly api = inject(BotManagementService);
   private readonly locale = inject(LocaleService);

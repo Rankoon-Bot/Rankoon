@@ -11,11 +11,12 @@
     <label>{{ 'analytics.source' | transloco }}<select [disabled]="metric() !== 'totalXp' && metric() !== 'activities'" [ngModel]="source()" (ngModelChange)="setSource($event)">@for (option of sources; track option) { <option [value]="option">{{ ('analytics.sources.' + option) | transloco }}</option> }</select></label>
     <label>{{ 'analytics.bucket' | transloco }}<select [ngModel]="bucket()" (ngModelChange)="setBucket($event)">@for (option of buckets; track option) { <option [value]="option">{{ ('analytics.buckets.' + option) | transloco }}</option> }</select></label>
     <label class="check"><input type="checkbox" [ngModel]="compare()" (ngModelChange)="compare.set($event)" />{{ 'analytics.compare' | transloco }}</label>
-    <button class="rk-button" type="button" [disabled]="loading() || range() === 'custom' && (!customFrom() || !customTo())" (click)="range() === 'custom' ? applyCustom() : refresh()">{{ 'analytics.refresh' | transloco }}</button>
+    <button class="rk-button" type="button" [disabled]="loading() || range() === 'custom' && (!customFrom() || !customTo())" (click)="range() === 'custom' ? applyCustom() : refresh()"><rk-icon name="refresh" />{{ 'analytics.refresh' | transloco }}</button>
   </section>
 
   @if (metric() === 'totalXp') { <div class="view-switch" role="group" [attr.aria-label]="'analytics.xpView' | transloco"><button type="button" [class.active]="xpView() === 'total'" [attr.aria-pressed]="xpView() === 'total'" (click)="xpView.set('total')">{{ 'analytics.views.total' | transloco }}</button><button type="button" [class.active]="xpView() === 'sources'" [attr.aria-pressed]="xpView() === 'sources'" (click)="xpView.set('sources')">{{ 'analytics.views.sources' | transloco }}</button></div> }
 
+  @if (loading() && !data()) { <rk-loading-skeleton layout="cards" /> }
   @if (summary(); as cards) {
     <section class="summaries" [attr.aria-label]="'analytics.summary.title' | transloco">
       <article class="rk-panel"><span>{{ 'analytics.summary.total' | transloco }}</span><strong>{{ value(cards.total) }}</strong></article>
@@ -31,5 +32,5 @@
     @if (error()) { <button class="rk-button" type="button" (click)="refresh()">{{ 'common.retry' | transloco }}</button> }
   </section>
 
-  <section class="definitions rk-panel"><h2>{{ 'analytics.definitions.title' | transloco }}</h2><dl><div><dt>{{ 'analytics.metrics.activeMembers' | transloco }}</dt><dd>{{ 'analytics.definitions.activeMembers' | transloco }}</dd></div><div><dt>{{ 'analytics.metrics.qualifiedVoice' | transloco }}</dt><dd>{{ 'analytics.definitions.qualifiedVoice' | transloco }}</dd></div><div><dt>{{ 'analytics.metrics.activities' | transloco }}</dt><dd>{{ 'analytics.definitions.activities' | transloco }}</dd></div><div><dt>{{ 'analytics.metrics.totalXp' | transloco }}</dt><dd>{{ 'analytics.definitions.awardedXp' | transloco }}</dd></div></dl></section>
+  <details class="definitions rk-panel rk-disclosure"><summary>{{ 'analytics.definitions.title' | transloco }}</summary><dl><div><dt>{{ 'analytics.metrics.activeMembers' | transloco }}</dt><dd>{{ 'analytics.definitions.activeMembers' | transloco }}</dd></div><div><dt>{{ 'analytics.metrics.qualifiedVoice' | transloco }}</dt><dd>{{ 'analytics.definitions.qualifiedVoice' | transloco }}</dd></div><div><dt>{{ 'analytics.metrics.activities' | transloco }}</dt><dd>{{ 'analytics.definitions.activities' | transloco }}</dd></div><div><dt>{{ 'analytics.metrics.totalXp' | transloco }}</dt><dd>{{ 'analytics.definitions.awardedXp' | transloco }}</dd></div></dl></details>
 </main>

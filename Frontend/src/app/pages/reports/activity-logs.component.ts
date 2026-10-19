@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -16,7 +17,7 @@ import { DomainValueService } from '../../i18n/domain-value.service';
 
 @Component({
   selector: 'app-activity-logs', standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, ReportFilterBarComponent, ReportStateComponent, ReportStatusComponent, TranslocoPipe],
+  imports: [IconComponent, CommonModule, RouterLink, RouterLinkActive, ReportFilterBarComponent, ReportStateComponent, ReportStatusComponent, TranslocoPipe],
   templateUrl: './activity-logs.component.html', styleUrl: './activity-logs.component.scss'
 })
 export class ActivityLogsComponent {

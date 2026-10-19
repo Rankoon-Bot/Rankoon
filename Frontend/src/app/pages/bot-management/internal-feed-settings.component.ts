@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -17,16 +19,16 @@ interface FeedDraft {
 @Component({
   selector: 'app-internal-feed-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe],
+  imports: [LoadingSkeletonComponent, IconComponent, CommonModule, FormsModule, TranslocoPipe],
   template: `
     <section class="feed-page" [attr.aria-busy]="loading() || saving()">
-      <header class="page-heading">
+      <header class="page-heading rk-page-header">
         <div>
-          <p class="eyebrow">{{ 'botManagement.feed.eyebrow' | transloco }}</p>
+          <p class="eyebrow rk-page-header__eyebrow">{{ 'botManagement.feed.eyebrow' | transloco }}</p>
           <h2>{{ 'botManagement.feed.title' | transloco }}</h2>
           <p class="description">{{ 'botManagement.feed.description' | transloco }}</p>
         </div>
-        <button class="secondary-button" type="button" (click)="load()" [disabled]="loading() || saving()">
+        <button class="rk-button rk-button--secondary" type="button" (click)="load()" [disabled]="loading() || saving()"><rk-icon name="refresh" />
           {{ (hasChanges() ? 'botManagement.feed.reloadDiscard' : 'botManagement.feed.reload') | transloco }}
         </button>
       </header>
@@ -39,10 +41,7 @@ interface FeedDraft {
       <p *ngIf="error()" class="error-message" role="alert">{{ error() }}</p>
       <p *ngIf="savedNotice()" class="success-message" role="status">{{ 'botManagement.feed.saved' | transloco }}</p>
 
-      <div *ngIf="loading() && !settings()" class="loading-state" role="status">
-        <span class="spinner" aria-hidden="true"></span>
-        <span>{{ 'botManagement.feed.loading' | transloco }}</span>
-      </div>
+      <rk-loading-skeleton *ngIf="loading() && !settings()" layout="form" />
 
       <ng-container *ngIf="settings() && draft">
         <aside *ngIf="!settings()!.supportGuildAvailable" class="warning-note" role="status">
@@ -103,7 +102,7 @@ interface FeedDraft {
             <span class="updated-at" *ngIf="settings()!.updatedAtUtc">
               {{ 'botManagement.feed.lastSaved' | transloco }} {{ settings()!.updatedAtUtc | date:'medium' }}
             </span>
-            <button class="primary-button" type="submit" [disabled]="saving() || loading() || !hasChanges() || !validDraft()">
+            <button class="rk-button rk-button--primary" type="submit" [disabled]="saving() || loading() || !hasChanges() || !validDraft()">
               {{ (saving() ? 'botManagement.feed.saving' : 'botManagement.feed.save') | transloco }}
             </button>
           </footer>

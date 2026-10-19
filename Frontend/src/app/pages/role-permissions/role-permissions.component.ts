@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -26,7 +28,7 @@ const PRESETS: Record<PermissionPreset, GuildModuleId[]> = {
 @Component({
   selector: 'app-role-permissions',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslocoPipe, StickySaveBarComponent],
+  imports: [LoadingSkeletonComponent, IconComponent, CommonModule, FormsModule, RouterLink, TranslocoPipe, StickySaveBarComponent],
   templateUrl: './role-permissions.component.html',
   styleUrls: ['./role-permissions.component.scss'],
 })

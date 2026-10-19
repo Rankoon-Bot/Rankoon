@@ -127,10 +127,7 @@
 
 .member-item__body {
   display: grid;
-  grid-column: 1;
-  grid-row: 1;
   min-width: 0;
-  padding-left: calc(var(--rk-control-height) + var(--rk-space-2));
 }
 
 .member-item__body span,
@@ -219,4 +216,14 @@
   .member-item__xp {
     grid-column: 2;
   }
+}
+
+.member-item__identity { display: flex; align-items: center; gap: var(--rk-space-3); min-width: 0; }
+.member-item__body strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 768px) {
+  .member-item__identity { grid-column: 1; grid-row: 1 / span 2; }
+  .member-item__body { align-self: start; padding-bottom: var(--rk-space-6); }
+  .member-item .status-badge { grid-column: 1; grid-row: 2; align-self: end; margin-left: calc(var(--rk-space-10) + var(--rk-space-3)); transform: none; }
+  .member-item__xp { grid-column: 2; grid-row: 1 / span 2; }
+  .member-item > span:last-child { grid-column: 3; grid-row: 1 / span 2; }
 }

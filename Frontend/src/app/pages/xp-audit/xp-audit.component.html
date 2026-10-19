@@ -11,9 +11,9 @@
     <div class="browser-controls">
       <label for="member-search">{{ "xpAudit.searchLabel" | transloco }}</label>
       <div class="search-field">
-        <span aria-hidden="true">⌕</span>
+        <rk-icon name="search" />
         <input id="member-search" type="search" [value]="query()" (input)="search($any($event.target).value)" [placeholder]="'xpAudit.search' | transloco" />
-        <button type="button" class="clear-search" [hidden]="!query()" (click)="search('')" [attr.aria-label]="'xpAudit.clearSearch' | transloco">×</button>
+        <button type="button" class="rk-button--icon rk-button clear-search" [hidden]="!query()" (click)="search('')" [attr.aria-label]="'xpAudit.clearSearch' | transloco"><rk-icon name="close" /></button>
         @if (membersLoading()) { <span class="rk-spinner" aria-hidden="true"></span> }
       </div>
       <div class="browser-options">
@@ -27,7 +27,7 @@
         </label>
         <label class="filter-chip" for="include-former"><input id="include-former" type="checkbox" [checked]="former()" (change)="toggleFormer()" /><span>{{ "xpAudit.former" | transloco }}</span></label>
         <span class="loaded-count" aria-live="polite">{{ "xpAudit.membersLoaded" | transloco: { count: members().length } }}</span>
-        <button type="button" class="rk-button rk-button--ghost refresh-members" (click)="loadMembers()" [disabled]="membersLoading()" [attr.aria-label]="'common.refresh' | transloco">↻</button>
+        <button type="button" class="rk-button--icon rk-button rk-button--ghost refresh-members" (click)="loadMembers()" [disabled]="membersLoading()" [attr.aria-label]="'common.refresh' | transloco"><rk-icon name="refresh" /></button>
       </div>
     </div>
 
@@ -44,8 +44,8 @@
       }
       @for (member of members(); track member.userId) {
         <button class="member-item" type="button" (click)="openMember(member, $event)" [attr.aria-label]="('xpAudit.openMember' | transloco) + ': ' + member.displayName + ', ' + (member.isCurrentMember ? ('xpAudit.current' | transloco) : ('xpAudit.formerMember' | transloco)) + ', ' + ('xpAudit.level' | transloco) + ' ' + formatTotalXp(member.level) + ', ' + formatTotalXp(member.totalXp) + ' XP, ' + member.userId">
-          <app-user-avatar [displayName]="member.displayName" [iconUrl]="member.iconUrl"></app-user-avatar>
-          <span class="member-item__body"><strong>{{ member.displayName }}</strong><span class="member-id" [title]="member.userId">{{ member.userId }}</span></span>
+          <span class="member-item__identity"><app-user-avatar [displayName]="member.displayName" [iconUrl]="member.iconUrl"></app-user-avatar>
+          <span class="member-item__body"><strong>{{ member.displayName }}</strong><span class="member-id" [title]="member.userId">{{ member.userId }}</span></span></span>
           <span class="status-badge" [class.status-badge--former]="!member.isCurrentMember">{{ member.isCurrentMember ? ("xpAudit.current" | transloco) : ("xpAudit.formerMember" | transloco) }}</span>
           <span class="member-item__level">{{ formatTotalXp(member.level) }}</span>
           <span class="member-item__xp">{{ formatTotalXp(member.totalXp) }} XP</span>

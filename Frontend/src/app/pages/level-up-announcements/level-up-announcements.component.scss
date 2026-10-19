@@ -1,20 +1,19 @@
-.page { max-width: var(--rk-page-max); margin: 0 auto; padding: var(--rk-space-6); color: var(--rk-text-strong); }
+.page { max-width: var(--rk-page-max); margin: 0 auto;  color: var(--rk-text-strong); }
 header, .actions, .controls, .scope-tabs, .kind-tabs { display: flex; gap: var(--rk-space-4); }
 header { justify-content: space-between; align-items: center; }
 .actions { flex-wrap: wrap; }
-.panel { background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); padding: var(--rk-space-4); margin-top: var(--rk-space-4); min-width: 0; }
+.panel { background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); padding: var(--rk-panel-padding); margin-top: var(--rk-space-4); min-width: 0; }
 label { display: grid; gap: var(--rk-space-2); min-width: 0; }
-input, button { box-sizing: border-box; width: 100%; min-height: var(--rk-control-height); background: var(--rk-surface-2); color: var(--rk-text-strong); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-md); padding: var(--rk-space-2); }
-button { cursor: pointer; }
-button.selected { border-color: var(--rk-brand); }
-button:focus-visible, input:focus-visible { outline: var(--rk-focus-ring); outline-offset: calc(var(--rk-space-1) * -1); }
+input { box-sizing: border-box; width: 100%; min-height: var(--rk-control-height); padding: var(--rk-space-2); }
+button.selected { border-color: var(--rk-info); }
+input:focus-visible { outline: var(--rk-focus-ring); outline-offset: calc(var(--rk-space-1) * -1); }
 .scope-tabs, .kind-tabs { margin-top: var(--rk-space-4); }
 .scope-tabs button, .kind-tabs button, .actions button { width: auto; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem); gap: var(--rk-space-4); }
 .controls { display: grid; grid-template-columns: minmax(12rem, .85fr) minmax(20rem, 1.2fr) minmax(18rem, 1.5fr); gap: var(--rk-space-4) var(--rk-space-6); align-items: start; }
 .controls > rk-discord-channel-picker { display: block; min-width: 0; width: 100%; }
 .toggle-control { display: flex; align-items: center; gap: var(--rk-space-3); min-width: 0; min-height: var(--rk-control-height); color: var(--rk-text-strong); font-weight: 600; }
-.toggle-control input[type='checkbox'] { flex: 0 0 auto; width: var(--rk-space-4); height: var(--rk-space-4); min-height: var(--rk-space-4); margin: 0; padding: 0; accent-color: var(--rk-info); }
+.toggle-control input[type='checkbox'] { flex: 0 0 auto; width: var(--rk-checkbox-size); height: var(--rk-checkbox-size); min-height: var(--rk-checkbox-size); margin: 0; padding: 0; accent-color: var(--rk-info); }
 .toggle-control--stacked { display: grid; align-content: start; gap: var(--rk-space-2); }
 .toggle-line { display: flex; align-items: center; gap: var(--rk-space-3); min-height: var(--rk-control-height); }
 .number-control { grid-column: 1 / -1; }

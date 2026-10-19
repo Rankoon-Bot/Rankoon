@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -16,7 +18,7 @@ type DashboardMetric = 'xp' | 'voice' | 'activities' | 'members';
 
 const ROUTES: Record<string, string> = { xp: '/xp/settings', seasons: '/xp/seasons', 'level-up-announcements': '/xp/level-up-announcements', leaderboard: '/server-config/leaderboard', 'xp-audit': '/xp/audit', 'voice-hubs': '/vc-hubs', 'self-roles': '/self-roles', analytics: '/analytics/overview', diagnostics: '/diagnostics/permissions', 'dashboard-access': '/server-config/roles', 'bot-identity': '/server-config/bot-identity' };
 
-@Component({ selector: 'app-dashboard', standalone: true, imports: [CommonModule, RouterLink, TranslocoPipe, AnalyticsLineChartComponent], templateUrl: './dashboard.component.html', styleUrls: ['./dashboard.component.scss'] })
+@Component({ selector: 'app-dashboard', standalone: true, imports: [LoadingSkeletonComponent, IconComponent, CommonModule, RouterLink, TranslocoPipe, AnalyticsLineChartComponent], templateUrl: './dashboard.component.html', styleUrls: ['./dashboard.component.scss'] })
 export class DashboardComponent {
   readonly appStore = inject(AppStore); private readonly api = inject(DashboardService); readonly locale = inject(LocaleService); readonly analyticsFormatter = inject(AnalyticsFormatterService); private readonly apiErrors = inject(ApiErrorService); private readonly i18n = inject(TranslocoService);
   readonly data = signal<DashboardOverview | null>(null); readonly loading = signal(false); readonly error = signal(''); readonly period = signal<DashboardPeriod>('SevenDays');

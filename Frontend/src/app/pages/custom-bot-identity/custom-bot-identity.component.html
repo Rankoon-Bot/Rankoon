@@ -1,7 +1,7 @@
 <section class="rk-page identity-page">
   <header class="rk-page-header"><div><p class="rk-page-header__eyebrow">{{ 'common.serverConfiguration' | transloco }}</p><h1>{{ 'customBotIdentity.title' | transloco }}</h1><p class="rk-page-header__description">{{ 'customBotIdentity.subtitle' | transloco }}</p></div></header>
   @if (error()) { <p class="rk-notice rk-notice--danger" role="alert">{{ error() }}</p> }
-  @if (loading()) { <div class="rk-panel" role="status">{{ 'customBotIdentity.loading' | transloco }}</div> }
+  @if (loading()) { <rk-loading-skeleton layout="form" /> }
   @else if (access()?.reason === 'FeatureDisabled' || access()?.reason === 'GuildNotAllowed') { <div class="rk-panel"><h2>{{ 'customBotIdentity.unavailable' | transloco }}</h2><p>{{ 'customBotIdentity.unavailableHint' | transloco }}</p></div> }
   @else {
     <article class="rk-panel identity-panel"><h2>{{ 'customBotIdentity.setupTitle' | transloco }}</h2>

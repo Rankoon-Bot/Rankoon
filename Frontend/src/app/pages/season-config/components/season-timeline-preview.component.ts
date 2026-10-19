@@ -1,3 +1,4 @@
+import { LoadingSkeletonComponent } from '../../../shared/ui/loading-skeleton/loading-skeleton.component';
 import { Component, inject, Input } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { LocaleService } from '../../../i18n/locale.service';
@@ -6,7 +7,7 @@ import { SeasonPreview } from '../../../services/guild.service';
 @Component({
   selector: 'rk-season-timeline-preview',
   standalone: true,
-  imports: [TranslocoPipe],
+  imports: [LoadingSkeletonComponent, TranslocoPipe],
   templateUrl: './season-timeline-preview.component.html',
   styleUrl: './season-timeline-preview.component.scss',
 })

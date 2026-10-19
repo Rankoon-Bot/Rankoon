@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
@@ -10,16 +12,16 @@ import { AppStore, Guild } from '../../store/app.store';
 @Component({
   selector: 'app-maintainer-access',
   standalone: true,
-  imports: [CommonModule, TranslocoPipe],
+  imports: [LoadingSkeletonComponent, IconComponent, CommonModule, TranslocoPipe],
   template: `
     <section class="maintainer-page" [attr.aria-busy]="loading()">
-      <header class="page-heading">
+      <header class="page-heading rk-page-header">
         <div>
-          <p class="eyebrow">{{ 'botManagement.maintainer.eyebrow' | transloco }}</p>
+          <p class="eyebrow rk-page-header__eyebrow">{{ 'botManagement.maintainer.eyebrow' | transloco }}</p>
           <h2>{{ 'botManagement.maintainer.title' | transloco }}</h2>
           <p class="description">{{ 'botManagement.maintainer.description' | transloco }}</p>
         </div>
-        <button class="secondary-button" type="button" (click)="load()" [disabled]="loading()">
+        <button class="rk-button rk-button--secondary" type="button" (click)="load()" [disabled]="loading()"><rk-icon name="refresh" />
           {{ 'botManagement.maintainer.refresh' | transloco }}
         </button>
       </header>
@@ -30,10 +32,7 @@ import { AppStore, Guild } from '../../store/app.store';
       </aside>
 
       <p *ngIf="error()" class="error-message" role="alert">{{ error() }}</p>
-      <div *ngIf="loading() && guilds().length === 0" class="loading-state" role="status">
-        <span class="spinner" aria-hidden="true"></span>
-        <span>{{ 'botManagement.maintainer.loading' | transloco }}</span>
-      </div>
+      <rk-loading-skeleton *ngIf="loading() && guilds().length === 0" layout="cards" />
 
       <div *ngIf="!loading() && guilds().length === 0" class="empty-state">
         <div class="mascot-slot" aria-hidden="true">
@@ -77,7 +76,7 @@ import { AppStore, Guild } from '../../store/app.store';
                 <span>{{ (guild.enabled ? 'botManagement.maintainer.enabled' : 'botManagement.maintainer.disabled') | transloco }}</span>
               </button>
             </div>
-            <button class="open-button" type="button" (click)="openGuild(guild)" [disabled]="!guild.runtimeAvailable">
+            <button class="rk-button" type="button" (click)="openGuild(guild)" [disabled]="!guild.runtimeAvailable">
               {{ (guild.enabled ? 'botManagement.maintainer.openMaintainer' : 'botManagement.maintainer.openRegular') | transloco }}
             </button>
           </div>

@@ -1,9 +1,9 @@
 <section class="page rk-page-shell">
-  <header class="page-header">
+  <header class="page-header rk-page-header">
     <div>
-      <p class="eyebrow">{{ 'common.serverConfiguration' | transloco }}</p>
+      <p class="eyebrow rk-page-header__eyebrow">{{ 'common.serverConfiguration' | transloco }}</p>
       <h1>{{ 'rolePermissions.title' | transloco }}</h1>
-      <p>{{ 'rolePermissions.subtitle' | transloco }}</p>
+      <p class="rk-page-header__description">{{ 'rolePermissions.subtitle' | transloco }}</p>
     </div>
     <a class="rk-button rk-button--secondary" routerLink="/diagnostics/permissions">{{ 'rolePermissions.diagnosticsLink' | transloco }}</a>
   </header>
@@ -17,7 +17,7 @@
   @if (error()) { <p class="rk-notice rk-notice--danger" role="alert">{{ error() }}</p> }
 
   @if (loading()) {
-    <div class="state-card" role="status"><span class="loader" aria-hidden="true"></span><div><h2>{{ 'rolePermissions.loading' | transloco }}</h2><p>{{ 'rolePermissions.loadingHint' | transloco }}</p></div></div>
+    <rk-loading-skeleton layout="table" />
   } @else if (forbidden()) {
     <div class="state-card denied" role="alert"><div><h2>{{ 'rolePermissions.ownerRequired' | transloco }}</h2><p>{{ 'rolePermissions.ownerHint' | transloco }}</p></div></div>
   } @else { @if (data(); as permissions) {
@@ -40,7 +40,7 @@
           <div class="automatic-row"><span class="role-dot" [style.background-color]="roleColor(role)" aria-hidden="true"></span><strong>{{ role.name }}</strong><span>{{ 'rolePermissions.discordAdminHint' | transloco }}</span><span class="badge inherited">{{ 'rolePermissions.inheritedDiscord' | transloco }}</span></div>
         }
       </div>
-      @if (administrators().length > 4) { <button class="automatic-toggle" type="button" (click)="automaticExpanded.set(!automaticExpanded())">{{ (automaticExpanded() ? 'rolePermissions.showLess' : 'rolePermissions.showAllAdmins') | transloco: { count: formatNumber(administrators().length) } }}</button> }
+      @if (administrators().length > 4) { <button class="rk-button automatic-toggle" type="button" (click)="automaticExpanded.set(!automaticExpanded())">{{ (automaticExpanded() ? 'rolePermissions.showLess' : 'rolePermissions.showAllAdmins') | transloco: { count: formatNumber(administrators().length) } }}</button> }
     </section>
 
     <section class="permissions-panel" aria-labelledby="delegated-heading">
@@ -85,18 +85,18 @@
 </section>
 
 <dialog #rolePicker class="permission-dialog" aria-labelledby="role-picker-title">
-  <header><div><p class="eyebrow">{{ 'rolePermissions.addRole' | transloco }}</p><h2 id="role-picker-title">{{ 'rolePermissions.chooseRole' | transloco }}</h2></div><button class="icon-button" type="button" (click)="rolePicker.close()" [attr.aria-label]="'rolePermissions.close' | transloco">&times;</button></header>
+  <header class="rk-page-header"><div><p class="eyebrow rk-page-header__eyebrow">{{ 'rolePermissions.addRole' | transloco }}</p><h2 id="role-picker-title">{{ 'rolePermissions.chooseRole' | transloco }}</h2></div><button class="rk-button rk-button--icon" type="button" (click)="rolePicker.close()" [attr.aria-label]="'rolePermissions.close' | transloco"><rk-icon name="close" /></button></header>
   <label class="search dialog-search"><span>{{ 'rolePermissions.search' | transloco }}</span><input autofocus type="search" [ngModel]="search()" (ngModelChange)="search.set($event)" [placeholder]="'rolePermissions.searchPlaceholder' | transloco"></label>
   <div class="picker-list">
     @for (role of pickerRoles(); track role.id) {
-      <button type="button" class="picker-role" [disabled]="role.isAdministrator || grants().has(role.id)" (click)="chooseRole(role)"><span class="role-dot" [style.background-color]="roleColor(role)" aria-hidden="true"></span><span><strong>{{ role.name }}</strong><small>{{ 'rolePermissions.position' | transloco: { position: formatNumber(role.position) } }}</small></span><span class="picker-state">{{ role.isAdministrator ? ('rolePermissions.automatic' | transloco) : grants().has(role.id) ? ('rolePermissions.alreadyDelegated' | transloco) : ('rolePermissions.select' | transloco) }}</span></button>
+      <button type="button" class="rk-button picker-role" [disabled]="role.isAdministrator || grants().has(role.id)" (click)="chooseRole(role)"><span class="role-dot" [style.background-color]="roleColor(role)" aria-hidden="true"></span><span><strong>{{ role.name }}</strong><small>{{ 'rolePermissions.position' | transloco: { position: formatNumber(role.position) } }}</small></span><span class="picker-state">{{ role.isAdministrator ? ('rolePermissions.automatic' | transloco) : grants().has(role.id) ? ('rolePermissions.alreadyDelegated' | transloco) : ('rolePermissions.select' | transloco) }}</span></button>
     }
   </div>
 </dialog>
 
 <dialog #permissionEditor class="permission-dialog permission-dialog--wide" aria-labelledby="permission-editor-title">
   @if (data(); as permissions) { @if (editingRole(); as role) {
-     <header><div><p class="eyebrow">{{ 'rolePermissions.permissionEditor' | transloco }}</p><h2 id="permission-editor-title">{{ role.name }}</h2><small>{{ 'rolePermissions.editorMeta' | transloco: { position: formatNumber(role.position), count: formatNumber(editorModules().size) } }}</small></div><button class="icon-button" type="button" (click)="permissionEditor.close()" [attr.aria-label]="'rolePermissions.close' | transloco">&times;</button></header>
+     <header><div><p class="eyebrow rk-page-header__eyebrow">{{ 'rolePermissions.permissionEditor' | transloco }}</p><h2 id="permission-editor-title">{{ role.name }}</h2><small>{{ 'rolePermissions.editorMeta' | transloco: { position: formatNumber(role.position), count: formatNumber(editorModules().size) } }}</small></div><button class="rk-button rk-button--icon" type="button" (click)="permissionEditor.close()" [attr.aria-label]="'rolePermissions.close' | transloco"><rk-icon name="close" /></button></header>
     <p class="replace-copy">{{ 'rolePermissions.editorReplaceCopy' | transloco }}</p>
      <div class="presets" [attr.aria-label]="'rolePermissions.presetsLabel' | transloco">@for (preset of ['analyst', 'xpModerator', 'communityManager', 'fullAccess']; track preset) { <button class="rk-button rk-button--secondary" type="button" (click)="applyPreset($any(preset))">{{ 'rolePermissions.presets.' + preset | transloco }}</button> }</div>
     <div class="module-editor">
@@ -115,7 +115,7 @@
 
 <dialog #moduleRoleEditor class="permission-dialog" aria-labelledby="module-role-editor-title">
   @if (data(); as permissions) { @if (editingModuleId(); as moduleId) {
-    <header><div><p class="eyebrow">{{ 'rolePermissions.editRoles' | transloco }}</p><h2 id="module-role-editor-title">{{ moduleName(moduleId) }}</h2></div><button class="icon-button" type="button" (click)="moduleRoleEditor.close()" [attr.aria-label]="'rolePermissions.close' | transloco">&times;</button></header>
+    <header><div><p class="eyebrow rk-page-header__eyebrow">{{ 'rolePermissions.editRoles' | transloco }}</p><h2 id="module-role-editor-title">{{ moduleName(moduleId) }}</h2></div><button class="rk-button rk-button--icon" type="button" (click)="moduleRoleEditor.close()" [attr.aria-label]="'rolePermissions.close' | transloco"><rk-icon name="close" /></button></header>
     <p class="replace-copy">{{ 'rolePermissions.moduleEditorCopy' | transloco }}</p>
     <div class="picker-list">
       @for (role of permissions.roles; track role.id) { <label class="picker-role" [class.disabled]="role.isAdministrator"><input type="checkbox" [disabled]="role.isAdministrator" [checked]="role.isAdministrator || moduleEditorRoles().has(role.id)" (change)="toggleModuleRole(role, $any($event.target).checked)"><span class="role-dot" [style.background-color]="roleColor(role)" aria-hidden="true"></span><span><strong>{{ role.name }}</strong><small>{{ role.isAdministrator ? ('rolePermissions.automatic' | transloco) : ('rolePermissions.position' | transloco: { position: formatNumber(role.position) }) }}</small></span></label> }

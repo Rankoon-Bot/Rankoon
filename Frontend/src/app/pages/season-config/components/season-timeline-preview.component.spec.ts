@@ -43,7 +43,7 @@ describe('SeasonTimelinePreviewComponent', () => {
     component.loading = true;
     fixture.detectChanges();
     let element = fixture.nativeElement as HTMLElement;
-    expect(element.querySelector('.rk-spinner')).not.toBeNull();
+    expect(element.querySelector('[role="status"][aria-busy="true"]')).not.toBeNull();
     expect(element.querySelector('.season-segment')).toBeNull();
 
     component.loading = false;
@@ -51,6 +51,6 @@ describe('SeasonTimelinePreviewComponent', () => {
     fixture.detectChanges();
     element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('.timeline-state')).not.toBeNull();
-    expect(element.querySelector('.rk-spinner')).toBeNull();
+    expect(element.querySelector('[aria-busy="true"]')).toBeNull();
   });
 });

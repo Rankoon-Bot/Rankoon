@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, inject, signal } from '@angular/core';
@@ -20,7 +22,7 @@ type SelfRolePanelWithHealth = SelfRolePanel & { state?: 'Pending' | 'Published'
 @Component({
   selector: 'app-self-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
+  imports: [LoadingSkeletonComponent, IconComponent, CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './self-roles.component.html',
   styleUrls: ['./self-roles.component.scss'],

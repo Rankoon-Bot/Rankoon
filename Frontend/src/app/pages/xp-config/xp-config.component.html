@@ -1,27 +1,21 @@
-<section class="page">
-  <header class="page-header">
+<section class="page rk-page">
+  <header class="page-header rk-page-header">
     <div>
-      <p class="eyebrow">{{ "xp.eyebrow" | transloco }}</p>
+      <p class="eyebrow rk-page-header__eyebrow">{{ "xp.eyebrow" | transloco }}</p>
       <h1>{{ "nav.xp" | transloco }}</h1>
-      <p>{{ "xp.subtitle" | transloco }}</p>
+      <p class="rk-page-header__description">{{ "xp.subtitle" | transloco }}</p>
     </div>
   </header>
 
   @if (loading()) {
-    <div class="state-card" role="status">
-      <span class="loader" aria-hidden="true"></span>
-      <div>
-        <h2>{{ "xp.loading" | transloco }}</h2>
-        <p>{{ "xp.loadingHint" | transloco }}</p>
-      </div>
-    </div>
+    <rk-loading-skeleton layout="form" />
   } @else if (loadError()) {
     <div class="state-card error-state" role="alert">
       <div>
         <h2>{{ "xp.unavailable" | transloco }}</h2>
         <p>{{ loadError() }}</p>
       </div>
-      <button class="secondary" type="button" (click)="load()">
+      <button class="rk-button rk-button--secondary" type="button" (click)="load()">
         {{ "common.retry" | transloco }}
       </button>
     </div>
@@ -30,7 +24,6 @@
       <section class="system-card card" aria-labelledby="xp-system-title">
         <div>
           <h2 id="xp-system-title">{{ "xp.systemTitle" | transloco }}</h2>
-          <p>{{ "xp.systemDescription" | transloco }}</p>
         </div>
         <label class="toggle"
           ><input
@@ -49,7 +42,6 @@
         <div class="section-heading">
           <p class="section-kicker">{{ "xp.sourcesKicker" | transloco }}</p>
           <h2 id="xp-sources-title">{{ "xp.sourcesTitle" | transloco }}</h2>
-          <p>{{ "xp.sourcesDescription" | transloco }}</p>
         </div>
         <div class="primary-source-grid">
           <article
@@ -59,7 +51,6 @@
             <div class="card-heading">
               <div>
                 <h3>{{ "xp.messageXp" | transloco }}</h3>
-                <p>{{ "xp.messageHint" | transloco }}</p>
               </div>
               <label class="toggle"
                 ><input
@@ -147,7 +138,6 @@
             <div class="card-heading">
               <div>
                 <h3>{{ "xp.voiceXp" | transloco }}</h3>
-                <p>{{ "xp.voiceHint" | transloco }}</p>
               </div>
               <label class="toggle"
                 ><input
@@ -207,7 +197,6 @@
             <div class="source-heading">
               <div>
                 <h3>{{ "xp.reactions" | transloco }}</h3>
-                <p>{{ "xp.reactionHint" | transloco }}</p>
               </div>
               <label class="toggle compact"
                 ><input
@@ -250,7 +239,6 @@
             <div class="source-heading">
               <div>
                 <h3>{{ "xp.eventInterest" | transloco }}</h3>
-                <p>{{ "xp.eventInterestHint" | transloco }}</p>
               </div>
               <label class="toggle compact"
                 ><input
@@ -279,7 +267,6 @@
             <div class="source-heading">
               <div>
                 <h3>{{ "xp.threads" | transloco }}</h3>
-                <p>{{ "xp.threadHint" | transloco }}</p>
               </div>
               <label class="toggle compact"
                 ><input
@@ -334,9 +321,9 @@
           }
           <div class="preset-row" aria-label="Voice XP presets">
             <span>{{ "xp.presets" | transloco }}</span>
-            <button type="button" class="secondary" (click)="applyVoicePreset('relaxed')">{{ "xp.presetRelaxed" | transloco }}</button>
-            <button type="button" class="secondary" (click)="applyVoicePreset('balanced')">{{ "xp.presetBalanced" | transloco }}</button>
-            <button type="button" class="secondary" (click)="applyVoicePreset('strict')">{{ "xp.presetStrict" | transloco }}</button>
+            <button type="button" class="rk-button rk-button--secondary" (click)="applyVoicePreset('relaxed')">{{ "xp.presetRelaxed" | transloco }}</button>
+            <button type="button" class="rk-button rk-button--secondary" (click)="applyVoicePreset('balanced')">{{ "xp.presetBalanced" | transloco }}</button>
+            <button type="button" class="rk-button rk-button--secondary" (click)="applyVoicePreset('strict')">{{ "xp.presetStrict" | transloco }}</button>
           </div>
           <div class="eligibility-grid">
             <section class="eligibility-group">
@@ -399,7 +386,7 @@
                     <option [value]="role.id">{{ role.name }}</option>
                   }</select
                 ><button
-                  class="secondary"
+                  class="rk-button rk-button--secondary"
                   type="button"
                   (click)="excludeRole()"
                   [disabled]="!selectedRole"
@@ -411,15 +398,13 @@
                 @for (id of cfg.excludedRoleIds; track id) {
                   <span
                     >{{ roleName(id)
-                    }}<button
+                    }}<button class="rk-button rk-button--icon rk-button--ghost"
                       type="button"
                       (click)="remove(cfg.excludedRoleIds, id)"
                       [attr.aria-label]="
                         'common.removeNamed' | transloco: { name: roleName(id) }
                       "
-                    >
-                      {{ "common.remove" | transloco }}
-                    </button></span
+                    ><rk-icon name="close" /></button></span
                   >
                 }
                 @if (!cfg.excludedRoleIds.length) {
@@ -440,7 +425,7 @@
                   [noResultsText]="'channelPicker.noResults' | transloco"
                   (valueChange)="selectedChannel = $event ?? ''"
                 /><button
-                  class="secondary"
+                  class="rk-button rk-button--secondary"
                   type="button"
                   (click)="excludeChannel()"
                   [disabled]="!selectedChannel"
@@ -452,16 +437,14 @@
                 @for (id of cfg.excludedChannelIds; track id) {
                   <span
                     >{{ channelName(id)
-                    }}<button
+                    }}<button class="rk-button rk-button--icon rk-button--ghost"
                       type="button"
                       (click)="remove(cfg.excludedChannelIds, id)"
                       [attr.aria-label]="
                         'common.removeNamed'
                           | transloco: { name: channelName(id) }
                       "
-                    >
-                      {{ "common.remove" | transloco }}
-                    </button></span
+                    ><rk-icon name="close" /></button></span
                   >
                 }
                 @if (!cfg.excludedChannelIds.length) {
@@ -482,7 +465,7 @@
                   [noResultsText]="'channelPicker.noResults' | transloco"
                   (valueChange)="selectedCategory = $event ?? ''"
                 /><button
-                  class="secondary"
+                  class="rk-button rk-button--secondary"
                   type="button"
                   (click)="excludeCategory()"
                   [disabled]="!selectedCategory"
@@ -494,16 +477,14 @@
                 @for (id of cfg.excludedCategoryIds; track id) {
                   <span
                     >{{ channelName(id)
-                    }}<button
+                    }}<button class="rk-button rk-button--icon rk-button--ghost"
                       type="button"
                       (click)="remove(cfg.excludedCategoryIds, id)"
                       [attr.aria-label]="
                         'common.removeNamed'
                           | transloco: { name: channelName(id) }
                       "
-                    >
-                      {{ "common.remove" | transloco }}
-                    </button></span
+                    ><rk-icon name="close" /></button></span
                   >
                 }
                 @if (!cfg.excludedCategoryIds.length) {
@@ -518,7 +499,7 @@
                 <h3>{{ "xp.multipliers" | transloco }}</h3>
                 <p>{{ "xp.multipliersHint" | transloco }}</p>
               </div>
-              <button class="secondary" type="button" (click)="addMultiplier()">
+              <button class="rk-button rk-button--secondary" type="button" (click)="addMultiplier()">
                 {{ "xp.addRule" | transloco }}
               </button>
             </div>
@@ -551,7 +532,7 @@
                     step="0.1"
                     [(ngModel)]="rule.multiplier" /></label
                 ><button
-                  class="danger"
+                  class="rk-button rk-button--danger"
                   type="button"
                   (click)="cfg.channelMultipliers.splice(index, 1)"
                 >
@@ -584,7 +565,7 @@
                 [clearable]="true"
                 (valueChange)="cfg.levelUpChannelId = $event"
               /></label
-            ><button class="secondary" type="button" (click)="addLevelRole()">
+            ><button class="rk-button rk-button--secondary" type="button" (click)="addLevelRole()">
               {{ "xp.addLevelRole" | transloco }}
             </button>
           </div>
@@ -623,7 +604,7 @@
                 }
               </label
               ><button
-                class="danger"
+                class="rk-button rk-button--danger"
                 type="button"
                 (click)="cfg.levelRoles.splice(index, 1)"
               >
@@ -681,7 +662,7 @@
                       /><b>x</b></span
                     ></label
                   ><button
-                    class="danger"
+                    class="rk-button rk-button--danger"
                     type="button"
                     (click)="removeBoosterTier(tier)"
                   >
@@ -695,7 +676,7 @@
                 </div>
               }
               <button
-                class="secondary add-tier"
+                class="rk-button rk-button--secondary add-tier"
                 type="button"
                 (click)="addBoosterTier()"
                 [disabled]="cfg.serverBooster.tiers.length >= 10"

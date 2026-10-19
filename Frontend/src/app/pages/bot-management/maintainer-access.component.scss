@@ -8,27 +8,11 @@
   color: var(--rk-text);
 }
 
-.page-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--rk-space-4);
-}
-
 .page-heading h2,
 .guild-copy h3,
 .empty-state h3 {
   margin: 0;
   color: var(--rk-text-strong);
-}
-
-.eyebrow {
-  margin: 0 0 var(--rk-space-2);
-  color: var(--rk-info);
-  font-size: var(--rk-font-caption);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .description,
@@ -268,14 +252,9 @@
 }
 
 @media (max-width: 768px) {
-  .page-heading,
   .guild-card {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .page-heading {
-    align-items: flex-start;
   }
 
   .guild-controls {

@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -31,7 +33,7 @@ const METRICS: readonly MetricDefinition[] = [
   { key: 'activeMembers', unit: 'members', value: row => Number(row.activeMembers) }
 ];
 
-@Component({ selector: 'app-analytics-page', standalone: true, imports: [CommonModule, FormsModule, TranslocoPipe, AnalyticsLineChartComponent], templateUrl: './analytics-page.component.html', styleUrl: './analytics-page.component.scss' })
+@Component({ selector: 'app-analytics-page', standalone: true, imports: [LoadingSkeletonComponent, IconComponent, CommonModule, FormsModule, TranslocoPipe, AnalyticsLineChartComponent], templateUrl: './analytics-page.component.html', styleUrl: './analytics-page.component.scss' })
 export class AnalyticsPageComponent {
   private readonly api = inject(GuildAnalyticsService);
   private readonly store = inject(AppStore);

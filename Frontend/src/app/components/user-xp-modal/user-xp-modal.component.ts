@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, ElementRef, EventEmitter, Output, ViewChild, computed, inject, signal } from '@angular/core';
@@ -30,7 +32,7 @@ interface VoiceDayState { expanded: boolean; loading: boolean; error: string; it
 @Component({
   selector: 'app-user-xp-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe, UserAvatarComponent],
+  imports: [LoadingSkeletonComponent, IconComponent, CommonModule, FormsModule, TranslocoPipe, UserAvatarComponent],
   templateUrl: './user-xp-modal.component.html',
   styleUrl: './user-xp-modal.component.scss'
 })

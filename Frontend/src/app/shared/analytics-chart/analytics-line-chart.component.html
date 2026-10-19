@@ -7,7 +7,7 @@
     }
   </div>
   @if (loading() && !points().length) {
-    <div class="state" role="status"><span class="rk-skeleton"></span>{{ 'analytics.chart.loading' | transloco }}</div>
+    <rk-loading-skeleton layout="chart" />
   } @else if (error()) {
     <div class="state error" role="alert">{{ error() }}</div>
   } @else if (!points().length) {

@@ -1,3 +1,4 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
 import { Component, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
@@ -8,7 +9,7 @@ import { GuildService } from '../../services/guild.service';
 import { ChannelDiagnostic, DiagnosticStatus, FeatureDiagnostic, PermissionCheck, PermissionDiagnosticReport } from '../../models/permission-diagnostics.models';
 
 @Component({
-  selector: 'app-permission-diagnostics', standalone: true, imports: [CommonModule, TranslocoPipe],
+  selector: 'app-permission-diagnostics', standalone: true, imports: [LoadingSkeletonComponent, CommonModule, TranslocoPipe],
   templateUrl: './permission-diagnostics.component.html', styleUrl: './permission-diagnostics.component.scss'
 })
 export class PermissionDiagnosticsComponent {

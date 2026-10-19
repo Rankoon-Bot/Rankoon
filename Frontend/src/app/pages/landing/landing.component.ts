@@ -17,8 +17,8 @@ import { AuthService } from '../../services/auth.service';
             <h1 id="landing-title">{{ 'landing.title' | transloco }}</h1>
             <p class="intro">{{ 'landing.intro' | transloco }}</p>
             <div class="hero-actions">
-              <a class="button button-primary" [href]="botInviteUrl()" target="_blank" rel="noopener noreferrer">{{ 'landing.start' | transloco }}<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
-              <a class="button button-secondary" routerLink="/login">{{ 'landing.loginAction' | transloco }}</a>
+              <a class="rk-button rk-button--primary" [href]="botInviteUrl()" target="_blank" rel="noopener noreferrer">{{ 'landing.start' | transloco }}<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+              <a class="rk-button rk-button--secondary" routerLink="/login">{{ 'landing.loginAction' | transloco }}</a>
             </div>
             <p class="feature-link"><a href="#features">{{ 'landing.explore' | transloco }}</a></p>
             <aside class="hosting-note">
@@ -68,7 +68,7 @@ import { AuthService } from '../../services/auth.service';
 
       <section class="closing" aria-labelledby="closing-title">
         <div><p class="overline">{{ 'landing.closingOverline' | transloco }}</p><h2 id="closing-title">{{ 'landing.closingTitle' | transloco }}</h2></div>
-        <div class="closing-actions"><a class="button button-primary" [href]="botInviteUrl()" target="_blank" rel="noopener noreferrer">{{ 'landing.closingAction' | transloco }}<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a><a class="closing-login" routerLink="/login">{{ 'landing.loginAction' | transloco }}</a></div>
+        <div class="closing-actions"><a class="rk-button rk-button--primary" [href]="botInviteUrl()" target="_blank" rel="noopener noreferrer">{{ 'landing.closingAction' | transloco }}<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a><a class="closing-login" routerLink="/login">{{ 'landing.loginAction' | transloco }}</a></div>
       </section>
       <footer class="legal-footer">
         <span>Rankoon</span>

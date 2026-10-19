@@ -1,3 +1,4 @@
+import { LoadingSkeletonComponent } from '../ui/loading-skeleton/loading-skeleton.component';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { AnalyticsChartPoint, AnalyticsChartSeries, AnalyticsUnit } from './analytics-chart.models';
@@ -8,7 +9,7 @@ interface PlotPoint { point: AnalyticsChartPoint; x: number; values: Record<stri
 @Component({
   selector: 'app-analytics-line-chart',
   standalone: true,
-  imports: [TranslocoPipe],
+  imports: [LoadingSkeletonComponent, TranslocoPipe],
   templateUrl: './analytics-line-chart.component.html',
   styleUrl: './analytics-line-chart.component.scss'
 })

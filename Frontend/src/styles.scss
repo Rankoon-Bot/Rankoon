@@ -1,9 +1,13 @@
 @use 'styles/tokens';
 @use 'styles/season-config';
+@use 'styles/controls';
+@use 'styles/page-layout';
 
 * {
   box-sizing: border-box;
 }
+
+[hidden] { display: none !important; }
 
 html, body {
   height: 100%;
@@ -13,6 +17,7 @@ html, body {
 
 body {
   font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-size: var(--rk-font-body);
   background: var(--rk-canvas);
   color: var(--rk-text);
   line-height: 1.5;
@@ -98,29 +103,12 @@ body.rk-navigation-open { overflow: hidden; }
 
 .rk-page-shell { padding-bottom: calc(var(--rk-space-10) + env(safe-area-inset-bottom)); }
 .rk-page-shell:has(.rk-save-bar) { padding-bottom: calc(var(--rk-space-10) + var(--rk-control-height) + env(safe-area-inset-bottom)); }
-.main-content:has(.rk-save-bar) { padding-bottom: calc(var(--rk-page-gutter) + var(--rk-control-height) * 2 + env(safe-area-inset-bottom)); }
+.layout-container .main-content:has(.rk-save-bar) { padding-bottom: calc(var(--rk-page-gutter) + var(--rk-save-bar-clearance) + env(safe-area-inset-bottom)); scroll-padding-bottom: var(--rk-save-bar-clearance); }
+.layout-container .main-content:has(.rk-save-bar) :is(button, input, textarea, select) { scroll-margin-block: var(--rk-space-6) var(--rk-save-bar-clearance); }
+html:has(.rk-save-bar) { scroll-padding-bottom: var(--rk-save-bar-clearance); }
 .main-content.with-sidebar .rk-save-bar { left: calc(50% + var(--rk-sidebar-width) / 2); }
 
-.rk-page-header {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--rk-space-5);
-}
-
-.rk-page-header__eyebrow {
-  margin-bottom: var(--rk-space-2);
-  color: var(--rk-brand);
-  font-size: .75rem;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-}
-
-.rk-page-header__description {
-  margin-top: var(--rk-space-2);
-  color: var(--rk-text-muted);
-}
+@include page-layout.header;
 
 .rk-panel {
   padding: var(--rk-space-5);
@@ -130,31 +118,7 @@ body.rk-navigation-open { overflow: hidden; }
   box-shadow: var(--rk-shadow-panel);
 }
 
-.rk-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--rk-control-height);
-  gap: var(--rk-space-2);
-  padding: 0 var(--rk-space-4);
-  border: 1px solid var(--rk-border-strong);
-  border-radius: var(--rk-radius-md);
-  background: var(--rk-surface-2);
-  color: var(--rk-text-strong);
-  font-weight: 700;
-}
-.rk-button:active:not(:disabled) { transform: scale(.98); }
-.rk-button--secondary { background: var(--rk-surface-2); }
-.rk-button--icon { width: var(--rk-icon-button-size); min-width: var(--rk-icon-button-size); padding: 0; }
-
-.rk-button:hover:not(:disabled) { background: var(--rk-surface-3); border-color: var(--rk-info); }
-.rk-button--primary { background: var(--rk-brand); border-color: var(--rk-brand); }
-.rk-button--primary:hover:not(:disabled) { background: var(--rk-brand-hover); border-color: var(--rk-brand-hover); }
-.rk-button--danger { color: var(--rk-danger); background: var(--rk-danger-subtle); border-color: var(--rk-danger); }
-.rk-button--ghost { background: transparent; }
-.rk-button--discord { color: var(--rk-text-strong); background: var(--rk-discord); border-color: var(--rk-discord); box-shadow: var(--rk-shadow-discord); }
-.rk-button--discord:hover:not(:disabled) { background: color-mix(in srgb, var(--rk-discord), var(--rk-text-strong) 12%); border-color: var(--rk-discord); }
-.rk-button--discord:active:not(:disabled) { box-shadow: none; }
+@include controls.buttons;
 
 .rk-notice {
   display: flex;
@@ -174,7 +138,7 @@ body.rk-navigation-open { overflow: hidden; }
   min-height: 1em;
   border-radius: var(--rk-radius-sm);
   background: var(--rk-surface-2);
-  animation: rk-pulse 1s ease-in-out infinite alternate;
+  animation: rk-pulse var(--rk-motion-skeleton) ease-in-out infinite alternate;
 }
 
 .skip-link {
@@ -203,13 +167,13 @@ a {
   }
 }
 
-input, textarea, select {
+input:not([type='checkbox']):not([type='radio']), textarea, select {
   font-family: inherit;
   border: 1px solid var(--rk-border-strong);
   border-radius: var(--rk-radius-md);
   min-height: var(--rk-control-height);
   padding: var(--rk-space-2) var(--rk-input-padding-inline);
-  font-size: 0.9rem;
+  font-size: var(--rk-font-body);
   background: var(--rk-canvas-deep);
   color: var(--rk-text-strong);
   transition: border-color var(--rk-motion-fast), box-shadow var(--rk-motion-fast);
@@ -223,8 +187,8 @@ input, textarea, select {
 
 .rk-spinner {
   display: inline-block;
-  width: 1em;
-  height: 1em;
+  width: var(--rk-icon-size);
+  height: var(--rk-icon-size);
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
@@ -261,5 +225,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 @media (max-width: 768px) {
   .main-content.with-sidebar .rk-save-bar { left: 50%; }
-  .main-content:has(.rk-save-bar) { padding-bottom: calc(var(--rk-page-gutter-mobile) + var(--rk-control-height) * 4 + env(safe-area-inset-bottom)); }
+  .layout-container .main-content:has(.rk-save-bar) { padding-bottom: calc(var(--rk-page-gutter-mobile) + var(--rk-save-bar-clearance) + env(safe-area-inset-bottom)); }
 }
+
+.rk-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+input[type='checkbox'], input[type='radio'] { width: var(--rk-checkbox-size); height: var(--rk-checkbox-size); min-height: var(--rk-checkbox-size); margin: 0; padding: 0; accent-color: var(--rk-info); }
+summary { cursor: pointer; }
+summary:focus-visible { outline: none; box-shadow: var(--rk-focus-ring); }
+.rk-disclosure > summary { min-height: var(--rk-control-height); display: flex; align-items: center; gap: var(--rk-space-2); color: var(--rk-text-muted); font-weight: 600; }
+.rk-disclosure > summary::before { content: '+'; color: var(--rk-info); }
+.rk-disclosure[open] > summary::before { content: '−'; }
+.rk-disclosure > summary::-webkit-details-marker { display: none; }
+.rk-disclosure[open] > summary { margin-bottom: var(--rk-space-4); }
+
+:is(.analytics-page, .audit-page, .report-page, .identity-page, .report, .feed-page, .maintainer-page) > .rk-page-header { margin-bottom: 0; }

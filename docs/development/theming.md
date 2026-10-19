@@ -39,6 +39,43 @@ Rankoon ist ein praezises Discord-Control-Deck: dunkel, technisch und ruhig. Die
 - Icons nutzen eine einheitliche Outline-Sprache, `currentColor` und sind dekorativ nur mit `aria-hidden="true"`; informative Icons erhalten eine Textalternative.
 - Empty States reservieren einen `mascot-slot`. Bis ein freigestelltes Rankoon-Asset existiert, wird dort keine generierte Rastergrafik eingesetzt.
 
+### Gemeinsame Bausteine
+
+- Aktionsbuttons und als Button dargestellte Links verwenden `rk-button`. Die
+  Darstellung liegt zentral in `src/styles/_controls.scss`; Seiten definieren
+  nur ihre Anordnung. Standardhoehe: `--rk-control-height` (44px), gemeinsame
+  Schriftgroesse und Innenabstaende. Gleiche Hoehe bedeutet keine feste Breite:
+  Beschriftungen duerfen auf schmalen Bildschirmen umbrechen.
+- `rk-button--primary` kennzeichnet die wichtigste Aktion, `rk-button--secondary`
+  eine Nebenaktion und `rk-button--danger` eine destruktive Aktion. Filter,
+  Zeitraumwahl und andere ausgewaehlte Werte verwenden Informationsblau.
+  `rk-button--discord` bleibt Discord-OAuth-Aktionen vorbehalten.
+- `rk-button--icon` ist ein quadratisches 44px-Ziel. Verwende `rk-icon` aus
+  `src/app/shared/ui/icon/` fuer Aktualisieren, Schliessen, Entfernen, Suche und
+  Sortierpfeile. Das Icon ist dekorativ; der umgebende Button benoetigt sichtbaren
+  Text oder eine uebersetzte `aria-label`. Keine Unicode-Ersatzzeichen fuer Icons.
+- Datenladezustaende verwenden `rk-loading-skeleton` aus
+  `src/app/shared/ui/loading-skeleton/`. Die Layouts `form`, `cards`, `table`,
+  `chart` und `dashboard` reservieren dem Inhalt entsprechenden Platz. Es gibt
+  eine vorgelesene Ladeinformation; die Platzhalter selbst sind dekorativ.
+  Bei Hintergrundaktualisierungen von Datenansichten bleiben vorhandene Daten sichtbar. Spinner kennzeichnen
+  kurze laufende Aktionen wie Speichern oder Anmelden.
+- Seitenkoepfe verwenden `rk-page-header`, optional
+  `rk-page-header__eyebrow` und `rk-page-header__description`. Geometrie und
+  mobile Anordnung liegen in `src/styles/_page-layout.scss`. Der App-Shell
+  gehoert der aeussere Seitenabstand; Seiten fuegen keinen zweiten Gutter hinzu.
+- Panels verwenden `--rk-panel-padding`, das auf Mobilgeraeten automatisch
+  kleiner wird. Arbeitsbereiche bleiben innerhalb von `--rk-page-max`.
+
+### Textmenge
+
+Eine kurze Einleitung je Seite reicht. Wiederhole weder Ueberschriften noch
+offensichtliche Funktionen eines Feldes als Hilfetext. Erklaerungen zu Metriken
+koennen in einer mit Tastatur bedienbaren `details`-Referenz stehen. Sichtbar
+bleiben Validierung, Berechtigungen, Entwurfsstatus, Fehlermeldungen und die
+Folgen kritischer Aktionen. Technische Codes gehoeren in Details, sofern sie
+fuer eine Entscheidung nicht benoetigt werden.
+
 ## Interaktion und Accessibility
 
 - Alle interaktiven Elemente besitzen sichtbare `:hover`, `:active`, `:focus-visible` und `:disabled` Zustaende.

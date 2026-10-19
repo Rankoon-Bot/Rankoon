@@ -1,3 +1,4 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, ViewChild, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -14,7 +15,7 @@ import { AppStore } from '../../store/app.store';
 @Component({
   selector: 'app-xp-audit',
   standalone: true,
-  imports: [CommonModule, TranslocoPipe, UserAvatarComponent, UserXpModalComponent],
+  imports: [IconComponent, CommonModule, TranslocoPipe, UserAvatarComponent, UserXpModalComponent],
   templateUrl: './xp-audit.component.html',
   styleUrl: './xp-audit.component.scss'
 })

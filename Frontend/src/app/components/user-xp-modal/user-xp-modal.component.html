@@ -18,7 +18,7 @@
           } @else {
             <h2 id="member-dialog-title">{{ member.displayName }}</h2>
           }
-          <button class="rk-button rk-button--ghost close-button" type="button" (click)="close()" [disabled]="adjustmentSaving() || reversalSaving()" [attr.aria-label]="'xpAudit.closeMember' | transloco">×</button>
+          <button class="rk-button rk-button--ghost rk-button--icon close-button" type="button" (click)="close()" [disabled]="adjustmentSaving() || reversalSaving()" [attr.aria-label]="'xpAudit.closeMember' | transloco"><rk-icon name="close" /></button>
         </header>
         <nav class="audit-tabs" role="tablist" (keydown)="onTabsKeydown($event)">
           <button id="member-tab-overview" role="tab" type="button" aria-controls="member-panel-overview" [attr.tabindex]="activeModalTab() === 'overview' ? 0 : -1" [attr.aria-selected]="activeModalTab() === 'overview'" (click)="setTab('overview')">
@@ -188,9 +188,7 @@
                       @if (voiceDayState(item)?.expanded) {
                         <section class="voice-day__segments" [attr.aria-busy]="voiceDayState(item)?.loading">
                           @if (voiceDayState(item)?.loading) {
-                            <p>
-                              {{ "xpAudit.voiceSegmentsLoading" | transloco }}
-                            </p>
+                            <rk-loading-skeleton layout="table" />
                           } @else if (voiceDayState(item)?.error) {
                             <div class="rk-notice rk-notice--danger" role="alert">
                               {{ voiceDayState(item)?.error }}

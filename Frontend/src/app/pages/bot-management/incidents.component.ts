@@ -1,3 +1,4 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -9,7 +10,7 @@ import { ToastService } from '../../services/toast.service';
 import { BotIncident, BotManagementRange, IncidentQuery, IncidentResponse, IncidentSeverity, IncidentStatus } from './bot-management.models';
 import { BotManagementService } from './bot-management.service';
 
-@Component({ selector: 'app-incidents', standalone: true, imports: [CommonModule, TranslocoPipe], templateUrl: './incidents.component.html', styleUrl: './incidents.component.scss' })
+@Component({ selector: 'app-incidents', standalone: true, imports: [LoadingSkeletonComponent, CommonModule, TranslocoPipe], templateUrl: './incidents.component.html', styleUrl: './incidents.component.scss' })
 export class IncidentsComponent {
   private readonly api = inject(BotManagementService); private readonly errors = inject(ApiErrorService); private readonly destroyRef = inject(DestroyRef); private readonly toast = inject(ToastService);
   private readonly i18n = inject(TranslocoService);

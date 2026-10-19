@@ -18,5 +18,5 @@
   <div class="diagnostics" *ngIf="parsed.diagnostics.length" aria-live="polite">
     <p *ngFor="let diagnostic of parsed.diagnostics" [class.warning]="diagnostic.severity === 'warning'" [class.error]="diagnostic.severity === 'error'">{{ 'levelUpAnnouncements.diagnosticLine' | transloco:{ line: diagnostic.line } }} {{ diagnostic.messageKey | transloco:diagnostic.params }}</p>
   </div>
-  <div class="editor-actions"><button type="button" (click)="normalize()" [disabled]="errors.length > 0">{{ 'levelUpAnnouncements.normalize' | transloco }}</button></div>
+  <div class="editor-actions"><button class="rk-button" type="button" (click)="normalize()" [disabled]="errors.length > 0">{{ 'levelUpAnnouncements.normalize' | transloco }}</button></div>
 </div>

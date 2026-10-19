@@ -7,6 +7,8 @@
     "label": "Langue"
   },
   "common": {
+    "moveUp": "Déplacer vers le haut",
+    "moveDown": "Déplacer vers le bas",
     "active": "Actif",
     "inactive": "Inactif",
     "paused": "En pause",

@@ -26,20 +26,15 @@ export interface ReportFilterValue {
         <span>{{ 'reports.to' | transloco }}</span>
         <input type="datetime-local" name="to" [ngModel]="draftTo()" (ngModelChange)="draftTo.set($event)" />
       </label>
-      <button class="apply" type="submit">{{ 'reports.apply' | transloco }}</button>
-      <button class="reset" type="button" (click)="reset.emit()">{{ 'reports.reset' | transloco }}</button>
+      <button class="rk-button rk-button--primary" type="submit">{{ 'reports.apply' | transloco }}</button>
+      <button class="rk-button" type="button" (click)="reset.emit()">{{ 'reports.reset' | transloco }}</button>
     </form>
   `,
   styles: [`
     .filter-bar { display: grid; grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(180px, auto)) auto auto; align-items: end; gap: var(--rk-space-3); padding: var(--rk-space-4); background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-lg); box-shadow: var(--rk-shadow-panel); }
     label { display: grid; gap: var(--rk-space-1); color: var(--rk-text-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
     input { width: 100%; min-height: 44px; text-transform: none; letter-spacing: normal; }
-    button { min-height: 44px; padding: 0 var(--rk-space-4); border-radius: var(--rk-radius-md); border: 1px solid var(--rk-border-strong); color: var(--rk-text-strong); font-weight: 700; }
-    .apply { background: var(--rk-brand); border-color: var(--rk-brand); }
-    .apply:hover { background: var(--rk-brand-hover); }
-    .apply:active { background: var(--rk-brand-pressed); }
-    .reset { background: var(--rk-surface-2); }
-    .reset:hover { background: var(--rk-surface-3); border-color: var(--rk-info); }
+
     @media (max-width: 900px) { .filter-bar { grid-template-columns: 1fr 1fr; } .search-field { grid-column: 1 / -1; } }
     @media (max-width: 560px) { .filter-bar { grid-template-columns: 1fr; } .search-field { grid-column: auto; } }
   `]

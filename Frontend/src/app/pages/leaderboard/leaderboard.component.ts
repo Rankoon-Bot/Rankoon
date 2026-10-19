@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, inject, OnInit, QueryList, signal, ViewChild, ViewChildren } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -22,7 +24,7 @@ interface VirtualLeaderboardRow { index: number; entry?: LeaderboardEntry; }
 @Component({
   selector: 'app-leaderboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, TranslocoPipe, LevelProgressComponent, UserAvatarComponent, UserXpModalComponent, ScrollingModule, CdkMenuModule],
+  imports: [LoadingSkeletonComponent, IconComponent, CommonModule, RouterLink, TranslocoPipe, LevelProgressComponent, UserAvatarComponent, UserXpModalComponent, ScrollingModule, CdkMenuModule],
   templateUrl: './leaderboard.component.html',
   styleUrls: ['./leaderboard.component.scss'],
 })

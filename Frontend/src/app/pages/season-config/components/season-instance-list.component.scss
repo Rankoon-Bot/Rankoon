@@ -10,7 +10,7 @@
 .status[data-status='cancelled'] span { background: var(--rk-warning); }
 .status[data-status='closed'] span { background: var(--rk-text-muted); }
 .instance-actions { display: flex; grid-column: 1 / -1; justify-content: flex-end; gap: var(--rk-space-2); }
-.instance-actions button { min-height: var(--rk-control-height-compact); }
+.instance-actions button { min-height: var(--rk-control-height); }
 .empty-state { display: grid; justify-items: center; padding: var(--rk-space-6); text-align: center; }
 .empty-state h3, .empty-state p { margin: 0; }
 .empty-state p { margin-top: var(--rk-space-2); color: var(--rk-text-muted); }

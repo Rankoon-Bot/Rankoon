@@ -1,3 +1,5 @@
+import { IconComponent } from '../../shared/ui/icon/icon.component';
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
 import { CommonModule } from '@angular/common';
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -21,7 +23,7 @@ import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-s
 @Component({
   selector: 'app-xp-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
+  imports: [IconComponent, LoadingSkeletonComponent, CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
   templateUrl: './xp-config.component.html',
   styleUrls: ['./xp-config.component.scss'],
 })

@@ -1,3 +1,4 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -23,7 +24,7 @@ interface EditorState { text: string; groups: LevelAnnouncementGroup[]; diagnost
 @Component({
   selector: 'app-level-up-announcements',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent, AnnouncementListEditorComponent],
+  imports: [LoadingSkeletonComponent, CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent, AnnouncementListEditorComponent],
   templateUrl: './level-up-announcements.component.html',
   styleUrls: ['./level-up-announcements.component.scss'],
 })

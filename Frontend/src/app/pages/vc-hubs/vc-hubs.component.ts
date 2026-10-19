@@ -1,3 +1,4 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +19,7 @@ export function createVoiceHubNameTemplate(localizedSuffix: string): string {
 @Component({
   selector: 'app-vc-hubs',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
+  imports: [LoadingSkeletonComponent, CommonModule, FormsModule, TranslocoPipe, DiscordChannelPickerComponent, StickySaveBarComponent],
   templateUrl: './vc-hubs.component.html',
   styleUrls: ['./vc-hubs.component.scss'],
 })

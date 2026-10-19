@@ -1,3 +1,4 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, ElementRef, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +13,7 @@ import { Subscription, timer } from 'rxjs';
 
 type CustomBotAction = 'storeToken' | 'install' | 'validate' | 'activate' | 'completeHandover' | 'returnToPlatform' | 'delete' | null;
 
-@Component({ selector: 'app-custom-bot-identity', standalone: true, imports: [CommonModule, FormsModule, TranslocoPipe], templateUrl: './custom-bot-identity.component.html', styleUrl: './custom-bot-identity.component.scss' })
+@Component({ selector: 'app-custom-bot-identity', standalone: true, imports: [LoadingSkeletonComponent, CommonModule, FormsModule, TranslocoPipe], templateUrl: './custom-bot-identity.component.html', styleUrl: './custom-bot-identity.component.scss' })
 export class CustomBotIdentityComponent implements OnInit {
   @ViewChild('platformInstallDialog') private platformInstallDialog?: ElementRef<HTMLDialogElement>;
   private readonly api = inject(GuildService); private readonly store = inject(AppStore); private readonly auth = inject(AuthService); private readonly destroyRef = inject(DestroyRef); private readonly errors = inject(ApiErrorService); private readonly toast = inject(ToastService); private readonly i18n = inject(TranslocoService);

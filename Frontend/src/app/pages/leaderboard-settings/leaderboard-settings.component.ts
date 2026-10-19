@@ -1,3 +1,4 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -10,7 +11,7 @@ import { ApiErrorService } from '../../services/api-error.service';
 import { ToastService } from '../../services/toast.service';
 import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-save-bar.component';
 
-@Component({ selector: 'app-leaderboard-settings', standalone: true, imports: [CommonModule, FormsModule, RouterLink, TranslocoPipe, StickySaveBarComponent], templateUrl: './leaderboard-settings.component.html', styleUrls: ['./leaderboard-settings.component.scss'] })
+@Component({ selector: 'app-leaderboard-settings', standalone: true, imports: [LoadingSkeletonComponent, CommonModule, FormsModule, RouterLink, TranslocoPipe, StickySaveBarComponent], templateUrl: './leaderboard-settings.component.html', styleUrls: ['./leaderboard-settings.component.scss'] })
 export class LeaderboardSettingsComponent implements OnInit {
   private readonly app = inject(AppStore);
   private readonly api = inject(GuildService);

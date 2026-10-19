@@ -1,5 +1,5 @@
 <div class="timeline" aria-live="polite">
-  @if (loading) { <p class="timeline-state"><span class="rk-spinner" aria-hidden="true"></span>{{ 'seasons.timeline.loading' | transloco }}</p> }
+  @if (loading) { <rk-loading-skeleton layout="table" /> }
   @else if (!items.length) { <p class="timeline-state">{{ (unavailable ? 'seasons.timeline.invalid' : 'seasons.timeline.empty') | transloco }}</p> }
   @else {
     <ol>

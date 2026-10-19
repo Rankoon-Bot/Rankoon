@@ -1,3 +1,5 @@
+import { LoadingSkeletonComponent } from '../../shared/ui/loading-skeleton/loading-skeleton.component';
+import { IconComponent } from '../../shared/ui/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +14,7 @@ import { ToastService } from '../../services/toast.service';
 @Component({
   selector: 'app-dev-tools',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslocoPipe],
+  imports: [LoadingSkeletonComponent, IconComponent, CommonModule, FormsModule, RouterLink, TranslocoPipe],
   templateUrl: './dev-tools.component.html',
   styleUrls: ['./dev-tools.component.scss'],
 })

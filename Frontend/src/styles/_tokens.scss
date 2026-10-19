@@ -10,9 +10,9 @@
   --rk-text-strong: #f2f7fc;
   --rk-text: #c1d0de;
   --rk-text-muted: #7f96ab;
-  --rk-brand: #ef3e3a;
-  --rk-brand-hover: #ff514c;
-  --rk-brand-pressed: #c92b2b;
+  --rk-brand: #c62f33;
+  --rk-brand-hover: #d03236;
+  --rk-brand-pressed: #ae262a;
   --rk-brand-subtle: #32191e;
   --rk-info: #4c9dff;
   --rk-info-subtle: #102946;
@@ -23,6 +23,9 @@
   --rk-danger: #f05b5a;
   --rk-danger-subtle: #361a20;
   --rk-discord: #5865f2;
+  --rk-discord-hover: #4752c4;
+  --rk-on-brand: #ffffff;
+  --rk-danger-hover: #4a2128;
   --rk-header-bg: rgb(7 17 28 / 88%);
   --rk-focus-ring: 0 0 0 3px rgb(76 157 255 / 38%);
   --rk-shadow-panel: 0 18px 44px rgb(0 0 0 / 22%);
@@ -36,7 +39,7 @@
   --rk-sidebar-width: 250px;
   --rk-page-max: 1280px;
   --rk-page-max-narrow: 960px;
-  --rk-page-max-workspace: 1440px;
+  --rk-page-max-workspace: var(--rk-page-max);
   --rk-page-gutter: 24px;
   --rk-page-gutter-tablet: 20px;
   --rk-page-gutter-mobile: 16px;
@@ -86,6 +89,17 @@
   --rk-ease-enter: cubic-bezier(.2, .8, .2, 1);
   --rk-ease-exit: cubic-bezier(.4, 0, 1, 1);
   --rk-motion-distance: 8px;
-  --rk-motion-spinner: 800ms linear;
+  --rk-motion-spinner: 800ms;
+  --rk-motion-skeleton: 1400ms;
+  --rk-disabled-opacity: .5;
+  --rk-control-line-height: 20px;
+  --rk-letter-spacing-label: .08em;
+  --rk-icon-size: 20px;
+  --rk-checkbox-size: 20px;
+  --rk-chart-min-height: 240px;
+  --rk-panel-padding: var(--rk-space-5);
+  --rk-save-bar-clearance: calc(var(--rk-control-height) * 3);
   --rk-toast-duration: 6s;
 }
+
+@media (max-width: 768px) { :root { --rk-panel-padding: var(--rk-space-4); --rk-save-bar-clearance: calc(var(--rk-control-height) * 6); } }

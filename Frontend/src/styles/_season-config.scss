@@ -2,7 +2,7 @@ app-season-config {
   .retention-note, .impact-copy { padding: var(--rk-space-3); margin: var(--rk-space-4) 0 0; color: var(--rk-text-muted); background: var(--rk-canvas-deep); border-left: 3px solid var(--rk-info); border-radius: var(--rk-radius-sm); }
   .gap-control { display: grid; gap: var(--rk-space-3); }
   .token-list { display: flex; flex-wrap: wrap; gap: var(--rk-space-2); }
-  .token-list button { min-height: var(--rk-control-height-compact); padding: 0 var(--rk-space-2); color: var(--rk-info); background: var(--rk-info-subtle); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-sm); font-family: monospace; }
+  .token-list button { min-height: var(--rk-control-height); padding: 0 var(--rk-space-2); color: var(--rk-info); background: var(--rk-info-subtle); border: 1px solid var(--rk-border-strong); border-radius: var(--rk-radius-sm); font-family: monospace; }
   .token-list button:hover { border-color: var(--rk-info); }
   .rotation-editor { display: grid; gap: var(--rk-space-3); padding-top: var(--rk-space-4); border-top: 1px solid var(--rk-border-subtle); }
   .rotation-editor h3, .rotation-editor p { margin: 0; }
@@ -13,7 +13,7 @@ app-season-config {
   .rotation-list li.duplicate { border-color: var(--rk-danger); }
   .rotation-list li > span, .live-preview li span { display: grid; width: var(--rk-space-6); height: var(--rk-space-6); place-items: center; color: var(--rk-text-muted); background: var(--rk-surface-3); border-radius: var(--rk-radius-xl); font-size: var(--rk-font-caption); }
   .rotation-list li div { display: flex; gap: var(--rk-space-1); }
-  .rotation-list li button { min-width: var(--rk-control-height-compact); min-height: var(--rk-control-height-compact); color: var(--rk-text); background: var(--rk-surface-2); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-sm); }
+  .rotation-list li button { min-width: var(--rk-control-height); min-height: var(--rk-control-height); color: var(--rk-text); background: var(--rk-surface-2); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-sm); }
   .rotation-list li button.remove { padding: 0 var(--rk-space-2); color: var(--rk-danger); }
   .live-preview ol { margin-top: var(--rk-space-3); }
   .live-preview strong { overflow: hidden; color: var(--rk-text-strong); text-overflow: ellipsis; white-space: nowrap; }
@@ -51,7 +51,7 @@ app-season-config {
   .bulk-actions span { color: var(--rk-text-muted); font-size: var(--rk-font-small); }
   .bulk-actions > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--rk-space-2); }
   .tabs { display: flex; gap: var(--rk-space-1); padding-bottom: var(--rk-space-4); border-bottom: 1px solid var(--rk-border-subtle); }
-  .tabs button { min-height: var(--rk-control-height-compact); padding: 0 var(--rk-space-4); color: var(--rk-text-muted); background: transparent; border: 1px solid transparent; border-radius: var(--rk-radius-sm); font-weight: 700; }
+  .tabs button { min-height: var(--rk-control-height); padding: 0 var(--rk-space-4); color: var(--rk-text-muted); background: transparent; border: 1px solid transparent; border-radius: var(--rk-radius-sm); font-weight: 700; }
   .tabs button:hover { color: var(--rk-text); background: var(--rk-surface-2); }
   .tabs button[aria-pressed='true'] { color: var(--rk-info); background: var(--rk-info-subtle); border-color: var(--rk-info); }
   .plan-strip { display: flex; align-items: center; justify-content: space-between; gap: var(--rk-space-4); padding: var(--rk-space-4); margin-top: var(--rk-space-3); background: var(--rk-surface-1); border: 1px solid var(--rk-border-subtle); border-radius: var(--rk-radius-md); }

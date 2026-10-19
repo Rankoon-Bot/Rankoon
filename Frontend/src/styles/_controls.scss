@@ -1,0 +1,39 @@
+// Shared by global controls and component-scoped styles. Keep variants here.
+@mixin buttons {
+  button, .rk-button {
+    min-height: var(--rk-control-height);
+    min-width: var(--rk-control-height);
+    padding: var(--rk-space-2) var(--rk-space-4);
+    color: var(--rk-text-strong);
+    background: var(--rk-surface-2);
+    border: 1px solid var(--rk-border-strong);
+    border-radius: var(--rk-radius-md);
+    font-family: inherit;
+    font-size: var(--rk-font-small);
+    font-weight: 600;
+    line-height: var(--rk-control-line-height);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--rk-motion-fast), border-color var(--rk-motion-fast), color var(--rk-motion-fast);
+  }
+  .rk-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: var(--rk-space-2); }
+  .rk-button > svg { flex: 0 0 var(--rk-icon-size); width: var(--rk-icon-size); height: var(--rk-icon-size); }
+  button:hover:not(:disabled) { border-color: var(--rk-info); }
+  button:active:not(:disabled) { border-color: var(--rk-border-strong); }
+  .rk-button:hover:not(:disabled) { color: var(--rk-text-strong); background: var(--rk-surface-3); border-color: var(--rk-info); }
+  .rk-button:active:not(:disabled) { background: var(--rk-surface-1); }
+  .rk-button:focus-visible { outline: none; box-shadow: var(--rk-focus-ring); }
+  .rk-button:disabled { cursor: not-allowed; opacity: var(--rk-disabled-opacity); }
+  .rk-button--primary { color: var(--rk-on-brand); background: var(--rk-brand); border-color: var(--rk-brand); }
+  .rk-button--primary:hover:not(:disabled) { color: var(--rk-on-brand); background: var(--rk-brand-hover); border-color: var(--rk-brand-hover); }
+  .rk-button--primary:active:not(:disabled) { background: var(--rk-brand-pressed); border-color: var(--rk-brand-pressed); }
+  .rk-button--danger { color: var(--rk-danger); background: var(--rk-danger-subtle); border-color: var(--rk-danger); }
+  .rk-button--danger:hover:not(:disabled) { color: var(--rk-danger); background: var(--rk-danger-hover); border-color: var(--rk-danger); }
+  .rk-button--danger:active:not(:disabled) { background: var(--rk-danger-subtle); }
+  .rk-button--ghost { background: transparent; border-color: transparent; }
+  .rk-button--icon { width: var(--rk-icon-button-size); height: var(--rk-icon-button-size); padding: 0; }
+  .rk-button--discord { color: var(--rk-on-brand); background: var(--rk-discord); border-color: var(--rk-discord); }
+  .rk-button--discord:hover:not(:disabled) { color: var(--rk-on-brand); background: var(--rk-discord-hover); border-color: var(--rk-discord-hover); }
+  .rk-button--discord:active:not(:disabled) { background: var(--rk-discord); }
+}

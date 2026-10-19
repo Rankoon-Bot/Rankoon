@@ -1,17 +1,14 @@
 <section class="page rk-page">
   <header class="page-header rk-page-header">
     <div>
-      <p class="eyebrow">{{ 'seasons.eyebrow' | transloco }}</p>
+      <p class="eyebrow rk-page-header__eyebrow">{{ 'seasons.eyebrow' | transloco }}</p>
       <h1>{{ 'seasons.title' | transloco }}</h1>
-      <p>{{ 'seasons.subtitle' | transloco }}</p>
+      <p class="rk-page-header__description">{{ 'seasons.subtitle' | transloco }}</p>
     </div>
   </header>
 
   @if (loading()) {
-    <div class="state-card" role="status">
-      <span class="rk-spinner" aria-hidden="true"></span>
-      <div><h2>{{ 'seasons.loading' | transloco }}</h2><p>{{ 'seasons.loadingHint' | transloco }}</p></div>
-    </div>
+    <rk-loading-skeleton layout="form" />
   } @else if (loadError()) {
     <div class="state-card error-state" role="alert">
       <div><h2>{{ 'seasons.unavailable' | transloco }}</h2><p>{{ loadError() }}</p></div>
@@ -27,7 +24,7 @@
 
     <nav class="step-nav" [attr.aria-label]="'seasons.steps.label' | transloco">
       @for (step of [1, 2, 3, 4, 5]; track step) {
-        <button type="button" [class.complete]="stepComplete(step, cfg)" (click)="scrollToStep(step)"><span>{{ stepComplete(step, cfg) ? '✓' : step }}</span>{{ ('seasons.steps.step' + step) | transloco }}</button>
+        <button class="rk-button" type="button" [class.complete]="stepComplete(step, cfg)" (click)="scrollToStep(step)"><span>{{ stepComplete(step, cfg) ? '✓' : step }}</span>{{ ('seasons.steps.step' + step) | transloco }}</button>
       }
     </nav>
 
@@ -75,7 +72,7 @@
               @if (fieldError(cfg, 'gapDays')) { <p id="gap-days-error" class="validation" role="alert">{{ fieldError(cfg, 'gapDays') }}</p> } @else { <span id="gap-days-error" hidden></span> }
               <p class="impact-copy">{{ (cfg.gapDays > 0 ? 'seasons.gapSummary' : 'seasons.noGapSummary') | transloco: { count: cfg.gapDays } }}</p>
             </div>
-            <div class="preview-panel"><div class="preview-heading"><div><h3>{{ 'seasons.timeline.title' | transloco }}</h3><p>{{ 'seasons.timeline.hint' | transloco }}</p></div><button class="rk-button rk-button--ghost" type="button" [disabled]="previewing()" (click)="refreshPreview()">{{ 'seasons.refreshPreview' | transloco }}</button></div><rk-season-timeline-preview [items]="preview()" [timeZone]="scheduleValid(cfg) ? cfg.timeZoneId : undefined" [gapDays]="cfg.gapDays" [loading]="previewing()" [unavailable]="!scheduleValid(cfg)" /></div>
+            <div class="preview-panel"><div class="preview-heading"><div><h3>{{ 'seasons.timeline.title' | transloco }}</h3><p>{{ 'seasons.timeline.hint' | transloco }}</p></div><button class="rk-button rk-button--ghost" type="button" [disabled]="previewing()" (click)="refreshPreview()"><rk-icon name="refresh" />{{ 'seasons.refreshPreview' | transloco }}</button></div><rk-season-timeline-preview [items]="preview()" [timeZone]="scheduleValid(cfg) ? cfg.timeZoneId : undefined" [gapDays]="cfg.gapDays" [loading]="previewing()" [unavailable]="!scheduleValid(cfg)" /></div>
           </div>
         </section>
 
@@ -95,7 +92,7 @@
               }
               @if (namingMode(cfg) === 'rotation') {
                 <section class="rotation-editor" aria-labelledby="rotation-title"><h3 id="rotation-title">{{ 'seasons.rotation' | transloco }}</h3><p>{{ 'seasons.rotationHint' | transloco }}</p><div class="rotation-add"><label for="rotation-name" class="sr-only">{{ 'seasons.rotationPlaceholder' | transloco }}</label><input id="rotation-name" [(ngModel)]="rotationInput" name="rotationInput" [placeholder]="'seasons.rotationPlaceholder' | transloco" (keydown.enter)="$event.preventDefault(); addRotation()"><button class="rk-button rk-button--secondary" type="button" [disabled]="!rotationInput.trim()" (click)="addRotation()">{{ 'seasons.addName' | transloco }}</button></div>
-                  <ol class="rotation-list">@for (item of cfg.rotation; track $index; let index = $index) { <li [class.duplicate]="fieldError(cfg, 'rotation')"><span>{{ index + 1 }}</span><strong>{{ item }}</strong><div><button type="button" [disabled]="index === 0" (click)="moveRotation(index, -1)" [attr.aria-label]="'seasons.moveUp' | transloco: { name: item }">↑</button><button type="button" [disabled]="index === cfg.rotation.length - 1" (click)="moveRotation(index, 1)" [attr.aria-label]="'seasons.moveDown' | transloco: { name: item }">↓</button><button type="button" class="remove" (click)="removeRotation(index)" [attr.aria-label]="'common.removeNamed' | transloco: { name: item }">{{ 'common.remove' | transloco }}</button></div></li> }</ol>
+                  <ol class="rotation-list">@for (item of cfg.rotation; track $index; let index = $index) { <li [class.duplicate]="fieldError(cfg, 'rotation')"><span>{{ index + 1 }}</span><strong>{{ item }}</strong><div><button class="rk-button--icon rk-button" type="button" [disabled]="index === 0" (click)="moveRotation(index, -1)" [attr.aria-label]="'seasons.moveUp' | transloco: { name: item }"><rk-icon name="arrow-up" /></button><button class="rk-button--icon rk-button" type="button" [disabled]="index === cfg.rotation.length - 1" (click)="moveRotation(index, 1)" [attr.aria-label]="'seasons.moveDown' | transloco: { name: item }"><rk-icon name="arrow-down" /></button><button type="button" class="rk-button remove" (click)="removeRotation(index)" [attr.aria-label]="'common.removeNamed' | transloco: { name: item }">{{ 'common.remove' | transloco }}</button></div></li> }</ol>
                   @if (fieldError(cfg, 'rotation')) { <p class="validation" role="alert">{{ fieldError(cfg, 'rotation') }}</p> }
                 </section>
               }

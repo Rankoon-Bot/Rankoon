@@ -7,5 +7,3 @@ p { color: var(--rk-text-muted); }
 .error-message svg { flex-shrink: 0; color: var(--rk-danger); }
 .error-message h3 { margin-bottom: var(--rk-space-2); color: var(--rk-danger); }
 .error-message p { margin-bottom: var(--rk-space-4); color: var(--rk-text); }
-.retry-btn { min-height: 44px; padding: 10px var(--rk-space-4); color: var(--rk-text-strong); background: var(--rk-brand); border: 1px solid var(--rk-brand); border-radius: var(--rk-radius-md); font-weight: 700; }
-.retry-btn:hover { background: var(--rk-brand-hover); }
