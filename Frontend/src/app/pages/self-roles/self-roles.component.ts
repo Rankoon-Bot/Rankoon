@@ -16,8 +16,7 @@ import { SELF_ROLE_MAX_EMBEDS, SELF_ROLE_MAX_FIELDS, SELF_ROLE_MAX_TEXT, copySel
 import { DiscordChannelPickerComponent } from '../../shared/ui/discord-channel-picker/discord-channel-picker.component';
 import { normalizeDiscordChannels } from '../../shared/ui/discord-channel-picker/discord-channel.models';
 import { StickySaveBarComponent } from '../../shared/ui/sticky-save-bar/sticky-save-bar.component';
-
-type SelfRolePanelWithHealth = SelfRolePanel & { state?: 'Pending' | 'Published' | 'Disabled' | 'Degraded'; lastPublishedAt?: string; lastHealthCheckAt?: string; lastError?: string; lastErrorAt?: string; };
+import { selfRoleHealthDetailKey, selfRoleHealthState } from './self-role-health.utils';
 
 @Component({
   selector: 'app-self-roles',
@@ -35,13 +34,13 @@ export class SelfRolesComponent implements OnInit {
   private readonly apiErrors = inject(ApiErrorService);
   private readonly toast = inject(ToastService);
 
-  readonly panels = signal<SelfRolePanelWithHealth[]>([]);
+  readonly panels = signal<SelfRolePanel[]>([]);
   readonly resources = signal<SelfRoleResources | null>(null);
   readonly editor = signal<SelfRolePanel | null>(null);
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly repairing = signal<string | null>(null);
-  readonly confirmation = signal<{ panel: SelfRolePanelWithHealth; action: 'delete' | 'repair' } | null>(null);
+  readonly confirmation = signal<{ panel: SelfRolePanel; action: 'delete' | 'repair' } | null>(null);
   readonly error = signal('');
   readonly validationErrors = signal<string[]>([]);
   readonly pickerIndex = signal<number | null>(null);
@@ -204,7 +203,7 @@ export class SelfRolesComponent implements OnInit {
         this.toast.success(this.i18n.translate('selfRoles.saved'));
       },
       error: error => {
-        const saved = error?.error?.parameters?.savedPanel as SelfRolePanelWithHealth | undefined;
+        const saved = error?.error?.parameters?.savedPanel as SelfRolePanel | undefined;
         if (saved?.id) {
           this.panels.update(items => items.some(item => item.id === saved.id) ? items.map(item => item.id === saved.id ? saved : item) : [...items, saved]);
           this.editor.set(this.copyPanel(saved));
@@ -220,7 +219,7 @@ export class SelfRolesComponent implements OnInit {
     this.confirmation.set({ panel, action: 'delete' });
   }
 
-  repair(panel: SelfRolePanelWithHealth): void {
+  repair(panel: SelfRolePanel): void {
     if (!panel.id || this.repairing()) return;
     this.confirmation.set({ panel, action: 'repair' });
   }
@@ -244,11 +243,11 @@ export class SelfRolesComponent implements OnInit {
     });
   }
 
-  private repairConfirmed(panel: SelfRolePanelWithHealth): void {
+  private repairConfirmed(panel: SelfRolePanel): void {
     const guildId = this.appStore.selectedGuild()?.id;
     if (!guildId || !panel.id || this.repairing()) return;
     this.repairing.set(panel.id);
-    this.http.post<SelfRolePanelWithHealth>(`${environment.apiBaseUrl}/guilds/${guildId}/self-role-panels/${panel.id}/repair`, panel)
+    this.http.post<SelfRolePanel>(`${environment.apiBaseUrl}/guilds/${guildId}/self-role-panels/${panel.id}/repair`, panel)
       .pipe(finalize(() => this.repairing.set(null)))
       .subscribe({
         next: repaired => {
@@ -263,9 +262,16 @@ export class SelfRolesComponent implements OnInit {
       });
   }
 
-  healthLabel(panel: SelfRolePanelWithHealth): string {
-    const state = panel.state ?? panel.status ?? (panel.enabled ? 'Published' : 'Disabled');
-    return this.i18n.translate(`selfRoles.health.${state.toLowerCase()}`);
+  healthLabel(panel: SelfRolePanel): string {
+    return this.i18n.translate(`selfRoles.health.${selfRoleHealthState(panel).toLowerCase()}`);
+  }
+
+  healthState = selfRoleHealthState;
+
+  healthDescription(panel: SelfRolePanel): string {
+    const key = selfRoleHealthDetailKey(panel);
+    const description = this.i18n.translate(key);
+    return description === key ? this.i18n.translate('selfRoles.healthDetails.unavailable') : description;
   }
 
   panelTitle(panel: SelfRolePanel): string {

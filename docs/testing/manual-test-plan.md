@@ -64,3 +64,16 @@ Use a disposable Discord guild, two non-bot test members, and an administrator.
    Rankoon assignment is removed.
 5. Test an unmanageable role and unavailable custom emoji; verify validation or
    repair fails. Reconnect the bot and verify panel reconciliation.
+6. Verify a working panel with an old error returns to Active after loading its
+   list (checks are cached for one minute) or reconnecting. Remove edit-only
+   permissions such as Manage Messages; verify an existing working panel remains
+   Active and role assignment still works.
+7. Interrupt Discord access or deny Read Message History, then refresh after the
+   cache expires. Verify Status unknown with a translated explanation, rather
+   than Needs attention. Restore access and verify recovery on the next check.
+8. Delete a message, remove a mapped reaction, or move a mapped role above the bot.
+   Verify Needs attention explains the specific issue. Reconnect to restore only
+   missing reactions; verify deleted messages require explicit Repair.
+9. Save an edit that fails to publish and leaves an older message in Discord.
+   Verify health does not clear the error until the saved content is published.
+   Check translated explanations and keyboard actions on desktop and mobile.

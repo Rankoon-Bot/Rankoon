@@ -257,6 +257,8 @@ builder.Services.AddSingleton<VcHubService>();
 builder.Services.AddSingleton<GuildMembershipService>();
 builder.Services.AddSingleton<RankoonBotHostedService>();
 builder.Services.AddSingleton<SelfRoleService>();
+builder.Services.AddSingleton<ISelfRoleHealthChecker, SelfRoleHealthChecker>();
+builder.Services.AddSingleton<SelfRoleHealthService>();
 builder.Services.AddSingleton<SelfRoleReactionService>();
 builder.Services.AddSingleton<IPermissionRequirementCatalog, PermissionRequirementCatalog>();
 builder.Services.AddSingleton<IDiagnosticReportCache, DiagnosticReportCache>();

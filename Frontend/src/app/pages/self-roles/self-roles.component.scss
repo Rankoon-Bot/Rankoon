@@ -27,3 +27,7 @@ input[type='checkbox'], input[type='radio'], .role-selection input[type='radio']
 .toggle, .role-selection { min-height: var(--rk-control-height); }
 
 .workspace--new { grid-template-columns: minmax(0, 1fr); }
+
+.panel-summary { flex-wrap: wrap; }
+.state.unknown { color: var(--rk-info); }
+.health-detail { flex-basis: 100%; margin: 0; padding: var(--rk-space-2); color: var(--rk-text-muted); font-size: var(--rk-font-small); overflow-wrap: anywhere; }

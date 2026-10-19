@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 namespace Rankoon.Data.Model;
 
 public enum SelfRoleEmojiKind { Unicode, Custom }
-public enum SelfRolePanelState { Pending, Published, Disabled, Degraded }
+public enum SelfRolePanelState { Pending, Published, Disabled, Degraded, Unknown }
 public enum SelfRoleEmbedKind { Content, RoleMappings }
 
 public sealed class SelfRolePanel
