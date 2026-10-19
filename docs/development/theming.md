@@ -2,6 +2,9 @@
 
 Dieses Dokument ist die verbindliche Quelle fuer alle visuellen Frontend-Entscheidungen. Es gilt fuer Menschen und AI bei jeder neuen oder geaenderten UI.
 
+Quellpfade in diesem Dokument sind relativ zu `Frontend/`. Die zentralen Tokens
+liegen in [`Frontend/src/styles/_tokens.scss`](../../Frontend/src/styles/_tokens.scss).
+
 ## Markencharakter
 
 Rankoon ist ein praezises Discord-Control-Deck: dunkel, technisch und ruhig. Die Oberflaeche vermittelt Kontrolle statt Dekoration. Tiefe Navy-Flaechen, feine blaue Lichtkanten und ein gezieltes Signalrot greifen den Rankoon-Charakter auf.

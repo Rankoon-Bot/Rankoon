@@ -66,7 +66,7 @@ Die Sicherungssammlung gehört in das reguläre Datenbankbackup; sie hat keine T
 
 ## Produktionsdiagnose und Wiederherstellung
 
-`scripts/audit-xp-settings.mongosh.js` prüft mit einem lesenden Datenbankzugang
+[`Backend/scripts/audit-xp-settings.mongosh.js`](../../Backend/scripts/audit-xp-settings.mongosh.js) prüft mit einem lesenden Datenbankzugang
 gezielt einen Server. `RANKOON_AUDIT_GUILD_ID` muss eine exakte Discord-ID als
 Zeichenfolge enthalten. Das Skript gibt gespeicherte Einstellungen, Quellformat,
 Rangrollen und verfügbare Sicherungsstände aus und führt keine Schreibzugriffe aus.
@@ -87,7 +87,7 @@ weiterhin die XP-Integritätsprüfung.
 
 ## Regressionstests
 
-`Backend.Tests/XpSettingsMigrationTests.cs` prüft echte historische BSON-Formate,
+[`Backend/Backend.Tests/XpSettingsMigrationTests.cs`](../../Backend/Backend.Tests/XpSettingsMigrationTests.cs) prüft echte historische BSON-Formate,
 Profil- und Rollenübernahme, aktuelle deaktivierte Profile, zukünftige Versionen,
 vollständige API-Aufträge und das Erhalten unbekannter Daten. MongoDB-Tests prüfen
 parallele Starts/Speichervorgänge auch vor der Indexerstellung, Wiederanlauf nach

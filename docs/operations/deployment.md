@@ -23,6 +23,13 @@ After the first publication, set the package visibility to **Public** in the Git
 Create an environment file from `deploy/.env.example`, fill in the values, then start the image:
 
 ```sh
+cp deploy/.env.example .env
+```
+
+Replace the example values using the [configuration reference](configuration.md),
+then run:
+
+```sh
 docker volume create rankoon-data-protection
 docker run -d \
   --name rankoon \
@@ -43,8 +50,9 @@ The application follows ASP.NET Core environment-variable naming: nested configu
 `DISCORD_REDIRECT_URI` must be registered as the Discord OAuth redirect URL.
 `FRONTEND_BASE_URL` is the externally reachable URL of this container. If a
 reverse proxy terminates TLS, these values must still use the public `https` URL.
-OAuth callback tokens are returned in a URL query string; prevent proxies and
-logs from retaining full callback URLs.
+OAuth credentials are issued through HttpOnly cookies. The frontend callback URL
+contains no access or refresh token; see the
+[authentication contract](../backend/authentication.md).
 
 Optional settings from `Backend/appsettings.json` can be overridden using the same convention, for example `Jwt__Issuer`, `Jwt__Audience`, or `Serilog__MinimumLevel__Default`. The container listens on port `8080` by default; override `ASPNETCORE_URLS` only when a different in-container port is required.
 
@@ -125,3 +133,59 @@ single-document operations and compare-and-swap updates. Compatible startup
 migrations also remove the obsolete voice holdback setting, initialize missing
 member leaderboard fields and totals, and set missing final-standing visibility to
 public. There is no separate relational migration command.
+## Build from source
+
+The multi-stage [`Backend/Dockerfile`](../../Backend/Dockerfile) builds the Angular
+frontend and ASP.NET Core backend, serves both from one container, and listens on
+port `8080`. MongoDB is not included.
+
+There is currently no Compose file, so first make sure the configured MongoDB
+host is reachable from the Rankoon container.
+
+1. Create the environment file:
+
+   ```sh
+   cp deploy/.env.example .env
+   ```
+
+2. Replace every example value in `.env`:
+
+   ```dotenv
+   MONGODB_CONNECTION_STRING=mongodb://your-mongodb-host:27017
+   MONGODB_DATABASE_NAME=rankoon
+   DISCORD_CLIENT_ID=your_discord_application_client_id
+   DISCORD_CLIENT_SECRET=your_discord_application_client_secret
+   DISCORD_BOT_TOKEN=your_discord_bot_token
+   JWT_SECRET_KEY=replace_with_a_long_random_secret_key
+   DISCORD_REDIRECT_URI=https://rankoon.example.com/api/auth/callback
+   FRONTEND_BASE_URL=https://rankoon.example.com
+   ```
+
+3. Build from the repository root and start the container:
+
+   ```sh
+   docker build -f Backend/Dockerfile -t rankoon:local .
+   docker volume create rankoon-data-protection
+   docker run -d \
+     --name rankoon \
+     --restart unless-stopped \
+     --env-file .env \
+     -v rankoon-data-protection:/var/lib/rankoon/data-protection-keys \
+     -p 8080:8080 \
+     rankoon:local
+   ```
+
+Use a reverse proxy for TLS in a public deployment, and configure both public
+URL values with the same external origin. The frontend and API are intentionally
+served together because the backend does not configure CORS for a separately
+hosted frontend.
+
+The release workflow is configured to publish images to
+`ghcr.io/rankoon-bot/rankoon`. Package visibility is controlled in GitHub's
+package settings and cannot be established from this repository alone. If the
+package is public, replace the local image name above with a published version
+tag such as `ghcr.io/rankoon-bot/rankoon:<version>`.
+
+The unauthenticated `GET /api/info` endpoint reports the running build version.
+`GET /api/version` remains available as an alias. Neither endpoint is a liveness
+or readiness check.

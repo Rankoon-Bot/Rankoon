@@ -7,8 +7,9 @@
 4. Discord calls `GET /api/auth/callback` with an authorization code and state.
 5. Rankoon verifies and consumes state, exchanges the code, reads the Discord user,
    and creates or updates the stored Discord user and OAuth tokens.
-6. Rankoon issues a JWT access token and a hashed, family-associated refresh token,
-   stores both only in `HttpOnly` cookies, and redirects without credentials in the URL.
+6. Rankoon issues a JWT access token and an opaque, family-associated refresh token,
+   persists only the refresh-token hash, sets both credentials in `HttpOnly`
+   cookies, and redirects without credentials in the URL.
 7. Angular loads the token-free session contract. State-changing browser calls include
    an antiforgery request token held only in application memory.
 
@@ -28,5 +29,8 @@
 - Return routes are restricted to safe application-relative paths.
 - New refresh-token plaintext values are never stored in MongoDB; legacy records
   remain supported during migration.
-- Callback query tokens are an existing limitation. Consume and remove them
-  promptly, and do not retain callback URLs in logs or telemetry.
+- Browser credentials stay in HttpOnly cookies; callback URLs and session response
+  bodies contain no access or refresh token.
+- State-changing API requests with browser session cookies require antiforgery
+  validation, including refresh and logout. See the
+  [authentication contract](authentication.md#browser-session-protection).

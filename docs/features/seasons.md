@@ -31,4 +31,5 @@ Alle Änderungen und der Hintergrunddienst teilen eine erneuerte MongoDB-Sperre 
 - Backend: `dotnet test Backend/Backend.Tests/Backend.Tests.csproj`.
 - MongoDB-Regressionstests: zusätzlich `RANKOON_SEASON_TEST_MONGO` auf eine isolierte Test-MongoDB setzen. Jeder Test verwendet eine eigene Datenbank und entfernt ausschließlich diese danach. Ohne diese Variable werden nur diese Integrationstests übersprungen.
 
-Die projektweiten Bediengrundsätze stehen in `AGENTS.md`.
+Die projektweiten Bedien- und Entwicklungsgrundsätze stehen in den
+[Beitragsrichtlinien](../development/contributing.md).

@@ -1,5 +1,9 @@
 # XP-Ledger-Prüfung vom 19. Oktober 2026
 
+Historischer Prüfbericht: Ergebnisse, offene Nachweise und Umgebungsprobleme
+beschreiben den damaligen Lauf, nicht den aktuellen CI- oder Deployment-Status.
+Aktuelle Abläufe stehen in der [Entwicklungsanleitung](../development/README.md).
+
 ## Ergebnis und Aussagegrenze
 
 Der XP-Pfad wurde von den Gateway-Eingängen über Cooldowns, Ledger und komprimierte
@@ -11,7 +15,7 @@ Der letzte vollständig ausgeführte Release-Testlauf bestand mit **567 Tests,
 isolierte MongoDB 8.0.12; das SDK war .NET 9.0.318.
 
 Die inzwischen ergänzte regelmäßige Kontrollinstanz ist in
-[`../XP_INTEGRITY.md`](../XP_INTEGRITY.md) dokumentiert. Der 567er-Lauf enthält auch
+[XP-Integritätsprüfung](../backend/xp-integrity.md) dokumentiert. Der 567er-Lauf enthält auch
 die zuvor blockierten Tests aller teilweise geschriebenen Projektionszustände.
 Zwei danach ergänzte Integritätsfälle wurden erfolgreich kompiliert; Windows
 Code Integrity blockiert derzeit aber das Laden der neuen Testassembly mit

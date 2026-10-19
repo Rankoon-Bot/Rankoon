@@ -4,16 +4,18 @@ Use a disposable Discord guild, two non-bot test members, and an administrator.
 
 ## Authentication
 
-1. Log in with `returnUrl=/dashboard`; verify the callback receives tokens and
-   returns to `/dashboard`.
+1. Log in with `returnUrl=/dashboard`; verify the callback sets HttpOnly cookies
+   and returns to `/dashboard` without credentials in the URL or session response.
 2. Try `https://example.com`, `//example.com`, and `/\\example` return URLs;
    verify no external `return_url` is returned.
 3. Submit expired, altered, and reused OAuth states; verify the OAuth-failure
    redirect.
 4. Refresh once; verify the old token fails. Retry that old token and verify the
    replacement token also fails because its family was revoked.
-5. Log out and verify the current token family cannot refresh. Check that callback
-   URLs are not retained in proxy or application logs.
+5. Log out and verify the current token family cannot refresh and cookies are cleared.
+6. With browser session cookies present, send a state-changing API request without
+   a valid CSRF header; verify `auth.forbidden`. Bootstrap `/api/auth/csrf` and
+   retry with its request token; verify the legitimate request can proceed.
 
 ## XP, Ledger, And Voice
 
@@ -26,15 +28,16 @@ Use a disposable Discord guild, two non-bot test members, and an administrator.
 4. Join voice past the minimum duration; verify fractional XP and voice seconds.
    Verify configured AFK, deafened, excluded role/channel/category, and
    single-human cases do not qualify.
-5. Keep an eligible voice session across a season boundary; verify distinct ledger
+5. Keep an eligible voice session across a season boundary; verify distinct activity
    segments are attributed to the applicable seasons.
 6. Restart after a pending ledger entry is created; verify repair completes it
    without duplicate XP.
 
 ## Seasons
 
-1. Configure scheduled seasons and a prepared count; verify future non-overlapping
-   seasons are created with settings snapshots.
+1. Configure scheduled seasons and a prepared count. Verify saving settings alone
+   does not create seasons. Explicitly create drafts or enable bounded automatic
+   planning; verify non-overlapping seasons are created with settings snapshots.
 2. Activate with zero, lifetime, and lifetime-percentage baselines; verify totals.
 3. Close a season, alter lifetime XP, and verify final standings remain frozen.
 4. Configure carry-over; verify the following season applies it once and respects

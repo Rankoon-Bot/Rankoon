@@ -65,7 +65,7 @@ Discord-Ereignisse.
 
 ## Konfiguration
 
-In `Backend/appsettings.json` ist die vom Nutzer angeforderte Kontrolle explizit
+In `Backend/appsettings.json` ist die regelmäßige Kontrolle explizit
 aktiviert:
 
 ```json
@@ -123,14 +123,7 @@ Wiederaufnahme, Import-/Migrationsbasis, manuelle Ankündigungen und aktive Seas
 Auch ein ausgefallener Fehler-Recorder darf eine Zustellung nicht ohne Retry
 zurücklassen.
 
-Der letzte vollständig ausgeführte Release-Gesamtlauf bestand mit **567 Tests,
-0 Fehlern, 0 übersprungenen Tests**, inklusive 29 Tests zur neuen Kontrolle und
-der zuvor noch blockierten Tests aller teilweisen Projektionszustände.
-
-Zwei anschließend ergänzte Tests und die zugehörigen letzten Erweiterungen
-(Erfassung von Guilds ohne gespeicherte XP-Konfiguration und Rückgabe inkonsistenter
-Applied-Voice-Tage an die Projektion) sind kompiliert, aber noch nicht abschließend
-ausgeführt: Windows Code Integrity blockiert aktuell die neue Testassembly mit
-`0x800711C7`. Ein erfolgreicher Build oder VSTest-Exitcode 0 ohne Testentdeckung ist
-kein erfolgreicher Testlauf. Dieser Stand muss deshalb zusätzlich in der bereits
-konfigurierten CI mit MongoDB ausgeführt werden. Es wurde nichts deployt.
+Ergebnisse und offene Nachweise des damaligen Prüflaufs stehen im
+[XP-Ledger-Prüfbericht vom 19. Oktober 2026](../testing/xp-ledger-review-2026-10-19.md).
+Die aktuellen Testbefehle und Voraussetzungen stehen in der
+[Entwicklungsanleitung](../development/README.md#testing-and-building).
