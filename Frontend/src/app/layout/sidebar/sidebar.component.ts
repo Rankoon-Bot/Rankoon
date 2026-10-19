@@ -80,6 +80,7 @@ export class SidebarComponent {
       { label: this.i18n.translate('botManagement.pages.history'), route: '/bot-management/history', icon: '' },
       { label: this.i18n.translate('nav.globalUsage'), route: '/bot-management/usage', icon: '' },
       ...(this.authStore.canManageGuilds() ? [{ label: this.i18n.translate('nav.maintainerAccess'), route: '/bot-management/maintainer', icon: '' }] : []),
+      ...(this.authStore.canManageGuilds() ? [{ label: this.i18n.translate('nav.internalFeed'), route: '/bot-management/feed', icon: '' }] : []),
     ] }] : [];
     if (!capabilities || capabilities.guildId !== this.appStore.selectedGuild()?.id) return operatorItem;
 

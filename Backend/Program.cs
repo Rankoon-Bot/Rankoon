@@ -173,6 +173,8 @@ builder.Services.AddSingleton<IWorkerHealthRegistry, WorkerHealthRegistry>();
 builder.Services.AddSingleton<IOperationsQueryService, OperationsQueryService>();
 builder.Services.AddSingleton<BotGuildHistoryRecorder>();
 builder.Services.AddSingleton<BotGuildHistoryQuery>();
+builder.Services.AddSingleton<InternalBotFeedSettingsStore>();
+builder.Services.AddSingleton<InternalBotFeedService>();
 builder.Services.AddSingleton<ISignedCursorService, SignedCursorService>();
 
 // Register HTTP client for Discord API calls
@@ -268,6 +270,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddHostedService(services => services.GetRequiredService<ReportWriter>());
     builder.Services.AddHostedService(services => services.GetRequiredService<GuildAnalyticsRecorder>());
     builder.Services.AddHostedService<MongoIndexInitializer>();
+    builder.Services.AddHostedService(provider => provider.GetRequiredService<InternalBotFeedService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<DiscordOAuthTokenMigrationService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.LedgerProjectionRepairService>());
     builder.Services.AddHostedService(provider => provider.GetRequiredService<Rankoon.Data.Xp.VoiceActivityProjectionRepairService>());

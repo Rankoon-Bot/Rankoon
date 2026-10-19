@@ -10,7 +10,7 @@ describe('application routes', () => {
   });
   it('guards the Bot Operations shell and operator pages', () => {
     const operations = children.find(route => route.path === 'bot-management')!; expect(operations.canActivate).toEqual([botOperatorGuard]);
-    for (const route of operations.children!.filter(route => route.loadComponent && route.path !== 'maintainer')) expect(route.canActivate).toEqual([botOperatorGuard]);
+    for (const route of operations.children!.filter(route => route.loadComponent && route.path !== 'maintainer' && route.path !== 'feed')) expect(route.canActivate).toEqual([botOperatorGuard]);
   });
   it('requires maintainer access for the maintainer page within the guarded operations shell', () => {
     const operations = children.find(route => route.path === 'bot-management')!;

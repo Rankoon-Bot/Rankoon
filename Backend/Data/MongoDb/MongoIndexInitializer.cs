@@ -50,6 +50,11 @@ public sealed class MongoIndexInitializer(RankoonDbContext database, XpService x
                     new CreateIndexModel<BotGuildInstallation>(Builders<BotGuildInstallation>.IndexKeys.Descending(x => x.HistoryAtUtc).Descending(x => x.Id)),
                     new CreateIndexModel<BotGuildInstallation>(Builders<BotGuildInstallation>.IndexKeys.Ascending(x => x.BotId).Ascending(x => x.RemovedAtUtc))
                 ], stoppingToken);
+                await database.InternalBotFeedDeliveries.Indexes.CreateManyAsync([
+                    new CreateIndexModel<InternalBotFeedDelivery>(Builders<InternalBotFeedDelivery>.IndexKeys.Ascending(x => x.Status).Ascending(x => x.NextAttemptAtUtc).Ascending(x => x.LeaseExpiresAtUtc), new CreateIndexOptions { Name = "delivery_ready" }),
+                    new CreateIndexModel<InternalBotFeedDelivery>(Builders<InternalBotFeedDelivery>.IndexKeys.Ascending(x => x.Kind).Descending(x => x.PeriodStartUtc), new CreateIndexOptions { Name = "kind_period" }),
+                    new CreateIndexModel<InternalBotFeedDelivery>(Builders<InternalBotFeedDelivery>.IndexKeys.Ascending(x => x.ExpiresAtUtc), new CreateIndexOptions<InternalBotFeedDelivery> { Name = "outbox_expires_ttl", ExpireAfter = TimeSpan.Zero })
+                ], stoppingToken);
                 await database.SeasonPlanChanges.Indexes.CreateOneAsync(new CreateIndexModel<Rankoon.Data.Xp.SeasonPlanChangeOperation>(Builders<Rankoon.Data.Xp.SeasonPlanChangeOperation>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.Completed), new CreateIndexOptions { Name = "guild_completed" }), cancellationToken: stoppingToken);
                 await database.SeasonSetupOperations.Indexes.CreateOneAsync(new CreateIndexModel<SeasonSetupOperation>(Builders<SeasonSetupOperation>.IndexKeys.Ascending(x => x.GuildId).Ascending(x => x.OperationId), new CreateIndexOptions { Unique = true, Name = "guild_operation_unique" }), cancellationToken: stoppingToken);
                 await database.SeasonAnnouncementDeliveries.Indexes.CreateOneAsync(new CreateIndexModel<SeasonAnnouncementDelivery>(Builders<SeasonAnnouncementDelivery>.IndexKeys.Ascending(x => x.DeliveryKey), new CreateIndexOptions { Unique = true, Name = "delivery_key_unique" }), cancellationToken: stoppingToken);

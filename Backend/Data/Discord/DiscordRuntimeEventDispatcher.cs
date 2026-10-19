@@ -25,6 +25,7 @@ public sealed class DiscordRuntimeEventDispatcher(
     ApplicationCommandRegistrar commands,
     RankoonInteractionHandler interactions,
     Rankoon.Data.Operations.BotGuildHistoryRecorder history,
+    Rankoon.Data.Operations.InternalBotFeedService internalFeed,
     ILogger<DiscordRuntimeEventDispatcher> logger) : IDiscordRuntimeEventDispatcher, IHostedService
 {
     private readonly ConcurrentDictionary<string, Binding> bindings = new(StringComparer.Ordinal);
@@ -37,6 +38,7 @@ public sealed class DiscordRuntimeEventDispatcher(
     private readonly ApplicationCommandRegistrar commands = commands;
     private readonly RankoonInteractionHandler interactions = interactions;
     private readonly Rankoon.Data.Operations.BotGuildHistoryRecorder history = history;
+    private readonly Rankoon.Data.Operations.InternalBotFeedService internalFeed = internalFeed;
     private readonly ILogger<DiscordRuntimeEventDispatcher> logger = logger;
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -150,11 +152,26 @@ public sealed class DiscordRuntimeEventDispatcher(
         }
 
         private bool Tracks(SocketGuild guild) => !assignedGuildId.HasValue || assignedGuildId.Value == guild.Id;
-        private Task JoinedGuildAsync(SocketGuild guild) => Tracks(guild) ? owner.history.SafelyAsync(() => owner.history.ObserveAsync(client.CurrentUser.Id, mode.ToString(), guild, true)) : Task.CompletedTask;
-        private Task LeftGuildAsync(SocketGuild guild) => Tracks(guild) ? owner.history.SafelyAsync(async () => {
-            await owner.history.ObserveAsync(client.CurrentUser.Id, mode.ToString(), guild, false);
-            await owner.history.RemovedAsync(client.CurrentUser.Id, guild);
-        }) : Task.CompletedTask;
+        private async Task JoinedGuildAsync(SocketGuild guild)
+        {
+            if (!Tracks(guild)) return;
+            await owner.history.SafelyAsync(() => owner.history.ObserveAsync(client.CurrentUser.Id, mode.ToString(), guild, true));
+            if (runtimeId == "platform" && mode == BotIdentityMode.Rankoon)
+                await owner.internalFeed.GuildInstalledAsync(client.CurrentUser.Id, guild);
+        }
+
+        private async Task LeftGuildAsync(SocketGuild guild)
+        {
+            if (!Tracks(guild)) return;
+            await owner.history.SafelyAsync(async () =>
+            {
+                await owner.history.ObserveAsync(client.CurrentUser.Id, mode.ToString(), guild, false);
+                await owner.history.RemovedAsync(client.CurrentUser.Id, guild);
+            });
+            if (runtimeId == "platform" && mode == BotIdentityMode.Rankoon)
+                await owner.internalFeed.GuildRemovedAsync(client.CurrentUser.Id, guild);
+        }
+
         private Task GuildAvailableAsync(SocketGuild guild) => Tracks(guild) ? owner.history.SafelyAsync(() => owner.history.ObserveAsync(client.CurrentUser.Id, mode.ToString(), guild, false)) : Task.CompletedTask;
 
         public async Task InitializeAvailableGuildsAsync()

@@ -77,6 +77,8 @@ public class RankoonDbContext
     public IMongoCollection<OperationalErrorOccurrence> OperationalErrorOccurrences => _database.GetCollection<OperationalErrorOccurrence>("operational_error_occurrences");
     public IMongoCollection<OperationalIncident> OperationalIncidents => _database.GetCollection<OperationalIncident>("operational_incidents");
     public IMongoCollection<BotGuildInstallation> BotGuildInstallations => _database.GetCollection<BotGuildInstallation>("bot_guild_installations");
+    public IMongoCollection<Rankoon.Data.Operations.InternalBotFeedDelivery> InternalBotFeedDeliveries => _database.GetCollection<Rankoon.Data.Operations.InternalBotFeedDelivery>("internal_bot_feed_deliveries");
+    public IMongoCollection<Rankoon.Data.Operations.InternalBotFeedSettingsDocument> InternalBotFeedSettings => _database.GetCollection<Rankoon.Data.Operations.InternalBotFeedSettingsDocument>("internal_bot_feed_settings");
 }
 
 /// <summary>

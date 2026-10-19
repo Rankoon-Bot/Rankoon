@@ -70,6 +70,7 @@ export const routes: Routes = [
           { path: 'history', loadComponent: () => import('./pages/bot-management/server-history.component').then(c => c.ServerHistoryComponent), canActivate: [botOperatorGuard] },
           { path: 'usage', loadComponent: () => import('./pages/bot-management/global-usage.component').then(c => c.GlobalUsageComponent), canActivate: [botOperatorGuard] },
           { path: 'maintainer', loadComponent: () => import('./pages/bot-management/maintainer-access.component').then(c => c.MaintainerAccessComponent), canActivate: [botMaintainerGuard] },
+          { path: 'feed', loadComponent: () => import('./pages/bot-management/internal-feed-settings.component').then(c => c.InternalFeedSettingsComponent), canActivate: [botMaintainerGuard] },
         ],
       },
       {
