@@ -109,7 +109,9 @@ public sealed class InternalBotFeedSettingsStore(RankoonDbContext database, Disc
     {
         var guild = discord.GetGuild(InternalBotFeedConstants.SupportGuildId);
         var channel = guild?.GetTextChannel(channelId);
-        var permissions = channel != null && guild?.CurrentUser is { } currentUser ? currentUser.GetPermissions(channel) : null;
+        ChannelPermissions? permissions = channel != null && guild?.CurrentUser is { } currentUser
+            ? currentUser.GetPermissions(channel)
+            : null;
         return channel != null && permissions is { ViewChannel: true, SendMessages: true };
     }
 
